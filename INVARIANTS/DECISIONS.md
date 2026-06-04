@@ -376,3 +376,19 @@ floor ปลอดภัยปัจจุบัน (ผ่านทุกโม
 > qty×price≈amount ≥80%, ratio>50×) — ไม่ได้ pool ข้ามบริษัท.
 > การแก้ ITM01 (กลุ่มกฎลำดับ ITM002/013/014) และ ITM008-b (over-sum) ให้ถูกต้อง **ต้อง reproduce
 > บนไฟล์จริง 81/103** ก่อน (ไม่อยู่ใน repo) — ห้ามแก้ engine + rebaseline v9.2 แบบเดา. รอไฟล์จริง.
+
+### ADR-016 (ฟีเจอร์/adapter — DECISION GATE ทาง A) — puopuy_ingest.py (reconcile layer)
+- สถานะ: **ACTIVE** (Phase 2-3 framework แบบ offline — module ใหม่ ไม่แตะ engine → golden ไม่ขยับ)
+- เหตุ: ITM01/ITM008-b รากอยู่ที่ engine (ห้ามแก้/ต้องมีไฟล์จริง) → ทำ adapter layer แทน (ทาง A)
+- `puopuy_ingest.py` ให้ "checksum ที่ใบกำกับมีแต่ระบบยังไม่ใช้":
+  - `thai_words_to_number` — ยอดตัวอักษรไทย → เลข (หลัก/สิบ/ร้อย/พัน/หมื่น/แสน/ล้าน, เอ็ด, ยี่สิบ,
+    บาท/สตางค์/ถ้วน, วงเล็บ TOR) — อ่านไม่ออก → None (fail loud)
+  - `normalize_vat_rate` — 0.07 (สัดส่วน) และ 7 (เปอร์เซ็นต์เต็ม SBT) → สัดส่วน
+  - `reconcile_totals` — 3 ทาง: grand=net+vat · words=grand/net · line_sum=net · vat=net×rate (tol 1.00 กัน float noise)
+  - `classify_row` — words_total/vat/grand_total/subtotal/line_item/blank → **words ไม่ถูกมองเป็น line_item** (ราก ITM01)
+  - `ingest_bill` — ยอดไม่ reconcile → `needs_human_review`=True + reason เดียว (ไม่ออก 'ลืมเลขลำดับ')
+  - `TEMPLATE_REGISTRY` — SEED 4 template (TKH/SEI/TOR/SBT) จากตาราง 2.1 — **ต้อง validate กับไฟล์จริงก่อน production**
+- ทดสอบ `test_puopuy_ingest.py` (31 เคส): Thai-words (รวม 2,608,006.25 + วงเล็บ), VAT 0.07/7, over-sum→MISMATCH, classify
+- ✅ golden fixture `d8bcde85…` ไม่ขยับ · ruff/black สะอาด · run_ci.sh [3c-ingest] · full CI เขียว
+- ⚠️ **ยังไม่ wire เข้า pipeline** (advisory standalone) — รอ reproduce บนไฟล์จริง 81/103 เพื่อ:
+  (1) validate TEMPLATE_REGISTRY (2) เลือกจุด integrate (3) ตัดสิน rebaseline v9.2 ถ้าจะให้กระทบผลตรวจ
