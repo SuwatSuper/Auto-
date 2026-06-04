@@ -44,6 +44,10 @@ from agents.verification_lenses import (
     lens_total_lt_subtotal,
     lens_decimal_scale_error,
     lens_vat_present_no_base,
+    lens_future_date,
+    lens_iv_period_conflict,
+    lens_qty_negative,
+    lens_subtotal_zero_with_items,
 )
 
 PASS, FAIL = 0, []
@@ -73,7 +77,7 @@ def X(code, idx=None, master=None, peers=None, **bill):
 
 
 print("=" * 64)
-print("LENS UNIT — ผู้ตรวจราย lens (30 ผู้ตรวจ)")
+print("LENS UNIT — ผู้ตรวจราย lens (34 ผู้ตรวจ)")
 print("=" * 64)
 
 print("\n[L8 vat_7pct_exact] กฎโดเมนล็อก round(sub×0.07,2) — ห้าม band")
@@ -412,6 +416,66 @@ vote(
 vote(
     lens_vat_present_no_base(X("VAT002", subtotal=None, vat=0.0))[0] == 0,
     "vat≈0 → 0",
+)
+
+print("\n[L31 future_date] วันที่อนาคต (เทียบ audit_today=2026-06-02)")
+vote(
+    lens_future_date(X("DT002", iv_date=datetime.datetime(2030, 1, 1)))[0] == 1,
+    "วันที่ 2030 (อนาคต) → +1",
+)
+vote(
+    lens_future_date(X("DT002", iv_date=datetime.datetime(2025, 1, 15)))[0] == 0,
+    "วันที่อดีต → 0",
+)
+vote(lens_future_date(X("DT002"))[0] == 0, "ไม่มีวันที่ → 0")
+
+print("\n[L32 iv_period_conflict] งวดในเลขขัดวันที่ (reuse detect_iv_period_mismatch)")
+vote(
+    lens_iv_period_conflict(
+        X("DT004", iv_number="202511-001", iv_date=datetime.datetime(2025, 1, 5))
+    )[0]
+    == 1,
+    "งวด พ.ย. แต่ลง ม.ค. → +1",
+)
+vote(
+    lens_iv_period_conflict(
+        X("DT004", iv_number="202511-001", iv_date=datetime.datetime(2025, 11, 5))
+    )[0]
+    == -1,
+    "งวดตรงวันที่ → -1",
+)
+vote(
+    lens_iv_period_conflict(
+        X("VAT002", iv_number="202511-001", iv_date=datetime.datetime(2025, 1, 5))
+    )[0]
+    == 0,
+    "ไม่ใช่ IV/DT/DOC/SEQ → 0",
+)
+
+print("\n[L33 qty_negative] รายการจำนวนติดลบ → ยืนยัน")
+vote(
+    lens_qty_negative(X("ITM017", items=[{"qty": -2.0, "amount": 100.0}]))[0] == 1,
+    "qty ติดลบ → +1",
+)
+vote(
+    lens_qty_negative(X("VAT001", items=[{"qty": 2.0, "amount": 100.0}]))[0] == 0,
+    "qty บวก → 0",
+)
+
+print("\n[L34 subtotal_zero_with_items] subtotal หาย แต่มียอดรายการ → ยืนยัน")
+vote(
+    lens_subtotal_zero_with_items(
+        X("VAT001", subtotal=None, items=[{"amount": 500.0}, {"amount": 500.0}])
+    )[0]
+    == 1,
+    "subtotal None + Σ>0 → +1",
+)
+vote(
+    lens_subtotal_zero_with_items(
+        X("VAT001", subtotal=1000.0, items=[{"amount": 500.0}])
+    )[0]
+    == 0,
+    "มี subtotal → 0",
 )
 
 print("\n" + "=" * 64)

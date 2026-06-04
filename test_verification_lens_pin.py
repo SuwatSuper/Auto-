@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""test_verification_lens_pin.py — ตรึง (pin) ผลของ "คลังเลนส์ 30 ผู้ตรวจ"
+"""test_verification_lens_pin.py — ตรึง (pin) ผลของ "คลังเลนส์ 34 ผู้ตรวจ"
 
 ช่องโหว่ที่อุด: golden_master ตรึงเฉพาะผลตรวจหลัก ไม่ครอบ findings (votes/verdict) ของ agent.
 ไฟล์นี้ = regression ของชั้น advisory: ตรึง roster + votes/score/verdict ต่อบิลออกแบบ.
@@ -271,6 +271,10 @@ ROSTER_EXPECT = [
     {"id": "L28_total_lt_sub", "dimension": "total_lt_subtotal"},
     {"id": "L29_dec_scale", "dimension": "decimal_scale_error"},
     {"id": "L30_vat_nobase", "dimension": "vat_present_no_base"},
+    {"id": "L31_future_date", "dimension": "future_date"},
+    {"id": "L32_iv_period", "dimension": "iv_period_conflict"},
+    {"id": "L33_qty_neg", "dimension": "qty_negative"},
+    {"id": "L34_sub_zero", "dimension": "subtotal_zero_with_items"},
 ]
 _KEYS = [r["id"] for r in ROSTER_EXPECT]
 
@@ -392,7 +396,7 @@ EXPECT = {
 }
 
 print("=" * 64)
-print("VERIFICATION LENS PIN — ตรึงคลังเลนส์ 30 ผู้ตรวจ")
+print("VERIFICATION LENS PIN — ตรึงคลังเลนส์ 34 ผู้ตรวจ")
 print("=" * 64)
 before = copy.deepcopy([b["issues"] for b in bills])
 ctx = PipelineContext(
@@ -437,5 +441,5 @@ if FAIL:
         print(f"  • {x}")
     print("RESULT: ❌")
     sys.exit(1)
-print("RESULT: ✅ คลังเลนส์ 30 ผู้ตรวจตรึงครบ + advisory")
+print("RESULT: ✅ คลังเลนส์ 34 ผู้ตรวจตรึงครบ + advisory")
 sys.exit(0)

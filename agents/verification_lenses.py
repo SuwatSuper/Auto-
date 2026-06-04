@@ -712,6 +712,95 @@ def lens_vat_present_no_base(x: LensInput) -> Tuple[int, str]:
     return 0, ""
 
 
+# ===========================================================================
+# เลนส์เพิ่ม (v9.2b) — เวลา/งวด/รายการ มิติที่ยังบอด (L31–L34)
+#   reuse domain logic จาก core (audit_today / detect_iv_period_mismatch) → ไม่ดริฟต์
+# ===========================================================================
+def lens_future_date(x: LensInput) -> Tuple[int, str]:
+    """L31: วันที่ในใบเป็น "อนาคต" เทียบวันตรวจ (audit_today) → ผิดปกติชัด (ยืนยัน).
+    deterministic: audit_today เคารพ PUOPUY_AUDIT_DATE. งดออกเสียงถ้าไม่มีวันที่/อ่านวันตรวจไม่ได้.
+    """
+    dt = x.bill.get("iv_date")
+    if dt is None or not hasattr(dt, "year"):
+        return 0, ""
+    today_fn = core.get("audit_today")
+    if today_fn is None:
+        return 0, ""
+    try:
+        today = today_fn()
+        d = dt.date() if hasattr(dt, "date") else dt
+        if d > today:
+            return (
+                1,
+                f"วันที่ในใบ {d.isoformat()} เป็นอนาคต (เทียบวันตรวจ {today.isoformat()}) — ผิดปกติ",
+            )
+    except Exception:
+        return 0, ""
+    return 0, ""
+
+
+def lens_iv_period_conflict(x: LensInput) -> Tuple[int, str]:
+    """L32: งวดที่ฝังในเลขที่เอกสารขัดกับวันที่ในบิล (reuse detect_iv_period_mismatch).
+    เฉพาะ issue กลุ่มเอกสาร/วันที่ (IV/DT/DOC/SEQ). mismatch → ยืนยัน, ตรงงวด → ค้าน."""
+    base = x.code.split("-")[0]
+    if not (
+        base.startswith("IV")
+        or base.startswith("DT")
+        or base.startswith("DOC")
+        or base.startswith("SEQ")
+    ):
+        return 0, ""
+    fn = core.get("detect_iv_period_mismatch")
+    if fn is None:
+        return 0, ""
+    iv, dt = x.bill.get("iv_number"), x.bill.get("iv_date")
+    if not iv or dt is None:
+        return 0, ""
+    try:
+        res = fn(iv, dt)
+    except Exception:
+        return 0, ""
+    if not res:
+        return 0, ""
+    if res.get("mismatch"):
+        return (
+            1,
+            f"งวดในเลขเอกสาร ({res.get('iv_period')}) ขัดวันที่ในบิล ({res.get('doc_period')}) — ยืนยัน",
+        )
+    return -1, "งวดในเลขเอกสารตรงวันที่ในบิล — โครงสร้างเลข/วันที่สอดคล้อง"
+
+
+def lens_qty_negative(x: LensInput) -> Tuple[int, str]:
+    """L33: รายการสินค้าใดมีจำนวน (qty) ติดลบ บน issue ยอดเงิน → ผิดปกติเชิงรายการ (ยืนยัน)."""
+    if not _is_money_issue(x.code):
+        return 0, ""
+    n = 0
+    for it in x.bill.get("items") or []:
+        q = _D(it.get("qty"))
+        if q is not None and q < 0:
+            n += 1
+    if n:
+        return 1, f"พบ {n} รายการจำนวน (qty) ติดลบ — ผิดปกติเชิงรายการ"
+    return 0, ""
+
+
+def lens_subtotal_zero_with_items(x: LensInput) -> Tuple[int, str]:
+    """L34: subtotal หาย/เป็น 0 แต่ Σ(ยอดรายการ) > 0 → subtotal น่าจะ parse ไม่ได้ (ยืนยัน)."""
+    if not _is_money_issue(x.code):
+        return 0, ""
+    sub = _D(x.bill.get("subtotal"))
+    if sub is not None and sub != 0:
+        return 0, ""
+    amts = [_D(i.get("amount")) for i in (x.bill.get("items") or [])]
+    s = sum((a for a in amts if a is not None), Decimal("0"))
+    if s > 0:
+        return (
+            1,
+            f"subtotal หาย/เป็น 0 แต่ยอดรวมรายการ = {float(s):,.2f} — subtotal น่าจะอ่านไม่ได้",
+        )
+    return 0, ""
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # คลังผู้ตรวจ (INSPECTION BANK) — ลำดับนี้กำหนดลำดับ reasons ที่แสดง
 #   ★ เพิ่มผู้ตรวจ = ต่อ Lens(...) + unit test + รัน pin test (gated). supervisor ไม่ต้องแก้.
@@ -751,6 +840,11 @@ INSPECTION_LENSES: Tuple[Lens, ...] = (
     Lens("L28_total_lt_sub", "total_lt_subtotal", lens_total_lt_subtotal),
     Lens("L29_dec_scale", "decimal_scale_error", lens_decimal_scale_error),
     Lens("L30_vat_nobase", "vat_present_no_base", lens_vat_present_no_base),
+    # ── เพิ่ม v9.2b: เวลา/งวด/รายการ มิติที่ยังบอด ──
+    Lens("L31_future_date", "future_date", lens_future_date),
+    Lens("L32_iv_period", "iv_period_conflict", lens_iv_period_conflict),
+    Lens("L33_qty_neg", "qty_negative", lens_qty_negative),
+    Lens("L34_sub_zero", "subtotal_zero_with_items", lens_subtotal_zero_with_items),
 )
 
 

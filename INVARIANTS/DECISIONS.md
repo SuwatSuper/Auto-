@@ -312,3 +312,14 @@ floor ปลอดภัยปัจจุบัน (ผ่านทุกโม
 - ✅ golden fixture `d8bcde85…` ไม่ขยับ (engine==agent==baseline) · b['issues'] ไม่เปลี่ยน (advisory)
   · lens unit 62/62 · lens pin 14/14 (roster 30) · full CI เขียวครบ (ruff/black/mypy)
 - อัปเดต: pin ROSTER_EXPECT+8/IVJ, unit test +24 เคส, check_invariants label 22→30
+
+### ADR-012 (OBJ-A / verification) — ขยายคลังเลนส์ 30 → 34 (มิติ เวลา/งวด/รายการ)
+- สถานะ: **ACTIVE** (ลงมือแล้ว — advisory เพิ่ม 4 เลนส์, golden byte-identical)
+- ปิดมิติที่ยังบอด + reuse domain logic จาก core (ไม่เขียนใหม่ → ไม่ดริฟต์):
+  - L31 future_date — วันที่ในใบ > audit_today (เคารพ PUOPUY_AUDIT_DATE) → ยืนยัน (มิติเวลา)
+  - L32 iv_period_conflict — reuse `detect_iv_period_mismatch`; งวดในเลขขัดวันที่ (IV/DT/DOC/SEQ) → ยืนยัน/ค้าน
+  - L33 qty_negative — รายการ qty ติดลบ → ยืนยัน (คู่ขนาน L25 ที่ดู amount)
+  - L34 subtotal_zero_with_items — subtotal หาย/0 แต่ Σรายการ>0 → subtotal parse ไม่ได้ (ยืนยัน)
+- ผลต่อ pin: **roster +4 เท่านั้น ไม่มี vote เปลี่ยน** (ทุกเลนส์ใหม่ abstain บนบิล pin — precision-first)
+- ✅ golden `d8bcde85…` ไม่ขยับ · lens unit 72/72 · lens pin 14/14 (roster 34) · full CI เขียวครบ
+- ใช้ `core.get(...)` (optional symbol) → ถ้า core ไม่เปิด symbol เลนส์ abstain (ไม่พัง)
