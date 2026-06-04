@@ -13,6 +13,12 @@ build/
 .pytest_cache/
 .ruff_cache/
 .cache/
+.coverage
+.coverage.*
+
+# Virtual environment
+.venv/
+venv/
 
 # Output / reports (ข้อมูลผู้เสียภาษีดิบ — ห้าม commit)
 audit_reports/
