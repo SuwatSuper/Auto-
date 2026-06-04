@@ -4,7 +4,7 @@
 บังคับ DECISIONS.md ข้อ §1 (golden) + §6 (pin) อัตโนมัติ:
   1) GOLDEN FIXTURE — engine == agent == baseline_fixture (regression_full.py บน fixture)
   2) PIN LOGIC      — test_pinned_logic.py  (จุด APPROX ตรึงค่าเดิม)
-  3) PIN LENSES     — test_verification_lens_pin.py (คลังเลนส์ 22 + advisory)
+  3) PIN LENSES     — test_verification_lens_pin.py (คลังเลนส์ 30 + advisory)
 
 ทั้งหมดรันใน-repo ล้วน (~4–5 วินาที) จึงเหมาะเป็น pre-commit hook + ขั้น CI.
 ของหนัก (golden 81 ไฟล์จริง) ไม่อยู่ที่นี่ — รันผ่าน regression_full.py บนข้อมูลจริงแยก.
@@ -40,7 +40,7 @@ STEPS = [
 if not FAST:
     STEPS += [
         ("PIN LOGIC (APPROX จุดตรึง)", ["test_pinned_logic.py"]),
-        ("PIN LENSES (คลังเลนส์ 22 + advisory)", ["test_verification_lens_pin.py"]),
+        ("PIN LENSES (คลังเลนส์ 30 + advisory)", ["test_verification_lens_pin.py"]),
         ("PIN VAT002 tolerance 0.50 (ADR-005)", ["test_vat002_tolerance.py"]),
     ]
 

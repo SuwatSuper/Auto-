@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""test_verification_lens_pin.py — ตรึง (pin) ผลของ "คลังเลนส์ 22 ผู้ตรวจ"
+"""test_verification_lens_pin.py — ตรึง (pin) ผลของ "คลังเลนส์ 30 ผู้ตรวจ"
 
 ช่องโหว่ที่อุด: golden_master ตรึงเฉพาะผลตรวจหลัก ไม่ครอบ findings (votes/verdict) ของ agent.
 ไฟล์นี้ = regression ของชั้น advisory: ตรึง roster + votes/score/verdict ต่อบิลออกแบบ.
@@ -263,6 +263,14 @@ ROSTER_EXPECT = [
     {"id": "L20_doc_complete", "dimension": "doc_completeness"},
     {"id": "L21_master", "dimension": "master_known"},
     {"id": "L22_iv_prefix", "dimension": "iv_prefix_match"},
+    {"id": "L23_vat_zero", "dimension": "vat_zero_exempt"},
+    {"id": "L24_item_count", "dimension": "item_count_sanity"},
+    {"id": "L25_line_neg", "dimension": "line_amount_negative"},
+    {"id": "L26_dup_line", "dimension": "duplicate_line_in_bill"},
+    {"id": "L27_co_xtaxid", "dimension": "company_multi_taxid"},
+    {"id": "L28_total_lt_sub", "dimension": "total_lt_subtotal"},
+    {"id": "L29_dec_scale", "dimension": "decimal_scale_error"},
+    {"id": "L30_vat_nobase", "dimension": "vat_present_no_base"},
 ]
 _KEYS = [r["id"] for r in ROSTER_EXPECT]
 
@@ -368,7 +376,7 @@ EXPECT = {
     ),
     "IVJ": (
         "CONFIRMED",
-        2,
+        3,
         V(
             L1_recompute=1,
             L2_provenance=1,
@@ -378,12 +386,13 @@ EXPECT = {
             L13_line_sum=-1,
             L14_qty_price=-1,
             L15_negative=1,
+            L25_line_neg=1,  # v9.2: รายการ amount ติดลบ → corroborate (score 2→3, ยัง CONFIRMED)
         ),
     ),
 }
 
 print("=" * 64)
-print("VERIFICATION LENS PIN — ตรึงคลังเลนส์ 22 ผู้ตรวจ")
+print("VERIFICATION LENS PIN — ตรึงคลังเลนส์ 30 ผู้ตรวจ")
 print("=" * 64)
 before = copy.deepcopy([b["issues"] for b in bills])
 ctx = PipelineContext(
@@ -428,5 +437,5 @@ if FAIL:
         print(f"  • {x}")
     print("RESULT: ❌")
     sys.exit(1)
-print("RESULT: ✅ คลังเลนส์ 22 ผู้ตรวจตรึงครบ + advisory")
+print("RESULT: ✅ คลังเลนส์ 30 ผู้ตรวจตรึงครบ + advisory")
 sys.exit(0)

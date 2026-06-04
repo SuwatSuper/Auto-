@@ -585,6 +585,133 @@ def lens_iv_prefix_match(x: LensInput) -> Tuple[int, str]:
     return 1, f"เลขที่ใบกำกับ '{iv}' ไม่ขึ้นต้นด้วย prefix ที่ลงทะเบียนไว้"
 
 
+# ===========================================================================
+# เลนส์เพิ่ม (v9.2) — ยอด/รายการ/ข้ามบิล มุมใหม่ (L23–L30)
+#   ทุกตัว PRECISION-FIRST: งดออกเสียง (0) เมื่อข้อมูลไม่พอ/ไม่เกี่ยว ; self-contained
+#   (ใช้เฉพาะ field ของบิล + helper เดิม + ดัชนีข้ามบิล) ; deterministic, ไม่มี network.
+# ===========================================================================
+def lens_vat_zero_exempt(x: LensInput) -> Tuple[int, str]:
+    """L23: issue กลุ่มยอดเงินที่ vat==0 ทั้งที่ subtotal>0 → อาจยกเว้น/นอกระบบ VAT (ค้าน)."""
+    if not _is_money_issue(x.code):
+        return 0, ""
+    sub, vat = _D(x.bill.get("subtotal")), _D(x.bill.get("vat"))
+    if sub is None or vat is None:
+        return 0, ""
+    if sub > 0 and vat == 0:
+        return (
+            -1,
+            "VAT=0 ทั้งที่มียอดก่อนภาษี — อาจเป็นสินค้ายกเว้น/นอกระบบ VAT (อาจไม่ใช่ error)",
+        )
+    return 0, ""
+
+
+def lens_item_count_sanity(x: LensInput) -> Tuple[int, str]:
+    """L24: issue ยอดเงินแต่ไม่มีรายการสินค้าเลย ทั้งที่มี subtotal>0 → รายการอาจ parse ไม่ได้ (ค้าน)."""
+    if not _is_money_issue(x.code):
+        return 0, ""
+    sub = _D(x.bill.get("subtotal"))
+    items = x.bill.get("items") or []
+    if sub is not None and sub > 0 and len(items) == 0:
+        return (
+            -1,
+            "ไม่มีรายการสินค้าให้ตรวจ แต่มี subtotal — รายการอาจอ่านไม่ได้ (artifact การ parse)",
+        )
+    return 0, ""
+
+
+def lens_line_amount_negative(x: LensInput) -> Tuple[int, str]:
+    """L25: รายการสินค้าใดมียอด (amount) ติดลบ บน issue ยอดเงิน → ผิดปกติเชิงรายการ (ยืนยัน)."""
+    if not _is_money_issue(x.code):
+        return 0, ""
+    n = 0
+    for it in x.bill.get("items") or []:
+        a = _D(it.get("amount"))
+        if a is not None and a < 0:
+            n += 1
+    if n:
+        return 1, f"พบ {n} รายการยอดติดลบ — ผิดปกติเชิงรายการ (ยืนยันความผิดปกติของยอด)"
+    return 0, ""
+
+
+def lens_duplicate_line_in_bill(x: LensInput) -> Tuple[int, str]:
+    """L26: รายการ (ชื่อ+ยอด) ซ้ำกันภายในบิลเดียว ≥2 ครั้ง → น่าสงสัยคีย์ข้อมูลซ้ำ (ยืนยัน)."""
+    seen: Dict[Tuple[str, str], int] = {}
+    for it in x.bill.get("items") or []:
+        name = str(it.get("name", "")).strip()
+        a = _D(it.get("amount"))
+        if not name or a is None:
+            continue
+        key = (name, str(_q2(a)))
+        seen[key] = seen.get(key, 0) + 1
+    dup = sum(1 for c in seen.values() if c >= 2)
+    if dup:
+        return 1, f"พบ {dup} รายการที่ (ชื่อ+ยอด) ซ้ำในบิลเดียว — น่าสงสัยคีย์ข้อมูลซ้ำ"
+    return 0, ""
+
+
+def lens_company_multi_taxid(x: LensInput) -> Tuple[int, str]:
+    """L27: ชื่อบริษัทเดียวกันผูกกับเลขภาษี ≥2 เลขข้ามทั้งชุด → ปนข้อมูล (ยืนยัน, เฉพาะ TAX). (index)"""
+    if not x.code.startswith("TAX"):
+        return 0, ""
+    comp = (x.bill.get("company") or "").strip()
+    if not comp:
+        return 0, ""
+    tids = x.index.get("company_taxids", {}).get(comp, set())
+    if len(tids) >= 2:
+        return (
+            1,
+            f"ชื่อบริษัท '{comp[:20]}' ผูกกับ {len(tids)} เลขภาษีต่างกัน — น่าสงสัยข้อมูลปน/พิมพ์ผิด",
+        )
+    return 0, ""
+
+
+def lens_total_lt_subtotal(x: LensInput) -> Tuple[int, str]:
+    """L28: ยอดรวม < ยอดก่อนภาษี (subtotal>0) → เป็นไปไม่ได้ถ้า VAT≥0 (ยืนยัน)."""
+    if not _is_money_issue(x.code):
+        return 0, ""
+    sub, tot = _D(x.bill.get("subtotal")), _D(x.bill.get("total"))
+    if sub is None or tot is None or sub <= 0:
+        return 0, ""
+    if tot < sub:
+        return (
+            1,
+            f"ยอดรวม {float(tot):,.2f} < ยอดก่อนภาษี {float(sub):,.2f} — เป็นไปไม่ได้ถ้า VAT≥0",
+        )
+    return 0, ""
+
+
+def lens_decimal_scale_error(x: LensInput) -> Tuple[int, str]:
+    """L29: total/subtotal ≈ 10 หรือ 100 เท่า → อาจพิมพ์ทศนิยมผิดตำแหน่ง (ยืนยัน)."""
+    if not _is_money_issue(x.code):
+        return 0, ""
+    sub, tot = _D(x.bill.get("subtotal")), _D(x.bill.get("total"))
+    if sub is None or tot is None or sub <= 0 or tot <= 0:
+        return 0, ""
+    ratio = float(tot) / float(sub) if tot >= sub else float(sub) / float(tot)
+    for scale in (10.0, 100.0):
+        if abs(ratio - scale) <= scale * 0.01:
+            return (
+                1,
+                f"อัตราส่วนยอด ≈ {int(scale)} เท่า — อาจพิมพ์ทศนิยมผิดตำแหน่ง (decimal slip)",
+            )
+    return 0, ""
+
+
+def lens_vat_present_no_base(x: LensInput) -> Tuple[int, str]:
+    """L30: มี VAT (|vat|>1) แต่ subtotal หาย/เป็น 0 → VAT ลอยไม่มียอดฐาน (ยืนยัน)."""
+    if not _is_money_issue(x.code):
+        return 0, ""
+    sub, vat = _D(x.bill.get("subtotal")), _D(x.bill.get("vat"))
+    if vat is None or abs(vat) <= Decimal("1"):
+        return 0, ""
+    if sub is None or sub == 0:
+        return (
+            1,
+            "มี VAT แต่ไม่มียอดฐาน (subtotal หาย/เป็น 0) — VAT ลอย ผิดโครงสร้างยอด",
+        )
+    return 0, ""
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # คลังผู้ตรวจ (INSPECTION BANK) — ลำดับนี้กำหนดลำดับ reasons ที่แสดง
 #   ★ เพิ่มผู้ตรวจ = ต่อ Lens(...) + unit test + รัน pin test (gated). supervisor ไม่ต้องแก้.
@@ -615,6 +742,15 @@ INSPECTION_LENSES: Tuple[Lens, ...] = (
     Lens("L20_doc_complete", "doc_completeness", lens_doc_completeness),
     Lens("L21_master", "master_known", lens_master_known),
     Lens("L22_iv_prefix", "iv_prefix_match", lens_iv_prefix_match),
+    # ── เพิ่ม v9.2: ยอด/รายการ/ข้ามบิล มุมใหม่ ──
+    Lens("L23_vat_zero", "vat_zero_exempt", lens_vat_zero_exempt),
+    Lens("L24_item_count", "item_count_sanity", lens_item_count_sanity),
+    Lens("L25_line_neg", "line_amount_negative", lens_line_amount_negative),
+    Lens("L26_dup_line", "duplicate_line_in_bill", lens_duplicate_line_in_bill),
+    Lens("L27_co_xtaxid", "company_multi_taxid", lens_company_multi_taxid),
+    Lens("L28_total_lt_sub", "total_lt_subtotal", lens_total_lt_subtotal),
+    Lens("L29_dec_scale", "decimal_scale_error", lens_decimal_scale_error),
+    Lens("L30_vat_nobase", "vat_present_no_base", lens_vat_present_no_base),
 )
 
 
@@ -626,6 +762,7 @@ def lens_roster() -> List[Dict[str, str]]:
 def _build_cross_index(bills: List[dict], master: Dict) -> Dict:
     """สร้างดัชนีข้ามบิล + ทะเบียน master 'ครั้งเดียว' (deterministic) ให้เลนส์อ่าน."""
     taxid_companies: Dict[str, set] = defaultdict(set)
+    company_taxids: Dict[str, set] = defaultdict(set)  # L27: ชื่อบริษัท → เซ็ตเลขภาษี
     sig: Counter = Counter()
     for b in bills:
         try:
@@ -636,6 +773,7 @@ def _build_cross_index(bills: List[dict], master: Dict) -> Dict:
         comp = (b.get("company") or "").strip()
         if len(s) == 13 and comp:
             taxid_companies[s].add(comp)
+            company_taxids[comp].add(s)
         tot = _D(b.get("total"))
         if s and len(s) == 13 and tot is not None:
             sig[(s, str(_q2(tot)))] += 1
@@ -655,6 +793,7 @@ def _build_cross_index(bills: List[dict], master: Dict) -> Dict:
                 master_iv_prefixes.add(pre)
     return {
         "taxid_companies": {k: set(v) for k, v in taxid_companies.items()},
+        "company_taxids": {k: set(v) for k, v in company_taxids.items()},
         "sig_taxid_total": dict(sig),
         "master_taxids": master_taxids,
         "master_iv_prefixes": master_iv_prefixes,

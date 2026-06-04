@@ -36,6 +36,14 @@ from agents.verification_lenses import (
     lens_doc_completeness,
     lens_master_known,
     lens_iv_prefix_match,
+    lens_vat_zero_exempt,
+    lens_item_count_sanity,
+    lens_line_amount_negative,
+    lens_duplicate_line_in_bill,
+    lens_company_multi_taxid,
+    lens_total_lt_subtotal,
+    lens_decimal_scale_error,
+    lens_vat_present_no_base,
 )
 
 PASS, FAIL = 0, []
@@ -65,7 +73,7 @@ def X(code, idx=None, master=None, peers=None, **bill):
 
 
 print("=" * 64)
-print("LENS UNIT — ผู้ตรวจราย lens (22 ผู้ตรวจ)")
+print("LENS UNIT — ผู้ตรวจราย lens (30 ผู้ตรวจ)")
 print("=" * 64)
 
 print("\n[L8 vat_7pct_exact] กฎโดเมนล็อก round(sub×0.07,2) — ห้าม band")
@@ -292,6 +300,118 @@ vote(
 vote(
     lens_iv_prefix_match(X("IV001", idx=midx, master=M, iv_number="XX001"))[0] == 1,
     "prefix ไม่ตรง → +1",
+)
+
+print("\n[L23 vat_zero_exempt] vat=0 ทั้งที่มี subtotal>0 → ค้าน")
+vote(
+    lens_vat_zero_exempt(X("VAT002", subtotal=1000.0, vat=0.0))[0] == -1,
+    "vat 0 + sub>0 → -1",
+)
+vote(
+    lens_vat_zero_exempt(X("VAT002", subtotal=1000.0, vat=70.0))[0] == 0,
+    "vat 70 → 0",
+)
+vote(
+    lens_vat_zero_exempt(X("TAX001", subtotal=1000.0, vat=0.0))[0] == 0,
+    "ไม่ใช่ money → 0",
+)
+
+print("\n[L24 item_count_sanity] ไม่มีรายการแต่มี subtotal → ค้าน")
+vote(
+    lens_item_count_sanity(X("VAT001", subtotal=1000.0, items=[]))[0] == -1,
+    "0 รายการ + sub>0 → -1",
+)
+vote(
+    lens_item_count_sanity(X("VAT001", subtotal=1000.0, items=[{"amount": 1000.0}]))[0]
+    == 0,
+    "มีรายการ → 0",
+)
+
+print("\n[L25 line_amount_negative] รายการยอดติดลบ → ยืนยัน")
+vote(
+    lens_line_amount_negative(X("ITM017", items=[{"amount": -500.0}]))[0] == 1,
+    "amount ติดลบ → +1",
+)
+vote(
+    lens_line_amount_negative(X("VAT001", items=[{"amount": 500.0}]))[0] == 0,
+    "amount บวก → 0",
+)
+
+print("\n[L26 duplicate_line_in_bill] รายการ (ชื่อ+ยอด) ซ้ำในบิล → ยืนยัน")
+dup_items = [
+    {"name": "เหล็กเส้น", "amount": 100.0},
+    {"name": "เหล็กเส้น", "amount": 100.0},
+]
+vote(
+    lens_duplicate_line_in_bill(X("VAT001", items=dup_items))[0] == 1,
+    "ชื่อ+ยอดซ้ำ → +1",
+)
+vote(
+    lens_duplicate_line_in_bill(
+        X("VAT001", items=[{"name": "a", "amount": 1.0}, {"name": "b", "amount": 2.0}])
+    )[0]
+    == 0,
+    "ไม่ซ้ำ → 0",
+)
+
+print("\n[L27 company_multi_taxid] (index) บริษัทเดียว 2 เลขภาษี → ยืนยัน")
+co_bills = [
+    {"tax_id": "0105000000012", "company": "บ.เดียวกัน", "total": 1.0},
+    {"tax_id": "0107000000017", "company": "บ.เดียวกัน", "total": 2.0},
+]
+cidx = _build_cross_index(co_bills, {})
+vote(
+    lens_company_multi_taxid(X("TAX002", idx=cidx, company="บ.เดียวกัน"))[0] == 1,
+    "บริษัทเดียว 2 เลขภาษี → +1",
+)
+vote(
+    lens_company_multi_taxid(
+        X("TAX002", idx=_build_cross_index([co_bills[0]], {}), company="บ.เดียวกัน")
+    )[0]
+    == 0,
+    "บริษัทเดียว 1 เลขภาษี → 0",
+)
+vote(
+    lens_company_multi_taxid(X("VAT001", idx=cidx, company="บ.เดียวกัน"))[0] == 0,
+    "ไม่ใช่ TAX → 0",
+)
+
+print("\n[L28 total_lt_subtotal] ยอดรวม < ยอดก่อนภาษี → ยืนยัน")
+vote(
+    lens_total_lt_subtotal(X("VAT003", subtotal=1000.0, total=900.0))[0] == 1,
+    "total<sub → +1",
+)
+vote(
+    lens_total_lt_subtotal(X("VAT003", subtotal=1000.0, total=1070.0))[0] == 0,
+    "total>sub → 0",
+)
+vote(
+    lens_total_lt_subtotal(X("ITM017", subtotal=-500.0, total=-535.0))[0] == 0,
+    "subtotal ติดลบ (guard) → 0",
+)
+
+print("\n[L29 decimal_scale_error] อัตราส่วน ≈ 10/100 เท่า → ยืนยัน")
+vote(
+    lens_decimal_scale_error(X("VAT003", subtotal=100.0, total=1000.0))[0] == 1,
+    "total≈10×sub → +1",
+)
+vote(
+    lens_decimal_scale_error(X("VAT003", subtotal=1000.0, total=1070.0))[0] == 0,
+    "อัตราส่วนปกติ → 0",
+)
+
+print("\n[L30 vat_present_no_base] มี VAT แต่ไม่มี subtotal → ยืนยัน")
+vote(
+    lens_vat_present_no_base(X("VAT002", subtotal=None, vat=70.0))[0] == 1,
+    "vat 70 + ไม่มี sub → +1",
+)
+vote(
+    lens_vat_present_no_base(X("VAT002", subtotal=1000.0, vat=70.0))[0] == 0,
+    "มี sub → 0",
+)
+vote(
+    lens_vat_present_no_base(X("VAT002", subtotal=None, vat=0.0))[0] == 0,
+    "vat≈0 → 0",
 )
 
 print("\n" + "=" * 64)

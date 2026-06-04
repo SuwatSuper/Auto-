@@ -296,3 +296,19 @@ floor ปลอดภัยปัจจุบัน (ผ่านทุกโม
 - ✅ golden fixture `d8bcde85…` ไม่ขยับ · tripwire เขียวครบ · เป็น test ล้วน ไม่แตะโค้ดโดเมน
 - ลงทะเบียนใน `coverage_gate.py` TESTS (วัดในเกตทุกครั้ง) + อัปเดตตาราง §6.1
 - floor ปลอดภัยใหม่: branch 85 (lowest = rules_engine 85.0) ; งานถัดไป = ไต่ rules_engine ขึ้น
+
+### ADR-011 (OBJ-A / verification) — ขยายคลังเลนส์ 22 → 30 ผู้ตรวจ
+- สถานะ: **ACTIVE** (ลงมือแล้ว — advisory เพิ่ม 8 เลนส์, golden byte-identical)
+- ผู้ใช้สั่ง "ให้ระบบคุมได้มากขึ้น" → เลือกขยาย **verification lenses** (ไม่ใช่ agent)
+  เพราะ agents เป็น advisory ไม่เพิ่มพลังตรวจจับ ; เลนส์ = ผู้ตรวจซ้ำต่อ-Error (consensus)
+- เพิ่ม 8 เลนส์ (PRECISION-FIRST, self-contained, deterministic) ใน `agents/verification_lenses.py`:
+  - L23 vat_zero_exempt (vat=0+sub>0 → ค้าน, อาจยกเว้น) · L24 item_count_sanity (0 รายการ+sub>0 → ค้าน, parse artifact)
+  - L25 line_amount_negative (รายการ amount<0 → ยืนยัน) · L26 duplicate_line_in_bill (รายการซ้ำในบิล → ยืนยัน)
+  - L27 company_multi_taxid (บริษัทเดียว ≥2 เลขภาษี → ยืนยัน, ใช้ดัชนีใหม่ company_taxids)
+  - L28 total_lt_subtotal (total<sub, sub>0 → ยืนยัน) · L29 decimal_scale_error (ratio≈10/100 → ยืนยัน, decimal slip)
+  - L30 vat_present_no_base (มี vat แต่ sub หาย/0 → ยืนยัน, VAT ลอย)
+- ผลต่อ pin (ตามขั้นตอน docstring "ดู diff → อัปเดต EXPECT/ROSTER"): เปลี่ยน **เฉพาะ IVJ** (บิลยอดติดลบ)
+  score 2→3 จาก L25 (ยัง CONFIRMED) ; บิลอื่นทุกใบ vote 0 จากเลนส์ใหม่ (ออกแบบให้ abstain เมื่อไม่เกี่ยว)
+- ✅ golden fixture `d8bcde85…` ไม่ขยับ (engine==agent==baseline) · b['issues'] ไม่เปลี่ยน (advisory)
+  · lens unit 62/62 · lens pin 14/14 (roster 30) · full CI เขียวครบ (ruff/black/mypy)
+- อัปเดต: pin ROSTER_EXPECT+8/IVJ, unit test +24 เคส, check_invariants label 22→30
