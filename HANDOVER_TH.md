@@ -1,5 +1,12 @@
 # เอกสารส่งมอบระบบ — ปุ้มปุ้ย v9 (Multi-Agent Mesh)
 
+> ⚠️ **สถานะปัจจุบัน (อ่านก่อน) — แหล่งความจริงล่าสุด = `INVARIANTS/DECISIONS.md`**
+> เอกสารนี้เป็น handoff ยุคแรก ตัวเลข baseline บางจุดด้านล่าง (`7b60b01f…`) เป็น **ของเก่า**.
+> หลัง P4 + ซอยไฟล์ (ADR-006/007/008) + perf (ADR-009) **baseline ทางการของ 81 ไฟล์ = `ec61907f…`**
+> (ดู DECISIONS.md §1). งานคุณภาพล่าสุด: ADR-010 (validators branch 93.8%), ADR-011/012
+> (คลังเลนส์ 22→**34**), Operability (doctor.py + VS Code — ดู `QUICKSTART_VSCODE_TH.md`).
+> เริ่มเร็ว: `python3 doctor.py --full` → ตรวจความพร้อมจบในจอเดียว.
+
 > ระบบตรวจสอบเอกสารภาษี/บิล (audit) ภาษาไทย — เครื่องยนต์เดิมที่พิสูจน์แล้ว ห่อด้วยสถาปัตยกรรม
 > multi-agent แบบ **Hybrid Hierarchical + Mesh** โดยคง **byte-identical** (ผลตรวจเหมือนเดิมเป๊ะ)
 
@@ -26,9 +33,10 @@
 
 ```
 baseline (ชุด 81 ไฟล์ /mnt/project):
-  7b60b01fa76438c6fd1db795da6f8b8b9ad62e2a63de6fc1f92a2feb8cf04e5d
+  7b60b01fa76438c6fd1db795da6f8b8b9ad62e2a63de6fc1f92a2feb8cf04e5d   ← ⚠️ ของเก่า (ก่อน P4/split/perf)
   BILLS=632 FILES=81 fn_issues=3 dup=1 iv_seq=26 iv_date=0 typos=34 companies=2
 ```
+> ⚠️ baseline ทางการ **ปัจจุบัน = `ec61907f…`** (หลัง ADR-005..012). ค่า `7b60b01f…` ข้างบนเก็บไว้เป็นประวัติเท่านั้น.
 
 **หัวใจที่ทำให้ปลอดภัย:** ชั้น agent ทั้งหมด (review/AI/synthesis/super) เป็น **advisory อ่านอย่างเดียว** —
 ผลของมันไปอยู่ใน "mesh" (กระดานคำแนะนำ) เท่านั้น ไม่แตะ `ctx.bills`/ผลตรวจหลัก. และ
@@ -221,7 +229,7 @@ PYTHONHASHSEED=0 python3 run_agents.py            # (ดู flags ในไฟ�
 
 | ชุด | บิล | baseline SHA256 | สถานะ |
 |---|---|---|---|
-| **81 ไฟล์** (`/mnt/project`) | 632 | `7b60b01f…8cf04e5d` | ✅ พิสูจน์สด (engine = agent = baseline) |
+| **81 ไฟล์** (ทางการ) | 632 | **`ec61907f…`** (ปัจจุบัน) · `7b60b01f…` (เก่า) | ✅ ปัจจุบันยืนยันแล้ว (DECISIONS.md §1, ADR-009) |
 | **33 ไฟล์** (ข้อมูลของคุณ) | 195 | `41cf259a…024f6123` | ✅ baseline บันทึกไว้ใน `baseline.json` + ตรวจความสมบูรณ์แล้ว (recompute hash ตรง) |
 
 > `baseline.json` (1.3MB) ที่อยู่ในแพ็กเกจ **คือ golden snapshot ของชุด 33 ไฟล์**
