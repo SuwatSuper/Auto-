@@ -29,7 +29,7 @@ e2e_output/
 *.env
 
 # IDE
-.vscode/
+#  .vscode/ = workbench config ที่ตั้งใจแชร์ (ฉบับ offline VS Code) → ไม่ ignore
 .idea/
 
 # OS

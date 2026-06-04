@@ -1,0 +1,31 @@
+{
+  // ปุ้มปุ้ย v9.1 — VS Code workspace (ฉบับ offline)
+  //   interpreter ดีฟอลต์ = .venv ที่ Task "0. Bootstrap" สร้าง (เลือกเองได้: Ctrl+Shift+P → Python: Select Interpreter)
+  //   path นี้ใช้ได้ทั้ง Linux/macOS ; Windows ให้เลือก .venv\Scripts\python.exe จากเมนู interpreter
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.analysis.extraPaths": ["."],
+  "python.analysis.typeCheckingMode": "off",
+  "python.terminal.activateEnvironment": true,
+
+  // PYTHONHASHSEED=0 ปลอดภัยทุกโหมด (จำเป็นต่อการ reproduce golden hash).
+  //   *ไม่* ตั้ง PUOPUY_AUDIT_DATE ที่นี่ → การรันปกติใน terminal จะใช้ "วันที่จริง" (production).
+  //   โหมดทดสอบ/golden ตั้ง PUOPUY_AUDIT_DATE=2026-06-02 ให้เองใน tasks.json / launch.json
+  "terminal.integrated.env.linux":   { "PYTHONHASHSEED": "0" },
+  "terminal.integrated.env.osx":     { "PYTHONHASHSEED": "0" },
+  "terminal.integrated.env.windows": { "PYTHONHASHSEED": "0" },
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.coverage": true,
+    "**/.coverage.*": true
+  },
+  "files.watcherExclude": { "**/__pycache__/**": true },
+  "files.associations": { "*.py": "python" },
+  "files.encoding": "utf8",
+  "editor.rulers": [100],
+
+  // เทสเป็นสคริปต์ standalone (เรียก check() เอง ไม่ใช่ pytest) → ใช้ Tasks รันแทน test explorer
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": false
+}
