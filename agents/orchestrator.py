@@ -47,6 +47,7 @@ from .super_agent import SuperAgent
 from .synthesis_agent import SynthesisAgent
 from .taxid_agent import TaxIdAgent
 from .vat_agent import VatAgent
+from .vendor_report_agent import VendorReportAgent
 from .verification_agent import VerificationAgent
 from .wht_agent import WhtAgent
 
@@ -174,6 +175,10 @@ class Orchestrator:
                 self._dispatch(ReportAgent(self.logger), ctx)
             else:
                 self._log("[report] ข้าม (write_report=False) — โหมดพิสูจน์/วิเคราะห์เท่านั้น")
+
+        # 7.5) VendorReport (advisory) — รายงานลูกค้ารายผู้ขาย .txt ข้าง Excel (output เพิ่ม, ไม่ทับ Excel)
+        #      รันหลัง Report เพื่ออ้างพาธ Excel (ctx.report_path) ในสรุป. ไม่แตะ bills.
+        self._dispatch(VendorReportAgent(self.logger), ctx)
 
         # 8) Notepad (advisory, ท้ายสุด) — สรุปการทำงานทุก agent + super เป็น .txt. ไม่แตะ bills.
         self._dispatch(NotepadAgent(self.logger), ctx)

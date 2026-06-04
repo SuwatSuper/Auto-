@@ -323,3 +323,19 @@ floor ปลอดภัยปัจจุบัน (ผ่านทุกโม
 - ผลต่อ pin: **roster +4 เท่านั้น ไม่มี vote เปลี่ยน** (ทุกเลนส์ใหม่ abstain บนบิล pin — precision-first)
 - ✅ golden `d8bcde85…` ไม่ขยับ · lens unit 72/72 · lens pin 14/14 (roster 34) · full CI เขียวครบ
 - ใช้ `core.get(...)` (optional symbol) → ถ้า core ไม่เปิด symbol เลนส์ abstain (ไม่พัง)
+
+### ADR-013 (ฟีเจอร์/ผู้ใช้สั่ง) — รายงานลูกค้ารายผู้ขาย (.txt) เพิ่มเข้า audit
+- สถานะ: **ACTIVE** (ผู้ใช้สั่งเพิ่มฟีเจอร์ — additive, golden byte-identical)
+- ความต้องการ: ออก .txt แยกทีละ vendor ภาษาคน พร้อมส่งลูกค้า — **output อีกอันข้าง Excel (ไม่ทับ)**
+- ทำเป็น 2 ชิ้นแยก (เหมือน notepad): 
+  - `agents/vendor_report.py` — ตรรกะจัดฟอร์แมตล้วน (pure): group by vendor, map กฎ→10 ช่อง,
+    ช่องผ่าน="ตรง"/ไม่ผ่าน="ควรรีเช็ค N บิลครับ" (ภาษาคน, ตัดโค้ดกฎออกด้วย `_CODE_RE`)
+  - `agents/vendor_report_agent.py` — `VendorReportAgent` เขียน .txt (UTF-8-SIG+CRLF) รายผู้ขาย
+- map ช่อง (ผัง 10 ช่องตามผู้ใช้): CMP/ADDR/TAX/BR/DOC*/DT*/IV*/ITM*/VAT(หลัง)/VAT(ก่อน)
+- ชื่อไฟล์ `{ลำดับ}.{ชื่อย่อ}.txt` (เรียงยอดมาก→น้อย, deterministic) ใน report_dir เดียวกับ Excel
+- integrate orchestrator: รัน **หลัง ReportAgent ก่อน NotepadAgent** (อ้าง ctx.report_path = "คุยกับ" Excel)
+  - advisory/ไม่ critical · เขียนเฉพาะ write_vendor_report (ดีฟอลต์ตาม write_report) → golden run (report=False) ไม่เขียน
+- CLI: `--no-vendor-report` / `--vendor-report-dir` / `--vendor-report-memo` ใน run_agents.py
+- ✅ golden `d8bcde85…` ไม่ขยับ (advisory read-only) · agent contracts 37/37 · test_vendor_report 22/22
+  · super `_EXPECTED`=9 ไม่กระทบ (vendor_report รันหลัง super) · notepad ยัง "ท้ายสุด" · full CI เขียว
+- เพิ่มใน run_ci.sh [4b] + export ใน agents/__init__.py

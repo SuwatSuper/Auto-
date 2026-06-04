@@ -44,9 +44,11 @@ _LAZY = {
     # agents — AI / synthesis / supervisor (บริสุทธิ์ — ใช้ llm_provider)
     "AiReviewAgent": "ai_review_agent", "SynthesisAgent": "synthesis_agent",
     "SuperAgent": "super_agent",
-    # agents — output (report พึ่ง engine; notepad บริสุทธิ์)
+    # agents — output (report พึ่ง engine; notepad/vendor_report บริสุทธิ์)
     "ReportAgent": "report_agent", "resolve_report_dir": "report_agent",
     "NotepadAgent": "notepad_agent",
+    "VendorReportAgent": "vendor_report_agent",
+    "build_vendor_reports": "vendor_report",
     # orchestration (พึ่ง engine ผ่าน core_access)
     "Orchestrator": "orchestrator", "run_pipeline": "orchestrator",
     "_run_audit_core": "orchestrator",

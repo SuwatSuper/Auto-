@@ -54,6 +54,7 @@ run "[3j] parser extra (≥90% cov)"     "$PY" test_parser_extra.py
 run "[3k] rules extra 2 (≥90% cov)"    "$PY" test_rules_extra2.py
 run "[3l] parser extra 2 (≥90% cov)"   "$PY" test_parser_extra2.py
 run "[4] mesh contract"          "$PY" test_mesh_contract.py
+run "[4b] vendor report (.txt รายผู้ขาย)" "$PY" test_vendor_report.py
 run "[5] agent contracts (fixture)" "$PY" test_agents.py . tests/fixtures
 run "[6] regression (fixture)"   "$PY" regression_full.py . tests/fixtures tests/fixtures/baseline_fixture.json
 

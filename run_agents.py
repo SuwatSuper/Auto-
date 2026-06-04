@@ -73,6 +73,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
                      help="ไม่เขียน Excel (วิเคราะห์/พิมพ์ findings อย่างเดียว)")
     out.add_argument("--findings-out", default=None,
                      help="ที่เก็บไฟล์ findings JSON (ค่าเริ่มต้น: <report-dir>/findings_<ts>.json)")
+    out.add_argument("--no-vendor-report", action="store_true",
+                     help="ไม่สร้างรายงานลูกค้ารายผู้ขาย (.txt) — ดีฟอลต์สร้างเมื่อเขียน Excel")
+    out.add_argument("--vendor-report-dir", default=None,
+                     help="โฟลเดอร์เก็บรายงานลูกค้า .txt (ดีฟอลต์ = report-dir เดียวกับ Excel)")
+    out.add_argument("--vendor-report-memo", default=None,
+                     help="ข้อความ 'หมายเหตุ :' ต่อท้ายทุกไฟล์รายงานลูกค้า (optional)")
 
     ai = p.add_argument_group("AI Review (Local LLM)")
     ai.add_argument("--ai", dest="ai", action="store_true",
@@ -111,6 +117,9 @@ def main(argv=None) -> int:
         "write_report": not args.no_report,
         "lean": not args.full,
         "report_dir": args.report_dir,
+        "write_vendor_report": (not args.no_vendor_report) and (not args.no_report),
+        "vendor_report_dir": args.vendor_report_dir,
+        "vendor_report_memo": args.vendor_report_memo,
         "enable_ai": bool(args.ai),
         "llm_provider": args.llm_provider,
         "llm_base_url": args.llm_base_url,
