@@ -138,11 +138,11 @@ print("\n" + "=" * 64)
 print("[ADDR] กฎที่อยู่")
 print("=" * 64)
 
-# r_addr001: master มี address_parts — บิลขาด แขวง/เขต/จังหวัด (mandatory) + ซอย (info)
+# r_addr001 (v9.2 SMART): บิลขาด anchor (แขวง/เขต) → ฟ้อง ERROR ระบุ field ที่ไม่ตรง
 b_addr = {'address': 'เลขที่ 99 ถนนพระราม4 10110'}
 out = R.r_addr001(b_addr, M, ctx())
-fires(out, "ADDR001 บิลขาดส่วนบังคับ → ฟ้อง (errors)", must_contain='ขาด')
-check(any('ไม่พบ' in str(x) for x in out), "ADDR001 รายงานส่วน info (ซอย) ที่อาจไม่มีในเอกสาร")
+fires(out, "ADDR001 บิลขาด anchor (แขวง/เขต) → ฟ้อง", must_contain='ไม่ตรงทะเบียน')
+check(any('ไม่พบ' in str(x) for x in out), "ADDR001 ระบุ anchor field ที่ขาด (ไม่พบเขต/แขวง)")
 
 # r_addr002: สะกดถนนผิดเล็กน้อย (fuzz 70-99)
 b_typo = {'address': 'เลขที่ 99 ถนนพระราม5 แขวงคลองเตย เขตคลองเตย กรุงเทพมหานคร'}

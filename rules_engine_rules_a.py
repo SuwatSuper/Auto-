@@ -3,6 +3,7 @@
 ห้ามแก้ logic — golden byte-identical."""
 from __future__ import annotations
 from rules_engine_base import *  # noqa: F401,F403
+from core_utils import parse_address_input  # v9.2 SMART-ADDR: parse 2 ฝั่งด้วย parser เดียวกัน
 
 def r_cmp001(b,m,c):
     try:
@@ -71,54 +72,111 @@ def r_cmp004(b,m,c):
                 f"ไฟล์='{vis(bc_raw)}' | master='{vis(mc_raw)}' (␣ = ช่องว่าง)"]
     return []
 
+# ════════════════════════════════════════════════════════════════════════════
+# v9.2 SMART-ADDR (ADR-014) — เทียบที่อยู่ "ทีละ field" (generic ทุกที่อยู่ ไม่ hardcode)
+#   เลิก "เทียบข้อความเป็นก้อน" (ต้นเหตุ false alarm: ลำดับ/ช่องว่าง/label ฟอร์ม)
+#   → parse 2 ฝั่งเป็น field + normalize + เทียบด้วย token_sort_ratio. ใช้ร่วม ADDR001/ADDR003
+# ════════════════════════════════════════════════════════════════════════════
+_ADDR_FUZZ_MIN = 90                                       # token_sort_ratio ≥ 90 = field เดียวกัน
+_ADDR_EMPTY = {'', '-', '–', '—', 'n/a', 'na', 'ไม่มี'}    # ค่าว่าง/ขีด/label เปล่า = ไม่นับ
+_ADDR_ANCHOR = ('zipcode', 'district', 'subdistrict', 'house_no')  # ตรงครบ = ที่อยู่ถูก
+_ADDR_LABEL = {'house_no':'เลขที่','soi':'ซอย','road':'ถนน',
+               'subdistrict':'แขวง/ตำบล','district':'เขต/อำเภอ','province':'จังหวัด',
+               'zipcode':'รหัสไปรษณีย์','building':'อาคาร','floor':'ชั้น','room':'ห้อง'}
+
+def _addr_is_empty(v):
+    """ค่า field ว่าง/ขีด/label ฟอร์มเปล่า → ไม่นับว่ามีข้อมูล"""
+    return re.sub(r'\s+','',str(v or '')).lower() in _ADDR_EMPTY
+
+def _addr_val(s):
+    """normalize 'ค่า' ก่อนเทียบ: ลบช่องว่างทั้งหมด + รวมคำพ้องจังหวัด (กทม.=กรุงเทพมหานคร)"""
+    s = re.sub(r'\s+','',str(s or ''))
+    s = re.sub(r'^(กทม\.?|กรุงเทพฯ?|กรุงเทพมหานคร)$','กรุงเทพมหานคร',s)
+    return s
+
+def _addr_extra(text):
+    """ดึง อาคาร/ชั้น/ห้อง (parse_address_input ไม่ครอบ). จับเลขที่ตามหลังแม้คั่น space ('พี 23'='พี23')"""
+    t = normalize_text(text or ''); out = {}
+    for key, pat in (('building', r'อาคาร\s*([^\s,]+(?:\s+\d+(?:/\d+)?)?)'),
+                     ('floor',    r'(?:ชั้นที่|ชั้น)\s*([0-9]{1,3})'),
+                     ('room',     r'(?:ห้องเลขที่|ห้อง)\s*([^\s,]+(?:\s+\d+)?)')):
+        mm = re.search(pat, t)
+        if mm and not _addr_is_empty(mm.group(1)):
+            out[key] = mm.group(1).strip()
+    return out
+
+def _addr_parse_smart(text):
+    """parse ที่อยู่ → field มาตรฐาน. label-based (parse_address_input) + heuristic เมื่อไม่มี label"""
+    t = normalize_text(text or '')
+    parts = dict(parse_address_input(t))   # house_no/moo/soi/road/subdistrict/district/province/zipcode
+    parts.update(_addr_extra(t))           # + building/floor/room
+    zips = re.findall(r'\b(\d{5})\b', t)   # heuristic: ไปรษณีย์ = เลข 5 หลักท้ายสุด
+    if zips: parts['zipcode'] = zips[-1]
+    if not parts.get('house_no'):          # heuristic: เลขนำหน้า เช่น "5/32", "99"
+        mm = re.match(r'\s*([0-9]+(?:[/\-][0-9]+)*)', t)
+        if mm: parts['house_no'] = mm.group(1)
+    if not parts.get('province') and re.search(r'กรุงเทพ|กทม', t):
+        parts['province'] = 'กรุงเทพมหานคร'
+    # heuristic: แขวง/เขต "ไม่มี label" (เช่น "หนองบอน ประเวศ") → เดาจาก 2 token ไทยท้าย ก่อนจังหวัด
+    #   ปลอดภัย: ค่าที่เดามาเทียบ master ด้วย fuzz≥90 อยู่ดี — เดาผิดก็ไม่ match (ไม่ดับของจริง)
+    if not parts.get('district') or not parts.get('subdistrict'):
+        tail = re.sub(r'\b\d{5}\b.*$', '', t)
+        tail = re.sub(r'(กรุงเทพมหานคร|กรุงเทพฯ?|กทม\.?|จังหวัด\s*\S+)\s*$', '', tail).strip()
+        _skip = ('ซอย','ตรอก','ถนน','อาคาร','ชั้น','ห้อง','เลขที่','หมู่','หมู่บ้าน')
+        thai = [w for w in re.split(r'\s+', tail)
+                if re.fullmatch(r'[ก-๙]{2,}', w) and not any(w.startswith(s) for s in _skip)]
+        if len(thai) >= 2:
+            parts.setdefault('district', thai[-1])
+            parts.setdefault('subdistrict', thai[-2])
+    return {k: v for k, v in parts.items() if not _addr_is_empty(v)}
+
+def _addr_field_match(bv, mv):
+    """เทียบค่า field: True=ตรง, False=ต่างจริง, None=ทะเบียนไม่มี (ไม่ต้องเช็ค)"""
+    if _addr_is_empty(mv): return None
+    if _addr_is_empty(bv): return False
+    a, b2 = _addr_val(bv), _addr_val(mv)
+    if a == b2: return True
+    if len(a) >= 4 and len(b2) >= 4 and (a in b2 or b2 in a): return True  # ยาวพอ → containment
+    return fuzz.token_sort_ratio(a, b2) >= _ADDR_FUZZ_MIN
+
+def _addr_smart_diff(b, m):
+    """แกนกลาง ADDR: parse 2 ฝั่ง → เทียบทีละ field. คืน anchor_ok / core(ERROR) / sub(WARNING)"""
+    bp = _addr_parse_smart(b.get('address', ''))
+    mp = dict(m.get('address_parts') or {})
+    mp.update(_addr_extra(m.get('address_full', '') or m.get('address', '')))
+    res = {f: _addr_field_match(bp.get(f), mp.get(f)) for f in set(list(bp) + list(mp))}
+    anchor_ok = all(res.get(f) is not False for f in _ADDR_ANCHOR)
+    core = []
+    for f in _ADDR_ANCHOR:
+        if res.get(f) is False:
+            lbl, mv, bv = _ADDR_LABEL.get(f, f), mp.get(f, ''), bp.get(f, '')
+            core.append(f"ไม่พบ{lbl} (ทะเบียน: {mv})" if _addr_is_empty(bv)
+                        else f"{lbl}ไม่ตรง (บิล: {bv} / ทะเบียน: {mv})")
+    sub = []
+    for f in ('building', 'floor', 'room'):
+        if res.get(f) is False:
+            lbl, mv, bv = _ADDR_LABEL.get(f, f), mp.get(f, ''), bp.get(f, '')
+            sub.append(f"ทะเบียนมี{lbl} {mv} (บิลไม่มี)" if _addr_is_empty(bv)
+                       else f"{lbl}ต่าง (บิล: {bv} / ทะเบียน: {mv})")
+    return {'anchor_ok': anchor_ok, 'core': core, 'sub': sub}
+
 def r_addr001(b,m,c):
-    """v8.1: normalize space รอบ '/' + standalone validation เมื่อไม่มี master"""
-    bv = normalize_text(b['address'])
+    """v9.2 SMART (ADR-014): เทียบที่อยู่ทีละ field — ลำดับ/ช่องว่าง/label ต่างไม่เตือน.
+    anchor (ไปรษณีย์+เขต+แขวง+เลขที่) ตรงครบ = ที่อยู่ถูก ; ERROR เฉพาะ anchor ที่ต่างจริง"""
+    bv = normalize_text(b.get('address', ''))
     if not bv: return ['ไม่พบที่อยู่']
-    # v8.1: Standalone validation เมื่อ master=None หรือไม่มี address_parts
+    # standalone (ไม่มี master / address_parts) — คงพฤติกรรมเดิมเป๊ะ
     if not m or not m.get('address_parts'):
         issues = []
-        # ตรวจรหัสไปรษณีย์ 5 หลัก
         if not re.search(r'\b\d{5}\b', bv):
             issues.append('ไม่พบรหัสไปรษณีย์ 5 หลัก')
-        # ตรวจว่ามีอย่างน้อย 1 ใน จังหวัด/เขต/อำเภอ/แขวง/ตำบล
-        has_loc = any(kw in bv for kw in ['จังหวัด','เขต','อำเภอ','แขวง','ตำบล','กรุงเทพ'])
-        if not has_loc:
+        if not any(kw in bv for kw in ['จังหวัด','เขต','อำเภอ','แขวง','ตำบล','กรุงเทพ']):
             issues.append('ไม่พบจังหวัด/เขต/อำเภอ/แขวง/ตำบล')
         return issues
-
-    # ตัด whitespace รอบ '/' ให้เป็น compact: "3 / 182" → "3/182"
-    def _compact(s):
-        return re.sub(r'\s*/\s*', '/', s)
-    bv_compact = _compact(bv)
-    # version ที่ '/' แทนด้วย space: "3/182" → "3 182"
-    bv_spaced = bv_compact.replace('/', ' ')
-
-    MANDATORY = {'house_no','moo','subdistrict','district','province'}
-    label = {'house_no':'เลขที่','moo':'หมู่ที่','soi':'ซอย','road':'ถนน',
-             'subdistrict':'แขวง/ตำบล','district':'เขต/อำเภอ','province':'จังหวัด','zipcode':'รหัสไปรษณีย์'}
-    errors = []; infos = []
-    for k, v in (m.get('address_parts') or {}).items():
-        if not v: continue
-        v_compact = _compact(v)
-        v_spaced = v_compact.replace('/', ' ')
-        # match แบบ flexible: ตรงเป๊ะ หรือ '/' = space
-        if v_compact in bv_compact or v_spaced in bv_spaced:
-            continue
-        if k in ('soi','road') and fuzz.partial_ratio(v_compact, bv_compact) >= CFG['FUZZY_SOI_THRESHOLD']:
-            continue
-        if k in MANDATORY:
-            errors.append(f"{label.get(k,k)} {v}")
-        elif k == 'zipcode':
-            errors.append(f"{label.get(k,k)} {v}")
-        else:
-            infos.append(f"{label.get(k,k)} {v}")
-    out = []
-    if errors:
-        out.append(f"ขาด {len(errors)} จุด: {'; '.join(errors[:4])}")
-    if infos:
-        out.append(f"ไม่พบ {'; '.join(infos[:3])} (อาจไม่มีในเอกสาร)")
-    return out
+    diff = _addr_smart_diff(b, m)
+    if diff['anchor_ok']:
+        return []   # anchor ครบ → ดับ false alarm (ลำดับ/space/soi/road ต่างไม่ฟ้อง)
+    return [f"ที่อยู่ไม่ตรงทะเบียน: {'; '.join(diff['core'][:4])}"] if diff['core'] else []
 
 def r_addr002(b,m,c):
     if not m: return []
@@ -137,35 +195,11 @@ def r_addr002(b,m,c):
     return issues
 
 def r_addr003(b, m, c):
-    """v5.8s: ตรวจชั้น/อาคาร/ห้องเลขที่ — เทียบบิลกับ master 2 ทาง
-       parse_address_input ไม่ครอบฟิลด์เหล่านี้ จึงต้องเช็กเองตรงนี้
-       เคสที่จับ:
-         • บิลโผล่ 'ชั้นที่ 21' มาทั้งที่ master ไม่มี (อาจเปลี่ยน vendor / เอกสารผิด)
-         • master มี 'อาคาร XX' แต่บิลไม่มี (อาจเอกสารใหม่ตกหล่น)
-    """
+    """v9.2 SMART (ADR-014): อาคาร/ชั้น/ห้อง — เทียบหลัง normalize (space/label/ลำดับไม่ทำให้ฟ้อง).
+    เตือน WARNING เฉพาะ sub-field ที่ต่าง/ขาดจริง (ใช้แกน _addr_smart_diff ร่วมกับ ADDR001)"""
     if not m: return []
-    bv = normalize_text(b.get('address', ''))
-    mv = normalize_text(m.get('address_full', ''))
-    if not bv or not mv: return []
-
-    patterns = [
-        ('ชั้น',       r'(?:ชั้นที่|ชั้น)\s*([0-9]+)'),
-        ('อาคาร',      r'อาคาร\s*([^\s,]{1,30})'),
-        ('ห้องเลขที่', r'(?:ห้องเลขที่|ห้อง)\s*([^\s,]{1,15})'),
-    ]
-    diffs = []
-    for label, pat in patterns:
-        bill_vals = set(re.findall(pat, bv))
-        master_vals = set(re.findall(pat, mv))
-        for v in bill_vals - master_vals:
-            if not any(fuzz.ratio(v, mv_x) >= 85 for mv_x in master_vals):
-                diffs.append(f"บิลมี {label} {v} (master ไม่มี)")
-        for v in master_vals - bill_vals:
-            if not any(fuzz.ratio(v, bv_x) >= 85 for bv_x in bill_vals):
-                diffs.append(f"master มี {label} {v} (บิลไม่มี)")
-    if diffs:
-        return ['; '.join(diffs[:4])]
-    return []
+    diff = _addr_smart_diff(b, m)
+    return ['; '.join(diff['sub'][:4])] if diff['sub'] else []
 
 def r_tax001(b,m,c):
     t = clean_tax_id(b['tax_id'])

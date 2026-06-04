@@ -36,6 +36,7 @@ run "[2] smoke test"             "$PY" smoke_test.py
 run "[3] pinned logic"           "$PY" test_pinned_logic.py
 run "[3b] parser negative/fuzz"  "$PY" test_parser_negative.py
 run "[3c] rules coverage"        "$PY" test_rules_coverage.py
+run "[3c-addr] smart address (ADDR001+003)" "$PY" test_addr_smart.py
 run "[3c2] vat002 tolerance 0.50 (ADR-005)" "$PY" test_vat002_tolerance.py
 run "[3d] verification agent"    "$PY" test_verification_agent.py
 run "[3d2] verification lens pin"  "$PY" test_verification_lens_pin.py

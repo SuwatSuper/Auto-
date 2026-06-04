@@ -339,3 +339,23 @@ floor ปลอดภัยปัจจุบัน (ผ่านทุกโม
 - ✅ golden `d8bcde85…` ไม่ขยับ (advisory read-only) · agent contracts 37/37 · test_vendor_report 22/22
   · super `_EXPECTED`=9 ไม่กระทบ (vendor_report รันหลัง super) · notepad ยัง "ท้ายสุด" · full CI เขียว
 - เพิ่มใน run_ci.sh [4b] + export ใน agents/__init__.py
+
+### ADR-014 (โดเมน/ผู้ใช้สั่ง) — SMART-ADDR: ADDR001+ADDR003 เทียบที่อยู่ทีละ field
+- สถานะ: **ACTIVE** (ผู้ใช้สั่งแก้ business logic — **เปลี่ยนผลตรวจ → ต้อง regen baseline จริง**)
+- ปัญหา: false alarm "ที่อยู่ไม่ตรง" ทั้งที่ตรงจริง เพราะเทียบข้อความ "เป็นก้อน" (string containment)
+  → ลำดับต่าง (ฟอร์ม ภ.พ.20 vs คนเขียน) / ช่องว่าง ("พี 23" vs "พี23") / label+dash ("ห้องเลขที่ -")
+- วิธีแก้ (generic ทุกที่อยู่ — **ไม่ hardcode ที่อยู่ใด**): เปลี่ยนเป็น "แยก field แล้วเทียบทีละช่อง"
+  - แกนเดียว `_addr_smart_diff(b,m)` ใช้ร่วม ADDR001(ERROR)/ADDR003(WARNING) — รวมตรรกะตามที่ผู้ใช้ขอ
+  - parse 2 ฝั่งด้วย `parse_address_input` (reuse) + heuristic ฝั่งบิลไม่มี label (เลขนำหน้า, ไปรษณีย์ 5 หลักท้าย, 2 token ไทยท้าย=แขวง/เขต)
+  - normalize: ลบ space, ตัด label เปล่า/'-', รวมคำพ้อง (กทม.=กรุงเทพมหานคร)
+  - เทียบ field ด้วย `fuzz.token_sort_ratio ≥ 90`
+  - **anchor** = ไปรษณีย์+เขต+แขวง+เลขที่ ตรงครบ → ที่อยู่ถูก (ไม่เตือน) ; ดับ false alarm
+  - severity: space/ลำดับ/label ต่าง→เงียบ (INFO) · anchor ต่างจริง→ERROR (ADDR001) · อาคาร/ชั้น/ห้องต่าง→WARNING (ADDR003)
+- ⚠️ **ผลกระทบ golden:** บน fixture (ไม่มี ADDR issue) → `d8bcde85…` **ไม่ขยับ** (ยืนยันแล้ว)
+  - บน **ข้อมูลจริง 81 ไฟล์** → ADDR issue จะ **ลดลง** (false alarm หาย) = `ec61907f…` **จะเปลี่ยน**
+  - ผู้ใช้ต้อง **regen baseline โดยตั้งใจ** หลังตรวจผลว่าถูกต้อง:
+    `PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 golden_master.py . baseline.json <81 ไฟล์>`
+    แล้วบันทึก hash ใหม่ที่นี่ (ของเดิม ec61907f = ก่อน ADR-014)
+- ทดสอบ: `test_addr_smart.py` (14 เคส) — ตรง/คนละลำดับ/space/label เปล่า→เงียบ ; คนละเขต/ไปรษณีย์→ERROR
+  · อัปเดต `test_rules_extra.py` ADDR001 (ถ้อยคำ "ขาด"→"ไม่ตรงทะเบียน") · run_ci.sh [3c-addr]
+- ✅ fixture golden ไม่ขยับ · full CI เขียวครบ · ไม่แตะกฎอื่น (diff เฉพาะ r_addr001/003 + helper)
