@@ -42,7 +42,8 @@ SOURCE = ",".join(os.path.splitext(f)[0] for f in _allfiles)
 TESTS = [
     ["test_rules_coverage.py"], ["test_rules_extra.py"], ["test_rules_extra2.py"],
     ["test_units_extra.py"], ["test_validators.py"], ["test_validators_extra.py"],
-    ["test_validators_coverage.py"], ["test_parser_helpers.py"], ["test_parser_extra.py"],
+    ["test_validators_coverage.py"], ["test_validators_branch.py"],
+    ["test_parser_helpers.py"], ["test_parser_extra.py"],
     ["test_parser_extra2.py"], ["test_parser_negative.py"], ["test_pinned_logic.py"],
     ["regression_full.py", ".", "tests/fixtures", "tests/fixtures/baseline_fixture.json"],
 ]

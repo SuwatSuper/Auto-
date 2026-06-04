@@ -146,14 +146,17 @@
 
 | module | line% | branch% | combined% |
 |---|---|---|---|
-| parser.py | 95.1 | 87.3 | 92.2 |
-| rules_engine.py | 95.0 | 85.0 | 91.1 |
-| validators.py | 93.5 | **79.4** | 88.0 |
+| parser.py | 95.2 | 87.3 | 92.2 |
+| rules_engine.py | 95.1 | 85.0 | 91.2 |
+| validators.py | **100.0** | **93.8** | **97.6** |
 | puopuy_units.py | 100.0 | 100.0 | 100.0 |
-| TOTAL (แกน) | 95.0 | 85.6 | 91.4 |
+| TOTAL (แกน) | 95.9 | 87.5 | 92.7 |
 
-floor ปลอดภัยปัจจุบัน (ผ่านทุกโมดูล) = **branch 79** ; แนะนำตั้ง `PUOPUY_COV_BRANCH_MIN=79`
-แล้วค่อยเขียนเทสเพิ่มให้ validators ไต่ขึ้น (เป้าถัดไป 85 → ตามที่ผู้ใช้ตัดสิน).
+> ค่า validators ไต่ขึ้นจาก 79.4 → 93.8 ใน ADR-010 (เพิ่ม `test_validators_branch.py`). ดูด้านล่าง.
+
+floor ปลอดภัยปัจจุบัน (ผ่านทุกโมดูล) ขยับขึ้นเป็น **branch 85** (lowest = rules_engine 85.0) ;
+ตั้ง `PUOPUY_COV_BRANCH_MIN=85` ได้แต่ rules_engine อยู่พอดีขอบ (เปราะ) — แนะนำตั้ง **84** เป็น floor
+ที่มี margin แล้วค่อยไต่ rules_engine ขึ้นในงานถัดไป.
 
 ---
 
@@ -279,3 +282,17 @@ floor ปลอดภัยปัจจุบัน (ผ่านทุกโม
   · ⚠️ sandbox นี้ sys_issues=0 → path merge ของ issues พิสูจน์เชิงตรรกะ + golden สะอาด ; ข้อมูลที่มี issue (81 ไฟล์) คือบททดสอบจริง — รัน verify_parallel.py ยืนยัน
 
 **OBJ-PERF สรุป: parse 46.9s → 8.9s = 5.3× (single-core) + parallel path พร้อมใช้ (multi-core) — ผลทุกชั้น byte-identical**
+
+### ADR-010 (OBJ-TEST) — ดัน branch coverage ของ validators.py (79.4 → 93.8)
+- สถานะ: **ACTIVE** (ลงมือแล้ว — เพิ่ม pin/coverage test, golden byte-identical)
+- ปัญหา: validators.py เป็นโมดูลแกนที่ branch ต่ำสุด (79.4%) — กิ่ง detection หลัก
+  (IV ซ้ำ/ถอยหลัง/ข้ามวัน/เดือนไม่ตรง/sheet-day/DT004/DOC001) + guard + fallback ไม่ถูกตรวจ
+- วิธี: เพิ่มไฟล์ **`test_validators_branch.py`** (32 เคส) สร้างบิลสังเคราะห์จุดชนวนแต่ละกิ่ง
+  - positive detection ทุกชนิด + guard (no iv_date/iv_number, group เล็ก, dedup source)
+  - `detect_iv_period_mismatch` ครบทุกเส้นตีความงวด (ปี4+เดือน/ปี2+เดือน/ปี4อย่างเดียว/อ่านไม่ได้)
+  - `check_product_typos` fallback path (monkeypatch `rapidfuzz.process.cdist` ให้ raise → ลง except)
+- ผล (coverage_gate): validators **line 93.5→100.0 · branch 79.4→93.8 · combined 88.0→97.6**
+  - TOTAL แกน: branch 85.6→87.5 ; validators กลายเป็น branch สูงสุดในกลุ่ม non-trivial
+- ✅ golden fixture `d8bcde85…` ไม่ขยับ · tripwire เขียวครบ · เป็น test ล้วน ไม่แตะโค้ดโดเมน
+- ลงทะเบียนใน `coverage_gate.py` TESTS (วัดในเกตทุกครั้ง) + อัปเดตตาราง §6.1
+- floor ปลอดภัยใหม่: branch 85 (lowest = rules_engine 85.0) ; งานถัดไป = ไต่ rules_engine ขึ้น
