@@ -215,17 +215,14 @@ check(P._dic_pick_qty_price(df_q.to_numpy(dtype=object), [0, 1], 3, []) == (None
 # 2 คอลัมน์ แต่ qty×price ไม่เท่ากับ amount เลย → fallback min/max
 qc, pc = P._dic_pick_qty_price(df_q.to_numpy(dtype=object), [0, 1], 3, [(0, [1, 1]), (1, [2, 5])])
 check(qc is not None and pc is not None, f"2 คอลัมน์ไม่ validate → fallback heuristic min/max ({qc},{pc})")
-# detect_item_columns_safe: [พบบั๊กแฝง] เรียก _compute_col_confidence ที่ "ไม่มีนิยามในทั้งแพ็กเกจ"
-#   → เรียกเมื่อใดก็ NameError เสมอ. ฟังก์ชันนี้ไม่มี call site จริงใน pipeline (golden ใช้
-#   detect_item_columns ตรง ๆ) จึงไม่กระทบ golden hash — แต่เป็น dead-on-arrival API.
-#   เทสยืนยัน "พฤติกรรมจริงปัจจุบัน" (ยกข้อบกพร่องไว้ใน audit report; ไม่แก้ source เพื่อคง hash)
-_raised = None
-try:
-    P.detect_item_columns_safe(df_q)
-except NameError as e:
-    _raised = e
-check(_raised is not None and '_compute_col_confidence' in str(_raised),
-      "detect_item_columns_safe → NameError (_compute_col_confidence ไม่ถูกนิยาม) [บั๊กแฝง บันทึกใน audit]")
+# detect_item_columns_safe: [ADR-015] เดิมเป็น dead-on-arrival (เรียก _compute_col_confidence
+#   ที่ไม่ถูกนิยาม → NameError). v9.2 นิยามฟังก์ชันนี้แล้ว → ทำงานได้จริง คืน 7-tuple พร้อม conf.
+#   ฟังก์ชันนี้ไม่มี call site ใน pipeline (production ใช้ detect_item_columns ตรง ๆ) → golden ไม่ขยับ.
+res7 = P.detect_item_columns_safe(df_q)
+check(isinstance(res7, tuple) and len(res7) == 7,
+      "detect_item_columns_safe คืน 7-tuple (6 คอลัมน์ + col_confidence) [ADR-015]")
+check(res7[6] in ('HIGH', 'LOW'),
+      f"col_confidence เป็น HIGH/LOW (ได้ '{res7[6]}') — ไม่ NameError อีกต่อไป")
 
 # ─────────────────────────────────────────────────────────────
 print("\n[P11] check_iv_format — อักขระน่าสงสัย / ยาวผิด / จำนวนหลักผิด")

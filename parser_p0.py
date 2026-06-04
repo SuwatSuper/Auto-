@@ -364,6 +364,35 @@ def detect_item_columns(df):
 
     return seq_col, name_col, qty_col, unit_col, price_col, amt_col
 
+def _compute_col_confidence(df, seq_col, qty_col, price_col, amt_col):
+    """ADR-015: ความเชื่อมั่นของชุดคอลัมน์ที่ detect ได้ → 'HIGH' | 'LOW'.
+    HIGH = qty×price ≈ amount (tol 2%) ผ่าน ≥50% ของ item rows (seq 1..50) ; ไม่งั้น 'LOW'.
+    คอลัมน์หลักขาด/ตรวจไม่ได้ → 'LOW' (fail-safe: ไม่โยน exception ไม่เดามั่ว).
+    เดิมฟังก์ชันนี้ "หายไป" → detect_item_columns_safe เป็น dead-on-arrival (NameError)."""
+    if seq_col is None or qty_col is None or price_col is None or amt_col is None:
+        return 'LOW'
+    try:
+        M = df.to_numpy(dtype=object)
+        item_rows = _dic_item_rows(M, df.shape[0], seq_col)
+        if not item_rows:
+            return 'LOW'
+        ok = chk = 0
+        for r in item_rows:
+            try:
+                qf = float(M[r, qty_col]); pf = float(M[r, price_col]); af = float(M[r, amt_col])
+            except (TypeError, ValueError):
+                continue
+            if af == 0:
+                continue
+            chk += 1
+            if abs(qf * pf - af) / abs(af) < 0.02:
+                ok += 1
+        if chk == 0:
+            return 'LOW'
+        return 'HIGH' if ok / chk >= 0.5 else 'LOW'
+    except Exception:
+        return 'LOW'
+
 def detect_item_columns_safe(df):
     """Additive wrapper รอบ detect_item_columns เดิม.
     คืน tuple เดิม 6 ค่า + ค่าที่ 7: col_confidence ('HIGH' | 'LOW')

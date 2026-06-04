@@ -359,3 +359,20 @@ floor ปลอดภัยปัจจุบัน (ผ่านทุกโม
 - ทดสอบ: `test_addr_smart.py` (14 เคส) — ตรง/คนละลำดับ/space/label เปล่า→เงียบ ; คนละเขต/ไปรษณีย์→ERROR
   · อัปเดต `test_rules_extra.py` ADDR001 (ถ้อยคำ "ขาด"→"ไม่ตรงทะเบียน") · run_ci.sh [3c-addr]
 - ✅ fixture golden ไม่ขยับ · full CI เขียวครบ · ไม่แตะกฎอื่น (diff เฉพาะ r_addr001/003 + helper)
+
+### ADR-015 (correctness/บั๊กยืนยันแล้ว) — นิยาม `_compute_col_confidence` ที่หายไป
+- สถานะ: **ACTIVE** (Phase 0 ของงาน ITM01/ITM008 — แก้บั๊กที่ยืนยันได้ ; golden ไม่ขยับ)
+- บั๊กที่ยืนยัน (Phase 0): `detect_item_columns_safe` (parser_p0.py) เรียก `_compute_col_confidence`
+  ที่ **ไม่มี def ทั้ง repo** → dead-on-arrival (NameError). เดิม test ตรึงไว้ว่า "พังโดยตั้งใจ".
+- แก้: นิยาม `_compute_col_confidence(df, seq_col, qty_col, price_col, amt_col) → 'HIGH'|'LOW'`
+  ตาม contract ที่ documented (qty×price≈amount ผ่าน ≥50% ของ item rows = HIGH) — fail-safe ไม่โยน
+- ⚠️ **ไม่กระทบ golden:** `detect_item_columns_safe` **ไม่มี call site ใน production** (pipeline ใช้
+  `detect_item_columns` 6-tuple ที่ parser_p2.py ตรง ๆ) → fixture `d8bcde85…` ไม่ขยับ · 81 ไฟล์ไม่ต้อง rebaseline
+- อัปเดต `test_parser_extra.py`: จากเดิม assert NameError → assert คืน 7-tuple + conf∈{HIGH,LOW}
+
+> **Phase 0 — บันทึกข้อค้นพบ (สำคัญ):** สมมุติฐาน 2/3 ในเอกสารแก้บั๊ก *ไม่ตรง* call graph จริง:
+> (1) `detect_item_columns_safe` เป็น dead code ไม่ใช่เส้น production → ไม่ได้ทำให้เกิด cascade
+> fallback ตามที่อ้าง ; (2) `r_itm008` คิด median **ต่อใบกำกับ** + guard เข้ม (≥5 รายการ,
+> qty×price≈amount ≥80%, ratio>50×) — ไม่ได้ pool ข้ามบริษัท.
+> การแก้ ITM01 (กลุ่มกฎลำดับ ITM002/013/014) และ ITM008-b (over-sum) ให้ถูกต้อง **ต้อง reproduce
+> บนไฟล์จริง 81/103** ก่อน (ไม่อยู่ใน repo) — ห้ามแก้ engine + rebaseline v9.2 แบบเดา. รอไฟล์จริง.
