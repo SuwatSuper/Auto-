@@ -1,0 +1,17 @@
+# OBJ-TEST — config สำหรับ lint/format (ruff + black)
+# ขอบเขตบังคับใน CI: โมดูลใหม่/agent layer (โค้ดที่ดูแลในเฟสนี้). โค้ด legacy (parser/rules/main)
+# ค่อยขยายเมื่อทำ OBJ-MAINT (ซอยไฟล์) เพื่อกัน regression ระหว่างจัดรูปแบบไฟล์ใหญ่.
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# default (E,F) — เน้น error/pyflakes ; ปรับเพิ่มภายหลังได้
+[tool.ruff.lint.per-file-ignores]
+# เทสเป็น script: ต้องตั้ง sys.path ก่อน import engine (E402), รวม import บรรทัดเดียว (E401),
+# ชื่อสั้น l ในตัวช่วย (E741) — เป็น idiom ของ harness ไม่ใช่โค้ดส่งมอบ
+"test_*.py" = ["E402", "E401", "E741"]
