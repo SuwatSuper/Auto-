@@ -11,7 +11,7 @@
 | OPT | งาน | สถานะ | Hash | Cert |
 |---|---|---|---|---|
 | **OPT-1** | parser hot path (`_dic_int_run`/`_dic_find_seq` อ่าน M) | ✅ **ทำแล้ว** (sandbox) | ไม่ขยับ (พิสูจน์ differential) | ⚠ NEEDS_REAL_DATA_CERT |
-| OPT-2 | re-export chain เปราะ | ⏸ **DECIDE GATE** (รออนุมัติ — เสี่ยงสูง) | ไม่ขยับ (คาด) | — |
+| OPT-2 | re-export chain เปราะ → guard | ✅ **(ค) ทำแล้ว** (guard, hash-neutral) | ไม่ขยับ (พิสูจน์) | — |
 | OPT-3 | report styling รายเซลล์ | ⏸ defer (ปริมาณยังต่ำ) | report อาจขยับ | — |
 | OPT-4 | รวม 3 taxonomy | ⏸ defer (guard พอแล้ว) | report อาจขยับ | — |
 | OPT-5 | CI/infra bootstrap | ✅ **พอแล้วเดิม** (doctor advise + README มี) | ไม่ขยับ | — |
@@ -104,9 +104,9 @@ parse ครองเวลาเสมอ → ประสบการณ์ผ
 
 ---
 
-## 3. OPT-2 — MAINTAINABILITY: re-export chain เปราะ ⏸ DECIDE GATE (รออนุมัติ)
+## 3. OPT-2 — MAINTAINABILITY: re-export chain เปราะ ✅ (ค) ทำแล้ว
 
-> **Priority: กลาง** · **Hash: ไม่ขยับ (คาด)** · handoff สั่งชัด: *"ต้องเสนอ options+tradeoffs ขออนุมัติก่อนแตะ"*
+> **Priority: กลาง** · **Hash: ไม่ขยับ (พิสูจน์)** · เจ้าของอนุมัติออปชัน **(ค) เพิ่ม guard ก่อน** (2026-06)
 
 ### Current risk / Root cause (file:line)
 chain `parser_p0a → parser_p0 → parser_p1 → parser_p2 → parser.py(__all__)` ทำ **explicit re-export**
@@ -121,10 +121,18 @@ chain `parser_p0a → parser_p0 → parser_p1 → parser_p2 → parser.py(__all_
 | **(ข)** ยุบ parser_p0a/p0/p1/p2 เป็นโมดูลเดียว | รวมกลับ | ตัด chain ทิ้งทั้งหมด | **ชน file-size gate ≤600 LOC** (`test_file_size_ceiling.py`) ; coverage map เปลี่ยน ; เสี่ยงสุด |
 | **(ค)** คง chain + เพิ่ม guard | เพิ่ม test ที่ assert chain integrity (ทุกชื่อใน `__all__` import ได้ครบ) | เสี่ยงต่ำสุด, ไม่แตะ logic | ไม่ลดความเปราะจริง แค่จับเร็วขึ้น |
 
-**ข้อเสนอแนะ (ของผม):** ทำ **(ค) ก่อน** (guard ราคาถูก จับ regression chain ได้ทันที, hash ไม่ขยับแน่นอน) →
-ค่อยพิจารณา (ก) ภายหลัง. **(ข) ไม่แนะนำ** (ชน gate + เสี่ยงสุด, ROI ต่ำ). **รออนุมัติก่อนลงมือ.**
-- **พ่วง B2:** เมื่อ chain จัดระเบียบแล้ว ค่อย retire `detect_item_columns_safe`/`_compute_col_confidence`
-  (`parser_p0.py:83,54` — dead additive, ไม่มี call site production) ได้ปลอดภัย.
+**สิ่งที่ทำ (ออปชัน ค — เจ้าของอนุมัติ):** เพิ่ม **`test_parser_chain_integrity.py`** (run_ci `[3x8b]`):
+- **C1 chain-link:** ทุกชื่อใน `from <upstream> import (...)` ของแต่ละโมดูล (parser_p0/p1/p2/parser)
+  ต้องมีจริงใน upstream — **286 ลิงก์ ครบ**. (จับ B2: ลบ/ย้ายสัญลักษณ์ต้นน้ำ → ระบุชัดว่า *ลิงก์ไหน/ชื่ออะไร* พัง
+  แทน ImportError ปริศนา ; พิสูจน์ด้วย negative test: ลบ `parser_p0a._dic_int_run` → guard จับได้ตรงจุด)
+- **C2 public-contract:** ทุกชื่อใน `parser.__all__` (**68 ชื่อ**) เข้าถึงได้บน `parser` — จับเคส "เพิ่มของ public
+  แต่ลืมร้อยผ่าน chain" (ประกาศใน __all__ แต่ของไม่มาถึง) + C2b กันชื่อซ้ำใน __all__.
+- static (AST + import chain) ล้วน → **hash ไม่ขยับ** (ยืนยัน fixture `d8bcde85` + run_ci เขียว).
+
+**ยังไม่ทำ (future, optional):** (ก) `__all__`-driven re-export, (ข) ยุบโมดูล — ยังเป็นทางเลือกถ้าต้องการลด
+ความเปราะ *เชิงโครงสร้าง* จริง (guard ปัจจุบันแค่ "จับเร็ว" ไม่ได้ลดจำนวนจุดที่ต้อง sync). แนะนำทำหลัง cert OPT-1.
+- **พ่วง B2:** `detect_item_columns_safe`/`_compute_col_confidence` (`parser_p0.py:83,54` — dead additive,
+  ไม่มี call site production) retire ได้ปลอดภัยเมื่อจัดโครงสร้าง chain เชิงลึก (ออปชัน ก/ข) ภายหลัง.
 
 ---
 
