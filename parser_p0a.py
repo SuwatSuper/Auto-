@@ -287,7 +287,7 @@ def _dic_item_rows(M, nrows, seq_col):
     """หาแถวที่เป็นรายการสินค้า (seq 1..50) — M = sheet materialize แล้ว (M[r,c]==df.iat เชิงพฤติกรรม)"""
     return [r for r in range(nrows)
             if pd.notna(M[r, seq_col])
-            and str(M[r, seq_col]).strip().replace('.0','').isdigit()
+            and str(M[r, seq_col]).strip().removesuffix('.0').isdigit()   # [L4] ตัด .0 ท้ายเท่านั้น (เดิม replace ทั้งสตริง → '1.05'→'15')
             and 1 <= int(float(str(M[r, seq_col]))) <= 50]
 
 def _dic_text_score(M, c, item_rows):

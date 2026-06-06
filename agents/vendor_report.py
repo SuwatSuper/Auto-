@@ -121,11 +121,10 @@ def build_vendor_reports(
     filename = '{ลำดับ}.{ชื่อย่อ}.txt'  (ลำดับเริ่ม 1, เรียงยอดก่อน VAT มาก→น้อย).
     """
     out: List[Tuple[str, str]] = []
-    seen_fname: Dict[str, int] = {}
     for idx, (_key, vbills) in enumerate(_group_by_vendor(bills), start=1):
         text = _render_one(idx, vbills, master=master, memo=memo)
         base = f"{idx}.{_safe_filename(_short_name(_full_company(vbills)))}"
-        # กันชื่อไฟล์ชนกัน (ผู้ขายเดียวกันหลายงวด)
+        # [L12] ลบ seen_fname ที่ไม่เคยถูกใช้ (idx นำหน้าทำให้ชื่อไม่ชนอยู่แล้ว)
         fname = f"{base}.txt"
         out.append((fname, text))
     return out

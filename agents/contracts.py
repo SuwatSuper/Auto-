@@ -96,7 +96,7 @@ class PipelineContext:
     iv_seq: List[Any] = field(default_factory=list)
     iv_date: List[Any] = field(default_factory=list)
     typos: List[Any] = field(default_factory=list)
-    summary: Dict[str, Any] = field(default_factory=dict)
+    summary: List[Any] = field(default_factory=list)   # [L11] ตรงพฤติกรรมจริง: summarize_by_company คืน List
     dup_items: List[Any] = field(default_factory=list)
     report_path: Optional[str] = None
 

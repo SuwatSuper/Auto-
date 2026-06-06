@@ -63,7 +63,7 @@ def _pb_extract_items(result, block_df, cols):
             continue
 
         # 2. เคสปกติ มีเลขลำดับ
-        s = str(seq).strip().replace('.0','')
+        s = str(seq).strip().removesuffix('.0')   # [L4] ตัด .0 ท้ายเท่านั้น (เดิม replace ทั้งสตริง)
         if not (s.isdigit() and 1 <= int(s) <= 50): continue
 
         last_seq = int(s)
@@ -377,8 +377,9 @@ def _tor_scan_total(df, result, nrows, ncols, last_item_row):
             fv = float(str(v).replace(',', ''))
         except (ValueError, TypeError):
             continue
-        if result['vat'] and abs(fv - result['vat']) < 1: continue
-        if result['subtotal'] and abs(fv - result['subtotal']) < 1: continue
+        # [L5] is not None (เดิม truthiness): vat/subtotal == 0.0 ไม่ควรปิด guard dedup
+        if result['vat'] is not None and abs(fv - result['vat']) < 1: continue
+        if result['subtotal'] is not None and abs(fv - result['subtotal']) < 1: continue
         result['total'] = fv
         break
 

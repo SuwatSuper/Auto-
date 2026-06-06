@@ -253,14 +253,8 @@ def r_dt004(b, m, c):
             issues.append(f"ปี ค.ศ. {yr} (พ.ศ. {yr+543}) เกินช่วงปกติ (> พ.ศ. 2600) — น่าจะ digit สลับ")
         elif yr < 2012:
             issues.append(f"ปี ค.ศ. {yr} (พ.ศ. {yr+543}) ก่อน พ.ศ. 2555 — ตรวจสอบ")
-        mo = d.month
-        day = d.day
-        if mo == 0:
-            issues.append(f"เดือน = 0 ผิดปกติ")
-        if day == 0:
-            issues.append(f"วัน = 0 ผิดปกติ")
-        if day > 31:
-            issues.append(f"วัน {day} > 31 ผิดปกติ")
+        # [L2] ลบเช็ค mo==0/day==0/day>31 — dead code: datetime ให้ month∈1-12, day∈1-31 เสมอ
+        #   (ค่านอกช่วงสร้าง datetime ไม่ได้ตั้งแต่ต้น) จึงยิงไม่ได้ → ลบแล้วไม่กระทบผลตรวจ.
         return issues
     except Exception:
         return []

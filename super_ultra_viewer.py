@@ -119,8 +119,11 @@ def build(bills, master_present=True):
         ).most_common(1)[0][0]
         # ยอด/บิล
         total_sum = sum(float(b.get("total") or 0) for b in gbills)
-        prevat_sum = sum(float(b.get("subtotal") or ((b.get("total") or 0) - (b.get("vat") or 0)))
-                         for b in gbills)
+        # [L3] subtotal==0 (จริง) ไม่ควรตกไป fallback — เดิมใช้ `or` ทำให้ 0 ถูกแทนด้วย total-vat
+        prevat_sum = sum(
+            (float(b["subtotal"]) if b.get("subtotal") is not None
+             else (float(b.get("total") or 0) - float(b.get("vat") or 0)))
+            for b in gbills)
         nbills = len(gbills)
         # รวม issue ทั้งกลุ่ม → (bill_key, issue)
         gi = []
