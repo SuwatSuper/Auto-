@@ -1,6 +1,14 @@
 # OBJ-TEST — config สำหรับ lint/format (ruff + black)
 # ขอบเขตบังคับใน CI: โมดูลใหม่/agent layer (โค้ดที่ดูแลในเฟสนี้). โค้ด legacy (parser/rules/main)
 # ค่อยขยายเมื่อทำ OBJ-MAINT (ซอยไฟล์) เพื่อกัน regression ระหว่างจัดรูปแบบไฟล์ใหญ่.
+[tool.pytest.ini_options]
+# เทสทุกตัวเป็น "standalone script" (รันด้วย python3 <file>.py) ไม่ใช่ pytest-native function.
+# conftest.py มี custom collector ที่รันแต่ละสคริปต์เป็น subprocess (เหมือน run_ci.sh) →
+# ปิด builtin python-collector ไม่ให้ "import" ไฟล์เหล่านี้ (กัน module-level sys.exit ครัช collection).
+# ค่า python_files นี้จงใจไม่ match ไฟล์จริงตัวใด — ให้ conftest เป็นผู้ collect ทางเดียว.
+python_files = ["_pytest_native_disabled_*.py"]
+addopts = "-q -p no:cacheprovider"
+
 [tool.black]
 line-length = 88
 target-version = ["py312"]

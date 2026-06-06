@@ -167,3 +167,37 @@ make baseline-fixture
   ถ้าขึ้น 🚩 (taxid หาย / recon ไม่ผ่านแบบไม่ใช่ VAT003) = เจอของจริง → ค่อยทำ merged-cell handler
   แล้ววัด golden 81 ไฟล์ before/after (justify: false-positive ลด, true-positive คงอยู่).
 - **Priority:** P2 (latent — ยังไม่พบ active loss).
+
+### #2 PYTEST COLLECT CRASH — FIXED (zero-touch) · hash ไม่เปลี่ยน
+- **Current risk:** `pytest` ครัชทั้ง session (INTERNALERROR: SystemExit) เพราะไฟล์เทสเป็น standalone
+  script มี execution + `sys.exit()` ระดับ module — pytest import แล้วโค้ดรัน+exit ตอน collect.
+  ผล: ใช้ pytest/IDE test-runner ไม่ได้ (maintainability debt).
+- **Root cause (forensic):** ~38/45 ไฟล์ที่เข้าเกณฑ์ pytest (`test_*.py`/`*_test.py`) ไม่มี
+  `if __name__=="__main__"` guard — มี `sys.exit()` ที่ระดับ module (เช่น `smoke_test.py:164`,
+  `test_verification_lenses_unit.py:488`). ดู diagnose ในประวัติ session.
+- **Decision:** **ไม่ rewrite ไฟล์เทส** (เสี่ยง + ขัด "ไม่แตะ logic เทส"). ใช้ `conftest.py` custom
+  collector ที่ "รันแต่ละสคริปต์เป็น subprocess" (พฤติกรรมเดียวกับ run_ci.sh) → pytest ไม่ import
+  module เลย → module-level sys.exit ไม่กระทบ collect อีก. + `pyproject [tool.pytest.ini_options]`
+  ปิด builtin python-collector. + `e2e_test.py` ถูก exclude (hard-glob /mnt/project, ไม่อยู่ใน run_ci.sh).
+- **Long-term impact:** pytest/IDE ใช้ได้ + เปิดทางคนใหม่มาช่วย dev โดยไม่ต้องเรียนรู้ run_ci.sh ก่อน.
+- **Migration risk:** ต่ำมาก — conftest/pyproject ถูกโหลด "เฉพาะตอนรัน pytest"; run_ci.sh เรียก
+  `python3 <file>` ตรง ไม่ผ่าน pytest (พิสูจน์: `grep -c pytest run_ci.sh` = 0) → ไม่กระทบ run_ci.sh/golden.
+- **Verify:** `pytest` = **45 passed** (subprocess ทุกตัว) · run_ci.sh = 50 ด่านผ่าน · fixture `d8bcde85` คงเดิม.
+  ci.yml เพิ่ม job `pytest` แยก (collect-only + full run) รันขนานกับ gate.
+- **Hash expectation:** **ไม่เปลี่ยน** (conftest/pyproject ไม่แตะ production/golden path) — ยืนยัน d8bcde85.
+- **Priority:** P3 (debt — ไม่กระทบผลตรวจ แต่คืน maintainability).
+
+### #3 LENS CONSENSUS +2/-1 — DEFERRED (ตามกฎ: หลักฐานไม่ครบ 2 ข้อ)
+- **Current risk:** consensus ของ verification lens ไม่สมมาตร (CONFIRMED ต้อง score≥2 แต่
+  LIKELY_FALSE_POSITIVE แค่ score≤-1) + เลนส์ heuristic อ่อนนับ ±1 เท่าเลนส์เลขคณิตแม่น
+  (`agents/verification_agent.py` บริเวณ consensus banding) → verdict ชั้น "ตรวจทาน" อาจติดป้ายคลาด.
+- **เงื่อนไขปลดล็อกการแก้ (ต้องครบ 2):**
+  (ก) verdict ชั้นนี้ถูกใช้ "ตัดสินใจจริง" — **ยังไม่มีหลักฐาน** (เป็น advisory; ผลตรวจหลัก/Excel
+      ยังฟ้องครบเหมือนเดิม ไม่ขึ้นกับ verdict นี้)
+  (ข) เคยเห็นมันให้ "ป้ายหลอกจริง" บนเคสจริง — **ยังไม่มีหลักฐาน** (ไม่มีรายงานเคส)
+- **Decision:** **DEFERRED — ไม่แตะ.** เป็นการ tuning ไม่ใช่บั๊ก; การแก้จะเปลี่ยน verdict ที่ถูก pin
+  ใน `test_verification_lens_pin.py` (ต้อง re-pin) โดยไม่มีหลักฐานว่าเกณฑ์ใหม่ดีกว่า.
+  เมื่อเจอเคสจริง (ครบ ก+ข) ค่อยปรับเกณฑ์ + re-pin (เจ้าของระบุเกณฑ์ที่ต้องการ เช่น ถ่วงน้ำหนัก
+  เลนส์เลขคณิต > heuristic).
+- **Hash expectation:** **ไม่เปลี่ยน** (advisory layer ล้วน — read-only ต่อ bills/golden).
+- **Priority:** P4 (เลื่อนจนมีหลักฐาน).

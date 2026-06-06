@@ -63,3 +63,26 @@ jobs:
         # [#1] guard: parser ต้องจับ ยอด/VAT/รวม/เลขภาษี ครบแม้ไฟล์มี merged cells หนัก
         #   (พิสูจน์ด้วย reconciliation ต่อบิล + taxid). จับ regression ถ้า parser อนาคตทำค่าหาย.
         run: python diagnose_merged_cells.py tests/real_cases
+
+  # [#2] job แยก (รันขนานกับ gate — ไม่หน่วง gate หลัก): พิสูจน์ว่า `pytest` ใช้งานได้จริง
+  #   conftest.py รันแต่ละสคริปต์เป็น subprocess → collection ไม่ครัช + ทุกเทสผ่านผ่าน pytest ด้วย
+  #   (เดิม pytest ครัชทันทีเพราะ module-level sys.exit). กัน regression ของ tooling นี้.
+  pytest:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONHASHSEED: "0"
+      PUOPUY_AUDIT_DATE: "2026-06-02"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned deps + pytest
+        run: |
+          python -m pip install --upgrade pip
+          pip install -c constraints.txt pandas xlrd openpyxl rapidfuzz numpy coverage pytest
+      - name: Pytest must collect (no crash) then pass via subprocess collector
+        run: |
+          python -m pytest --collect-only -q   # ด่านตรง: collection ต้องไม่ครัช (บั๊กเดิม)
+          python -m pytest                      # ทุกสคริปต์รันเป็น subprocess (เหมือน run_ci.sh)
