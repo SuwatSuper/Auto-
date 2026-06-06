@@ -36,3 +36,6 @@ e2e_output/
 .DS_Store
 Thumbs.db
 master_companies.json
+
+# stray artifacts จากการรันเครื่องมือ consolidated ด้วยชื่อไฟล์เปล่า (ทดสอบ A1)
+bare_consolidated*.xlsx

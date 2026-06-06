@@ -314,7 +314,8 @@ def _ctx(b):
         pre = m.group(1).upper()
     iv = (b.get("iv_number") or "").strip()
     dt = b.get("iv_date")
-    d = f"{dt.day:02d}.{dt.month:02d}.{dt.year}" if dt else ""
+    # [A2-FIX] dt อาจเป็น string/ค่าแปลกที่ไม่มี .day → กัน AttributeError ทำสรุปล้ม
+    d = f"{dt.day:02d}.{dt.month:02d}.{dt.year}" if hasattr(dt, "day") else ""
     parts = [f"ไฟล์ {pre}"] if pre else []
     if iv:
         parts.append(f"เลขที่เอกสาร {iv}")
@@ -327,7 +328,11 @@ def render_ultra_block(idx: int, vc: dict) -> str:
     r = vc["row"]
     _mp = r["month"].split("/")
     hdr_month = f"{_mp[1]}.{int(_mp[0]):02d}" if len(_mp) == 2 and _mp[0].isdigit() else r["month"]
-    amt = float(r.get("prevat") or 0)
+    # [A2-FIX] prevat อาจไม่ใช่ตัวเลข (เช่น '-'/'N/A') → กัน ValueError ทำสรุปล้ม
+    try:
+        amt = float(r.get("prevat") or 0)
+    except (TypeError, ValueError):
+        amt = 0.0
     amt_s = f"{amt:,.0f}" if amt.is_integer() else f"{amt:,.2f}"
 
     ov = vc["overall"]
@@ -400,7 +405,12 @@ def emit_ultra_summary(bills, outdir, master_present=True):
          "วิธีทำงาน: ตรวจ checksum บิล + คำนวณซ้ำ(เลขภาษี/วันที่) + เทียบบิลพี่น้อง → ตัดสินทีละจุด",
          "=" * 64]
     for i, vc in enumerate(vcs, 1):
-        L += ["", SEP, render_ultra_block(i, vc), SEP]
+        # [A2-FIX] บล็อกหนึ่งเรนเดอร์ไม่ได้ ต้องไม่ทำสรุปทั้งไฟล์หาย → degrade เป็นบรรทัดหมายเหตุ
+        try:
+            block = render_ultra_block(i, vc)
+        except Exception as _e:
+            block = f"(ข้ามบล็อกที่ {i} — เรนเดอร์ไม่ได้: {type(_e).__name__})"
+        L += ["", SEP, block, SEP]
 
     path = os.path.join(outdir, "company_summary_ultra.txt")
     with open(path, "w", encoding="utf-8") as f:

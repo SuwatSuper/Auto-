@@ -341,7 +341,7 @@ def r_vat002(b,m,c):
         return []
     expected = (sub * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     diff = abs(expected - vat)
-    if diff < Decimal('0.50'):   # OBJ-0 (ADR-005): ตรงกฎโดเมน "ยอมต่างเฉพาะเศษปัด ≤0.50"
+    if diff < Decimal('0.50'):   # OBJ-0 (ADR-005): ยอมต่างเฉพาะเศษปัด "< 0.50" (ฟ้องเมื่อ ≥0.50; pin: test_vat002_tolerance.py)
         return []
     return [f"VAT ควร {expected:,.2f} แต่={vat:,.2f} (ต่าง {diff:,.2f})"]
 

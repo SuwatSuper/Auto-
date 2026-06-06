@@ -93,12 +93,11 @@ def lens_recompute(x: LensInput) -> Tuple[int, str]:
                 else (-1, "recompute: vat ≈ 7% (ไม่ต่างจริง)")
             )
         if code.startswith("VAT003"):
-            sub, vat, tot = (
-                _D(b.get("subtotal")),
-                _D(b.get("vat")) or Decimal("0"),
-                _D(b.get("total")),
-            )
-            if sub is None or tot is None:
+            sub, vat, tot = (_D(b.get("subtotal")), _D(b.get("vat")), _D(b.get("total")))
+            # [A4-FIX] เดิม `_D(vat) or Decimal("0")` ปน "vat=0 จริง" กับ "vat อ่านไม่ออก (None)"
+            #   → ถ้า vat อ่านไม่ออกจะถูกตีเป็น 0 แล้วอาจสร้าง/ซ่อน 'sub+vat≠total' ผิด.
+            #   precision-first: ข้อมูลไม่ครบ → abstain (ไม่โหวต).
+            if sub is None or tot is None or vat is None:
                 return 0, ""
             return (
                 (1, "recompute: sub+vat ≠ total")

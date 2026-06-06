@@ -62,7 +62,10 @@ def _short_name(name: str) -> str:
 def _month_label(dt):
     if not dt:
         return "ไม่ทราบเดือน", "??/??"
-    be2 = (dt.year + 543) % 100
+    # [A3-FIX] กันปีที่เป็น พ.ศ. อยู่แล้ว (>2500) ถูก +543 ซ้ำ → label/คีย์กลุ่มเพี้ยน.
+    #   ปกติ iv_date ถูก normalize เป็น ค.ศ. แล้ว → ผลเท่าเดิม (2026→69); guard นี้แค่กันเคสหลุด.
+    be = dt.year + 543 if dt.year < 2500 else dt.year
+    be2 = be % 100
     return f"{dt.month}/{be2:02d}", f"{dt.month:02d}/{be2:02d}"
 
 
@@ -217,7 +220,9 @@ def build(bills, master_present=True):
         notes_acc = {}
         for b in gbills:
             dt = b.get("iv_date")
-            dnote = f"{dt.day:02d}.{dt.month:02d}.{(dt.year + 543) % 100:02d}" if dt else ""
+            # [A3-FIX] guard ปี พ.ศ. ซ้ำ (เหมือน _month_label) — ปกติ ค.ศ. → ผลเท่าเดิม
+            _be2 = ((dt.year + 543 if dt.year < 2500 else dt.year) % 100) if dt else 0
+            dnote = f"{dt.day:02d}.{dt.month:02d}.{_be2:02d}" if dt else ""
             fpre = _file_prefix(b.get("file", ""))
             for i in b.get("issues", []):
                 code = i.get("code", "")

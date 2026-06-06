@@ -83,6 +83,13 @@ def _xlsx_sheet_items(writer, all_bills_s):
 def export_excel(all_bills, summary, iv_issues, typos, filename_issues, path):
     # decomposed (slice 3D): orchestrator คุม with/try; แต่ละชีตเป็น _xlsx_sheet_* — ลำดับ/เงื่อนไขเดิม
     try:
+        # [A5-FIX] กัน issue ที่ขาดคีย์มาตรฐาน ทำทั้ง workbook ล่ม (เหมือน build_clean_report).
+        #   setdefault = no-op กับ issue ปกติ → รายงาน/golden ไม่ขยับ.
+        for _b in all_bills:
+            for _i in _b.get('issues') or []:
+                _i.setdefault('code', 'UNKNOWN'); _i.setdefault('severity', 'INFO')
+                _i.setdefault('category', '-'); _i.setdefault('detail', '')
+                _i.setdefault('name', _i.get('code', ''))
         all_bills_s = sort_bills_by_date(all_bills)
         with pd.ExcelWriter(path, engine='openpyxl') as writer:
             _xlsx_sheet_dashboard(writer, all_bills)

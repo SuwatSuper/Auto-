@@ -118,7 +118,11 @@ _write_sheet(wb, f"สรุปต้องแก้ ({len(fix)})", fix)
 _write_sheet(wb, f"ขึ้นกับ master ({len(mas)})", mas)
 _write_sheet(wb, f"ข้อสังเกต ({len(rev)})", rev)
 
-os.makedirs(os.path.dirname(OUT), exist_ok=True)
+# [A1-FIX] OUT อาจเป็นชื่อไฟล์เปล่า (ไม่มีโฟลเดอร์นำ) → os.path.dirname คืน '' → makedirs('') ครัช.
+#   สร้างโฟลเดอร์เฉพาะเมื่อมี dirname จริง.
+_out_dir = os.path.dirname(OUT)
+if _out_dir:
+    os.makedirs(_out_dir, exist_ok=True)
 wb.save(OUT)
 print(f"✅ saved: {OUT}")
 print(f"   ดิบ {stats['raw_issues']} → consolidated {stats['consolidated_findings']} "

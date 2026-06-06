@@ -339,6 +339,14 @@ def build_clean_report(all_bills, summary, iv_issues, typos, filename_issues, pa
       ⚠️ ทั้ง 2-3 ต้องผ่าน regression_oracle + ตรวจหน้าตารายงานด้วยตา (style ไม่ครอบใน oracle)
     """
     try:
+        # [A5-FIX] กัน issue ที่ขาดคีย์มาตรฐาน (addon/external ในอนาคต) ทำทั้ง workbook ล่ม
+        #   (เดิม KeyError ใน sheet builder → export ล้ม → เสียรายงานทั้งไฟล์). setdefault = no-op
+        #   กับ issue ปกติ (engine/parser/crosscheck เติมครบ 5 คีย์อยู่แล้ว) → รายงาน/golden ไม่ขยับ.
+        for _b in all_bills:
+            for _i in _b.get('issues') or []:
+                _i.setdefault('code', 'UNKNOWN'); _i.setdefault('severity', 'INFO')
+                _i.setdefault('category', '-'); _i.setdefault('detail', '')
+                _i.setdefault('name', _i.get('code', ''))
         return _build_clean_report_impl(all_bills, summary, iv_issues, typos, filename_issues, path)
     except Exception as e:
         print(f'⚠️ สร้างรายงานคลีนล้มเหลว: {e}')
