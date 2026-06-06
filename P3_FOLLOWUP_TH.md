@@ -140,5 +140,30 @@ make baseline-fixture
 ## 4. ของที่ "ต้องไม่เปลี่ยน" (invariants ที่ guard ไว้แล้ว)
 - ผลตรวจหลักบน 81 ไฟล์: `BILLS=632 dup=1 iv_seq=26 iv_date=0 typos=34 companies=2` · hash `ec61907f…`
 - ชั้น agent ไม่เปลี่ยนผลตรวจ (engine==agent)
-- `agents_expected=9` ของ SuperAgent (ห้ามเพิ่ม/ลด agent ในสายหลักโดยไม่อัปเดต test)
+- `agents_expected=10` ของ SuperAgent (เดิม 9 — เพิ่ม `verification` ที่รันจริงใน Tier-2 แต่ตกหล่นจาก
+  `_EXPECTED`; แก้พร้อมอัปเดต `test_agents.py` ดู Decision Log §5 [P2]). ห้ามเพิ่ม/ลด agent โดยไม่อัปเดต test.
 ถ้าตัวใดเปลี่ยน = ตั้งใจหรือบั๊ก — ต้องอธิบาย + สร้าง baseline ใหม่อย่างตั้งใจ.
+
+---
+
+## 5. Decision Log — STABILIZE & HARDEN (session 2026-06)
+
+> หลักการ: DIAGNOSE→DECIDE→FIX→VERIFY · golden ห้ามขยับเว้นมีหลักฐาน before/after บน 81 ไฟล์อ้างอิง
+> · ทุกการ defer มีเหตุผล · hash-gate ที่รันได้ใน sandbox นี้ = fixture `d8bcde85` (3 บิล) — golden 81/106
+> ไฟล์จริงต้องรันบนเครื่องที่มีข้อมูล (sandbox ไม่มี `/mnt/project`).
+
+### #1 MERGED CELLS — DIAGNOSED → NO-FIX (มีหลักฐาน) · เพิ่ม guard
+- **Current risk:** ค่าวิกฤต (ยอด/VAT/รวม/เลขภาษี) อาจตกใน merged range แล้ว parser มองไม่เห็น → ยอดผิดเงียบ.
+- **Diagnose (forensic):** `diagnose_merged_cells.py` รันบนไฟล์จริง 3 ไฟล์ (KRR/STC/TKH, รวม 15 บิล,
+  merged 165–210 ช่วง/ไฟล์). ผล: **ไม่มีค่าวิกฤตหายเลย** — ทุกบิล reconcile (subtotal+vat=total เป๊ะ
+  เช่น 173269×1.07=185397.83) + เลขภาษีถูกจับครบ. ค่าที่ scanner รุ่นแรกธง (เช่น `244474` ที่ KRR
+  ชีต5 R5C19) ตรวจ cell จริงพบว่าอยู่ **เหนือ** `IV-69050092` → เป็น "เลข running หัวเอกสาร" ไม่ใช่ฟิลด์บิล
+  (parser ถูกที่ไม่จับ). 20 ธงทั้งหมด = false-positive ประเภทนี้.
+- **Decision:** **ไม่แตะ parser** — ไม่มีหลักฐานว่าพังบนข้อมูลที่ตรวจได้. แทนที่จะแก้แบบเดา (เสี่ยงขยับ
+  golden โดยไม่จำเป็น) → ติดตั้ง **guard** `diagnose_merged_cells.py tests/real_cases` ใน run_ci.sh [3x6]
+  + ci.yml (จับ regression ถ้าอนาคต parser ทำค่าหายบน real_cases).
+- **Hash expectation:** **ไม่เปลี่ยน** (ไม่แตะ parser/golden path) — ยืนยัน fixture `d8bcde85` คงเดิม.
+- **ค้างไว้ให้เจ้าของระบบ:** รัน `python3 diagnose_merged_cells.py <โฟลเดอร์ 106 ไฟล์จริง>` บนเครื่องที่มีข้อมูล.
+  ถ้าขึ้น 🚩 (taxid หาย / recon ไม่ผ่านแบบไม่ใช่ VAT003) = เจอของจริง → ค่อยทำ merged-cell handler
+  แล้ววัด golden 81 ไฟล์ before/after (justify: false-positive ลด, true-positive คงอยู่).
+- **Priority:** P2 (latent — ยังไม่พบ active loss).

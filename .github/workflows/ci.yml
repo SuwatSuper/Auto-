@@ -58,3 +58,8 @@ jobs:
       - name: Parse canary (fixture rate — กัน parse ถอยหลังเงียบ)
         # [B4-FIX] เดิมไม่อยู่ใน GitHub CI — เพิ่มเพื่อจับ parse-rate regression ตั้งแต่ใน CI
         run: python parse_canary.py tests/fixtures --baseline tests/fixtures/canary_baseline_fixture.json
+
+      - name: Merged-cell integrity (real_cases — ค่าวิกฤตไม่หายจาก merge)
+        # [#1] guard: parser ต้องจับ ยอด/VAT/รวม/เลขภาษี ครบแม้ไฟล์มี merged cells หนัก
+        #   (พิสูจน์ด้วย reconciliation ต่อบิล + taxid). จับ regression ถ้า parser อนาคตทำค่าหาย.
+        run: python diagnose_merged_cells.py tests/real_cases
