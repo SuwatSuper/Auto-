@@ -360,15 +360,29 @@ def audit_text_num_summary(echo=True):
 def _label_based_amounts(df, row_start, row_end, ncols):
     """fallback: หา subtotal/vat/total จาก label คำ — สแกน block ครั้งเดียว O(n)
     เก็บทุกแถวที่ match แล้วเลือกตัวเหมาะสุด (กัน TOTAL/Sub Total โผล่หลายจุด)
+
+    [OPT-1b] normalize ทั้งแถว "ครั้งเดียว/แถว" แล้วเช็ก 3 label set กับลิสต์ที่ cache ไว้
+      (เดิมเรียก `_row_label_match` 3 ครั้ง/แถว → recompute normalize_text ซ้ำ ≤3×/เซลล์ ;
+       hot loop 35,661 ครั้ง/~2.5s, PERF_BASELINE:26). byte-identical: normalize_text เป็น
+       total (None/NaN→'' ; อื่น str() — ไม่ throw) → precompute เต็มแถวให้ผลเท่า short-circuit เดิม
+       (`any(_label_in_text(s,L) for s in row_norm)` ≡ `_row_label_match(M,r,..,L)` ทุก path).
+       ตรึงด้วย test_label_amounts_equiv.py (differential vs โค้ดเดิม).
     """
     subs = []; vats = []; tots = []
-    M = df.to_numpy(dtype=object)   # [OBJ-PERF] materialize ครั้งเดียว/บล็อก → _row_label_match/_rightmost_num อ่าน M[r,c]
+    M = df.to_numpy(dtype=object)   # [OBJ-PERF] materialize ครั้งเดียว/บล็อก → _rightmost_num/_row_has_rate_marker อ่าน M[r,c]
     for r in range(row_start, min(row_end+1, df.shape[0])):
-        if _row_label_match(M, r, ncols, _LBL_TOTAL):
+        # [OPT-1b] cache ข้อความ normalize+lower ของทั้งแถว (เซลล์ไม่ว่าง ตามลำดับคอลัมน์) ครั้งเดียว
+        row_norm = []
+        for c in range(ncols):
+            v = M[r, c]
+            if pd.isna(v): continue
+            s = normalize_text(v).lower()
+            if s: row_norm.append(s)
+        if any(_label_in_text(s, _LBL_TOTAL) for s in row_norm):
             n = _rightmost_num(M, r, ncols, min_val=0)
             if n is not None: tots.append(n)
             continue
-        if _row_label_match(M, r, ncols, _LBL_VAT):
+        if any(_label_in_text(s, _LBL_VAT) for s in row_norm):
             n = _rightmost_num(M, r, ncols)
             # [M8] ทิ้งเฉพาะ "อัตรา": 0.07 เสมอ ; เลข 7 ทิ้งเมื่อ "ไม่ใช่ยอดทศนิยม" คือ
             #   แถวมี %/อัตรา/เรต หรือเขียนเป็น '7' ล้วน (ไม่มีจุด). คงไว้เมื่อเป็น '7.00' (ยอดจริง).
@@ -379,7 +393,7 @@ def _label_based_amounts(df, row_start, row_end, ncols):
             if n is not None and not (abs(n-0.07) < 0.001 or _is_rate7):
                 vats.append(n)
             continue
-        if _row_label_match(M, r, ncols, _LBL_SUBTOTAL):
+        if any(_label_in_text(s, _LBL_SUBTOTAL) for s in row_norm):
             n = _rightmost_num(M, r, ncols, min_val=0)
             if n is not None: subs.append(n)
             continue

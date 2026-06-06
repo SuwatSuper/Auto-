@@ -48,6 +48,7 @@ run "[3p] parse canary (pin)" "$PY" test_parse_canary.py
 run "[3q] parse canary (fixture rate)" "$PY" parse_canary.py tests/fixtures --baseline tests/fixtures/canary_baseline_fixture.json
 run "[3e] parser helpers"        "$PY" test_parser_helpers.py
 run "[3e2] OPT-1 differential (_dic_int_run/detect byte-identical)" "$PY" test_dic_int_run_equiv.py
+run "[3e3] OPT-1b differential (_label_based_amounts byte-identical)" "$PY" test_label_amounts_equiv.py
 run "[3f] validators"            "$PY" test_validators.py
 run "[3g] rules extra (≥90% cov)"      "$PY" test_rules_extra.py
 run "[3h] units extra (≥90% cov)"      "$PY" test_units_extra.py
