@@ -25,5 +25,5 @@ pythainlp==5.0.5
 # ── transitive ที่ควรกันเวอร์ชันใหญ่กระโดด (pandas พึ่ง numpy) ───────────────
 # ปัก numpy==2.2.6 (เวอร์ชันที่ reproduce golden + รัน coverage ได้จริง).
 #   เหตุ: numpy 2.4.x ทำ coverage tooling พัง และ major bump เสี่ยงเปลี่ยน format/sort → hash เพี้ยน.
-#   ถ้าจำเป็นต้องขยับ ให้รัน regression_full กับชุด 106 ไฟล์จริงยืนยัน f1ac8421 ก่อน.
+#   ถ้าจำเป็นต้องขยับ ให้รัน regression_full กับชุด 106 ไฟล์จริงยืนยันค่าใน baseline.json._sha256 ก่อน (ดู GOLDEN.md).
 numpy==2.2.6

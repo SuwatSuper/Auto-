@@ -66,6 +66,8 @@ python3 regression_full.py . <โฟลเดอร์ข้อมูลจร�
 
 ## Invariants (ห้ามขยับโดยไม่ตั้งใจ)
 
+> 📌 สับสนเรื่องค่า hash? ดู **`GOLDEN.md`** — แหล่งอ้างอิงเดียวที่อธิบายทุกค่า (ปัจจุบัน/ปลดระวาง/fixture/report).
+
 | สิ่ง | hash | ตรวจด้วย |
 |---|---|---|
 | Golden ทางการ (106 ไฟล์ `/mnt/project`, 834 บิล) | `35b2f7c8…` | `regression_full.py . /mnt/project` |

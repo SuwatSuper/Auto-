@@ -27,6 +27,7 @@ OPERATIONAL_SURFACES = [
     '_SESSION_HANDOFF.md',
     'QUICKSTART_VSCODE_TH.md',
     'INVARIANTS/DECISIONS.md',   # เฉพาะ banner/ADR-019 ส่วนบน (ทั้งไฟล์มีของเก่าด้วย → ดูหมายเหตุ §ledger ด้านล่าง)
+    'constraints.txt',           # [doc-hash-fix] คำสั่ง rebuild ต้องชี้ค่าปัจจุบัน (เคยค้าง f1ac8421)
 ]
 # หมายเหตุ: regression_full.py / verify_golden.py / golden_master.py จงใจ "ไม่" อยู่ใน list นี้ —
 #   มันคือ verifier ที่ "อ่าน" baseline.json ตอน runtime (ไม่ได้ hardcode ค่า hash ไว้ในตัว) →
@@ -90,6 +91,15 @@ def main():
             if stale != cur and stale in scan:
                 ln = next((i + 1 for i, l in enumerate(scan.splitlines()) if stale in l), '?')
                 fails.append(f'{rel}: พบ hash ปลดระวาง "{stale}" ในพื้นผิวปัจจุบัน (บรรทัด ~{ln}) — ต้องเป็น {cur}')
+
+    # 1.5) GOLDEN.md = อภิธานศัพท์ hash ทางการ "แหล่งอ้างอิงเดียวสำหรับมนุษย์" (กันตื่นตูม).
+    #   ต้องมี: ค่าปัจจุบัน (cur/neutral). อนุญาตให้ลิสต์ hash ปลดระวางได้ (นั่นคือหน้าที่ของมัน —
+    #   อธิบายว่าแต่ละค่าคืออะไร) จึง "ไม่" อยู่ใน OPERATIONAL_SURFACES (ไม่โดนแบน retired hash).
+    gm = _read('GOLDEN.md')
+    if gm is None:
+        fails.append('GOLDEN.md: ไม่พบ (ควรเป็นแหล่งอ้างอิง hash ทางการเดียว — กันสับสน)')
+    elif not ((cur in gm) or any(ref in gm for ref in NEUTRAL_REFS)):
+        fails.append(f'GOLDEN.md: ไม่อ้าง golden ปัจจุบัน ({cur}… หรือ baseline.json._sha256)')
 
     # 2) README ต้องระบุจำนวนไฟล์/บิลตรง baseline (derive — ไม่ hardcode ใน test)
     readme = _read('README.md') or ''
