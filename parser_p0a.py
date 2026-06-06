@@ -206,10 +206,18 @@ def _find_unit_col(text_c, qty_col, price_col, name_col):
     cands.sort(key=lambda c: abs(c - qty_col))
     return cands[0]
 
-def _dic_int_run(df, c):
-    """เก็บ int 1..50 ในคอลัมน์ c"""
+def _dic_int_run(M, c):
+    """เก็บ int 1..50 ในคอลัมน์ c
+    [OPT-1] อ่านจาก M = df.to_numpy(dtype=object) (materialize ครั้งเดียวใน detect_item_columns)
+      แทน df.iloc[:,c].dropna() ต่อคอลัมน์ — เดิมเป็น hot loop 16,553 ครั้ง บน 106 ไฟล์.
+      ความถูกต้อง (byte-identical): M[r,c] ≡ df.iat[r,c] เชิงพฤติกรรม (พิสูจน์ 836 ชีต/555k cell,
+      DECISIONS §OBJ-PERF) และ `for v in M[:,c] if not pd.isna(v)` ≡ `df.iloc[:,c].dropna()`
+      (ข้ามค่า null ตามลำดับแถวเหมือนกัน). per-value `int(float(str(v)))` + ช่วง 1..50 ไม่แตะ.
+      ตรึงด้วย test_dic_int_run_equiv.py (differential vs implementation เดิม)."""
     ints = []
-    for v in df.iloc[:, c].dropna():
+    for v in M[:, c]:
+        if pd.isna(v):
+            continue
         try:
             n = int(float(str(v)))
         except (ValueError, TypeError):
@@ -271,12 +279,14 @@ def _is_seq_run(ints):
     dense = (ints[-1] - ints[0] + 1) <= len(ints) + 2
     return non_decreasing and spans and dense
 
-def _dic_find_seq(df, ncols):
+def _dic_find_seq(M, ncols):
     """หา seq_col = คอลัมน์ลำดับสินค้า — คืน col index หรือ None.
-    รองรับทั้งหน้าแรก (เริ่ม #1) และหน้าต่อ (เริ่ม #N) ผ่าน _is_seq_run."""
+    รองรับทั้งหน้าแรก (เริ่ม #1) และหน้าต่อ (เริ่ม #N) ผ่าน _is_seq_run.
+    [OPT-1] รับ M (object ndarray จาก df.to_numpy(dtype=object)) แทน df —
+      detect_item_columns materialize M ครั้งเดียวแล้วใช้ร่วม seq-detect + _dic_* per-cell ที่เหลือ."""
     seq_col, best = None, 0
     for c in range(ncols):
-        ints = _dic_int_run(df, c)
+        ints = _dic_int_run(M, c)
         if _is_seq_run(ints):
             score = len(ints)*10 - c
             if score > best:

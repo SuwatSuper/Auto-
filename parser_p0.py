@@ -32,10 +32,14 @@ def detect_item_columns(df):
     - detect qty/price ด้วย qty×price≈amount (ทน column-swap)
     """
     nrows, ncols = df.shape
-    seq_col = _dic_find_seq(df, ncols)
+    # [OPT-1] materialize M ครั้งเดียวบนสุด แล้วใช้ร่วม seq-detect (_dic_find_seq/_dic_int_run)
+    #   + _dic_* per-cell — ตัด df.iloc[:,c].dropna() ต่อคอลัมน์ (เดิม 16,553 ครั้ง/106 ไฟล์) ออก.
+    #   byte-identical: M[r,c] ≡ df.iat[r,c] (พิสูจน์ 836 ชีต/555k cell — DECISIONS §OBJ-PERF).
+    #   tradeoff: ชีตที่ไม่มี seq (early-return) จ่ายค่า to_numpy เพิ่ม 1 ครั้ง — ดู PERF/OPT report.
+    M = df.to_numpy(dtype=object)   # [OBJ-PERF/OPT-1] materialize ครั้งเดียว (เดิมอยู่หลัง seq-detect)
+    seq_col = _dic_find_seq(M, ncols)
     if seq_col is None: return (None,)*6
 
-    M = df.to_numpy(dtype=object)   # [OBJ-PERF] materialize ครั้งเดียว → _dic_* ต่อ-cell อ่าน M[r,c] (seq ใช้ df: column-vectorized)
     item_rows = _dic_item_rows(M, nrows, seq_col)
     if not item_rows: return seq_col, None, None, None, None, None
 
