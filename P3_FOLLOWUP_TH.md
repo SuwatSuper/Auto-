@@ -201,3 +201,53 @@ make baseline-fixture
   เลนส์เลขคณิต > heuristic).
 - **Hash expectation:** **ไม่เปลี่ยน** (advisory layer ล้วน — read-only ต่อ bills/golden).
 - **Priority:** P4 (เลื่อนจนมีหลักฐาน).
+
+---
+
+## 6. Decision Log — STABILIZE & HARDEN Round-2 (PART A/B/C)
+
+> กฎรอบนี้: R4 CERTIFICATION-COMPLETE — fixture (d8bcde85) ใช้ dev ได้ แต่ "ไม่ใช่หลักฐานรับรอง".
+> sandbox นี้ไม่มี /mnt/project (106 ไฟล์) + เป็น Python 3.11 → งานที่อาจกระทบ golden ติดสถานะ
+> **⚠ NEEDS_REAL_DATA_CERT** + พิสูจน์เชิงวิเคราะห์. งานที่เป็น test-infra/static = hash ไม่ขยับ.
+
+### A1+A2 REACHABILITY GUARD — DONE (test-infra)
+- Root cause: ไม่มี gate กัน floating module / เทสบนโค้ดตาย → puopuy_ingest ลอยอยู่ได้.
+- Solution: `test_reachability.py` (static AST import-closure จาก entrypoint+tool+dynamic agent).
+  พิสูจน์ flag {puopuy_ingest,test_puopuy_ingest} ก่อน retire. wire run_ci [3x8] + ci.yml.
+- Hash: ไม่ขยับ (static AST). **Cert: certified-fixture (test-infra ไม่แตะ audit).**
+
+### B1 RETIRE puopuy_ingest — DONE
+- Root cause: floating adapter (grep production import = ว่าง). Solution: ลบ + ถอด gate [3c-ingest].
+- Hash: fixture d8bcde85 ไม่ขยับ (ยืนยันไม่อยู่ production path).
+- **Cert: ⚠ NEEDS_REAL_DATA_CERT** — `regression_full.py . <106 ไฟล์> = 35b2f7c8`.
+  เชิงวิเคราะห์: ไม่มี production importer → ลบไม่กระทบผลตรวจ.
+
+### A3 REPORT DETERMINISM — DONE (test-infra)
+- verify_report_det.py รับ argv (เลิก hardcode /mnt/project) + `test_report_det.py` (build 2 รอบ hash ตรง).
+- Hash: ไม่ขยับ (เปลี่ยน input path ของ verify tool). **Cert: certified-fixture.**
+- ⚠ absolute report hash (fff69fc6) บน 106 ไฟล์ = หน้าที่ผู้ใช้: `verify_report_det.py <106 ไฟล์>`.
+
+### A4 RESET COMPLETENESS — DONE (test-infra)
+- `test_reset_completeness.py` (parse 2 รอบ/โปรเซสเดียว golden เท่ากัน). DECIDE: ไม่ reload
+  PRODUCT_MASTER ใน reset — product_master.json ไม่มี (={}) + test_rules_extra.py:330 rebind →
+  reload จะทับ=regression ; reset ล้าง _PRODUCT_WHITELIST อยู่แล้ว. Hash ไม่ขยับ. **Cert: certified-fixture.**
+
+### B2 RETIRE detect_item_columns_safe — DEFERRED (มีหลักฐาน)
+- Root cause (parser_p0.py:83,54): `detect_item_columns_safe` เรียก `detect_item_columns` ตรง ๆ +
+  ต่อ col_confidence ที่ production (parser_p2.py:204 ใช้ detect_item_columns) ไม่ใช้ → dead additive.
+- DECIDE GATE: detection เหมือนเดิมโดยโครงสร้าง → ไม่ใช่เคส wire (hash ไม่ขยับ). **แต่** symbol ถูก
+  thread ผ่าน [F3] re-export chain (parser_p0→p1→p2→parser+__all__) → retire ต้องแก้ 6+ จุดในชั้น
+  ที่ทุกอย่างพึ่ง = risk > benefit (ลบ ~40 บรรทัด dead ที่ไม่มี harm). ลองแล้ว ImportError → revert.
+- **Decision: DEFER** เป็น task เฉพาะ (function-level dead code, zero harm, ไม่ใช่ floating MODULE).
+- Hash: ไม่เปลี่ยน (ไม่แตะ). **Cert: n/a (ไม่แก้).**
+
+### C1 EXCEL SERIAL OUT-OF-RANGE — NO-FIX (มีหลักฐาน, การแก้จะเป็นอันตราย)
+- puopuy_dates.py:28 `30000<v<70000`. DIAGNOSE บน 3 ไฟล์จริง: พบ cell ชนิด DATE serial 244471-244499
+  (นอกช่วง) **แต่เป็น "เลขrunning หัวเอกสาร" (R5C19 เหนือเลข IV) ไม่ใช่วันที่ใบกำกับ** — และ iv_date
+  หาย 0/15 บิล (ทุกบิลได้วันที่จาก text-date ถูกต้อง).
+- DECIDE: **NO-FIX — การขยายช่วงจะ "อันตราย"** (parser จะรับ 244474 เป็นวันที่ → corrupt iv_date).
+  cutoff ปัจจุบัน "ปกป้อง" อยู่ ถูกต้องแล้ว. Hash ไม่ขยับ.
+- **Cert: ⚠ NEEDS_REAL_DATA_CERT** — สแกน 106 ไฟล์ยืนยัน "ทุกบิลได้ iv_date" (ไม่มี date loss):
+  `python3 -c "..."` parse 106 ไฟล์ assert ไม่มี bill ที่ iv_date is None (ดู HARDENING_DELIVERY).
+
+### C2 LENS CONSENSUS — DEFERRED (ดู §5 #3) — advisory ล้วน, hash ไม่ขยับ.
