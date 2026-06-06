@@ -3,32 +3,15 @@
 """parser_p2 — OBJ-MAINT layer 2 (extract คัดลอกเป๊ะ, byte-identical).
 cascade toolkit จาก parser_p1 (และชั้นล่างทั้งหมด)."""
 from __future__ import annotations
-from parser_p1 import (   # [F3 de-star] explicit re-export shim (split-base chain; เดิม `import *`)
-    Counter, _ADDRESS_HINT_KEYWORDS, _D, _LBL_SUBTOTAL,
-    _LBL_TOTAL, _LBL_VAT, _MAX_TEXT_NUM_RECOVERIES, _NUM_FULL_RE,
-    _TAXID_KW, _TAX_CONTEXT_KEYWORDS, _THAI_MARKS_RE, _THAI_NUM_WORD_RE,
-    _addr_parse_confidence, _cell_to_num, _compute_col_confidence, _declared_period_from_filename,
-    _detect_vat_rows, _dic_collect_numeric, _dic_find_amt, _dic_find_name,
-    _dic_find_seq, _dic_int_run, _dic_item_rows, _dic_pick_qty_price,
-    _dic_pick_unit, _dic_score_combo, _dic_text_score, _extract_taxid_safe,
-    _find_unit_col, _has_suspat_in_iv, _is_seq_run, _is_thai_amount_words,
-    _ivp_year2_to_ce, _ivp_year4_to_ce, _label_based_amounts, _label_in_text,
-    _looks_like_address, _pb_build_item, _pb_scan_header, _pb_taxid_from_numeric,
-    _pb_taxid_from_string, _pb_try_address_line, _pb_try_company, _pb_try_iv,
-    _pb_try_taxid, _pick_best_iv, _pick_best_iv_safe, _raw_company_form,
-    _raw_iv_form, _reconcile_amounts, _record_text_num, _rightmost_num,
-    _row_label_match, _scan_branch_block, _scan_tax_id_block, _strip_thai_marks,
-    _taxid_checksum_ok, _taxid_from_cell, _trim_cache, _unit_canon,
-    _vat_tolerance, audit_text_num_reset, audit_text_num_summary, check_iv_format,
-    clean_tax_id, datetime, defaultdict, detect_item_columns,
-    detect_item_columns_safe, detect_ocr_input, extract_branch, extract_unit_hint,
-    find_similar_in_thai_dict, formal_language_score, gen_explanation, glob,
-    has_hidden_chars, log_system_issue, merge_continuation_bills, normalize_ocr,
-    normalize_text, os, parse_date_any, parse_filename,
-    pd, predict_category, pythainlp_spell_check, re,
-    read_workbook, remove_branch_suffix, safe, state,
-    to_conf01, unicodedata, xlrd,
-)  # noqa: F401  (re-export ขึ้น chain — หลายชื่อไม่ได้ใช้ภายในไฟล์นี้)
+# [OPT-2 ก] auto re-export parser_p1.__all__ ยกเว้นที่ p2 จัดการเอง (คง minimal-interface curation):
+#   • Decimal/ROUND_HALF_UP → p2 import ตรงจาก decimal (บรรทัดล่าง) = object เดียวกันทั้ง chain
+#   • _RATE_MARKERS/_rightmost_num_has_decimal/_row_has_rate_marker → helper ภายใน p1 (M8 VAT-rate)
+#     ที่ p2 ไม่เคย re-export ขึ้นไป (เดิมก็ไม่อยู่ในลิสต์ explicit). reexport bind object เดิม → golden ไม่ขยับ.
+import parser_reexport as _rx
+import parser_p1 as _up
+_rx.reexport(_up, globals(), exclude=('Decimal', 'ROUND_HALF_UP', '_RATE_MARKERS',
+                                      '_rightmost_num_has_decimal', '_row_has_rate_marker'))
+del _rx, _up
 from decimal import Decimal, ROUND_HALF_UP  # [F2/ADR-020] money-math: VAT ด้วย Decimal+HALF_UP
 
 def _pb_extract_items(result, block_df, cols):

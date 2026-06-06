@@ -9,23 +9,13 @@
 """
 from __future__ import annotations
 
-from parser_p0a import (   # [F3 de-star] explicit re-export shim (split-base chain; เดิม `import *`)
-    Counter, Decimal, ROUND_HALF_UP, _D,
-    _NUM_FULL_RE, _THAI_NUM_WORD_RE, _cell_to_num, _declared_period_from_filename,
-    _dic_collect_numeric, _dic_find_amt, _dic_find_name, _dic_find_seq,
-    _dic_int_run, _dic_item_rows, _dic_pick_qty_price, _dic_pick_unit,
-    _dic_score_combo, _dic_text_score, _find_unit_col, _is_seq_run,
-    _is_thai_amount_words, _ivp_year2_to_ce, _ivp_year4_to_ce, _raw_company_form,
-    _taxid_checksum_ok, _trim_cache, _unit_canon, _vat_tolerance,
-    clean_tax_id, datetime, defaultdict, detect_ocr_input,
-    extract_branch, extract_unit_hint, find_similar_in_thai_dict, formal_language_score,
-    gen_explanation, glob, has_hidden_chars, log_system_issue,
-    merge_continuation_bills, normalize_ocr, normalize_text, os,
-    parse_date_any, parse_filename, pd, predict_category,
-    pythainlp_spell_check, re, read_workbook, remove_branch_suffix,
-    safe, state, to_conf01, unicodedata,
-    xlrd,
-)  # noqa: F401  (re-export ขึ้น chain — หลายชื่อไม่ได้ใช้ภายในไฟล์นี้)
+# [OPT-2 ก] auto re-export ทั้ง parser_p0a.__all__ (edge full pass-through) — เดิม explicit ~57 ชื่อ
+#   ที่ต้องแก้มือทุกครั้งต้นน้ำเปลี่ยน (B2 blast radius). reexport bind object เดิม → golden ไม่ขยับ,
+#   surface เท่าเดิมเป๊ะ (parser_p0 ↔ parser_p0a เป็น EXACT_EQUAL edge). ตรึงด้วย test_parser_chain_integrity.py.
+import parser_reexport as _rx
+import parser_p0a as _up
+_rx.reexport(_up, globals())
+del _rx, _up
 
 def detect_item_columns(df):
     """v5.8j + v5.8 refactor: แตกเป็น helper (_dic_*) ลด nesting ≤6
