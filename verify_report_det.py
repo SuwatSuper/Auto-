@@ -5,7 +5,11 @@ from golden_snapshot import MASTER, write_master_file
 write_master_file('master_companies.json')
 app=importlib.import_module('ปุ้มปุ้ย_ultimate_v9_modular')
 app.reset_run_state()
-fl=sorted(glob.glob('/mnt/project/*.xls')+glob.glob('/mnt/project/*.xlsx'))
+# [A3] รับโฟลเดอร์ข้อมูลจาก argv (fallback = fixtures) — เดิม hardcode /mnt/project ทำให้รันใน CI/sandbox ไม่ได้
+DATA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tests', 'fixtures')
+fl=sorted(glob.glob(os.path.join(DATA,'*.xls'))+glob.glob(os.path.join(DATA,'*.xlsx')))
+if not fl:
+    sys.stderr.write(f'❌ ไม่พบไฟล์ .xls/.xlsx ใน {DATA}\n'); sys.exit(2)
 all_bills, filename_issues = app.parse_all_files(fl)
 for b in all_bills: app.compute_bill_confidence(b)
 app.check_duplicate_items(all_bills); app.run_all_rules(all_bills, MASTER)

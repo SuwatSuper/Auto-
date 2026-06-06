@@ -71,6 +71,8 @@ run "[3x4] code-table consistency (MAP+FIELD_LAYOUT ตามทันทุก�
 run "[3x5] A-hardening (advisory/รายงานทนข้อมูลเพี้ยน — ไม่ครัช)" "$PY" test_a_hardening.py
 run "[3x6] merged-cell integrity (real_cases — ค่าวิกฤตไม่หายจาก merge)" "$PY" diagnose_merged_cells.py tests/real_cases
 run "[3x8] reachability guard (ไม่มี floating module + CI ไม่เขียวบนโค้ดตาย)" "$PY" test_reachability.py
+run "[3x9] report determinism (รายงาน Excel นิ่ง บน fixtures)" "$PY" test_report_det.py
+run "[3x10] reset completeness (parse 2 รอบในโปรเซสเดียว ผลเท่ากัน)" "$PY" test_reset_completeness.py
 run "[3x7] package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)" "$PY" test_package_integrity.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
 run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py

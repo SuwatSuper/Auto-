@@ -74,6 +74,14 @@ jobs:
         #   floating module / เทสบนโค้ดตาย = merge ไม่ผ่านตั้งแต่ใน CI (static AST, hash ไม่ขยับ).
         run: python test_reachability.py
 
+      - name: Report determinism (A3 — รายงาน Excel นิ่ง บน fixtures)
+        # gate: build รายงานคลีน 2 รอบ แล้ว REPORT_DET_HASH ต้องตรงกัน (ไม่มี timestamp/order leak).
+        run: python test_report_det.py
+
+      - name: Reset completeness (A4 — parse 2 รอบในโปรเซสเดียว ผลเท่ากัน)
+        # gate: pipeline idempotent ข้ามรอบใน session เดียว (reset_run_state ล้าง cache ครบ — ไม่ bleed).
+        run: python test_reset_completeness.py
+
   # [#2] job แยก (รันขนานกับ gate — ไม่หน่วง gate หลัก): พิสูจน์ว่า `pytest` ใช้งานได้จริง
   #   conftest.py รันแต่ละสคริปต์เป็น subprocess → collection ไม่ครัช + ทุกเทสผ่านผ่าน pytest ด้วย
   #   (เดิม pytest ครัชทันทีเพราะ module-level sys.exit). กัน regression ของ tooling นี้.
