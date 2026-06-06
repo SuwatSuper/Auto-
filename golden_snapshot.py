@@ -19,6 +19,8 @@ golden_snapshot.py — แหล่งความจริงเดียวข
 import os
 import json
 import hashlib
+import atexit
+import shutil
 
 # ---------------------------------------------------------------------------
 # master ทดสอบมาตรฐาน — "เส้น engine" และ "เส้น agent" ต้องใช้ชุดนี้ชุดเดียวกัน
@@ -35,8 +37,31 @@ MASTER = {
 }
 
 
+def _restore_master_file(path: str, backup: str) -> None:
+    """[P0-FIX ข้อมูลหาย] คืน master เดิมของผู้ใช้จากไฟล์สำรอง (เรียกโดย atexit ตอนโปรเซสจบ)."""
+    try:
+        if os.path.exists(backup):
+            os.replace(backup, path)   # atomic; ทับ golden stub กลับเป็นของผู้ใช้
+    except OSError:
+        pass   # คืนไม่ได้ → ปล่อย backup ไว้ให้ผู้ใช้กู้เอง (ดีกว่าทำโปรเซส exit พัง)
+
+
 def write_master_file(path: str = "master_companies.json") -> None:
-    """เขียนไฟล์ master_companies.json จาก MASTER (โมดูลหลักอ่านไฟล์นี้ตอน input_master_data)."""
+    """เขียนไฟล์ master_companies.json จาก MASTER (โมดูลหลักอ่านไฟล์นี้ตอน input_master_data).
+
+    [P0-FIX ข้อมูลหาย] เครื่องมือ golden/verify (golden_master / verify_golden / verify_parallel /
+    verify_report_det / build_consolidated_report / e2e_test / profile_baseline) เรียกฟังก์ชันนี้
+    "ในโฟลเดอร์โปรเจกต์" ซึ่งเดิม **เขียนทับ master จริงของผู้ใช้ทิ้งถาวร** ด้วย stub ทดสอบ 1 บริษัท.
+    แก้ที่จุดเดียว: ถ้ามี master เดิมอยู่ → สำรองไว้ก่อน แล้ว 'คืนค่าเดิมอัตโนมัติเมื่อโปรเซสจบ' (atexit).
+    ระหว่างรันไฟล์ยังเป็น golden MASTER ครบถ้วน → golden hash / report hash ไม่ขยับ (พฤติกรรม sandbox เดิม).
+    """
+    if os.path.exists(path):
+        backup = path + ".user.bak"
+        try:
+            shutil.copy2(path, backup)
+            atexit.register(_restore_master_file, path, backup)
+        except OSError:
+            pass   # สำรองไม่ได้ → ยังเขียน golden ตามเดิม (อย่าทำให้เครื่องมือล้ม)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(MASTER, f, ensure_ascii=False)
 

@@ -66,6 +66,7 @@ run "[3w] super ultra viewer (label คน + บล็อกบริษัท)"
 run "[3w2] Ultra Agent (ตรวจทาน-ยืนยันด้วยหลักฐานอิสระ)" "$PY" test_ultra_agent.py
 # ── structural tripwires (ไม่ใช้ข้อมูลจริง — กัน drift เชิงโครงสร้าง/แหล่งความจริง) ──
 run "[3x] golden single-source (doc↔baseline.json sync)" "$PY" test_golden_single_source.py
+run "[3x2] FIELD_CODES coverage (แดชบอร์ดเห็นทุกกฎ — กัน false-clean)" "$PY" test_field_codes_coverage.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
 run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py
 run "[3z2] monolith surface contract (26-name getattr API, de-star P1)" "$PY" test_monolith_surface.py
