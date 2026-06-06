@@ -43,8 +43,10 @@ _SEV_WEIGHT = {"CRITICAL": 40, "ERROR": 25, "WARNING": 12, "INFO": 4}
 # ผู้ตรวจอิสระชั้นต้น (การธงพร้อมกันหลายตัว = หลักฐานข้ามมุมมอง)
 _TIER1 = ("formula", "vat", "wht", "taxid")
 # agent ที่คาดว่าจะรันครบในสายการผลิตเต็ม (ใช้ตรวจ QA ว่าขาดตัวใด)
+#   [P2-FIX] เติม "verification" (Tier-2 ที่ orchestrator รันจริง) — เดิมตกหล่น ทำให้ QA นับ ok/expected
+#   คลาดเคลื่อน และไม่เคยธงเมื่อ verification หาย/พัง. ลำดับตรงกับ orchestrator._tier2_agents().
 _EXPECTED = ("import", "formula", "vat", "wht", "taxid",
-             "crosscheck", "confidence", "ai_review", "synthesis")
+             "crosscheck", "confidence", "verification", "ai_review", "synthesis")
 # meta agent ที่ "ไม่นับเป็นหลักฐานต้นทาง" ตอนรวมคะแนน (กัน double-count/feedback loop)
 _META = ("confidence", "crosscheck", "synthesis", "super")
 

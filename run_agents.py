@@ -181,4 +181,8 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
+    # [P2-FIX] บังคับ PYTHONHASHSEED=0 ก่อนเริ่มงานจริง (re-exec ครั้งเดียวถ้าจำเป็น) —
+    #   ให้ผลตรวจตรงเงื่อนไข golden แม้รันนอก VS Code. no-op ถ้า seed=0 อยู่แล้ว.
+    from hashseed_guard import enforce_hashseed
+    enforce_hashseed()
     raise SystemExit(main())

@@ -16,6 +16,12 @@ from __future__ import annotations
 
 import importlib
 
+# [P2-FIX] บังคับ PYTHONHASHSEED=0 ก่อน import โมดูลหลัก (เฉพาะเส้น CLI production) —
+#   ให้ผลตรวจตรงเงื่อนไขที่ golden ถูกสร้าง แม้รันนอก VS Code. no-op ถ้า seed=0 อยู่แล้ว/ถูก import.
+if __name__ == "__main__":
+    from hashseed_guard import enforce_hashseed
+    enforce_hashseed()
+
 _APP = importlib.import_module("ปุ้มปุ้ย_ultimate_v9_modular")
 
 # re-export ทุกชื่อสาธารณะของตัวจริง → `from main import X` ใช้ได้เหมือนอ้างตัวจริง

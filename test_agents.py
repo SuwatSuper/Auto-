@@ -169,8 +169,8 @@ check(sup is not None and sup.status == "ok", "SuperAgent รันสำเร�
 sup_codes = codes_of(full, "super")
 check("SUPER-QA" in sup_codes and "SUPER-VERDICT" in sup_codes,
       "Super ออก SUPER-QA + SUPER-VERDICT (กำกับระบบ)")
-check((sup.summary or {}).get("agents_expected") == 9 and (sup.summary or {}).get("pipeline_ok") is True,
-      "Super QA: เห็น agent ครบ 9 + pipeline_ok ในรอบที่ทุกตัวปกติ")
+check((sup.summary or {}).get("agents_expected") == 10 and (sup.summary or {}).get("pipeline_ok") is True,
+      "Super QA: เห็น agent ครบ 10 (รวม verification) + pipeline_ok ในรอบที่ทุกตัวปกติ")
 check(isinstance((sup.summary or {}).get("top_priorities"), list),
       "Super ผลิตลำดับความสำคัญรวม (unified priority list)")
 # priority ranking ต้องเรียงคะแนนจากมากไปน้อย (deterministic order)

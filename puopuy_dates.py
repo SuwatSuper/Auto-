@@ -40,7 +40,11 @@ def parse_date_any(v):
             if m:
                 try:
                     day = int(m.group(1)); year = int(m.group(2))
-                    if year < 100: year += 2500
+                    if year < 100:
+                        # [P1-FIX วันที่ 2 หลัก] ใช้กติกาเดียวกับ _ivp_year2_to_ce (กัน divergence 2 ที่):
+                        #   58-82=พ.ศ.ย่อ→ค.ศ., 15-39=ค.ศ.ย่อ (2015-2039). นอกช่วง→ถือเป็น พ.ศ.ย่อเดิม.
+                        _ce = _ivp_year2_to_ce(year)[0]
+                        year = _ce if _ce is not None else year + 2500
                     if year > 2400: year -= 543
                     return datetime(year, mn, day)
                 except Exception: pass
@@ -50,8 +54,12 @@ def parse_date_any(v):
     m_yy = re.match(r'^\s*(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})\s*$', s)
     if m_yy:
         try:
-            day = int(m_yy.group(1)); mon = int(m_yy.group(2)); year = int(m_yy.group(3)) + 2500
-            if year > 2400: year -= 543
+            day = int(m_yy.group(1)); mon = int(m_yy.group(2)); yy = int(m_yy.group(3))
+            # [P1-FIX วันที่ 2 หลัก] เดิมตี yy เป็น พ.ศ.ย่อเสมอ (yy+2500-543) → "1/1/15"→1972 ผิด.
+            #   ใช้กติกาเดียวกับ _ivp_year2_to_ce: 15-39=ค.ศ.(2015-2039), 58-82=พ.ศ.→ค.ศ.(2015-2039).
+            #   นอกช่วงรู้จัก→ถือเป็น พ.ศ.ย่อเดิม. ปี 66-69 (corpus ปัจจุบัน) อยู่ช่วง 58-82 → ผลเท่าเดิมเป๊ะ.
+            _ce = _ivp_year2_to_ce(yy)[0]
+            year = _ce if _ce is not None else (yy + 2500) - 543
             if 1 <= mon <= 12 and 1 <= day <= 31:
                 return datetime(year, mon, day)
         except Exception: pass

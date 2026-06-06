@@ -46,6 +46,10 @@ AUXILIARY = ("matplotlib", "plotly", "tqdm")
 
 _ENV_ALLOW = "PUOPUY_ALLOW_VERSION_MISMATCH"
 
+# [P1-FIX] exit code เฉพาะของ "version gate ล้ม" — ต้อง ≠ 1 เพื่อให้ regression_full.py แยกออกจาก
+#   "hash ไม่ตรง" (ซึ่งใช้ code 1). เดิม gate ใช้ exit(1) เหมือนกัน → ปัญหา env ถูกอ่านเป็น regression.
+_EXIT_VERSION_FAIL = 86
+
 # ── ระดับความต่างของเวอร์ชัน ─────────────────────────────────────────────────
 LV_OK, LV_PATCH, LV_MINOR, LV_MAJOR, LV_MISSING, LV_UNKNOWN = (
     "ok", "patch", "minor", "major", "missing", "unknown")
@@ -241,9 +245,18 @@ def enforce(strict: bool = False, exit_on_fail: bool = True, stream=None) -> boo
     """
     stream = stream or sys.stdout
     rep = check(strict=strict)
-    print(format_report(rep), file=stream)
+    report_txt = format_report(rep)
+    print(report_txt, file=stream)
     if rep.failures and exit_on_fail and not rep.allow_mismatch:
-        sys.exit(1)
+        # [P1-FIX ดับเงียบ] เครื่องมือ golden/verify import โมดูลหลักภายใต้ redirect_stdout →
+        #   เดิมรายงานนี้ถูกกลืนหมด เหลือแค่ exit(1) เปล่า ๆ ที่ regression_full อ่านเป็น "hash ไม่ตรง".
+        #   แก้: เขียนเหตุผลไป stderr ด้วยเสมอ (ไม่ถูก redirect) + exit ด้วยโค้ดเฉพาะ (แยกจาก hash mismatch).
+        if stream is not sys.stderr:
+            sys.stderr.write(report_txt + "\n")
+            sys.stderr.write("🚨 VERSION GATE FAILED — หยุดก่อนคำนวณ hash "
+                             "(ปัญหาสภาพแวดล้อม/เวอร์ชัน ไม่ใช่ regression). "
+                             f"ผ่อนผันด้วย {_ENV_ALLOW}=1 ถ้ายืนยันจะรันทั้งที่เสี่ยง.\n")
+        sys.exit(_EXIT_VERSION_FAIL)
     return rep.ok
 
 
