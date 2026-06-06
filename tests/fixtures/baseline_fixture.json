@@ -1,0 +1,420 @@
+{
+ "_sha256": "d8bcde8555034a203f80d2a596c42ea57b2f1a39ce67003f5629cea03185b07c",
+ "all_bills": [
+  {
+   "address": "เลขที่ 99/9 หมู่ที่ 1 ตำบลทดสอบ อำเภอเมือง จังหวัดทดสอบ 10000",
+   "amount_confidence": "low",
+   "amount_source": {
+    "subtotal": "item_sum",
+    "total": "derived",
+    "vat": "derived"
+   },
+   "block_idx": 0,
+   "branch": "สำนักงานใหญ่",
+   "branch_no": "00000",
+   "company": "บริษัท ทดสอบ การค้า จำกัด",
+   "company_raw": "บริษัท ทดสอบ การค้า จำกัด",
+   "file": "fixture_invoices.xlsx",
+   "file_info": {
+    "code": "fixture",
+    "day": null,
+    "month": null,
+    "month_end": null,
+    "year": null
+   },
+   "filepath": "tests/fixtures/fixture_invoices.xlsx",
+   "issues": [
+    {
+     "category": "เอกสาร",
+     "code": "DOC001",
+     "detail": "ชีต=2 แต่วันที่=15",
+     "name": "ชีต↔วันที่",
+     "severity": "ERROR"
+    }
+   ],
+   "items": [
+    {
+     "amount": 2500.0,
+     "name": "สินค้าทดสอบ เหล็กเส้น",
+     "name_raw": "สินค้าทดสอบ เหล็กเส้น",
+     "price": 250.0,
+     "qty": 10.0,
+     "seq": 1,
+     "unit": "เส้น"
+    }
+   ],
+   "iv_date": "2025-01-15T00:00:00",
+   "iv_date_str": "15/01/2025",
+   "iv_number": "IV68010001",
+   "iv_number_raw": "IV6801-0001",
+   "master_key": "(ไม่พบใน master)",
+   "match_score": 50.0,
+   "parse_confidence": "MID",
+   "parse_confidence_reasons": [
+    "ความเชื่อมั่นการอ่านยอดเงินต่ำ (parser)"
+   ],
+   "parse_confidence_score": 0.85,
+   "sheet": "2",
+   "subtotal": 2500.0,
+   "tax_id": "0105000000012",
+   "tax_id_raw": "105000000012.0",
+   "total": 2675.0,
+   "vat": 175.0
+  },
+  {
+   "address": "เลขที่ 1/23 ถนนสมมติ แขวงทดสอบ เขตทดสอบ กรุงเทพมหานคร 10110",
+   "amount_confidence": "low",
+   "amount_source": {
+    "subtotal": "item_sum",
+    "total": "derived",
+    "vat": "derived"
+   },
+   "block_idx": 0,
+   "branch": "สำนักงานใหญ่",
+   "branch_no": "00000",
+   "company": "ห้างหุ้นส่วนจำกัด ตัวอย่าง บริการ",
+   "company_raw": "ห้างหุ้นส่วนจำกัด ตัวอย่าง บริการ",
+   "file": "fixture_invoices.xlsx",
+   "file_info": {
+    "code": "fixture",
+    "day": null,
+    "month": null,
+    "month_end": null,
+    "year": null
+   },
+   "filepath": "tests/fixtures/fixture_invoices.xlsx",
+   "issues": [
+    {
+     "category": "เอกสาร",
+     "code": "DOC001",
+     "detail": "ชีต=4 แต่วันที่=20",
+     "name": "ชีต↔วันที่",
+     "severity": "ERROR"
+    },
+    {
+     "category": "รายการสินค้า",
+     "code": "ITM003",
+     "detail": "#1: \"ค่าบริการติดตั้งระบบ\" คลุมเครือ",
+     "name": "ไม่คลุมเครือ",
+     "severity": "WARNING"
+    }
+   ],
+   "items": [
+    {
+     "amount": 8000.0,
+     "name": "ค่าบริการติดตั้งระบบ",
+     "name_raw": "ค่าบริการติดตั้งระบบ",
+     "price": 8000.0,
+     "qty": 1.0,
+     "seq": 1,
+     "unit": "งาน"
+    }
+   ],
+   "iv_date": "2025-01-20T00:00:00",
+   "iv_date_str": "20/01/2025",
+   "iv_number": "IV68010002",
+   "iv_number_raw": "IV6801-0002",
+   "master_key": "(ไม่พบใน master)",
+   "match_score": 32.72727272727273,
+   "parse_confidence": "MID",
+   "parse_confidence_reasons": [
+    "ความเชื่อมั่นการอ่านยอดเงินต่ำ (parser)"
+   ],
+   "parse_confidence_score": 0.85,
+   "sheet": "4",
+   "subtotal": 8000.0,
+   "tax_id": "0105000000021",
+   "tax_id_raw": "105000000021.0",
+   "total": 8560.0,
+   "vat": 560.0
+  },
+  {
+   "address": "เลขที่ 45 หมู่ 2 ตำบลสาม อำเภอสาม จังหวัดสาม 30000",
+   "amount_confidence": "low",
+   "amount_source": {
+    "subtotal": "item_sum",
+    "total": "derived",
+    "vat": "derived"
+   },
+   "block_idx": 0,
+   "branch": "สำนักงานใหญ่",
+   "branch_no": "00000",
+   "company": "บริษัท สาม ทดสอบ จำกัด",
+   "company_raw": "บริษัท สาม ทดสอบ จำกัด",
+   "file": "fixture_invoices.xlsx",
+   "file_info": {
+    "code": "fixture",
+    "day": null,
+    "month": null,
+    "month_end": null,
+    "year": null
+   },
+   "filepath": "tests/fixtures/fixture_invoices.xlsx",
+   "issues": [
+    {
+     "category": "เอกสาร",
+     "code": "DOC001",
+     "detail": "ชีต=6 แต่วันที่=25",
+     "name": "ชีต↔วันที่",
+     "severity": "ERROR"
+    }
+   ],
+   "items": [
+    {
+     "amount": 3600.0,
+     "name": "สีน้ำมัน 5 ลิตร",
+     "name_raw": "สีน้ำมัน 5 ลิตร",
+     "price": 900.0,
+     "qty": 4.0,
+     "seq": 1,
+     "unit": "แกลลอน"
+    }
+   ],
+   "iv_date": "2025-01-25T00:00:00",
+   "iv_date_str": "25/01/2025",
+   "iv_number": "IV68010003",
+   "iv_number_raw": "IV6801-0003",
+   "master_key": "(ไม่พบใน master)",
+   "match_score": 58.82352941176471,
+   "parse_confidence": "MID",
+   "parse_confidence_reasons": [
+    "ความเชื่อมั่นการอ่านยอดเงินต่ำ (parser)"
+   ],
+   "parse_confidence_score": 0.85,
+   "sheet": "6",
+   "subtotal": 3600.0,
+   "tax_id": "0105000000039",
+   "tax_id_raw": "105000000039.0",
+   "total": 3852.0,
+   "vat": 252.0
+  }
+ ],
+ "dup_items": [],
+ "file_names": [
+  "fixture_invoices.xlsx"
+ ],
+ "filename_issues": [],
+ "iv_date": [],
+ "iv_seq": [
+  {
+   "detail": "[fixture_invoices.xlsx/2] sheet=2 vs iv_date.day=15 (iv_date=15/01/2025)",
+   "iv": "IV68010001",
+   "severity": "CRITICAL",
+   "type": "IV วันที่ไม่สอดคล้อง"
+  },
+  {
+   "detail": "[fixture_invoices.xlsx/4] sheet=4 vs iv_date.day=20 (iv_date=20/01/2025)",
+   "iv": "IV68010002",
+   "severity": "CRITICAL",
+   "type": "IV วันที่ไม่สอดคล้อง"
+  },
+  {
+   "detail": "[fixture_invoices.xlsx/6] sheet=6 vs iv_date.day=25 (iv_date=25/01/2025)",
+   "iv": "IV68010003",
+   "severity": "CRITICAL",
+   "type": "IV วันที่ไม่สอดคล้อง"
+  }
+ ],
+ "n_bills": 3,
+ "n_files": 1,
+ "summary": [
+  {
+   "bill_count": 3,
+   "bills": [
+    {
+     "address": "เลขที่ 99/9 หมู่ที่ 1 ตำบลทดสอบ อำเภอเมือง จังหวัดทดสอบ 10000",
+     "amount_confidence": "low",
+     "amount_source": {
+      "subtotal": "item_sum",
+      "total": "derived",
+      "vat": "derived"
+     },
+     "block_idx": 0,
+     "branch": "สำนักงานใหญ่",
+     "branch_no": "00000",
+     "company": "บริษัท ทดสอบ การค้า จำกัด",
+     "company_raw": "บริษัท ทดสอบ การค้า จำกัด",
+     "file": "fixture_invoices.xlsx",
+     "file_info": {
+      "code": "fixture",
+      "day": null,
+      "month": null,
+      "month_end": null,
+      "year": null
+     },
+     "filepath": "tests/fixtures/fixture_invoices.xlsx",
+     "issues": [
+      {
+       "category": "เอกสาร",
+       "code": "DOC001",
+       "detail": "ชีต=2 แต่วันที่=15",
+       "name": "ชีต↔วันที่",
+       "severity": "ERROR"
+      }
+     ],
+     "items": [
+      {
+       "amount": 2500.0,
+       "name": "สินค้าทดสอบ เหล็กเส้น",
+       "name_raw": "สินค้าทดสอบ เหล็กเส้น",
+       "price": 250.0,
+       "qty": 10.0,
+       "seq": 1,
+       "unit": "เส้น"
+      }
+     ],
+     "iv_date": "2025-01-15T00:00:00",
+     "iv_date_str": "15/01/2025",
+     "iv_number": "IV68010001",
+     "iv_number_raw": "IV6801-0001",
+     "master_key": "(ไม่พบใน master)",
+     "match_score": 50.0,
+     "parse_confidence": "MID",
+     "parse_confidence_reasons": [
+      "ความเชื่อมั่นการอ่านยอดเงินต่ำ (parser)"
+     ],
+     "parse_confidence_score": 0.85,
+     "sheet": "2",
+     "subtotal": 2500.0,
+     "tax_id": "0105000000012",
+     "tax_id_raw": "105000000012.0",
+     "total": 2675.0,
+     "vat": 175.0
+    },
+    {
+     "address": "เลขที่ 1/23 ถนนสมมติ แขวงทดสอบ เขตทดสอบ กรุงเทพมหานคร 10110",
+     "amount_confidence": "low",
+     "amount_source": {
+      "subtotal": "item_sum",
+      "total": "derived",
+      "vat": "derived"
+     },
+     "block_idx": 0,
+     "branch": "สำนักงานใหญ่",
+     "branch_no": "00000",
+     "company": "ห้างหุ้นส่วนจำกัด ตัวอย่าง บริการ",
+     "company_raw": "ห้างหุ้นส่วนจำกัด ตัวอย่าง บริการ",
+     "file": "fixture_invoices.xlsx",
+     "file_info": {
+      "code": "fixture",
+      "day": null,
+      "month": null,
+      "month_end": null,
+      "year": null
+     },
+     "filepath": "tests/fixtures/fixture_invoices.xlsx",
+     "issues": [
+      {
+       "category": "เอกสาร",
+       "code": "DOC001",
+       "detail": "ชีต=4 แต่วันที่=20",
+       "name": "ชีต↔วันที่",
+       "severity": "ERROR"
+      },
+      {
+       "category": "รายการสินค้า",
+       "code": "ITM003",
+       "detail": "#1: \"ค่าบริการติดตั้งระบบ\" คลุมเครือ",
+       "name": "ไม่คลุมเครือ",
+       "severity": "WARNING"
+      }
+     ],
+     "items": [
+      {
+       "amount": 8000.0,
+       "name": "ค่าบริการติดตั้งระบบ",
+       "name_raw": "ค่าบริการติดตั้งระบบ",
+       "price": 8000.0,
+       "qty": 1.0,
+       "seq": 1,
+       "unit": "งาน"
+      }
+     ],
+     "iv_date": "2025-01-20T00:00:00",
+     "iv_date_str": "20/01/2025",
+     "iv_number": "IV68010002",
+     "iv_number_raw": "IV6801-0002",
+     "master_key": "(ไม่พบใน master)",
+     "match_score": 32.72727272727273,
+     "parse_confidence": "MID",
+     "parse_confidence_reasons": [
+      "ความเชื่อมั่นการอ่านยอดเงินต่ำ (parser)"
+     ],
+     "parse_confidence_score": 0.85,
+     "sheet": "4",
+     "subtotal": 8000.0,
+     "tax_id": "0105000000021",
+     "tax_id_raw": "105000000021.0",
+     "total": 8560.0,
+     "vat": 560.0
+    },
+    {
+     "address": "เลขที่ 45 หมู่ 2 ตำบลสาม อำเภอสาม จังหวัดสาม 30000",
+     "amount_confidence": "low",
+     "amount_source": {
+      "subtotal": "item_sum",
+      "total": "derived",
+      "vat": "derived"
+     },
+     "block_idx": 0,
+     "branch": "สำนักงานใหญ่",
+     "branch_no": "00000",
+     "company": "บริษัท สาม ทดสอบ จำกัด",
+     "company_raw": "บริษัท สาม ทดสอบ จำกัด",
+     "file": "fixture_invoices.xlsx",
+     "file_info": {
+      "code": "fixture",
+      "day": null,
+      "month": null,
+      "month_end": null,
+      "year": null
+     },
+     "filepath": "tests/fixtures/fixture_invoices.xlsx",
+     "issues": [
+      {
+       "category": "เอกสาร",
+       "code": "DOC001",
+       "detail": "ชีต=6 แต่วันที่=25",
+       "name": "ชีต↔วันที่",
+       "severity": "ERROR"
+      }
+     ],
+     "items": [
+      {
+       "amount": 3600.0,
+       "name": "สีน้ำมัน 5 ลิตร",
+       "name_raw": "สีน้ำมัน 5 ลิตร",
+       "price": 900.0,
+       "qty": 4.0,
+       "seq": 1,
+       "unit": "แกลลอน"
+      }
+     ],
+     "iv_date": "2025-01-25T00:00:00",
+     "iv_date_str": "25/01/2025",
+     "iv_number": "IV68010003",
+     "iv_number_raw": "IV6801-0003",
+     "master_key": "(ไม่พบใน master)",
+     "match_score": 58.82352941176471,
+     "parse_confidence": "MID",
+     "parse_confidence_reasons": [
+      "ความเชื่อมั่นการอ่านยอดเงินต่ำ (parser)"
+     ],
+     "parse_confidence_score": 0.85,
+     "sheet": "6",
+     "subtotal": 3600.0,
+     "tax_id": "0105000000039",
+     "tax_id_raw": "105000000039.0",
+     "total": 3852.0,
+     "vat": 252.0
+    }
+   ],
+   "key": "(ไม่พบใน master)",
+   "period": "68.01",
+   "subtotal": 14100.0,
+   "total": 15087.0,
+   "vat": 987.0
+  }
+ ],
+ "typos": []
+}
