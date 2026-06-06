@@ -300,6 +300,15 @@ def _row_has_rate_marker(M, r, ncols):
             return True
     return False
 
+def _rightmost_num_has_decimal(M, r, ncols):
+    """[M8] เลขขวาสุดในแถวเขียนแบบมีจุดทศนิยมไหม — '7.00' = ยอด ; '7'/7 ล้วน = น่าจะอัตรา"""
+    for c in range(ncols-1, -1, -1):
+        v = M[r, c]
+        if pd.isna(v): continue
+        if _cell_to_num(v) is None: continue
+        return '.' in str(v)
+    return False
+
 def audit_text_num_reset():
     """ล้าง log ตอนเริ่มรอบใหม่ (กัน state ค้างข้ามรอบใน Colab/session ยาว)"""
     try:
@@ -361,11 +370,13 @@ def _label_based_amounts(df, row_start, row_end, ncols):
             continue
         if _row_label_match(M, r, ncols, _LBL_VAT):
             n = _rightmost_num(M, r, ncols)
-            # [M8] ทิ้งเฉพาะ "อัตรา": 0.07 เสมอ ; เลข 7 เฉพาะเมื่อแถวมี %/อัตรา/เรต.
-            #   เดิมทิ้ง n==7 เสมอ → "ยอด VAT 7.00 บาทพอดี" (subtotal=100) หาย → ปลายทาง derive
-            #   แทน ocr (พลิก provenance, กระทบ VAT010). คอร์ปัส 106 ไฟล์: 0 แถว rightmost==7
-            #   → golden 35b2f7c8 ไม่ขยับ ; เก็บความถูกต้องไว้กับข้อมูลอนาคต.
-            if n is not None and not (abs(n-0.07) < 0.001 or (n == 7 and _row_has_rate_marker(M, r, ncols))):
+            # [M8] ทิ้งเฉพาะ "อัตรา": 0.07 เสมอ ; เลข 7 ทิ้งเมื่อ "ไม่ใช่ยอดทศนิยม" คือ
+            #   แถวมี %/อัตรา/เรต หรือเขียนเป็น '7' ล้วน (ไม่มีจุด). คงไว้เมื่อเป็น '7.00' (ยอดจริง).
+            #   เดิมทิ้ง n==7 เสมอ → "ยอด VAT 7.00" (subtotal=100) หาย → ปลายทาง derive แทน ocr
+            #   (พลิก provenance, กระทบ VAT010). คอร์ปัส 106 ไฟล์: 0 แถว rightmost==7 → golden ไม่ขยับ.
+            _is_rate7 = (n == 7 and (_row_has_rate_marker(M, r, ncols)
+                                     or not _rightmost_num_has_decimal(M, r, ncols)))
+            if n is not None and not (abs(n-0.07) < 0.001 or _is_rate7):
                 vats.append(n)
             continue
         if _row_label_match(M, r, ncols, _LBL_SUBTOTAL):
