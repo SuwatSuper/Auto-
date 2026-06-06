@@ -565,7 +565,8 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
 **ย้อนกลับ:** restore `baseline.json` จาก backup (`73f5bf87`) + revert 3 จุด parser (rules_a:406 คง Decimal ได้ เพราะ neutral) + revert เอกสาร/tripwire. ไม่มีผลต่อ business logic อื่น.
 
 ### ADR-022 (OPT-1 / performance) — parser hot path: _dic_int_run/_dic_find_seq อ่าน M (byte-identical) · supersedes ADR-017(b) defer
-- สถานะ: **ACTIVE** (sandbox) / **⚠ NEEDS_REAL_DATA_CERT** (รอเจ้าของยืนยัน 35b2f7c8 ก่อน==หลัง บน 106 ไฟล์ py3.12)
+- สถานะ: ✅ **CERTIFIED** (2026-06 เจ้าของรัน `regression_full.py . /mnt/project` บน py3.12 →
+  `35b2f7c8` **engine==agent==baseline** = golden ไม่ขยับบนข้อมูลจริง 106 ไฟล์. R3/R4 ปิดวงจรครบ.)
 - ราก (PERF_BASELINE §Hotspot): `parser_p0._dic_find_seq` เรียก `_dic_int_run` ต่อคอลัมน์ด้วย
   `df.iloc[:,c].dropna()` → hot loop **16,553 ครั้ง/106 ไฟล์ ~3.9s** (~20% ของ parse).
   `detect_item_columns` materialize `M = df.to_numpy(dtype=object)` อยู่แล้ว แต่อยู่ **หลัง** seq-detect.
@@ -588,3 +589,36 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
   / `fff69fc6` (report-det) ก่อน==หลัง ต้องรันบน 106 ไฟล์จริง (py3.12). ดู OPTIMIZE_REPORT_TH.md §cert.
 - ย้อนกลับ: revert 2 helper ใน `parser_p0a.py` + การย้าย M ใน `parser_p0.py` (diff เล็ก, contained,
   ไม่มี call site อื่น). `test_dic_int_run_equiv.py` เป็น additive test (ลบได้ถ้าย้อน).
+
+### ADR-023 (OPT-1b / performance) — parser hot path #2: _label_based_amounts normalize แถวเดียว (byte-identical)
+- สถานะ: **ACTIVE** (sandbox) / **⚠ NEEDS_REAL_DATA_CERT** (35b2f7c8 ก่อน==หลัง บน 106 ไฟล์ py3.12)
+- ราก (PERF_BASELINE:26): `_row_label_match` = hot loop อันดับ 2 (**35,661 ครั้ง/~2.5s**). `_label_based_amounts`
+  (parser_p1) เรียกมัน **3 ครั้ง/แถว** (TOTAL/VAT/SUBTOTAL) ด้วย `continue` short-circuit → แต่ละครั้ง
+  recompute `normalize_text(M[r,c]).lower()` ซ้ำ ≤3× ต่อเซลล์ (สำหรับแถวที่ไม่ match = ส่วนใหญ่).
+- การแก้: normalize ทั้งแถวครั้งเดียวเก็บ `row_norm` (เซลล์ไม่ว่าง ตามลำดับคอลัมน์) แล้วเช็ก 3 label set
+  ด้วย `any(_label_in_text(s, L) for s in row_norm)`. `_row_label_match` เดิม **ไม่ถูกแตะ** (ยัง public/re-export).
+- ความถูกต้อง (byte-identical): `normalize_text` เป็น **total** (None/NaN→'' ; อื่น `str()` — ไม่ throw)
+  → precompute เต็มแถวให้ผลเท่า short-circuit เดิมทุก path (ไม่มีเส้น exception ใหม่). `any(...)` ตามลำดับ
+  คอลัมน์ ≡ `_row_label_match` (True ที่ match แรก). **`test_label_amounts_equiv.py`** (run_ci [3e3]):
+  differential vs โค้ดเดิม (ใช้ `_row_label_match` ที่ไม่ถูกแตะเป็น oracle) = **2,503 บล็อก, 0 ต่าง**.
+- perf (synthetic): ~**1.11× (−10%)** บน `_label_based_amounts` (ส่วนที่เหลือ = `_rightmost_num` ที่ยังสแกน).
+- fixture `d8bcde85` ไม่ขยับ · run_ci เขียว · pytest 51 · ย้อนกลับ: revert `_label_based_amounts` เดียว (contained).
+
+### ADR-024 (OPT-2 ก / maintainability) — auto re-export internal parser chain · supersedes ADR-017(c) guard-only
+- สถานะ: **ACTIVE** (sandbox) / **⚠ NEEDS_REAL_DATA_CERT** (35b2f7c8 ก่อน==หลัง บน 106 ไฟล์ py3.12)
+- ราก (B2/[F3]): chain `parser_p0a→p0→p1→p2` ทำ explicit re-export ด้วยมือ ~57–95 ชื่อ/ชั้น →
+  ลบ/ย้าย 1 สัญลักษณ์ต้นน้ำ = ImportError ทั้ง chain (แก้ 6+ จุด). blast radius สูง.
+- เจ้าของสั่ง "เอาแบบกระโดดถึง 9 ไม่เอาขยับนิดเดียว" → เลือก **(ก)** (ไม่ใช่ (ค) guard-only ของ ADR-017).
+  (ข) ยุบโมดูล = **ชน file-size gate ≤600 LOC** (รวม ~2,500 LOC) → ทำไม่ได้โดยไม่ถอดเกต.
+- การแก้: `parser_reexport.py` → `reexport(upstream, globals(), exclude=...)` ดึง `upstream.__all__`
+  เข้า namespace ปลายน้ำ โดย **bind object เดิม (getattr)** — **zero-star (ไม่ใช่ `import *`)** กันราก
+  surface-leak เดิม (annotations รั่ว, บรรทัด 120). edge ภายใน: p0←p0a(57), p1←p0(64) full ;
+  p2←p1(95) exclude 5 (Decimal/ROUND_HALF_UP จาก stdlib + 3 helper M8 ภายใน p1). **parser.py คง
+  explicit __all__ โดยเจตนา** (public API = contract ต้อง curate มือ ไม่ใช่ debt).
+- ความถูกต้อง (byte-identical): bind object เดิม → โค้ดที่รันคือ object เดียวกันทุกตัว → golden ไม่ขยับ.
+  surface พิสูจน์: re-export count 57/64/95 + `__all__` 64/100/118 **เท่าเดิมเป๊ะ** ; identity
+  `downstream.X is upstream.X` ครบ ; `parser.__all__` เข้าถึงครบ ; fixture `d8bcde85` ไม่ขยับ.
+  **`test_parser_chain_integrity.py`** อัป (run_ci [3x8b]): C1 auto-edge **216 ลิงก์ completeness+identity**
+  + C1b explicit-edge (parser 70) + C2 public-contract (68). reachability: `parser_reexport` reachable (ไม่ floating).
+- **B2 ไม่ retire:** `detect_item_columns_safe`/`_compute_col_confidence` — ADR-015 จงใจชุบชีวิต + มีเทสตรึง.
+- ย้อนกลับ: revert import header 3 ไฟล์ (p0/p1/p2) + ลบ `parser_reexport.py` (contained). cert แยก commit (812a9ab).
