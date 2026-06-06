@@ -68,6 +68,7 @@ run "[3w2] Ultra Agent (ตรวจทาน-ยืนยันด้วยห�
 run "[3x] golden single-source (doc↔baseline.json sync)" "$PY" test_golden_single_source.py
 run "[3x2] FIELD_CODES coverage (แดชบอร์ดเห็นทุกกฎ — กัน false-clean)" "$PY" test_field_codes_coverage.py
 run "[3x3] date 2-digit year (พ.ศ./ค.ศ. ไม่ขัดกัน)" "$PY" test_date_2digit_year.py
+run "[3x4] code-table consistency (MAP+FIELD_LAYOUT ตามทันทุกรหัส)" "$PY" test_code_tables_consistency.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
 run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py
 run "[3z2] monolith surface contract (26-name getattr API, de-star P1)" "$PY" test_monolith_surface.py

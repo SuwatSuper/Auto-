@@ -18,8 +18,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from rules_engine import RULES
 from config import FIELD_CODES
+import code_registry as REG
 
 _fail = 0
 
@@ -31,27 +31,27 @@ def _check(label, cond):
         _fail += 1
 
 
-print("FIELD_CODES COVERAGE — แดชบอร์ดต้องเห็นทุกกฎที่ enabled")
+print("FIELD_CODES COVERAGE — แดชบอร์ดต้องเห็นทุกรหัสที่ emit ได้จริง")
 
 # รหัสทั้งหมดที่ map ในแดชบอร์ด
 mapped = set()
 for _label, codes in FIELD_CODES:
     mapped.update(codes)
 
-all_rule_codes = set(RULES.keys())
-enabled_codes = {c for c, r in RULES.items() if r.get("enabled", True)}
+emittable = REG.emittable_codes()   # กฎที่เปิด + รหัสจาก parser/crosscheck (แหล่งเดียว)
+known = REG.known_codes()           # กฎทั้งหมด (รวมปิด) + external
 
-# 1) ทุกกฎที่ "เปิดใช้งาน" ต้องอยู่ในแดชบอร์ด (มิฉะนั้น error จริงโชว์ "ตรง" หลอก)
-missing_enabled = sorted(enabled_codes - mapped)
+# 1) ทุกรหัสที่ emit ได้จริง ต้องอยู่ในแดชบอร์ด (มิฉะนั้น error จริงโชว์ "ตรง" หลอก)
+missing = sorted(emittable - mapped)
 _check(
-    f"FIELD_CODES ครอบคลุมทุกกฎ enabled (ขาด: {missing_enabled or 'ไม่มี'})",
-    not missing_enabled,
+    f"FIELD_CODES ครอบคลุมทุกรหัสที่ emit ได้ (ขาด: {missing or 'ไม่มี'})",
+    not missing,
 )
 
-# 2) ไม่อ้างรหัสที่ไม่มีจริงใน RULES (กัน dead code/typo ในตาราง map)
-unknown = sorted(mapped - all_rule_codes)
+# 2) ไม่อ้างรหัสแปลกปลอม/typo (ทุกรหัสในตารางต้องเป็นรหัสที่ระบบรู้จัก)
+unknown = sorted(mapped - known)
 _check(
-    f"FIELD_CODES ไม่อ้างรหัสที่ไม่มีใน RULES (เกิน: {unknown or 'ไม่มี'})",
+    f"FIELD_CODES ไม่อ้างรหัสแปลกปลอม (เกิน: {unknown or 'ไม่มี'})",
     not unknown,
 )
 
