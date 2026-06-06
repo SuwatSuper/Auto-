@@ -290,6 +290,16 @@ def _rightmost_num(M, r, ncols, min_val=None):
         return fv
     return None
 
+# [M8] เซลล์บนแถวบ่งบอก "อัตรา VAT" (ไม่ใช่ยอดเงิน) ไหม — มี % หรือคำว่า อัตรา/เรต/rate
+_RATE_MARKERS = ('%', 'อัตรา', 'เรต', 'rate')
+def _row_has_rate_marker(M, r, ncols):
+    for c in range(ncols):
+        v = M[r, c]
+        if pd.isna(v): continue
+        if any(mk in str(v).lower() for mk in _RATE_MARKERS):
+            return True
+    return False
+
 def audit_text_num_reset():
     """ล้าง log ตอนเริ่มรอบใหม่ (กัน state ค้างข้ามรอบใน Colab/session ยาว)"""
     try:
@@ -351,7 +361,11 @@ def _label_based_amounts(df, row_start, row_end, ncols):
             continue
         if _row_label_match(M, r, ncols, _LBL_VAT):
             n = _rightmost_num(M, r, ncols)
-            if n is not None and not (abs(n-0.07) < 0.001 or n == 7):
+            # [M8] ทิ้งเฉพาะ "อัตรา": 0.07 เสมอ ; เลข 7 เฉพาะเมื่อแถวมี %/อัตรา/เรต.
+            #   เดิมทิ้ง n==7 เสมอ → "ยอด VAT 7.00 บาทพอดี" (subtotal=100) หาย → ปลายทาง derive
+            #   แทน ocr (พลิก provenance, กระทบ VAT010). คอร์ปัส 106 ไฟล์: 0 แถว rightmost==7
+            #   → golden 35b2f7c8 ไม่ขยับ ; เก็บความถูกต้องไว้กับข้อมูลอนาคต.
+            if n is not None and not (abs(n-0.07) < 0.001 or (n == 7 and _row_has_rate_marker(M, r, ncols))):
                 vats.append(n)
             continue
         if _row_label_match(M, r, ncols, _LBL_SUBTOTAL):
