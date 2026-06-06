@@ -64,6 +64,11 @@ jobs:
         #   (พิสูจน์ด้วย reconciliation ต่อบิล + taxid). จับ regression ถ้า parser อนาคตทำค่าหาย.
         run: python diagnose_merged_cells.py tests/real_cases
 
+      - name: Package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)
+        # guard: package.sh ต้องผลิต zip ที่ตั้ง UTF-8 flag ถูก (โมดูลหลักชื่อไทยไม่หายตอน unzip)
+        #   + ไม่มี cache/secret หลุด. กัน regression แบบ git-archive ที่เคยทำแพ็กพังเงียบ.
+        run: python test_package_integrity.py
+
   # [#2] job แยก (รันขนานกับ gate — ไม่หน่วง gate หลัก): พิสูจน์ว่า `pytest` ใช้งานได้จริง
   #   conftest.py รันแต่ละสคริปต์เป็น subprocess → collection ไม่ครัช + ทุกเทสผ่านผ่าน pytest ด้วย
   #   (เดิม pytest ครัชทันทีเพราะ module-level sys.exit). กัน regression ของ tooling นี้.

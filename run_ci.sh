@@ -71,6 +71,7 @@ run "[3x3] date 2-digit year (พ.ศ./ค.ศ. ไม่ขัดกัน)" "$
 run "[3x4] code-table consistency (MAP+FIELD_LAYOUT ตามทันทุกรหัส)" "$PY" test_code_tables_consistency.py
 run "[3x5] A-hardening (advisory/รายงานทนข้อมูลเพี้ยน — ไม่ครัช)" "$PY" test_a_hardening.py
 run "[3x6] merged-cell integrity (real_cases — ค่าวิกฤตไม่หายจาก merge)" "$PY" diagnose_merged_cells.py tests/real_cases
+run "[3x7] package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)" "$PY" test_package_integrity.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
 run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py
 run "[3z2] monolith surface contract (26-name getattr API, de-star P1)" "$PY" test_monolith_surface.py
