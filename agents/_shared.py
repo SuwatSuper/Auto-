@@ -22,7 +22,11 @@ from typing import Any, Dict, Optional
 # ลำดับความรุนแรงมาตรฐานของทั้งระบบ (ใช้จัดอันดับ/หา max) — แหล่งความจริงเดียว
 SEV_RANK: Dict[str, int] = {"CRITICAL": 3, "ERROR": 2, "WARNING": 1, "INFO": 0}
 
-__all__ = ["SEV_RANK", "max_severity", "bill_key", "parse_llm_json"]
+# [B6-FIX] ชื่อ agent ผู้ตรวจอิสระชั้น Tier-1 — แหล่งความจริงเดียว (เดิมก๊อปซ้ำ 4 ไฟล์:
+#   confidence/crosscheck/super/mesh_contract → เสี่ยง drift). ลำดับตรงกับ orchestrator._review_agents.
+TIER1: tuple = ("formula", "vat", "wht", "taxid")
+
+__all__ = ["SEV_RANK", "TIER1", "max_severity", "bill_key", "parse_llm_json"]
 
 
 def max_severity(issues, key=None) -> str:

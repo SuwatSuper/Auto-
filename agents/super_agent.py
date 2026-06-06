@@ -33,6 +33,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 
 from ._shared import SEV_RANK as _SEV_RANK, bill_key as _bkey, parse_llm_json
+from ._shared import TIER1 as _TIER1   # [B6-FIX] แหล่งความจริงเดียว (เดิมก๊อปซ้ำ 4 ไฟล์)
 from .base import Agent
 from .contracts import AgentResult, Finding, PipelineContext, Severity, Status
 from .llm_provider import make_provider
@@ -40,8 +41,7 @@ from .llm_provider import make_provider
 # น้ำหนักความรุนแรงเฉพาะของ super (สเกลคนละชุดกับ ConfidenceAgent โดยตั้งใจ — ใช้รวมคะแนนข้าม tier)
 _SEV_WEIGHT = {"CRITICAL": 40, "ERROR": 25, "WARNING": 12, "INFO": 4}
 
-# ผู้ตรวจอิสระชั้นต้น (การธงพร้อมกันหลายตัว = หลักฐานข้ามมุมมอง)
-_TIER1 = ("formula", "vat", "wht", "taxid")
+# ผู้ตรวจอิสระชั้นต้น (การธงพร้อมกันหลายตัว = หลักฐานข้ามมุมมอง) — _TIER1 มาจาก _shared
 # agent ที่คาดว่าจะรันครบในสายการผลิตเต็ม (ใช้ตรวจ QA ว่าขาดตัวใด)
 #   [P2-FIX] เติม "verification" (Tier-2 ที่ orchestrator รันจริง) — เดิมตกหล่น ทำให้ QA นับ ok/expected
 #   คลาดเคลื่อน และไม่เคยธงเมื่อ verification หาย/พัง. ลำดับตรงกับ orchestrator._tier2_agents().

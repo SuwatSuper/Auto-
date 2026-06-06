@@ -40,7 +40,7 @@ from typing import Dict, List, Optional, Tuple
 from config import _LOCKED as LOCKED
 
 # ── การจัดกลุ่มความสำคัญ (ดู docstring) ──────────────────────────────────────
-REQUIRED_CRITICAL = ("pandas", "xlrd", "openpyxl", "rapidfuzz")
+REQUIRED_CRITICAL = ("pandas", "numpy", "xlrd", "openpyxl", "rapidfuzz")  # [B2-FIX] +numpy (กระทบ hash)
 OPTIONAL_CRITICAL = ("pythainlp",)
 AUXILIARY = ("matplotlib", "plotly", "tqdm")
 

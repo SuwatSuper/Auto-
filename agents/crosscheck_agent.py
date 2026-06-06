@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import mesh_contract
 
+from ._shared import TIER1 as _TIER1   # [B6-FIX] แหล่งความจริงเดียว (เดิมก๊อปซ้ำ 4 ไฟล์)
 from .base import Agent
 from .contracts import AgentResult, Finding, PipelineContext, Severity, Status
 
 # Tier-1 ที่ถือว่าเป็น "ผู้ตรวจอิสระ" — การธงพร้อมกันจาก >=2 ใน set นี้ = สัญญาณแรง
-_TIER1 = ("formula", "vat", "wht", "taxid")
 
 
 class CrossCheckAgent(Agent):

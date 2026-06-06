@@ -418,6 +418,7 @@ SEVERITY_ICON = {'CRITICAL': '🔴', 'ERROR': '🟠', 'WARNING': '🟡', 'INFO':
 _LOCKED = {
     'python':    '3.12',
     'pandas':    '2.2.2',
+    'numpy':     '2.2.6',   # [B2-FIX] numpy กระทบ hash มากสุด (format/sort) แต่เดิม gate ไม่เช็ค → เพิ่มเข้าด่าน
     'xlrd':      '2.0.1',
     'openpyxl':  '3.1.5',
     'rapidfuzz': '3.10.1',

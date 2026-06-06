@@ -24,11 +24,11 @@ from typing import Dict
 import mesh_contract
 
 from ._shared import bill_key as _bkey
+from ._shared import TIER1 as _TIER1   # [B6-FIX] แหล่งความจริงเดียว (เดิมก๊อปซ้ำ 4 ไฟล์)
 from .base import Agent
 from .contracts import AgentResult, Finding, PipelineContext, Severity, Status
 
 _SEV_WEIGHT = {"CRITICAL": 10, "ERROR": 6, "WARNING": 3, "INFO": 1}
-_TIER1 = ("formula", "vat", "wht", "taxid")
 
 
 class ConfidenceAgent(Agent):

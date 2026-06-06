@@ -21,7 +21,15 @@ from .contracts import AgentResult, PipelineContext, Status, _Timer
 
 
 class AgentError(Exception):
-    """error ที่ critical agent โยนเพื่อสั่งหยุด pipeline อย่างชัดเจน (ตั้งใจ ไม่ใช่บั๊ก)."""
+    """error ที่ critical agent โยนเพื่อสั่งหยุด pipeline อย่างชัดเจน (ตั้งใจ ไม่ใช่บั๊ก).
+
+    [C1-FIX] พก `result` (AgentResult ที่มี traceback เต็ม) ไว้ด้วย — เดิม run() สร้างผล error
+    ละเอียดแล้วถูกทิ้งตอน raise, orchestrator จึงบันทึกผลบางๆ ไร้ traceback ในจุดที่สำคัญที่สุด
+    (critical crash). ผูก result ไว้ให้ผู้จับบันทึกของจริงได้.
+    """
+    def __init__(self, message, result=None):
+        super().__init__(message)
+        self.result = result
 
 
 class Agent(ABC):
@@ -67,7 +75,8 @@ class Agent(ABC):
             )
             if self.critical:
                 # critical แต่ดันโยน exception ธรรมดา → แปลงเป็น AgentError เพื่อหยุดอย่างชัดเจน
-                raise AgentError(f"{self.name} (critical) ล้มเหลว: {e}") from e
+                #   [C1-FIX] แนบ res (มี traceback เต็ม) ไปด้วย เพื่อให้ orchestrator บันทึกของจริง
+                raise AgentError(f"{self.name} (critical) ล้มเหลว: {e}", result=res) from e
             return res
 
     @abstractmethod

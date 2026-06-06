@@ -57,6 +57,14 @@ _check(
     not layout_missing,
 )
 
+# ── [B6] Tier-1 agent set ต้องเป็นแหล่งเดียว (กันก๊อปซ้ำ drift) ───────────────
+from agents._shared import TIER1
+import mesh_contract as _MC
+_check(
+    f"Tier-1 set: _shared.TIER1 == mesh.DEFAULT_TIER1 (={tuple(TIER1)})",
+    tuple(TIER1) == tuple(_MC.DEFAULT_TIER1),
+)
+
 print("=" * 64)
 if _fail == 0:
     print("RESULT: ✅ MAP + FIELD_LAYOUT ตามทันรหัสที่ emit ได้ครบ — ไม่มี drift")

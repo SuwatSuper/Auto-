@@ -203,10 +203,12 @@ class Orchestrator:
     def _dispatch(self, agent: Agent, ctx: PipelineContext) -> AgentResult:
         try:
             result = agent.run(ctx)
-        except AgentError:
-            # critical agent สั่งหยุด — บันทึกผล error ไว้ก่อนแล้วโยนต่อ (ให้ผู้เรียกเห็น)
-            res = AgentResult(agent.name, Status.ERROR.value,
-                              error=f"{agent.name} (critical) หยุด pipeline")
+        except AgentError as e:
+            # critical agent สั่งหยุด — บันทึก "ผลของจริง" (มี traceback เต็มจาก base.run) ถ้ามี
+            #   [C1-FIX] เดิมสร้างผลบางๆ ทับ → เสีย traceback ในจุดสำคัญที่สุด. fallback ถ้าไม่มี.
+            res = getattr(e, "result", None) or AgentResult(
+                agent.name, Status.ERROR.value,
+                error=f"{agent.name} (critical) หยุด pipeline")
             ctx.record(res)
             raise
         ctx.record(result)

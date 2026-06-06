@@ -30,8 +30,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -c constraints.txt pandas xlrd openpyxl rapidfuzz numpy coverage
 
-      - name: Version gate
-        run: python version_gate.py || true   # auxiliary diffs = warn เท่านั้น
+      - name: Version gate (blocking — danger=fail, aux/optional missing=warn)
+        # [B1-FIX] เดิม `|| true` ทำให้ด่านนี้เป็นแค่ของประดับ. version_gate FAIL เฉพาะเคสอันตราย
+        #   (core/python/numpy major-minor-missing) เท่านั้น — aux/optional ที่ไม่ได้ติดตั้ง = WARN
+        #   จึงผ่านปกติบน 3.12+pinned. เอา `|| true` ออก = ด่านนี้กันของจริงแล้ว.
+        run: python version_gate.py
 
       - name: Invariants (4/4)
         run: python INVARIANTS/check_invariants.py
@@ -47,3 +50,11 @@ jobs:
             python "$t" || fail=1
           done
           exit $fail
+
+      - name: Coverage gate (line ≥90%)
+        # [B4-FIX] เดิมรันเฉพาะ local (run_ci.sh) — ย้ายเข้า GitHub CI ให้ coverage ตกแล้ว CI แดงจริง
+        run: python coverage_gate.py
+
+      - name: Parse canary (fixture rate — กัน parse ถอยหลังเงียบ)
+        # [B4-FIX] เดิมไม่อยู่ใน GitHub CI — เพิ่มเพื่อจับ parse-rate regression ตั้งแต่ใน CI
+        run: python parse_canary.py tests/fixtures --baseline tests/fixtures/canary_baseline_fixture.json

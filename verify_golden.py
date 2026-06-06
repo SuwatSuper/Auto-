@@ -62,5 +62,8 @@ if os.path.isfile(BASELINE):
         sys.stderr.write(f'⚠️ อ่าน baseline ไม่ได้: {e}\n')
         sys.exit(2)
 else:
-    sys.stderr.write(f'⚠️ ไม่พบ baseline "{BASELINE}" — พิมพ์ agent_hash อย่างเดียว\n')
-    sys.exit(0)
+    # [B3-FIX] baseline หาย = ตรวจไม่ได้ → ต้อง "fail-closed" (เดิม exit 0 = ผ่านแบบ vacuous
+    #   ทั้งที่ไม่ได้เทียบอะไรเลย). พิมพ์ agent_hash ให้ดูได้ แต่คืนโค้ด ≠ 0 ไม่ให้ gate เขียวลวง.
+    sys.stderr.write(f'❌ ไม่พบ baseline "{BASELINE}" — เทียบ golden ไม่ได้ (ไม่ใช่ผ่าน). '
+                     f'พิมพ์ agent_hash อย่างเดียว แล้วถือว่าตรวจไม่สำเร็จ.\n')
+    sys.exit(2)
