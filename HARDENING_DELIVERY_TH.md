@@ -59,9 +59,10 @@
 | golden fixture invariant (engine==agent==baseline) | ✅ ผ่าน |
 | golden fixture hash | ✅ `d8bcde85…` (ไม่ขยับ) |
 | doc single-source + merged-cell guard | ✅ ผ่าน |
-| run_ci.sh (เทส standalone ทั้งหมด) | ✅ **50 ด่านผ่าน** |
-| pytest (ทุกสคริปต์ผ่าน subprocess collector) | ✅ **45 passed** |
+| run_ci.sh (เทส standalone ทั้งหมด) | ✅ **53 ด่านผ่าน** |
+| pytest (ทุกสคริปต์ผ่าน subprocess collector) | ✅ **48 passed** |
 | coverage gate (line ≥90% แกน) | ✅ ผ่าน |
+| reachability / report-det / reset-completeness guard (Round-2) | ✅ ผ่าน |
 
 **เทสกันถอยหลังใหม่ในรอบนี้ (7 ไฟล์):** `test_field_codes_coverage` · `test_date_2digit_year` ·
 `test_code_tables_consistency` · `test_a_hardening` · `diagnose_merged_cells` (guard) · `conftest.py` (pytest) ·
@@ -78,12 +79,19 @@ PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 regression_full.py . <โ�
 # 2) วินิจฉัย merged cells บนข้อมูลจริงทั้งหมด (ถ้าขึ้น 🚩 ค่อยทำ handler — ดู P3_FOLLOWUP §5 #1)
 PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 diagnose_merged_cells.py <โฟลเดอร์ 106 ไฟล์>
 
-# 3) (ถ้ามี) verify parallel == serial บนข้อมูลจริง
+# 3) report determinism บนข้อมูลจริง (absolute report hash — บน 106 ไฟล์ควรได้ fff69fc6)
+PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 verify_report_det.py <โฟลเดอร์ 106 ไฟล์>
+
+# 4) (ถ้ามี) verify parallel == serial บนข้อมูลจริง
 PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 verify_parallel.py <โฟลเดอร์> 8
 
-# 4) CI เต็มในเครื่อง
+# 5) CI เต็มในเครื่อง
 bash run_ci.sh            # standalone · หรือ ·  python3 -m pytest   (ต้องเขียวทั้งคู่)
 ```
+
+> **Round-2 (PART A/B/C)** เพิ่ม guard เชิงโครงสร้าง: `test_reachability` (ไม่มี floating module/CI
+> เขียวบนโค้ดตาย) · `test_report_det` (รายงานนิ่ง) · `test_reset_completeness` (parse 2 รอบเท่ากัน) ·
+> retire `puopuy_ingest` (floating). B2/C1/C2 = defer/no-fix พร้อมหลักฐาน (ดู `P3_FOLLOWUP_TH.md §6`).
 
 > ❗ ถ้าข้อ 1 ได้ hash ต่างจาก `35b2f7c8` = มีพฤติกรรมเปลี่ยน → **หยุด ย้อนหาเหตุ ห้าม commit/rebaseline**
 > โดยไม่มีหลักฐาน before/after (กฎ R3). ปกติทุก fix ในรอบนี้ออกแบบให้ "ไม่ขยับ golden" แล้ว.
