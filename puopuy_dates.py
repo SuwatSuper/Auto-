@@ -26,7 +26,12 @@ def parse_date_any(v):
         return d
     if isinstance(v, (int, float)):
         if 30000 < v < 70000:
-            return safe(lambda: xlrd.xldate_as_datetime(v, 0))
+            if xlrd is not None:
+                return safe(lambda: xlrd.xldate_as_datetime(v, 0))
+            # [M9] ไม่มี xlrd → fallback pandas (Excel serial origin 1899-12-30). เดิมคืน None
+            #   เพราะ xlrd.xldate_as_datetime โยน AttributeError แล้ว safe() กลืน → iv_date หาย.
+            #   golden ไม่ขยับ: เครื่อง golden มี xlrd → กิ่งนี้ไม่ทำงาน.
+            return safe(lambda: (pd.Timestamp('1899-12-30') + pd.to_timedelta(int(v), unit='D')).to_pydatetime())
         return None
     s = str(v).strip()
     for thai_month, mn in THAI_MONTHS.items():
