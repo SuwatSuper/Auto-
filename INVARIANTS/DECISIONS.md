@@ -563,3 +563,28 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
 → `test_golden_single_source.py` → PASS. → `test_agents.py` → 38/38. → determinism 10/10 = 1 hash.
 
 **ย้อนกลับ:** restore `baseline.json` จาก backup (`73f5bf87`) + revert 3 จุด parser (rules_a:406 คง Decimal ได้ เพราะ neutral) + revert เอกสาร/tripwire. ไม่มีผลต่อ business logic อื่น.
+
+### ADR-022 (OPT-1 / performance) — parser hot path: _dic_int_run/_dic_find_seq อ่าน M (byte-identical) · supersedes ADR-017(b) defer
+- สถานะ: **ACTIVE** (sandbox) / **⚠ NEEDS_REAL_DATA_CERT** (รอเจ้าของยืนยัน 35b2f7c8 ก่อน==หลัง บน 106 ไฟล์ py3.12)
+- ราก (PERF_BASELINE §Hotspot): `parser_p0._dic_find_seq` เรียก `_dic_int_run` ต่อคอลัมน์ด้วย
+  `df.iloc[:,c].dropna()` → hot loop **16,553 ครั้ง/106 ไฟล์ ~3.9s** (~20% ของ parse).
+  `detect_item_columns` materialize `M = df.to_numpy(dtype=object)` อยู่แล้ว แต่อยู่ **หลัง** seq-detect.
+- การแก้ (เชิงกลไก ไม่แตะตรรกะ): ย้าย `M = df.to_numpy(dtype=object)` ขึ้นบนสุดของ `detect_item_columns`
+  แล้วส่งให้ `_dic_find_seq(M, ncols)` / `_dic_int_run(M, c)` ที่อ่าน `M[:,c]` + ข้าม `pd.isna(v)`
+  แทน `df.iloc[:,c].dropna()`. per-value `int(float(str(v)))` + ช่วง 1..50 **ไม่แตะ**.
+- ความถูกต้อง (byte-identical):
+  - `M[r,c] ≡ df.iat[r,c]` เชิงพฤติกรรม — ทีมพิสูจน์แล้ว 836 ชีต/555k cell (ADR §OBJ-PERF step4, บรรทัด 250-252).
+    `for v in M[:,c] if not pd.isna(v)` ≡ `df.iloc[:,c].dropna()` (ข้าม null ตามลำดับแถวเหมือนกัน).
+  - **`test_dic_int_run_equiv.py`** (ใหม่, run_ci [3e2]): differential vs implementation เดิม (เก็บ inline เป็น oracle) —
+    **9,703 คอลัมน์ + 1,528 เฟรม = 0 ต่าง** รวมเส้น exception (เช่น 'inf'→OverflowError ที่
+    `except (ValueError,TypeError)` เดิมไม่จับ → โค้ดเดิม crash เหมือนกัน → โปร่งใสแม้ใน error path).
+  - fixture golden `d8bcde85…` **ไม่ขยับ** · run_ci 53 ด่านเขียว · pytest 49 · coverage parser line 92.7%.
+- perf (synthetic, sandbox py3.11, 800 บล็อก): `detect_item_columns` **6.09× (−83.6%)**.
+  เคส no-seq ที่ ADR-017(b) กังวลว่าจะจ่าย to_numpy เพิ่ม → กลับ **8.64× เร็วขึ้น** (to_numpy ครั้งเดียว
+  < ~15 `df.iloc[:,c].dropna()`/บล็อก) — ข้อกังวล "redundant risk / tradeoff" ของ ADR-017(b) ไม่เกิดจริง.
+- supersedes **ADR-017(b)** (defer hot loop): handoff OPT-1 = high priority; การแก้นี้พิสูจน์ byte-identical
+  ได้ "โดยไม่ต้องมี 106 ไฟล์" ผ่าน differential oracle ที่จะยังคุมต่อเมื่อรันบนข้อมูลจริง.
+- ⚠ **NEEDS_REAL_DATA_CERT (R3/R4):** ตัวเลข perf จริง + ยืนยัน `35b2f7c8` (regression_full)
+  / `fff69fc6` (report-det) ก่อน==หลัง ต้องรันบน 106 ไฟล์จริง (py3.12). ดู OPTIMIZE_REPORT_TH.md §cert.
+- ย้อนกลับ: revert 2 helper ใน `parser_p0a.py` + การย้าย M ใน `parser_p0.py` (diff เล็ก, contained,
+  ไม่มี call site อื่น). `test_dic_int_run_equiv.py` เป็น additive test (ลบได้ถ้าย้อน).
