@@ -256,8 +256,8 @@ def _pinpoint_field(field, entries):
         extra = (fx.get("detail") or fx.get("type") or "").split("| สินค้า")[0]
         extra = re.sub(r"\s*\(คาดว่า[^)]*\)", "", extra).strip()
         if field == F_ITEM:
-            _pre = fx.get("prefix", "")
-            seg = (f"{_pre} " if _pre else "") + f"วันที่ {d} รายการสินค้า ลำดับที่ {fx.get('seq') or '?'}"
+            # [UX] core ไม่ใส่ prefix(ไฟล์) — จัดกลุ่มต่อไฟล์ตอนรวมบรรทัด (ไฟล์เดียว=", " ; คนละไฟล์=บรรทัดใหม่)
+            seg = f"วันที่ {d} รายการสินค้า ลำดับที่ {fx.get('seq') or '?'}"
             # โชว์ "คำว่า{คำที่พิมพ์ผิดในบิล}" = คำในเครื่องหมายคำพูด "ตัวแรก"
             #   (รูปแบบ 'แก้ "ผิด" → "ถูก"' และ '"ผิด" น่าจะเป็น "ถูก"' → คำแรก = คำผิดที่อยู่ในบิล)
             #   เพื่อให้คนเห็นแล้วรู้ทันทีว่าพิมพ์ผิดตรงไหน + เปิดไปแก้ได้
@@ -295,6 +295,23 @@ def _pinpoint_field(field, entries):
                 if extra:
                     seg += f" {extra}"
         parts.append(re.sub(r" {2,}", " ", seg).strip())
+
+    if field == F_ITEM:
+        # จัดกลุ่มต่อไฟล์ (entries เรียงตาม file แล้วใน build): prefix โชว์ครั้งเดียวต่อไฟล์ ;
+        #   หลายคำผิดไฟล์เดียวกัน = ", " บรรทัดเดียว ; คนละไฟล์ = ขึ้นบรรทัดใหม่ (อ่านแล้วรู้ว่าอีกไฟล์)
+        lines, cur, _cur_pre = [], [], object()
+        for fx, core in zip(entries, parts):
+            pre = fx.get("prefix", "")
+            if pre != _cur_pre:
+                if cur:
+                    lines.append(", ".join(cur))
+                cur, _cur_pre = [], pre
+                core = f"{pre} {core}" if pre else core
+            cur.append(core)
+        if cur:
+            lines.append(", ".join(cur))
+        return "\n".join(lines) + " รีเช็คครับ"
+
     return ", ".join(parts) + " รีเช็คครับ"
 
 
@@ -303,7 +320,8 @@ def render_block(n, r):
     # เดือน: หัวบล็อกใช้ 'BE.MM' (เช่น 69.05), บรรทัดท้ายใช้ 'M/BE' (เช่น 5/69) ตามฟอร์แมตผู้ใช้
     _mp = r["month"].split("/")
     hdr_month = f"{_mp[1]}.{int(_mp[0]):02d}" if len(_mp) == 2 and _mp[0].isdigit() else r["month"]
-    foot_month = r["month"]
+    # [UX] ท้ายบล็อกใช้เดือนแบบ pad ศูนย์ '05/69' (ตาม docstring/ฟอร์แมตผู้ใช้) — เดิมหลุดเป็น '5/69'
+    foot_month = f"{int(_mp[0]):02d}/{_mp[1]}" if len(_mp) == 2 and _mp[0].isdigit() else r["month"]
 
     by_field = _dd(list)
     for fx in r.get("fixlist", []):

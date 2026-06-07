@@ -166,6 +166,28 @@ rows_bn = SUV.build([bad_name], master_present=False)
 _check("no-master: CMP005 (fix, ไม่พึ่ง master) ยังโชว์ (ไม่ถูกกลบเป็น 'ไม่มี master')",
        rows_bn[0]["verdicts"]["ชื่อบจ."]["mark"] == "fix")
 
+# ── [UX 2026-06] รายการสินค้าหลายคำผิด: จัดกลุ่มต่อไฟล์ + footer pad '05/69' ──
+def _typo_bill(fl, day, *typos):
+    iss = [{"code": "ITM010", "detail": f'#{s}: "{w}" → "x"', "severity": "WARNING"} for s, w in typos]
+    return {"file": fl, "sheet": "1", "company": "บริษัท ทดสอบ จำกัด", "tax_id": "0105556012345",
+            "branch": "สำนักงานใหญ่", "address": "x", "iv_number": "IV1",
+            "iv_date": __import__("datetime").datetime(2026, 5, day),
+            "total": 1070.0, "vat": 70.0, "subtotal": 1000.0, "items": [], "issues": iss}
+_rows_g = SUV.build([_typo_bill("TSH_69_05.xls", 6, (2, "เจียร์"), (5, "ปลายสว่าง")),
+                     _typo_bill("TSH_69_05.xls", 14, (4, "ปี๊ป")),
+                     _typo_bill("TKH_69_05.xls", 20, (3, "ม้วน"))])
+_blk_g = SUV.render_block(1, _rows_g[0])
+_item_line = [ln for ln in _blk_g.split("\n") if ln.startswith("รายการสินค้า :") or ln.startswith("TSH") or ln.startswith("TKH")]
+_check("ไฟล์เดียวกัน (TSH) โชว์ prefix ครั้งเดียว (ไม่ซ้ำทุกคำผิด)", _blk_g.count("TSH วันที่") == 1)
+_check("หลายคำผิดไฟล์เดียวกัน = คั่นด้วย ', ' (3 รายการ TSH ในบรรทัดเดียว)",
+       "คำว่าเจียร์, วันที่" in _blk_g and "คำว่าปลายสว่าง" in _blk_g and "คำว่าปี๊ป" in _blk_g)
+_check("แต่ละไฟล์โชว์ prefix ครั้งเดียว (TKH+TSH อย่างละ 1)",
+       _blk_g.count("TKH วันที่") == 1 and _blk_g.count("TSH วันที่") == 1)
+_check("คนละไฟล์ = ขึ้นบรรทัดใหม่ (ไฟล์ที่ 2 ตามลำดับ TKH<TSH = TSH นำหน้าบรรทัดใหม่)",
+       any(ln.startswith("TSH วันที่") for ln in _blk_g.split("\n")))
+_check("จบบรรทัดรายการด้วย 'รีเช็คครับ' ครั้งเดียว", _blk_g.count("รีเช็คครับ") == 1)
+_check("footer เดือน pad ศูนย์ '05/69' (ไม่ใช่ '5/69')", "05/69" in _blk_g and " 5/69 " not in _blk_g)
+
 print("=" * 56)
 if _fail == 0:
     print("RESULT: [PASS] 10 viewers + composer ทำงานถูก (ฟอร์แมตคน + เลน NOTE + คัดเลน + master_present)")
