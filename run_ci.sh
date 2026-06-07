@@ -67,6 +67,7 @@ run "[3v] issue consolidator (Agent ยุบรหัส→ข้อสรุ�
 run "[3w] super ultra viewer (label คน + บล็อกบริษัท)" "$PY" test_super_ultra_viewer.py
 run "[3w0] precision council (รีพอร์ตลูกค้า 10 ผู้ตรวจ + 2-tier)" "$PY" test_report_precision.py
 run "[3w2] Ultra Agent (ตรวจทาน-ยืนยันด้วยหลักฐานอิสระ)" "$PY" test_ultra_agent.py
+run "[3w3] dashboard controller (.exe GUI — run_audit headless)" "$PY" test_dashboard_smoke.py
 # ── structural tripwires (ไม่ใช้ข้อมูลจริง — กัน drift เชิงโครงสร้าง/แหล่งความจริง) ──
 run "[3x] golden single-source (doc↔baseline.json sync)" "$PY" test_golden_single_source.py
 run "[3x2] FIELD_CODES coverage (แดชบอร์ดเห็นทุกกฎ — กัน false-clean)" "$PY" test_field_codes_coverage.py

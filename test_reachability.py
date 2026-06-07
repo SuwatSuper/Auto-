@@ -30,6 +30,7 @@ ALLOWLIST_TOOLS = {
     "verify_golden", "smoke_test", "golden_master", "regression_full", "regression_oracle",
     "doctor", "diagnose_merged_cells", "parse_canary", "coverage_gate", "profile_baseline",
     "verify_parallel", "verify_report_det", "build_consolidated_report", "เพิ่ม_master", "e2e_test",
+    "dashboard",   # GUI (tkinter) — standalone entry (__main__); controller เทสผ่าน test_dashboard_smoke
 }
 # test-support: โมดูลที่ "ตั้งใจให้เทสใช้" (ไม่ใช่ production path) — เช่น registry รหัสกลางสำหรับ guard
 ALLOWLIST_TEST_SUPPORT = {"code_registry"}
