@@ -35,6 +35,7 @@ from code_labels import (FIELD_ORDER, F_NAME, F_TAX, F_DATE, F_IV, F_ITEM,
                          field_of, lane_of, label_of, clean_detail, action_for,
                          NOTE, note_phrase)
 from viewers import VIEWERS
+import report_precision as _precision   # [Precision Council] ตัดสิน tier ต่อจุด (advisory → golden ไม่ขยับ)
 
 
 # รหัส issue ที่ "ตัดออกจากสรุปลูกค้า (.txt)" — เป็นชั้นรายงานเท่านั้น ไม่กระทบ engine/golden
@@ -214,6 +215,10 @@ def build(bills, master_present=True):
         _ford = {f: n for n, f in enumerate(FIELD_ORDER)}
         fixlist.sort(key=lambda x: (_ford.get(x["field"], 99), x["file"], x["date"],
                                     int(x["seq"]) if x["seq"].isdigit() else 0))
+        # [Precision Council] ลงคะแนน 10 ผู้ตรวจต่อจุด → tier 'clear'(รีพอร์ตหลัก)/'soft'(ตรวจตาเพิ่ม).
+        #   advisory ล้วน — ไม่แตะ b['issues']/verdict/golden. ติด x['tier'] ให้ render_block ใช้.
+        _bl = {(b.get("file", ""), str(b.get("sheet", ""))): b for b in gbills}
+        _precision.annotate_tiers(fixlist, bill_lookup=_bl, master_present=master_present)
         # [v9.2 งาน D] เก็บข้อสังเกตเลน NOTE (ลงวันที่ล่วงหน้า/เดือนไม่ตรงไฟล์) แยกจาก error ช่อง
         #   → ยกขึ้นบรรทัด "หมายเหตุ :" ท้ายบล็อก (ไม่ทำให้ช่องวันที่ขึ้นผิด/ไม่ตัดสถานะคลีน)
         _, ml2 = (_month_label(gbills[0].get("iv_date")) if gbills else ("", ""))
@@ -333,11 +338,19 @@ def render_block(n, r):
     amt_s = f"{amt:,.0f}" if amt.is_integer() else f"{amt:,.2f}"
     out.append(f"ยอด : {amt_s} บาท ตรง")
     out.append(f"บิล : {r['nbills']} บิล ตรง")
+    # [Precision Council 2 ชั้น] แยกจุดเป็น clear(รีพอร์ตหลัก)/soft(ตรวจตาเพิ่ม) ต่อช่อง
+    clear_bf, soft_bf = _dd(list), _dd(list)
+    for f, items in by_field.items():
+        for e in items:
+            (soft_bf if e.get("tier") == "soft" else clear_bf)[f].append(e)
+
     for f in FIELD_ORDER:
         if f in (F_PREVAT, F_POSTVAT):
             continue
-        if f in by_field:
-            out.append(f"{f} : {_pinpoint_field(f, by_field[f])}")
+        if f in clear_bf:                              # มีจุด 'ชัด' → ขึ้นรีพอร์ตหลัก
+            out.append(f"{f} : {_pinpoint_field(f, clear_bf[f])}")
+        elif f in by_field:                            # มีแต่ 'ก้ำกึ่ง' → ช่องหลักขึ้น 'ตรง' (ยกไปตรวจตาเพิ่ม)
+            out.append(f"{f} : ตรง")
         else:
             out.append(f"{f} : {r['verdicts'][f]['status']}")
     out.append(f"ยอดหลัง Vat : {r['verdicts'][F_POSTVAT]['status']}")
@@ -345,14 +358,27 @@ def render_block(n, r):
     # หมายเหตุ (ข้อสังเกตเลน NOTE) — ก่อนบรรทัดสรุปท้าย
     for note in r.get("notes", []):
         out.append(f"หมายเหตุ : {note}")
-    # ★ บรรทัดสรุปท้าย = ชื่อนิติบุคคลเต็ม + เดือน + คำว่า "รีเช็ค" (ไม่ใช่ "แก้")
-    if r["clean"] and r.get("master_present", True):
-        out.append(f"{r['company']} {foot_month} ตรงครับ")
-    elif r["clean"] and not r.get("master_present", True):
-        out.append(f"{r['company']} {foot_month} ตรงเท่าที่ตรวจได้ (ไม่มี master เทียบชื่อ/เลขภาษี)")
+    # ชั้นที่ 2 — "ตรวจตาเพิ่ม" (จุดที่ council ยังไม่ยืนยันชัด ; ไม่ทิ้ง ไม่ซ่อน ขอตาคนยืนยัน)
+    n_soft = 0
+    for f in FIELD_ORDER:
+        if f in soft_bf:
+            n_soft += len(soft_bf[f])
+            _soft = _pinpoint_field(f, soft_bf[f]).rsplit(" รีเช็คครับ", 1)[0]
+            out.append(f"ตรวจตาเพิ่ม ({f}) : {_soft} — ก้ำกึ่ง ขอตาคนยืนยันครับ")
+    # ★ บรรทัดสรุปท้าย — ใช้ปัญหาจาก verdict เดิม แต่ "ตัดช่องที่เหลือเฉพาะ soft" ออก (ยกไปตรวจตาเพิ่ม)
+    #   → soft-only = ตรงสำหรับลูกค้า + มีจุดให้ตรวจตา ; ช่องที่ยังมีจุด 'ชัด' (หรือ verdict ที่ไม่มีใน worklist) คงเดิม
+    soft_only_fields = {f for f in by_field if f not in clear_bf}
+    footer_problems = [f for f in (r["fix"] + r["check"]) if f not in soft_only_fields]
+    if not footer_problems:
+        if r.get("master_present", True):
+            base = f"{r['company']} {foot_month} ตรงครับ"
+        else:
+            base = f"{r['company']} {foot_month} ตรงเท่าที่ตรวจได้ (ไม่มี master เทียบชื่อ/เลขภาษี)"
+        if n_soft:
+            base += f" (มี {n_soft} จุดให้ตรวจตาเพิ่ม)"
+        out.append(base)
     else:
-        probs = r["fix"] + r["check"]
-        out.append(f"{r['company']} {foot_month} รีเช็ค{'/'.join(probs)}ครับ ที่เหลือตรงครับผม")
+        out.append(f"{r['company']} {foot_month} รีเช็ค{'/'.join(footer_problems)}ครับ ที่เหลือตรงครับผม")
     return "\n".join(out)
 
 

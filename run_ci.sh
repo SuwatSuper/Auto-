@@ -65,6 +65,7 @@ run "[3u] parallel merge — non-empty system_issues" "$PY" test_parallel_merge_
 run "[3u2] parallel merge contract (#3 exc-key/#4a file=None/#cap config)" "$PY" test_parallel_merge_contract.py
 run "[3v] issue consolidator (Agent ยุบรหัส→ข้อสรุป)" "$PY" test_issue_consolidator.py
 run "[3w] super ultra viewer (label คน + บล็อกบริษัท)" "$PY" test_super_ultra_viewer.py
+run "[3w0] precision council (รีพอร์ตลูกค้า 10 ผู้ตรวจ + 2-tier)" "$PY" test_report_precision.py
 run "[3w2] Ultra Agent (ตรวจทาน-ยืนยันด้วยหลักฐานอิสระ)" "$PY" test_ultra_agent.py
 # ── structural tripwires (ไม่ใช้ข้อมูลจริง — กัน drift เชิงโครงสร้าง/แหล่งความจริง) ──
 run "[3x] golden single-source (doc↔baseline.json sync)" "$PY" test_golden_single_source.py

@@ -188,6 +188,27 @@ _check("คนละไฟล์ = ขึ้นบรรทัดใหม่ (�
 _check("จบบรรทัดรายการด้วย 'รีเช็คครับ' ครั้งเดียว", _blk_g.count("รีเช็คครับ") == 1)
 _check("footer เดือน pad ศูนย์ '05/69' (ไม่ใช่ '5/69')", "05/69" in _blk_g and " 5/69 " not in _blk_g)
 
+# ── [Precision Council 2 ชั้น] ITM011 ก้ำกึ่ง → main 'ตรง' + บรรทัด "ตรวจตาเพิ่ม" + footer ตรงครับ ──
+_soft_bill = dict(clean_bill)
+_soft_bill["file"] = "TSH_69_05.xls"
+_soft_bill["issues"] = [{"code": "ITM011", "detail": '#3: "เจียร" ใกล้เคียง (ตรวจสอบ) "เจียร์" (~90%)',
+                         "severity": "WARNING"}]
+_blk_s = SUV.render_block(1, SUV.build([_soft_bill])[0])
+_check("soft (ITM011 ก้ำกึ่ง): ช่องรายการสินค้าในรีพอร์ตหลัก = 'ตรง'",
+       "รายการสินค้า : ตรง" in _blk_s)
+_check("soft: มีบรรทัด 'ตรวจตาเพิ่ม' ท้ายบล็อก (ไม่ทิ้ง/ไม่ซ่อน)",
+       "ตรวจตาเพิ่ม (รายการสินค้า) :" in _blk_s and "ก้ำกึ่ง" in _blk_s and "เจียร" in _blk_s)
+_check("soft: footer = 'ตรงครับ (มี N จุดให้ตรวจตาเพิ่ม)' (precision-first, ไม่ฟันธงส่งลูกค้า)",
+       "ตรงครับ (มี 1 จุดให้ตรวจตาเพิ่ม)" in _blk_s)
+# clear (ITM010 ชัด) ยังเข้ารีพอร์ตหลักเหมือนเดิม (ไม่ถูกดาวน์เป็น soft)
+_clear_bill = dict(clean_bill)
+_clear_bill["file"] = "TSH_69_05.xls"
+_clear_bill["issues"] = [{"code": "ITM010", "detail": '#2: "มั้วน" → "ม้วน"', "severity": "WARNING"}]
+_blk_c = SUV.render_block(1, SUV.build([_clear_bill])[0])
+_check("clear (ITM010 ชัด): ยังขึ้นรีพอร์ตหลัก + footer รีเช็ค (ไม่ถูกยกไปตรวจตาเพิ่ม)",
+       "คำว่ามั้วน" in _blk_c and "รีเช็ครายการสินค้าครับ" in _blk_c
+       and "ตรวจตาเพิ่ม" not in _blk_c)
+
 print("=" * 56)
 if _fail == 0:
     print("RESULT: [PASS] 10 viewers + composer ทำงานถูก (ฟอร์แมตคน + เลน NOTE + คัดเลน + master_present)")
