@@ -634,3 +634,20 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
 - ผล (วัดจริง): parser branch **83.0→90.3%** · line 91.9→96.3% ; TOTAL branch **86.0→89.0%** · line 94.7→96.5%.
 - codify: run_ci [10] บังคับ **line≥90 + branch≥85** (เดิม branch วัดเฉย ๆ). ทุกกลุ่มผ่าน
   (parser 90.3 / rules_engine 85.6 ตึงสุด / validators 93.9 / units 100) → กัน branch regression เงียบ.
+
+### ADR-026 (รีพอร์ตลูกค้า / precision) — Precision Council 10 ผู้ตรวจ + รีพอร์ต 2 ชั้น
+- สถานะ: **ACTIVE** (advisory/READ-ONLY — golden d8bcde85/35b2f7c8 ไม่ขยับ)
+- เหตุ: สรุปต่อบริษัท (super_ultra_viewer) = ฉบับ "ส่งตรงลูกค้า ผิดไม่ได้". เดิมมี 34 lenses +
+  ConfidenceAgent + ultra_agent แต่ยังไม่มี "ด่านสุดท้ายเฉพาะรีพอร์ตลูกค้า" ที่ตัดสินว่า
+  จุดที่จะรายงาน "ชัดพอส่งไหม" (โดยเฉพาะ fuzzy typo ต้องผิดแบบชัด).
+- ทำ: `report_precision.py` — สภา 10 ผู้ตรวจ deterministic (typo severity / unit sanity /
+  taxid checksum / name spacing / seq gap / amount presence / subtotal reconcile / empty items /
+  cross-consensus / master echo) reuse ตรรกะ core → vote CONFIRM/RECHECK/ABSTAIN → tier.
+- ผู้ใช้เลือก **(ค) 2 ชั้น**: clear→รีพอร์ตหลัก ; soft→บรรทัด "ตรวจตาเพิ่ม" + footer
+  "ตรงครับ (มี N จุดให้ตรวจตาเพิ่ม)" (precision สูง, ไม่ทิ้ง/ไม่ซ่อนของจริง).
+  fuzzy: ITM010=clear ; ITM011 "ใกล้เคียง (ตรวจสอบ)"=soft ; CMP001 ชื่อ-vs-master=soft (precision-first).
+- ไม่ใช่ ML/training — rule-based โปร่งใส ("เทรน" = คาลิเบรต threshold ด้วยเทสเคส).
+- ตรึง: `test_report_precision.py` (20 เคส, run_ci [3w0]) + test_super_ultra_viewer +5 เคส (soft/clear).
+  reachability สะอาด (report_precision reachable ผ่าน super_ultra_viewer) · golden ไม่ขยับ ·
+  coverage ไม่ตก (parser 90.3 / total 89.0). คะแนน 10 ด้านไม่ดรอป (Test/Safety/Correctness หนุนขึ้น).
+- v2 (note): re-surface ITM015 (หน่วยผิด เช่น เหล็กเพลท/เส้น) เข้าสรุปเมื่อ council ยืนยัน — ตอนนี้ยัง _HIDE_IN_SUMMARY.
