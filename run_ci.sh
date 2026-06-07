@@ -49,6 +49,7 @@ run "[3q] parse canary (fixture rate)" "$PY" parse_canary.py tests/fixtures --ba
 run "[3e] parser helpers"        "$PY" test_parser_helpers.py
 run "[3e2] OPT-1 differential (_dic_int_run/detect byte-identical)" "$PY" test_dic_int_run_equiv.py
 run "[3e3] OPT-1b differential (_label_based_amounts byte-identical)" "$PY" test_label_amounts_equiv.py
+run "[3e4] parser branch coverage (edge/error path, golden-neutral)" "$PY" test_parser_branch.py
 run "[3f] validators"            "$PY" test_validators.py
 run "[3g] rules extra (≥90% cov)"      "$PY" test_rules_extra.py
 run "[3h] units extra (≥90% cov)"      "$PY" test_units_extra.py
@@ -103,9 +104,9 @@ fi
 LINT_SCOPE="offline_guard.py file_guard.py agents/verification_lenses.py agents/verification_agent.py test_offline_audit.py test_input_hardening.py test_validators_coverage.py test_verification_lens_pin.py test_verification_lenses_unit.py"
 MYPY_SCOPE="agents/contracts.py agents/base.py offline_guard.py file_guard.py"
 if "$PY" -m coverage --version >/dev/null 2>&1; then
-  # P2: เปิดวัด branch แล้ว (line≥90 บังคับเหมือนเดิม). บังคับ branch ด้วย: ตั้ง env ก่อนรัน เช่น
-  #   PUOPUY_COV_BRANCH_MIN=79 bash run_ci.sh   (floor ปัจจุบันที่ผ่านทุกโมดูล — ดู DECISIONS.md §6.1)
-  run "[10] coverage gate (line ≥90% + วัด branch)" "$PY" coverage_gate.py
+  # P2: line≥90 บังคับ + [coverage push 2026-06] บังคับ branch ≥85 ด้วย (floor ADR ที่ทุกกลุ่มผ่านแล้ว:
+  #   parser 90.3 / rules_engine 85.6 (ตึงสุด) / validators 93.9 / units 100). override ได้: PUOPUY_COV_BRANCH_MIN=NN
+  run "[10] coverage gate (line ≥90% + branch ≥85)" env PUOPUY_COV_BRANCH_MIN="${PUOPUY_COV_BRANCH_MIN:-85}" "$PY" coverage_gate.py
 else echo ""; echo "ℹ ข้าม [10] coverage gate (pip install coverage --break-system-packages)"; fi
 if "$PY" -m ruff --version >/dev/null 2>&1; then
   run "[11] ruff (lint, scope)" "$PY" -m ruff check $LINT_SCOPE
