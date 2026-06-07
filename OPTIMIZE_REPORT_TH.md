@@ -177,15 +177,24 @@ python3 verify_report_det.py /mnt/project        # นิ่งระหว่�
 
 ---
 
-## 8. คะแนน (ตรงไปตรงมา — sandbox-verified vs หลัง cert)
+## 8. คะแนน (ตรงไปตรงมา — ทุกตัวผูกหลักฐานวัดได้)
 
-| มิติ | ฐาน | ตอนนี้ (verified) | หลัง cert OPT-1b/OPT-2 |
+> **OPT-1 + OPT-1b + OPT-2 cert ครบแล้ว** (เจ้าของรัน endpoint `812a9ab` บน 106 ไฟล์ → `35b2f7c8`
+> engine==agent==baseline). + coverage push (parser branch 83→90, บังคับ branch≥85).
+
+| มิติ | ฐาน | ตอนนี้ (certified + verified) | หลักฐาน |
 |---|---|---|---|
-| Stability / Reliability / Security | 9.0 | **9.0** (golden ไม่ถอย) | 9.0 |
-| Test/Safety | 9.5 | **9.6** (+3 guard ถาวร) | 9.6 |
-| Maintainability | 7.0 | 7.5 → **~9.0** (auto re-export, รอ cert ยืนยัน) | **~9.0** |
-| Performance | 7.5 | **~8.5** (OPT-1 certified + OPT-1b) | **~9.0** |
-| **รวม** | ~8.5 | **~8.8** | **~9.0 (ทุกตัว 9+)** |
+| Stability | 9.0 | **9.0** | golden `35b2f7c8` certified บน 106 ไฟล์ (รวม OPT-1/1b/2) ไม่ขยับ |
+| Reliability | 9.0 | **9.0** | reset idempotent · serial==parallel · negative/fuzz/hardening ผ่าน |
+| Security | 9.0 | **9.0** | offline audit · untrusted-file hardening · package ไม่มี secret รั่ว |
+| Test/Safety | 9.5 | **9.7** | pytest 52 · 56 CI gates · **branch≥85 บังคับ** · parser branch 90.3% (จาก 83) |
+| Maintainability | 7.0 | **9.0** | OPT-2(ก) certified — auto re-export, blast radius ~0 · file-size ≤600 ครบ |
+| Consistency | 8.5 | **8.5** | code-table + golden-single-source guard (3 taxonomy ยังแยก = OPT-4 defer) |
+| Predictability | 9.0 | **9.0** | report-det reproducible · golden reproducible (HASHSEED=0) |
+| Scalability | 8.5 | **8.5** | serial==parallel + parallel path (report styling = OPT-3 defer) |
+| Performance | 7.5 | **9.0** | OPT-1+1b certified (detect 6×, label-scan dedup) golden ไม่ขยับจริง |
+| Correctness | 9.0 | **9.0** | golden certified บนข้อมูลจริง · validators line 100% · 56 gates เขียว |
+| **รวม (เฉลี่ย 10)** | ~8.5 | **~9.0 (ทุกตัว ≥8.5, 8/10 ตัว ≥9.0)** | |
 
 ## 9. PRESERVE (ไม่ถอดของดี)
 ไม่แตะ: `version_gate.enforce` · `hashseed_guard` · numpy ใน version_gate · `golden_master` isolate ·

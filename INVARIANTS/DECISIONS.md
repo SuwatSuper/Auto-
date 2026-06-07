@@ -591,7 +591,7 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
   ไม่มี call site อื่น). `test_dic_int_run_equiv.py` เป็น additive test (ลบได้ถ้าย้อน).
 
 ### ADR-023 (OPT-1b / performance) — parser hot path #2: _label_based_amounts normalize แถวเดียว (byte-identical)
-- สถานะ: **ACTIVE** (sandbox) / **⚠ NEEDS_REAL_DATA_CERT** (35b2f7c8 ก่อน==หลัง บน 106 ไฟล์ py3.12)
+- สถานะ: ✅ **CERTIFIED** (2026-06 เจ้าของรันที่ endpoint 812a9ab บน 106 ไฟล์ py3.12 → `35b2f7c8` engine==agent==baseline)
 - ราก (PERF_BASELINE:26): `_row_label_match` = hot loop อันดับ 2 (**35,661 ครั้ง/~2.5s**). `_label_based_amounts`
   (parser_p1) เรียกมัน **3 ครั้ง/แถว** (TOTAL/VAT/SUBTOTAL) ด้วย `continue` short-circuit → แต่ละครั้ง
   recompute `normalize_text(M[r,c]).lower()` ซ้ำ ≤3× ต่อเซลล์ (สำหรับแถวที่ไม่ match = ส่วนใหญ่).
@@ -605,7 +605,7 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
 - fixture `d8bcde85` ไม่ขยับ · run_ci เขียว · pytest 51 · ย้อนกลับ: revert `_label_based_amounts` เดียว (contained).
 
 ### ADR-024 (OPT-2 ก / maintainability) — auto re-export internal parser chain · supersedes ADR-017(c) guard-only
-- สถานะ: **ACTIVE** (sandbox) / **⚠ NEEDS_REAL_DATA_CERT** (35b2f7c8 ก่อน==หลัง บน 106 ไฟล์ py3.12)
+- สถานะ: ✅ **CERTIFIED** (2026-06 เจ้าของรันที่ endpoint 812a9ab บน 106 ไฟล์ py3.12 → `35b2f7c8` engine==agent==baseline ; chain integrity 216 ลิงก์ + reachability สะอาด)
 - ราก (B2/[F3]): chain `parser_p0a→p0→p1→p2` ทำ explicit re-export ด้วยมือ ~57–95 ชื่อ/ชั้น →
   ลบ/ย้าย 1 สัญลักษณ์ต้นน้ำ = ImportError ทั้ง chain (แก้ 6+ จุด). blast radius สูง.
 - เจ้าของสั่ง "เอาแบบกระโดดถึง 9 ไม่เอาขยับนิดเดียว" → เลือก **(ก)** (ไม่ใช่ (ค) guard-only ของ ADR-017).
@@ -622,3 +622,15 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
   + C1b explicit-edge (parser 70) + C2 public-contract (68). reachability: `parser_reexport` reachable (ไม่ floating).
 - **B2 ไม่ retire:** `detect_item_columns_safe`/`_compute_col_confidence` — ADR-015 จงใจชุบชีวิต + มีเทสตรึง.
 - ย้อนกลับ: revert import header 3 ไฟล์ (p0/p1/p2) + ลบ `parser_reexport.py` (contained). cert แยก commit (812a9ab).
+
+### ADR-025 (coverage push — Test/Safety) — parser branch 83→90% + บังคับ branch≥85 (golden-neutral)
+- สถานะ: **ACTIVE** (เทสล้วน — golden ไม่ขยับ ไม่ต้อง cert)
+- ราก: coverage_gate วัด parser family branch 83.0% (< floor 85 ที่ ADR ตั้ง). OPT-1b ทำให้
+  `_row_label_match` orphan จาก caller → coverage บางกิ่งหลุดเพิ่ม.
+- การแก้: `test_parser_branch.py` (97 เคส, run_ci [3e4]) — unit ตรง helper edge/error path
+  (_pick_best_iv scoring, taxid/branch scan, _reconcile_amounts, _pb_* builders,
+  _compute_col_confidence, check_iv_format เกณฑ์ 2/3, row-helper ที่ orphan). เรียก helper ตรง
+  ไม่แตะ audit core → **fixture d8bcde85 ไม่ขยับ**.
+- ผล (วัดจริง): parser branch **83.0→90.3%** · line 91.9→96.3% ; TOTAL branch **86.0→89.0%** · line 94.7→96.5%.
+- codify: run_ci [10] บังคับ **line≥90 + branch≥85** (เดิม branch วัดเฉย ๆ). ทุกกลุ่มผ่าน
+  (parser 90.3 / rules_engine 85.6 ตึงสุด / validators 93.9 / units 100) → กัน branch regression เงียบ.
