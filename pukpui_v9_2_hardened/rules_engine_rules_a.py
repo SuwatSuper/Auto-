@@ -159,7 +159,14 @@ def _addr_smart_diff(b, m):
     """แกนกลาง ADDR: parse 2 ฝั่ง → เทียบทีละ field. คืน anchor_ok / core(ERROR) / sub(WARNING)"""
     bp = _addr_parse_smart(b.get('address', ''))
     mp = dict(m.get('address_parts') or {})
-    mp.update(_addr_extra(m.get('address_full', '') or m.get('address', '')))
+    # v9.3 [FIX-HOUSENO]: re-derive house_no สดจาก address_full ด้วย parser ปัจจุบัน
+    #   กัน master เก่าที่เคย save house_no ผิด (เช่นจับ 'ห้องเลขที่ 104' เป็นบ้านเลขที่)
+    _mfull = m.get('address_full', '') or m.get('address', '')
+    if _mfull:
+        _fresh_hn = parse_address_input(_mfull).get('house_no')
+        if _fresh_hn:
+            mp['house_no'] = _fresh_hn
+    mp.update(_addr_extra(_mfull))
     res = {f: _addr_field_match(bp.get(f), mp.get(f)) for f in set(list(bp) + list(mp))}
     anchor_ok = all(res.get(f) is not False for f in _ADDR_ANCHOR)
     core = []

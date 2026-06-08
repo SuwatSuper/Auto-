@@ -154,12 +154,18 @@ def _iv_embedded_period_ce(iv_text):
 
 def _filename_period_ce(filename):
     """(ปี ค.ศ., เดือน) ที่ชื่อไฟล์ประกาศ (เดือนเดียว) เช่น 'SSN 69.05(3).xls' → (2026, 5).
-    None ถ้าไม่ระบุเดือน/เป็นช่วงหลายเดือน (กันเดาผิดในไฟล์คร่อมเดือน)."""
-    fi = parse_filename(filename)
-    yb, mo = fi.get('year'), fi.get('month')
-    if not yb or not mo or fi.get('month_end'):
-        return None
-    return (yb - 543 if yb >= 2500 else yb, mo)
+    ทนชื่อไฟล์มี prefix ขยะ (เช่น hash) ; None ถ้าไม่ระบุเดือน/เป็นช่วงหลายเดือน (กันเดาผิด)."""
+    base = os.path.splitext(os.path.basename(filename or ''))[0]
+    if re.search(r'(?<!\d)\d{2,4}[.\-_\s]\d{1,2}\s*[-–]\s*\d{1,2}(?!\d)', base):
+        return None                       # ช่วงหลายเดือน (YY.MM-MM) → ข้าม (คร่อมเดือน legit)
+    for mm in re.finditer(r'(?<!\d)(\d{2,4})[.\-_](\d{1,2})', base):
+        y, mo = int(mm.group(1)), int(mm.group(2))
+        if not 1 <= mo <= 12:
+            continue
+        for lo, hi, adj in ((2558, 2582, -543), (2015, 2039, 0), (58, 82, 1957), (15, 39, 2000)):
+            if lo <= y <= hi:
+                return (y + adj, mo)
+    return None
 
 
 def _pb_prefer_period(df, result, row_start, header_end, ncols, fperiod):
