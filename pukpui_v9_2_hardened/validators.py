@@ -506,6 +506,23 @@ def apply_sheet_date_crosscheck(all_bills):
                 })
 
 
+def apply_missing_date_check(all_bills):
+    """[DT005] บิลที่อ่านวันที่ไม่ได้/ไม่มีวันที่ = เอกสารไม่สมบูรณ์ → ฟ้องให้เติมวันที่.
+    หมายเหตุ: เดือนถูกเดาจาก 'เลขที่เอกสาร' เพื่อจัดกลุ่มงวดแล้ว แต่ 'ตัววันที่' ในบิลยังหายอยู่
+    จึงต้องเตือนคนตรวจ (ไม่ใช่ปล่อยผ่านเงียบ). side-effect: เติม b['issues'] (idempotent)."""
+    for b in all_bills:
+        if b.get('iv_date'):
+            continue
+        # บิลจริงเท่านั้น (มีเลขเอกสาร/รายการ/ยอด) — กันบิลเงา/ว่างถูกฟ้อง
+        if not (b.get('iv_number') or b.get('items') or b.get('total')):
+            continue
+        _append_issue_unique(b, {
+            'code': 'DT005', 'severity': 'ERROR', 'category': 'วันที่',
+            'name': 'บิลไม่มีวันที่',
+            'detail': 'อ่านวันที่ในบิลไม่ได้ (ไม่มีวันที่) — ต้องเติมวันที่ให้ครบ'
+        })
+
+
 # ============================================================
 # [P-DAG พาส3f] check_filename_consistency + check_duplicate_items (ย้ายมาจาก main, verbatim)
 # ============================================================

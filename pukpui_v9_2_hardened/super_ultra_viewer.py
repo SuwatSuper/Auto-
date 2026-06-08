@@ -321,6 +321,12 @@ def _pinpoint_field(field, entries):
                 seg += f" คำว่า{_q[0]}"
             elif extra:
                 seg += f" {extra}"
+        elif field == F_DATE and fx.get("code") == "DT005":
+            # บิลไม่มีวันที่ — ไม่ต้องโชว์ "วันที่ ?" ; บอกตรง ๆ ว่าไม่มีวันที่
+            seg = f"ไฟล์ {fx.get('prefix','')}"
+            if fx.get("iv"):
+                seg += f" เลขที่เอกสาร {fx['iv']}"
+            seg += " ไม่มีวันที่ในบิล ต้องเติมวันที่"
         elif field == F_DATE:
             seg = f"ไฟล์ {fx.get('prefix','')}"
             if fx.get("iv"):

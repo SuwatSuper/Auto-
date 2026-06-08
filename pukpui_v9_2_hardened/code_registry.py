@@ -30,6 +30,7 @@ EXTERNAL_EMITTED = {
     "IV002": "parser_p0 (เลขใบกำกับผิดรูปแบบ)",
     "IV003": "validators._iv_check_cross_day (เลขใบกำกับซ้ำข้ามวัน)",
     "IV004": "validators._iv_check_ascending (เลขใบกำกับไม่ไล่ตามวัน)",
+    "DT005": "validators.apply_missing_date_check (บิลไม่มีวันที่)",
 }
 
 
