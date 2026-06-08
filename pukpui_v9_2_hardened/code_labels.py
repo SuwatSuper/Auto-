@@ -240,6 +240,13 @@ def clean_detail(code: str, detail: str) -> str:
         return "ลำดับสินค้าไม่เรียงกัน"
     if code == "ITM014":                                   # gap ลำดับใหญ่ผิดปกติ
         return "ลำดับสินค้าเว้นช่วงผิดปกติ"
+    if code == "ADDR002":                                  # สะกดที่อยู่ผิด (จังหวัด/ถนน/แขวง/เขต)
+        mlbl = re.match(r'\s*(\S+?)\s*อาจสะกดผิด', d)       # ตัดเลข % ทศนิยมยาว ๆ ออก → ภาษาคน
+        mw = re.search(r"อาจสะกดผิด:\s*'([^']+)'", d)
+        mr = re.search(r"ควรเป็น\s*'([^']+)'", d)
+        if mlbl and mw and mr:
+            return f"ลงชื่อ{mlbl.group(1)}ผิด บิลลง {mw.group(1)} ที่ถูก {mr.group(1)}"
+        return d_nohdr
     if code == "ADDR005":                                  # รหัสไปรษณีย์
         return "รหัสไปรษณีย์ไม่ครบ"
     if code == "ADDR001":                                  # ที่อยู่ไม่ครบ/ไม่ตรงทะเบียน

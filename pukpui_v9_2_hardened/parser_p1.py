@@ -418,9 +418,13 @@ def _looks_like_address(s):
         return False
     return any(kw in s_str for kw in _ADDRESS_HINT_KEYWORDS)
 
+_COMPANY_LEAD_RE = re.compile(r'^(บริษัท|ห้างหุ้นส่วน|ห้าง|กิจการ|ร้าน|บจก|หจก|บมจ|นางสาว|นาง|นาย|น\.ส\.)')
 def _pb_try_company(result, s):
-    """ถ้ายังไม่มี company และ s เป็นชื่อบริษัท → set company/branch"""
-    if result['company'] or not re.match(r'^(บริษัท|ห้างหุ้นส่วน|ห้าง|กิจการ|บจก|หจก|บมจ)', s):
+    """set company/branch ถ้า s เป็นชื่อผู้ขาย — ครอบคลุมนิติบุคคล + บุคคล/ร้าน (นาย/นาง/นางสาว/ร้าน)
+    + ชื่อการค้าที่ลงท้าย '(สำนักงานใหญ่)/(สาขา...)' (ผู้ขายบุคคลธรรมดาใช้ชื่อการค้า)."""
+    if result['company'] or re.match(r'^(เลขที่|เลขประจำตัว|ที่อยู่|วันที่)', s):
+        return
+    if not (_COMPANY_LEAD_RE.match(s) or re.search(r'\((?:สำนักงานใหญ่|สาขา[^)]*)\)', s)):
         return
     result['company'] = remove_branch_suffix(s)
     result['branch'] = extract_branch(s)

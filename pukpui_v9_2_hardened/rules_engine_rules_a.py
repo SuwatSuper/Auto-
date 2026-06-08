@@ -50,6 +50,11 @@ def r_cmp002(b,m,c):
         for typo in COMPANY_TYPO_PREFIXES:
             if normalized.startswith(typo):
                 return [f"คำนำหน้าน่าจะพิมพ์ผิด: '{typo}' (ควรเป็น 'บริษัท'?): {normalized[:50]}"]
+        # v9.3: ผู้ขายบุคคลธรรมดา/ร้าน ไม่ต้องมีคำนำหน้านิติบุคคล → ไม่ฟ้อง
+        #   (เลขภาษีไม่ขึ้นต้น '0' = บุคคลธรรมดา ; หรือชื่อขึ้นต้น นาย/นาง/นางสาว/ร้าน)
+        _tid = clean_tax_id(b.get('tax_id', ''))
+        if (_tid and not _tid.startswith('0')) or re.match(r'^(นาย|นาง|นางสาว|น\.ส\.|ร้าน)', normalized):
+            return []
         if not validate_company_prefix(normalized):
             return [f"ขาดคำนำหน้านิติบุคคล: {normalized[:50]}"]
         return []
