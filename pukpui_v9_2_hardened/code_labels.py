@@ -43,7 +43,7 @@ MAP = {
     "CMP001": (F_NAME, "ชื่อบริษัทไม่ตรง master", MASTER),
     "CMP002": (F_NAME, "คำนำหน้านิติบุคคลผิด", FIX),
     "CMP003": (F_NAME, "ใช้ชื่อแบรนด์แทนชื่อนิติบุคคล", FIX),
-    "CMP004": (F_NAME, "วรรคบริษัทผิด (เว้นวรรคไม่ตรง master)", MASTER),
+    "CMP004": (F_NAME, "เว้นวรรคชื่อบริษัทไม่ตรง master", REVIEW),
     "CMP005": (F_NAME, "ชื่อบริษัทไม่ครบ (ขาด 'จำกัด')", FIX),
     # ที่อยู่
     "ADDR001": (F_ADDR, "ที่อยู่ไม่ครบ", FIX),
@@ -78,7 +78,7 @@ MAP = {
     "IV004": (F_IV, "เลขใบกำกับไม่ไล่ตามวัน", CHECK),
     # รายการสินค้า
     "ITM001": (F_ITEM, "จำนวน×ราคา ≠ ยอดรายการ", FIX),
-    "ITM002": (F_ITEM, "ลำดับรายการสินค้าหาย", FIX),
+    "ITM002": (F_ITEM, "ลำดับรายการสินค้าผิด", FIX),
     "ITM003": (F_ITEM, "ชื่อสินค้าคลุมเครือ", REVIEW),
     "ITM004": (F_ITEM, "มีอักขระล่องหน/รูปแบบแปลกในชื่อ", REVIEW),
     "ITM005": (F_ITEM, "หน่วยอาจไม่เหมาะกับสินค้า", REVIEW),
@@ -89,8 +89,8 @@ MAP = {
     "ITM010": (F_ITEM, "คำสินค้าผิด", FIX),
     "ITM011": (F_ITEM, "คำสินค้าผิด", FIX),
     "ITM012": (F_ITEM, "ชื่อสินค้าน่าจะพิมพ์คล้ายคำอื่น", REVIEW),
-    "ITM013": (F_ITEM, "ลำดับรายการสินค้าหาย", CHECK),
-    "ITM014": (F_ITEM, "ลำดับรายการสินค้าหาย", CHECK),
+    "ITM013": (F_ITEM, "ลำดับรายการสินค้าผิด", CHECK),
+    "ITM014": (F_ITEM, "ลำดับรายการสินค้าผิด", CHECK),
     "ITM015": (F_ITEM, "หน่วยสินค้าผิด", FIX),
     "ITM016": (F_ITEM, "รายการสินค้าซ้ำ", FIX),
     "ITM017": (F_ITEM, "จำนวน/ราคาติดลบ", FIX),
@@ -226,9 +226,28 @@ def clean_detail(code: str, detail: str) -> str:
     if code == "ITM016":
         m = re.search(r'#(\d+)\s*และ\s*#(\d+)', d)
         return f'รายการซ้ำ: #{m.group(1)} กับ #{m.group(2)}' if m else d_nohdr
-    if code == "ITM002":
+    if code == "ITM002":                                   # running ลำดับรายการสินค้า: ซ้ำ / ขาด
         m = re.search(r'\[([^\]]+)\]', d)
-        return f'ลำดับซ้ำ: {m.group(1)}' if m else d_nohdr
+        nums = re.sub(r'\s*,\s*', ' และ ', m.group(1).strip()) if m else ""
+        if "ซ้ำ" in d:
+            return f"ลำดับที่ {nums} ซ้ำกัน" if nums else "มีลำดับสินค้าซ้ำกัน"
+        if "รายการ" in d:                                  # รูปแบบ ">10 รายการ" (ขาดเยอะ)
+            return "ลำดับสินค้าขาดหลายรายการ"
+        return f"ขาดลำดับที่ {nums}" if nums else "ลำดับสินค้าขาดหายไป"
+    if code == "ITM013":                                   # ลำดับไม่เรียง / ไม่เริ่มที่ 1
+        if "ไม่เริ่มที่ 1" in d:
+            return "ลำดับสินค้าไม่ได้เริ่มที่ 1"
+        return "ลำดับสินค้าไม่เรียงกัน"
+    if code == "ITM014":                                   # gap ลำดับใหญ่ผิดปกติ
+        return "ลำดับสินค้าเว้นช่วงผิดปกติ"
+    if code == "ADDR005":                                  # รหัสไปรษณีย์
+        return "รหัสไปรษณีย์ไม่ครบ"
+    if code == "ADDR001":                                  # ที่อยู่ไม่ครบ/ไม่ตรงทะเบียน
+        body = re.sub(r'^ที่อยู่ไม่ตรงทะเบียน[:：]\s*', '', d_nohdr)
+        if "ไปรษณีย์" in body and ";" not in body:         # ปัญหาเดียว = รหัสไปรษณีย์ → คำสั้น
+            mz = re.search(r'(\d{5})', body)
+            return f"รหัสไปรษณีย์ไม่ครบ (ทะเบียน {mz.group(1)})" if mz else "รหัสไปรษณีย์ไม่ครบ"
+        return d_nohdr
     if code == "ITM007":
         m = re.search(r"'([^']+)'", d)
         return f'ชื่อสินค้าสั้น: {m.group(1)}' if m else d_nohdr

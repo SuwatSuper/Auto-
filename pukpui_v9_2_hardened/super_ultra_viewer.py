@@ -30,11 +30,12 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from code_labels import (FIELD_ORDER, F_NAME, F_TAX, F_DATE, F_IV, F_ITEM,
+from code_labels import (FIELD_ORDER, F_NAME, F_ADDR, F_TAX, F_DATE, F_IV, F_ITEM,
                          F_PREVAT, F_POSTVAT,
                          field_of, lane_of, label_of, clean_detail, action_for,
                          NOTE, note_phrase)
 from viewers import VIEWERS
+from puopuy_dates import _ivp_year2_to_ce, _ivp_year4_to_ce   # เดางวดจากเลขที่เอกสารเมื่อบิลไม่มีวันที่
 import report_precision as _precision   # [Precision Council] ตัดสิน tier ต่อจุด (advisory → golden ไม่ขยับ)
 
 
@@ -60,8 +61,40 @@ def _short_name(name: str) -> str:
     return s.strip() or "ไม่ทราบชื่อ"
 
 
-def _month_label(dt):
+def _period_from_iv(iv_number):
+    """เดา (ปีพ.ศ. 2 หลัก, เดือน) จาก 'งวดที่ฝังในเลขที่เอกสาร' เช่น IV6905000850 → (69, 5).
+    ใช้ตอนบิลอ่านวันที่ไม่ได้ — เลขที่เอกสารบอกเดือนอยู่แล้ว ไม่ต้องโยนไป 'ไม่ทราบเดือน'.
+    คืน None เมื่ออ่านงวดไม่ชัด (กันเดามั่ว). ตรรกะตรงกับ detect_iv_period_mismatch."""
+    if not iv_number:
+        return None
+    s = re.sub(r'[^0-9A-Za-z]', '', str(iv_number)).upper()
+    m = re.match(r'^[A-Z]*(\d+)', s)
+    if not m:
+        return None
+    lead = m.group(1)
+    cy = mo = None
+    if len(lead) >= 6:                       # ปี 4 หลัก + เดือน (เช่น 256805 / 202505)
+        _cy, _ = _ivp_year4_to_ce(int(lead[:4])); _mo = int(lead[4:6])
+        if _cy is not None and 1 <= _mo <= 12:
+            cy, mo = _cy, _mo
+    if cy is None and len(lead) >= 4:        # ปี 2 หลัก + เดือน (เช่น 6905 / 2505)
+        _cy, _ = _ivp_year2_to_ce(int(lead[:2])); _mo = int(lead[2:4])
+        if _cy is not None and 1 <= _mo <= 12:
+            cy, mo = _cy, _mo
+    if cy is None:
+        return None
+    be2 = ((cy + 543) if cy < 2500 else cy) % 100
+    return be2, mo
+
+
+def _month_label(dt, bill=None):
     if not dt:
+        # ไม่มีวันที่ในบิล → ลองอ่านเดือนจาก 'เลขที่เอกสาร' (งวดฝังในเลข) ก่อนยอมแพ้เป็น 'ไม่ทราบเดือน'
+        if bill is not None:
+            p = _period_from_iv(bill.get("iv_number") or bill.get("iv_number_raw"))
+            if p:
+                be2, mo = p
+                return f"{mo}/{be2:02d}", f"{mo:02d}/{be2:02d}"
         return "ไม่ทราบเดือน", "??/??"
     # [A3-FIX] กันปีที่เป็น พ.ศ. อยู่แล้ว (>2500) ถูก +543 ซ้ำ → label/คีย์กลุ่มเพี้ยน.
     #   ปกติ iv_date ถูก normalize เป็น ค.ศ. แล้ว → ผลเท่าเดิม (2026→69); guard นี้แค่กันเคสหลุด.
@@ -118,7 +151,7 @@ def build(bills, master_present=True):
     #   เว้นวรรคไม่ตรง). ไม่มีเลขภาษี → fallback ชื่อ normalize. ชื่อที่โชว์ = ที่พบบ่อยสุดในกลุ่ม.
     groups = defaultdict(list)
     for b in bills:
-        ml, _ = _month_label(b.get("iv_date"))
+        ml, _ = _month_label(b.get("iv_date"), b)
         tid = (b.get("tax_id") or "").strip()
         comp0 = b.get("company") or b.get("company_raw") or "ไม่ทราบชื่อ"
         groups[(tid or _norm_company(comp0), ml)].append(b)
@@ -212,6 +245,21 @@ def build(bills, master_present=True):
                 elif "fix" in (keep["lane"], x["lane"]):
                     keep["lane"] = "fix"
         fixlist = list(_merged.values())
+        # [UX] รหัสไปรษณีย์: ADDR001 + ADDR005 ฟ้องเรื่องเดียวกัน → เหลือ 1 จุด/บิล (ไม่ขึ้นซ้ำ 2 บรรทัด)
+        #   เก็บอันที่ข้อมูลมากกว่า (มี 'ทะเบียน') ; อื่น ๆ คงเดิม
+        _zip_seen, _dedup = {}, []
+        for x in fixlist:
+            is_zip = (x["field"] == F_ADDR
+                      and "ไปรษณีย์" in (x.get("detail", "") + x.get("type", "")))
+            if not is_zip:
+                _dedup.append(x); continue
+            k = (x["file"], x["sheet"], x["date"])
+            prev = _zip_seen.get(k)
+            if prev is None:
+                _zip_seen[k] = x; _dedup.append(x)
+            elif "ทะเบียน" in x.get("detail", "") and "ทะเบียน" not in prev.get("detail", ""):
+                _dedup[_dedup.index(prev)] = x; _zip_seen[k] = x
+        fixlist = _dedup
         _ford = {f: n for n, f in enumerate(FIELD_ORDER)}
         fixlist.sort(key=lambda x: (_ford.get(x["field"], 99), x["file"], x["date"],
                                     int(x["seq"]) if x["seq"].isdigit() else 0))
@@ -221,7 +269,7 @@ def build(bills, master_present=True):
         _precision.annotate_tiers(fixlist, bill_lookup=_bl, master_present=master_present)
         # [v9.2 งาน D] เก็บข้อสังเกตเลน NOTE (ลงวันที่ล่วงหน้า/เดือนไม่ตรงไฟล์) แยกจาก error ช่อง
         #   → ยกขึ้นบรรทัด "หมายเหตุ :" ท้ายบล็อก (ไม่ทำให้ช่องวันที่ขึ้นผิด/ไม่ตัดสถานะคลีน)
-        _, ml2 = (_month_label(gbills[0].get("iv_date")) if gbills else ("", ""))
+        _, ml2 = (_month_label(gbills[0].get("iv_date"), gbills[0]) if gbills else ("", ""))
         notes_acc = {}
         for b in gbills:
             dt = b.get("iv_date")
@@ -262,13 +310,14 @@ def _pinpoint_field(field, entries):
         extra = re.sub(r"\s*\(คาดว่า[^)]*\)", "", extra).strip()
         if field == F_ITEM:
             # [UX] core ไม่ใส่ prefix(ไฟล์) — จัดกลุ่มต่อไฟล์ตอนรวมบรรทัด (ไฟล์เดียว=", " ; คนละไฟล์=บรรทัดใหม่)
-            seg = f"วันที่ {d} รายการสินค้า ลำดับที่ {fx.get('seq') or '?'}"
+            seg = (f"วันที่ {d} รายการสินค้า ลำดับที่ {fx['seq']}" if fx.get("seq")
+                   else f"วันที่ {d}")   # ปัญหาระดับลำดับ/ทั้งบิล → ไม่มี 'ลำดับที่ ?'
             # โชว์ "คำว่า{คำที่พิมพ์ผิดในบิล}" = คำในเครื่องหมายคำพูด "ตัวแรก"
             #   (รูปแบบ 'แก้ "ผิด" → "ถูก"' และ '"ผิด" น่าจะเป็น "ถูก"' → คำแรก = คำผิดที่อยู่ในบิล)
             #   เพื่อให้คนเห็นแล้วรู้ทันทีว่าพิมพ์ผิดตรงไหน + เปิดไปแก้ได้
             _e = extra.replace("\u201c", '"').replace("\u201d", '"')
             _q = re.findall(r'"([^"]+)"', _e)
-            if _q:
+            if fx.get("seq") and _q:
                 seg += f" คำว่า{_q[0]}"
             elif extra:
                 seg += f" {extra}"
