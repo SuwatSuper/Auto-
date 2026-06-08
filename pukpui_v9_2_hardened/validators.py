@@ -511,7 +511,7 @@ def apply_missing_date_check(all_bills):
     หมายเหตุ: เดือนถูกเดาจาก 'เลขที่เอกสาร' เพื่อจัดกลุ่มงวดแล้ว แต่ 'ตัววันที่' ในบิลยังหายอยู่
     จึงต้องเตือนคนตรวจ (ไม่ใช่ปล่อยผ่านเงียบ). side-effect: เติม b['issues'] (idempotent)."""
     for b in all_bills:
-        if b.get('iv_date'):
+        if b.get('iv_date') or b.get('_bad_date'):   # _bad_date → ให้ DT006 จัดการ (เฉพาะเจาะจงกว่า)
             continue
         # บิลจริงเท่านั้น (มีเลขเอกสาร/รายการ/ยอด) — กันบิลเงา/ว่างถูกฟ้อง
         if not (b.get('iv_number') or b.get('items') or b.get('total')):
@@ -520,6 +520,31 @@ def apply_missing_date_check(all_bills):
             'code': 'DT005', 'severity': 'ERROR', 'category': 'วันที่',
             'name': 'บิลไม่มีวันที่',
             'detail': 'อ่านวันที่ในบิลไม่ได้ (ไม่มีวันที่) — ต้องเติมวันที่ให้ครบ'
+        })
+
+
+def apply_abbrev_invoice_check(all_bills):
+    """[IV006] ใบกำกับภาษี 'อย่างย่อ' → เครมภาษีซื้อไม่ได้ ต้องคัดออก (พบคำว่า 'อย่างย่อ' ในเอกสาร)."""
+    for b in all_bills:
+        if not b.get('_abbrev'):
+            continue
+        _append_issue_unique(b, {
+            'code': 'IV006', 'severity': 'ERROR', 'category': 'เลขที่ IV',
+            'name': 'ใบกำกับภาษีอย่างย่อ',
+            'detail': 'เป็นใบกำกับภาษีอย่างย่อ เครมภาษีซื้อไม่ได้ ต้องใช้ใบกำกับเต็มรูป'
+        })
+
+
+def apply_bad_date_check(all_bills):
+    """[DT006] วันที่ 'หน้าตาเป็นวันที่ แต่ไม่มีจริงในปฏิทิน' (31/04, 30/02) → parse ไม่ได้ เก็บที่ _bad_date → ฟ้องแก้."""
+    for b in all_bills:
+        bad = b.get('_bad_date')
+        if not bad or b.get('iv_date'):
+            continue
+        _append_issue_unique(b, {
+            'code': 'DT006', 'severity': 'ERROR', 'category': 'วันที่',
+            'name': 'วันที่ไม่ถูกต้อง',
+            'detail': f'วันที่ {bad} ไม่มีจริงในปฏิทิน ต้องแก้วันที่'
         })
 
 

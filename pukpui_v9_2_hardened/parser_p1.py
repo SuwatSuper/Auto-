@@ -554,11 +554,14 @@ def _pb_scan_header(df, result, addr_lines, row_start, header_end, ncols):
             _pb_try_address_line(addr_lines, s)
             _pb_try_taxid(result, v, s)
             _pb_try_iv(result, v, s)
+            if 'อย่างย่อ' in s: result['_abbrev'] = True   # [IV006] ใบกำกับภาษีอย่างย่อ (เครมภาษีซื้อไม่ได้)
             if not result['iv_date']:
                 d = parse_date_any(v)
                 if d:
                     result['iv_date'] = d
                     result['iv_date_str'] = d.strftime('%d/%m/%Y')
+                elif not result.get('_bad_date') and re.match(r'^\s*\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}\s*$', s):
+                    result['_bad_date'] = s.strip()[:20]   # [DT006] หน้าตาเป็นวันที่ แต่ไม่มีจริงในปฏิทิน
 
 def _pb_build_item(block_df, r, seq, name_col, qty_col, unit_col, price_col, amt_col):
     """สร้าง 1 item dict จากแถว r — คืน None ถ้าไม่มีชื่อ

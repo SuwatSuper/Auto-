@@ -32,6 +32,8 @@ EXTERNAL_EMITTED = {
     "IV004": "validators._iv_check_ascending (เลขใบกำกับไม่ไล่ตามวัน)",
     "DT005": "validators.apply_missing_date_check (บิลไม่มีวันที่)",
     "IV005": "validators.apply_missing_iv_check (บิลไม่มีเลขที่ใบกำกับ)",
+    "DT006": "validators.apply_bad_date_check (วันที่ไม่มีจริงในปฏิทิน)",
+    "IV006": "validators.apply_abbrev_invoice_check (ใบกำกับภาษีอย่างย่อ)",
 }
 
 

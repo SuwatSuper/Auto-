@@ -36,7 +36,8 @@ CONFIRM, RECHECK, ABSTAIN = "CONFIRM", "RECHECK", "ABSTAIN"
 #     ชื่อชีต↔วันที่ (DOC001) = เชื่อได้/ต้องตรง → clear(รีเช็ค)
 #     เลขที่เอกสาร↔วันที่ (DT004) = แล้วแต่บริษัท ไม่ชัวร์ → soft(ตรวจตาเพิ่ม) [ไม่อยู่ใน set นี้]
 #     ชื่อไฟล์↔งวด (DT001) = อ้างอิงคร่าว → NOTE(หมายเหตุ)
-_STRUCTURAL = {"ITM002", "ITM013", "ITM014", "CMP005", "IV002", "TAX006", "ADDR002", "DT005", "IV005", "DOC001"}
+_STRUCTURAL = {"ITM002", "ITM013", "ITM014", "CMP005", "IV002", "TAX006", "ADDR002",
+               "DT005", "IV005", "DOC001", "DT006", "IV006"}
 # field ที่พึ่ง master (ไม่มี master = ยืนยันไม่ได้ → soft)
 _MASTER_DEPENDENT_CODES = {"CMP001", "CMP004", "TAX003", "ADDR001", "ADDR003"}
 
