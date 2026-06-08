@@ -1,0 +1,80 @@
+{
+  "version": "0.2.0",
+  "inputs": [
+    {
+      "id": "dataDir",
+      "type": "promptString",
+      "description": "โฟลเดอร์ข้อมูล .xls/.xlsx (เช่น โฟลเดอร์ 106 ไฟล์จริง)",
+      "default": "${workspaceFolder}/data"
+    }
+  ],
+  "configurations": [
+    {
+      "name": "🩺 Doctor --full (ตรวจความพร้อม + tripwire)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/doctor.py",
+      "args": ["--full"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONHASHSEED": "0", "PUOPUY_AUDIT_DATE": "2026-06-02" }
+    },
+    {
+      "name": "▶ รันระบบ (production — วันที่จริง)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/ปุ้มปุ้ย_ultimate_v9_modular.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONHASHSEED": "0", "PUKPUI_AUTO": "1" }
+    },
+    {
+      "name": "➕ ใส่ Master (master_companies.json)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/เพิ่ม_master.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONHASHSEED": "0" }
+    },
+    {
+      "name": "🔒 Golden master (sandbox /mnt/project, วันที่ปัก)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/golden_master.py",
+      "args": [".", "snapshot.json", "/mnt/project"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONHASHSEED": "0", "PUOPUY_AUDIT_DATE": "2026-06-02" }
+    },
+    {
+      "name": "✅ Regression บนข้อมูลจริง (ต้องได้ 35b2f7c8)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/regression_full.py",
+      "args": [".", "${input:dataDir}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONHASHSEED": "0", "PUOPUY_AUDIT_DATE": "2026-06-02" }
+    },
+    {
+      "name": "⚡ Verify parallel == serial",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/verify_parallel.py",
+      "args": ["${input:dataDir}", "4"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONHASHSEED": "0", "PUOPUY_AUDIT_DATE": "2026-06-02" }
+    },
+    {
+      "name": "🐞 Debug ไฟล์เทสที่เปิดอยู่",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONHASHSEED": "0", "PUOPUY_AUDIT_DATE": "2026-06-02" }
+    }
+  ]
+}
