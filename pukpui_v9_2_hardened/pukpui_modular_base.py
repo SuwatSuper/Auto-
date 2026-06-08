@@ -337,7 +337,7 @@ _version_gate.enforce(strict=False, exit_on_fail=True)
 #   [P-DAG พาส3a] validators นำเข้า dependency จาก leaf modules ตรง ๆ แล้ว
 #   จึงไม่ต้องมี import-gate / ลำดับนิยามใน main อีก (ตัด validators -> main cycle)
 from validators import (   # [de-star P1] เดิม `import *` — explicit; re-export check_*/apply_*_crosscheck ให้ agents
-    CFG, apply_iv_period_crosscheck, apply_sheet_date_crosscheck, apply_missing_date_check,
+    CFG, apply_iv_period_crosscheck, apply_sheet_date_crosscheck, apply_missing_date_check, apply_missing_iv_check,
     check_duplicate_items, check_filename_consistency,
     check_invoice_sequence, check_iv_date_sequence, check_product_typos,
     log_system_issue, detect_iv_period_mismatch,
@@ -477,7 +477,7 @@ __all__ = [
     'RULES', 'SEVERITY_ICON', 'THAI_TYPO_PATTERNS', 'VERIFY_CFG',
     '_CAPTURED_HTML', '_D', '_FUZZY_DICT_CACHE', '_IN_NOTEBOOK',
     '_PYTHAINLP_CACHE', '_SYSTEM_ISSUES', '_taxid_checksum_ok', '_trim_cache',
-    '_vat_tolerance', 'addon_check_withholding', 'apply_iv_period_crosscheck', 'apply_missing_date_check', 'apply_sheet_date_crosscheck',
+    '_vat_tolerance', 'addon_check_withholding', 'apply_iv_period_crosscheck', 'apply_missing_date_check', 'apply_missing_iv_check', 'apply_sheet_date_crosscheck',
     'audit_text_num_reset', 'audit_text_num_summary', 'audit_today', 'build_clean_report',
     'build_dashboard_figs', 'build_unit_index', 'check_duplicate_items', 'check_filename_consistency',
     'check_invoice_sequence', 'check_iv_date_sequence', 'check_product_typos', 'clean_tax_id',

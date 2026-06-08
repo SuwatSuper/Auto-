@@ -31,7 +31,7 @@ CONFIRM, RECHECK, ABSTAIN = "CONFIRM", "RECHECK", "ABSTAIN"
 
 # รหัสที่ "โครงสร้างชัด ตรวจซ้ำได้แน่" → ค่าเริ่มต้นเอนไป clear เมื่อไม่มีผู้ตรวจค้าน
 #   ADDR002 = สะกดที่อยู่ผิด (เทียบกับทะเบียนที่ลงไว้) → ที่อยู่ต้องตรงทะเบียน = ต้องแก้จริง ไม่ใช่ก้ำกึ่ง
-_STRUCTURAL = {"ITM002", "ITM013", "ITM014", "CMP005", "IV002", "TAX006", "ADDR002", "DT005"}
+_STRUCTURAL = {"ITM002", "ITM013", "ITM014", "CMP005", "IV002", "TAX006", "ADDR002", "DT005", "IV005"}
 # field ที่พึ่ง master (ไม่มี master = ยืนยันไม่ได้ → soft)
 _MASTER_DEPENDENT_CODES = {"CMP001", "CMP004", "TAX003", "ADDR001", "ADDR003"}
 

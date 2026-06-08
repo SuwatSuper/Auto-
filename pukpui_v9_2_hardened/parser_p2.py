@@ -168,14 +168,9 @@ def _filename_period_ce(filename):
     return None
 
 
-def _pb_prefer_period(df, result, row_start, header_end, ncols, fperiod):
-    """[FIX-MULTIBLOCK] บางชีตมีบล็อก IV/วันที่ของบิลเก่าค้างในเทมเพลต วางคู่บิลจริงคนละคอลัมน์
-    → header scan หยิบบิลเก่ามาแทน (เลขที่เอกสาร/วันที่/งวดผิดทั้งใบ). เลือกตัวที่ 'งวดตรงชื่อไฟล์'.
-    ทำงานเฉพาะเมื่อ: ชื่อไฟล์ระบุงวดเดือนเดียว + มี IV อ่านงวดได้ >=2 งวด + ตัวที่หยิบไม่ตรงงวดไฟล์
-    → ชีตปกติ (IV เดียว/งวดตรงอยู่แล้ว) = no-op (golden ไม่ขยับ)."""
-    if not fperiod:
-        return
-    fy, fm = fperiod
+def _pb_prefer_period(df, result, row_start, header_end, ncols, fperiod, sheet_name=None):
+    """[FIX-MULTIBLOCK] ชีตมีบล็อก IV/วันที่ของบิลเก่าค้างเทมเพลตคู่บิลจริง → เลือกตัวที่ตรง 'งวดที่ควรเป็น'
+    (งวดในชื่อไฟล์ ; ถ้าไม่ระบุ → เดาจาก 'วันของชีต'). ทำงานเมื่อมี IV >=2 งวด → ชีตปกติ no-op (golden นิ่ง)."""
     M = df.to_numpy(dtype=object)
     iv_cells = []
     for r in range(row_start, header_end):
@@ -188,7 +183,21 @@ def _pb_prefer_period(df, result, row_start, header_end, ncols, fperiod):
                     and _iv_embedded_period_ce(s) is not None:
                 iv_cells.append(s)
     if len({_iv_embedded_period_ce(s) for s in iv_cells}) < 2:
+        return                            # ไม่ใช่ชีตหลายบล็อก → ไม่ยุ่ง
+    # ถ้าไม่มีงวดจากชื่อไฟล์ → เดาจาก 'วันของชีต' (ชื่อชีตเป็นตัวเลข = วันที่)
+    if not fperiod and sheet_name is not None:
+        sd = str(sheet_name).strip().lstrip('0').split('#')[0]
+        if sd.isdigit():
+            day = int(sd)
+            for r in range(row_start, header_end):
+                hit = next((d for c in range(ncols)
+                            for d in [parse_date_any(M[r, c])]
+                            if not pd.isna(M[r, c]) and d and d.day == day), None)
+                if hit:
+                    fperiod = (hit.year, hit.month); break
+    if not fperiod:
         return
+    fy, fm = fperiod
     cur = result.get('iv_date')
     if not (cur and cur.year == fy and cur.month == fm):
         for r in range(row_start, header_end):
@@ -234,7 +243,7 @@ def _parse_block(df, sheet_name, filename, row_start, row_end, block_idx=0):
 
     # 1b) [FIX-MULTIBLOCK] ชีตที่มีบิลเก่าค้างในเทมเพลตคู่กับบิลจริง → เลือกตัวที่งวดตรงชื่อไฟล์
     #     (no-op สำหรับชีตปกติ IV เดียว/งวดตรงอยู่แล้ว — golden ไม่ขยับ)
-    _pb_prefer_period(df, result, row_start, header_end, ncols, _filename_period_ce(filename))
+    _pb_prefer_period(df, result, row_start, header_end, ncols, _filename_period_ce(filename), sheet_name)
 
     # 2) fallback scan tax_id
     if not result['tax_id']:
@@ -525,6 +534,8 @@ def parse_file(filepath):
                 try: state._AUDIT_CTX['file'] = _fname; state._AUDIT_CTX['sheet'] = str(sheet)   # v6: context ให้ Text→ตัวเลข audit
                 except Exception: pass
                 sheet_bills = parse_sheet(df, sheet, filepath)
+                if not sheet_bills and str(sheet).strip().lstrip('0').split('#')[0].isdigit():  # [SYS003] ชีต'วันที่'ดึงบิลไม่ได้=ฟอร์มใหม่/ตกหล่น
+                    log_system_issue('SYS003', 'Bill Not Extracted', f'ชีต {sheet} มีข้อมูลแต่ดึงบิลไม่ได้ — อาจเป็นฟอร์มใหม่/บิลตกหล่น', severity='WARNING', file=_fname, sheet=str(sheet), echo=True)
                 bills.extend(sheet_bills)
             except Exception as e:
                 # v6.2 OBSERVABILITY (TARGET 2): ชีตพัง = บิลในชีตนั้นหาย "เงียบ" เดิม

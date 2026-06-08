@@ -8,7 +8,7 @@ from pukpui_modular_base import (   # [SPLIT #3] shared scope (explicit)
     Counter, HTML, PYTHAINLP_AVAILABLE, RULES,
     SEVERITY_ICON, THAI_TYPO_PATTERNS, VERIFY_CFG, _CAPTURED_HTML,
     _FUZZY_DICT_CACHE, _IN_NOTEBOOK, _PYTHAINLP_CACHE, _trim_cache,
-    apply_iv_period_crosscheck, apply_missing_date_check, apply_sheet_date_crosscheck, audit_text_num_reset, build_dashboard_figs,
+    apply_iv_period_crosscheck, apply_missing_date_check, apply_missing_iv_check, apply_sheet_date_crosscheck, audit_text_num_reset, build_dashboard_figs,
     build_unit_index, check_duplicate_items, check_filename_consistency, check_invoice_sequence,
     check_iv_date_sequence, check_product_typos, clean_tax_id, cluster_products,
     datetime, detect_price_outliers, detect_unit_anomalies, display,
@@ -319,6 +319,7 @@ def _audit_core_crosschecks(all_bills):
     apply_iv_period_crosscheck(all_bills)    # DT004: วันที่ vs งวดในเลข IV
     apply_sheet_date_crosscheck(all_bills)   # DOC001: วันที่ vs ชื่อชีต
     apply_missing_date_check(all_bills)      # DT005: บิลไม่มีวันที่ (เอกสารไม่สมบูรณ์)
+    apply_missing_iv_check(all_bills)        # IV005: บิลไม่มีเลขที่ใบกำกับ (เอกสารไม่สมบูรณ์)
 
 
 def run_audit_core(all_bills, master, isolate=True, log=None):

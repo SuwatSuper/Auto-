@@ -523,6 +523,22 @@ def apply_missing_date_check(all_bills):
         })
 
 
+def apply_missing_iv_check(all_bills):
+    """[IV005] บิลที่มีรายการ/ยอด แต่ไม่มี 'เลขที่ใบกำกับ' = เอกสารไม่สมบูรณ์ → ฟ้องให้เติม.
+    ใบกำกับภาษีต้องมีเลขที่เสมอ. side-effect: เติม b['issues'] (idempotent). คู่กับ DT005."""
+    for b in all_bills:
+        if (b.get('iv_number') or '').strip():
+            continue
+        # บิลจริงเท่านั้น (มีรายการ/ยอด) — กันบิลเงา/ว่างถูกฟ้อง
+        if not (b.get('items') or b.get('total') or b.get('subtotal')):
+            continue
+        _append_issue_unique(b, {
+            'code': 'IV005', 'severity': 'ERROR', 'category': 'เลขที่ IV',
+            'name': 'บิลไม่มีเลขที่ใบกำกับ',
+            'detail': 'อ่านเลขที่ใบกำกับไม่ได้ (ไม่มีเลขที่) — ต้องเติมเลขที่ใบกำกับ'
+        })
+
+
 # ============================================================
 # [P-DAG พาส3f] check_filename_consistency + check_duplicate_items (ย้ายมาจาก main, verbatim)
 # ============================================================
