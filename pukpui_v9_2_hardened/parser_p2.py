@@ -136,6 +136,75 @@ def _pb_finalize_amounts(result):
             pass
     result['amount_source'] = src   # v9: provenance ใช้ใน VAT010 + รายงาน
 
+def _iv_embedded_period_ce(iv_text):
+    """(ปี ค.ศ., เดือน) ที่ฝังในเลขที่เอกสาร เช่น 'IV-69-050058' → (2026, 5). None ถ้าอ่านงวดไม่ชัด."""
+    if not iv_text:
+        return None
+    m = re.match(r'^[A-Z]*(\d+)', re.sub(r'[^0-9A-Za-z]', '', str(iv_text)).upper())
+    if not m:
+        return None
+    lead = m.group(1)
+    for L4, ynow in ((6, _ivp_year4_to_ce), (4, _ivp_year2_to_ce)):
+        if len(lead) >= L4:
+            cy, _ = ynow(int(lead[:L4 - 2])); mo = int(lead[L4 - 2:L4])
+            if cy is not None and 1 <= mo <= 12:
+                return (cy, mo)
+    return None
+
+
+def _filename_period_ce(filename):
+    """(ปี ค.ศ., เดือน) ที่ชื่อไฟล์ประกาศ (เดือนเดียว) เช่น 'SSN 69.05(3).xls' → (2026, 5).
+    None ถ้าไม่ระบุเดือน/เป็นช่วงหลายเดือน (กันเดาผิดในไฟล์คร่อมเดือน)."""
+    fi = parse_filename(filename)
+    yb, mo = fi.get('year'), fi.get('month')
+    if not yb or not mo or fi.get('month_end'):
+        return None
+    return (yb - 543 if yb >= 2500 else yb, mo)
+
+
+def _pb_prefer_period(df, result, row_start, header_end, ncols, fperiod):
+    """[FIX-MULTIBLOCK] บางชีตมีบล็อก IV/วันที่ของบิลเก่าค้างในเทมเพลต วางคู่บิลจริงคนละคอลัมน์
+    → header scan หยิบบิลเก่ามาแทน (เลขที่เอกสาร/วันที่/งวดผิดทั้งใบ). เลือกตัวที่ 'งวดตรงชื่อไฟล์'.
+    ทำงานเฉพาะเมื่อ: ชื่อไฟล์ระบุงวดเดือนเดียว + มี IV อ่านงวดได้ >=2 งวด + ตัวที่หยิบไม่ตรงงวดไฟล์
+    → ชีตปกติ (IV เดียว/งวดตรงอยู่แล้ว) = no-op (golden ไม่ขยับ)."""
+    if not fperiod:
+        return
+    fy, fm = fperiod
+    M = df.to_numpy(dtype=object)
+    iv_cells = []
+    for r in range(row_start, header_end):
+        for c in range(ncols):
+            v = M[r, c]
+            if pd.isna(v) or isinstance(v, (datetime, pd.Timestamp)):
+                continue
+            s = normalize_text(v)
+            if s and re.search(r'[A-Za-z]', s) and re.search(r'\d{4,}', s) \
+                    and _iv_embedded_period_ce(s) is not None:
+                iv_cells.append(s)
+    if len({_iv_embedded_period_ce(s) for s in iv_cells}) < 2:
+        return
+    cur = result.get('iv_date')
+    if not (cur and cur.year == fy and cur.month == fm):
+        for r in range(row_start, header_end):
+            for c in range(ncols):
+                d = parse_date_any(M[r, c]) if not pd.isna(M[r, c]) else None
+                if d and d.year == fy and d.month == fm:
+                    result['iv_date'] = d
+                    result['iv_date_str'] = d.strftime('%d/%m/%Y')
+                    break
+            else:
+                continue
+            break
+    if _iv_embedded_period_ce(result.get('iv_number')) != (fy, fm):
+        for s in iv_cells:
+            if _iv_embedded_period_ce(s) == (fy, fm):
+                picked = _pick_best_iv(s, known_tax_id=result.get('tax_id'))
+                if picked:
+                    result['iv_number'] = picked
+                    result['iv_number_raw'] = _raw_iv_form(s, picked)
+                    break
+
+
 def _parse_block(df, sheet_name, filename, row_start, row_end, block_idx=0):
     """parse 1 invoice block (rows row_start..row_end inclusive)
     v5.8 refactor: แตก loop ชั้นในเป็น helper (_pb_*) เพื่อลด nesting ≤6
@@ -156,6 +225,10 @@ def _parse_block(df, sheet_name, filename, row_start, row_end, block_idx=0):
 
     # 1) สแกน header (company / address / tax_id / iv / date)
     _pb_scan_header(df, result, addr_lines, row_start, header_end, ncols)
+
+    # 1b) [FIX-MULTIBLOCK] ชีตที่มีบิลเก่าค้างในเทมเพลตคู่กับบิลจริง → เลือกตัวที่งวดตรงชื่อไฟล์
+    #     (no-op สำหรับชีตปกติ IV เดียว/งวดตรงอยู่แล้ว — golden ไม่ขยับ)
+    _pb_prefer_period(df, result, row_start, header_end, ncols, _filename_period_ce(filename))
 
     # 2) fallback scan tax_id
     if not result['tax_id']:
