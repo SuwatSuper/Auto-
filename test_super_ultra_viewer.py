@@ -40,9 +40,12 @@ _check("มี 10 viewers", len(VIEWERS) == 10)
 # CompanyViewer: ไม่มี issue → ตรง
 _check("ไม่มี issue → 'ตรง'", CompanyViewer.verdict([])["status"] == "ตรง")
 
-# master lane (CMP001) → 'ไม่มี master ตรวจไม่ได้'
+# CMP001 = ชื่อไม่ตรง master "ที่ตรวจเจอจริง" (master ต้องมีอยู่ถึงจะ fire)
+#   v9.2 [FIX]: เดิมเลน MASTER → viewer โชว์ 'ไม่มี master ตรวจไม่ได้' ทั้งที่ฟ้องแล้ว (เคสแดง) ;
+#   แก้เป็นเลน FIX → โชว์ความขัดแย้งจริง. 'ไม่มี master ตรวจไม่ได้' มาจาก build(master_present=False) เท่านั้น
 v = CompanyViewer.verdict(_gi(("CMP001", "ในไฟล์ A | master B")))
-_check("CMP001 (master) → 'ไม่มี master ตรวจไม่ได้'", "ไม่มี master" in v["status"] and v["mark"] == "master")
+_check("CMP001 (เจอจริง) → โชว์เป็น fix (ไม่ใช่ 'ไม่มี master')",
+       v["mark"] == "fix" and "ไม่มี master" not in v["status"])
 
 # [งาน C] fix lane (CMP005) → ข้อความ (ไม่มี emoji)
 v = CompanyViewer.verdict(_gi(("CMP005", "ไม่มีจำกัด")))
