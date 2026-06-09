@@ -286,13 +286,8 @@ def build(bills, master_present=True):
                     if dnote and dnote not in rec["dates"]:
                         rec["dates"].append(dnote)
         notes = [_note_line(code, rec, ml2) for code, rec in sorted(notes_acc.items())]
-        # [ADD-ON v9.2] หมายเหตุหน่วยสินค้าระดับบริษัท: ปนไทย+อังกฤษ / หน่วยขาด (ดึงไม่ครบ)
-        #   advisory ล้วน — อ่าน gbills อย่างเดียว ไม่แตะ b['issues']/verdict/golden. กันด้วย try.
-        try:
-            import unit_detection_ext as _uxe
-            notes.extend(_uxe.company_unit_notes(gbills))
-        except Exception:
-            pass
+        try: import unit_detection_ext as _uxe; notes.extend(_uxe.company_unit_notes(gbills))  # [ADD-ON v9.2] หมายเหตุหน่วยระดับบริษัท (ปนไทย+อังกฤษ/หน่วยขาด) — advisory อ่าน gbills เท่านั้น
+        except Exception: pass
         rows.append({
             "company": comp, "short": _short_name(comp), "month": ml,
             "total": total_sum, "prevat": prevat_sum, "nbills": nbills,
