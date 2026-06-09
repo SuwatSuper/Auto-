@@ -110,6 +110,53 @@ summ = ux.summarize_units_by_file(bills_mix)
 check('ตรม.' in summ.get('A.xlsx', {}), "สรุปหน่วยต่อไฟล์: 'ตรม.' ปรากฏ (แก้อาการ 'ไม่ขึ้น')")
 
 
+# ════════════ (4b) ปนไทย+อังกฤษ ราย "บริษัท" + หน่วยขาด (เคสจริง นอร์ทเทิร์น) ════════════
+print("\n[4b] หมายเหตุระดับบริษัท: ปนไทย+อังกฤษ (ต่างตระกูล/ข้ามไฟล์) + หน่วยขาด")
+# เลียนเคสจริง: เส้น/แผ่น (ไทย) + m (อังกฤษ) + รายการไม่มีหน่วย — ข้าม 2 ไฟล์ บริษัทเดียว (เลขภาษีเดียว)
+north = [
+    {'company': 'บริษัท นอร์ทเทิร์น อินดัสเทรียล จำกัด', 'tax_id': '0105566120236',
+     'file': 'JRN_69.05.xls', 'sheet': '4',
+     'items': [{'seq': 1, 'name': 'เหล็กรางน้ำ', 'unit': 'เส้น', 'amount': 197060.0},
+               {'seq': 2, 'name': 'แผ่นเหล็ก', 'unit': 'แผ่น', 'amount': 53750.0},
+               {'seq': 3, 'name': 'หลังคาตรง', 'unit': 'm', 'amount': 32500.0}]},
+    {'company': 'บริษัท นอร์ทเทิร์น อินดัสเทรียล จำกัด', 'tax_id': '0105566120236',
+     'file': 'TOR_69.05.xlsx', 'sheet': '2',
+     'items': [{'seq': 1, 'name': 'ผ้ากันแดดแบบบาง', 'unit': '', 'amount': 137500.0},
+               {'seq': 2, 'name': 'ผ้ากันแดดแบบหนา', 'unit': '', 'amount': 110000.0}]},
+]
+notes = ux.company_unit_notes(north)
+note_txt = " || ".join(notes)
+check(any('ทั้งภาษาไทยและภาษาอังกฤษ' in n for n in notes),
+      f"นอร์ทเทิร์น → หมายเหตุ 'ปนไทย+อังกฤษ' (เส้น/แผ่น + m). ได้: {note_txt}")
+check(any('ไม่มีหน่วย' in n or 'ดึงมาไม่ครบ' in n for n in notes),
+      f"นอร์ทเทิร์น → หมายเหตุ 'หน่วยขาด/ดึงไม่ครบ' (2 รายการ). ได้: {note_txt}")
+
+# บริษัทที่ใช้อังกฤษล้วน (Pcs.) ต้องไม่ถูกฟ้องปนภาษา (กัน false-positive)
+allen = [{'company': 'บริษัท อีเคซี จำกัด', 'tax_id': '0100000000001', 'file': 'SSN.xls', 'sheet': '1',
+         'items': [{'seq': 1, 'name': 'Moving', 'unit': 'Pcs.', 'amount': 1000.0},
+                   {'seq': 2, 'name': 'Clamp', 'unit': 'Pcs.', 'amount': 500.0}]}]
+check(not any('ทั้งภาษาไทย' in n for n in ux.company_unit_notes(allen)),
+      "บริษัทอังกฤษล้วน (Pcs.) → ไม่ถูกฟ้องปนภาษา (ไม่ FP)")
+
+# จัดกลุ่มทุกบริษัท: นอร์ทเทิร์น ติด, อีเคซี ไม่ติดปนภาษา
+comp_mix = ux.detect_company_unit_language_mix(north + allen)
+north_d = [d for d in comp_mix if 'นอร์ทเทิร์น' in d['company']]
+check(north_d and north_d[0]['th'] and north_d[0]['en'],
+      "detect_company_unit_language_mix: นอร์ทเทิร์น มีทั้ง th และ en")
+check(north_d and north_d[0]['blank'] == 2, "นอร์ทเทิร์น: นับรายการหน่วยขาด = 2")
+
+# หน่วยขาดระดับบิล (intra-bill): บิลที่บางรายการมีหน่วย บางรายการไม่มี → ITM019 ฟ้องเฉพาะตัวที่ขาด
+mixed_bill_items = [{'seq': 1, 'name': 'เหล็ก', 'unit': 'เส้น', 'amount': 100.0},
+                    {'seq': 2, 'name': 'ผ้าใบ', 'unit': '', 'amount': 200.0}]
+miss = ux.detect_missing_units_in_bill(mixed_bill_items)
+check(len(miss) == 1 and '#2' in miss[0], "intra-bill: ฟ้องเฉพาะรายการที่ไม่มีหน่วย (#2)")
+# ทั้งบิลไม่มีหน่วยเลย → ไม่ฟ้องระดับบิล (กัน noise; ปล่อยระดับบริษัทจับ)
+allblank = [{'seq': 1, 'name': 'a', 'unit': '', 'amount': 1.0},
+            {'seq': 2, 'name': 'b', 'unit': '', 'amount': 2.0}]
+check(ux.detect_missing_units_in_bill(allblank) == [],
+      "intra-bill: ทั้งบิลไม่มีหน่วย → เงียบ (ระดับบริษัทจับแทน)")
+
+
 # ════════════════════════ ผูกกฎ ITM019 เข้า engine จริง ════════════════════════
 print("\n[ENGINE] ITM019 ผูกใน RULES + run_rules เรียกได้ + ฟ้องถูกจังหวะ")
 _buf = io.StringIO()
@@ -144,6 +191,14 @@ bad_unit_bill = {
 codes_bad = issues_of(bad_unit_bill)
 check('ITM019' in codes_bad, "บิลหน่วย 'แกลอน' → ITM019 ฟ้อง")
 
+# บิลที่บางรายการไม่มีหน่วย (ตัวอื่นมี) → ITM019 ฟ้อง 'หน่วยขาด'
+miss_bill = copy.deepcopy(bad_unit_bill)
+miss_bill['items'] = [{'seq': 1, 'name': 'เหล็กเส้น', 'name_raw': 'เหล็กเส้น',
+                       'qty': 5.0, 'unit': 'เส้น', 'price': 100.0, 'amount': 500.0},
+                      {'seq': 2, 'name': 'ผ้าใบ', 'name_raw': 'ผ้าใบ',
+                       'qty': 1.0, 'unit': '', 'price': 300.0, 'amount': 300.0}]
+check('ITM019' in issues_of(miss_bill), "บิลบางรายการไม่มีหน่วย (ตัวอื่นมี) → ITM019 ฟ้อง (หน่วยขาด)")
+
 # บิลหน่วยถูก → ITM019 เงียบ
 ok_unit_bill = copy.deepcopy(bad_unit_bill)
 ok_unit_bill['items'][0]['unit'] = 'แกลลอน'
@@ -162,12 +217,17 @@ check(not threw, "run_rules ไม่ throw เมื่อ ITM019 เปิด�
 # ════════════════════════ ส่วน Notepad ════════════════════════
 print("\n[NOTEPAD] _render_unit_consistency ผลิตคำเตือนครบ")
 from agents.notepad_report import _render_unit_consistency
-bills_np = bills_mix + [bad_unit_bill]
+bad_unit_bill2 = copy.deepcopy(bad_unit_bill)
+bad_unit_bill2['file'] = 'C.xlsx'
+bills_np = north + allen + [bad_unit_bill2]
 text = "\n".join(_render_unit_consistency(bills_np))
 check('Unit Consistency' in text, "มีหัวข้อ Unit Consistency")
-check('ปนภาษาไทย+อังกฤษ' in text and 'A.xlsx' in text, "มีคำเตือนปนภาษา + ระบุไฟล์")
-check('แกลลอน' in text, "มีคำแนะนำหน่วยสะกดผิด (แกลลอน) ใน Notepad")
-check('ตรม.' in text, "มี 'ตรม.' ปรากฏในรายงาน Notepad (อาการ 1)")
+check('ปนภาษาไทย+อังกฤษ' in text and 'นอร์ทเทิร์น' in text,
+      "Notepad: คำเตือนปนภาษา ราย 'บริษัท' (นอร์ทเทิร์น)")
+check('ขาด/ดึงมาไม่ครบ' in text or 'ไม่มีหน่วย' in text,
+      "Notepad: คำเตือน 'หน่วยขาด/ดึงไม่ครบ'")
+check('แกลลอน' in text, "Notepad: คำแนะนำหน่วยสะกดผิด (แกลลอน)")
+check('ตรม.' not in text or 'หน่วยที่พบ' in text, "Notepad: ส่วนสรุปหน่วยต่อไฟล์คงอยู่")
 
 
 # ════════════════════════════════════════════════════════════

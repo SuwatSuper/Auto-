@@ -212,6 +212,24 @@ def script_of(u) -> str:
     return 'other'
 
 
+def _is_charged(it) -> bool:
+    """รายการนี้ 'คิดเงินจริง' ไหม (มี amount หรือ qty ที่เป็นตัวเลข) — กันบรรทัดหัว/ว่าง.
+
+    ใช้กรองตอนนับ 'หน่วยขาด' เพื่อไม่ฟ้องบรรทัดที่ไม่ใช่รายการสินค้าจริง.
+    """
+    if not it:
+        return False
+    for k in ('amount', 'qty', 'price'):
+        v = it.get(k)
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)) and v not in (0, 0.0):
+            return True
+        if isinstance(v, str) and v.strip() not in ('', '0'):
+            return True
+    return False
+
+
 def is_known_unit(u) -> bool:
     """หน่วยนี้เป็นรูปมาตรฐาน/ยอมรับได้ไหม (อยู่ใน whitelist)."""
     k = _key(u)
@@ -328,12 +346,108 @@ def detect_unit_typos(items):
     return out
 
 
-def r_itm019(b, m, c):
-    """[ADD-ON] ITM019 — spell-check ช่องหน่วยสินค้า (ปี๊ป/แกลอน/แกนลอน/ตรม. ฯลฯ).
+def detect_missing_units_in_bill(items):
+    """flag 'หน่วยว่าง' ระดับบิล — เฉพาะเมื่อบิลเดียวกันมีรายการอื่น 'ที่มีหน่วย' อยู่ด้วย.
 
+    = สัญญาณ "ดึงมาไม่ครบ/แหว่ง" ที่ noise ต่ำ (intra-bill inconsistency):
+      ถ้าทั้งบิลไม่มีหน่วยเลย → ไม่ flag ที่นี่ (ปล่อยให้ระดับบริษัท/Notepad จับ — กันฟ้องบิลบริการทั้งใบ).
+    """
+    items = items or []
+    has_unit = any((it or {}).get('unit') and str(it['unit']).strip() for it in items)
+    if not has_unit:
+        return []
+    out = []
+    for it in items:
+        u = (it or {}).get('unit')
+        if (not u or not str(u).strip()) and _is_charged(it):
+            seq = (it or {}).get('seq', '?')
+            name = str((it or {}).get('name', '') or '')
+            out.append(f"#{seq} \"{name[:30]}\" — ไม่มีหน่วยสินค้า (ดึงมาไม่ครบ/ช่องหน่วยว่าง)")
+    return out
+
+
+def r_itm019(b, m, c):
+    """[ADD-ON] ITM019 — ตรวจ "ช่องหน่วยสินค้า" ที่กฎเดิมไม่ครอบ:
+       (ก) สะกดผิด/รูปไม่มาตรฐาน (ปี๊ป/แกลอน/แกนลอน/ตรม. ฯลฯ)
+       (ข) หน่วยขาด/ดึงไม่ครบ ในบิลที่รายการอื่นมีหน่วย (intra-bill inconsistency)
     pure check ไม่มี side-effect (สอดคล้องสไตล์ r_itm0xx เดิม). คืน list[str].
     """
-    return detect_unit_typos((b or {}).get('items') or [])
+    items = (b or {}).get('items') or []
+    return detect_unit_typos(items) + detect_missing_units_in_bill(items)
+
+
+# ─────────────── (อาการใหม่) หมายเหตุระดับ "บริษัท" — ปนภาษา + หน่วยขาด ───────────────
+def _company_key(b):
+    """คีย์รวมบริษัท: เลขภาษี (canonical) → ไม่มีก็ใช้ชื่อ. ตรงแนวคิด super_ultra_viewer."""
+    tid = str((b or {}).get('tax_id') or '').strip()
+    if tid:
+        return tid
+    return _norm((b or {}).get('company') or (b or {}).get('company_raw') or '(ไม่ทราบบริษัท)')
+
+
+def company_unit_notes(bills):
+    """หมายเหตุระดับ "บริษัท" (list[str]) จากบิลของบริษัทเดียว (pre-grouped).
+
+    ใช้ในบล็อกสรุปบริษัท (super_ultra_viewer "หมายเหตุ :") + Notepad:
+      (ก) ปนไทย+อังกฤษ: บริษัทใช้หน่วยทั้งสคริปต์ไทยและอังกฤษ (ต่างตระกูลก็นับ — ตามที่ลูกค้าต้องการ)
+      (ข) หน่วยขาด/ดึงไม่ครบ: มีรายการคิดเงินที่ "ช่องหน่วยว่าง"
+    """
+    th, en, blank = set(), set(), 0
+    for b in (bills or []):
+        for it in ((b or {}).get('items') or []):
+            u = (it or {}).get('unit')
+            if not u or not str(u).strip():
+                if _is_charged(it):
+                    blank += 1
+                continue
+            sc = script_of(u)
+            if sc == 'th':
+                th.add(_norm(u))
+            elif sc in ('en', 'mixed'):
+                en.add(_norm(u))
+    notes = []
+    if th and en:
+        notes.append(
+            "หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษ "
+            f"(ไทย: {'/'.join(sorted(th))} · อังกฤษ: {'/'.join(sorted(en))})"
+        )
+    if blank:
+        notes.append(f"หน่วยสินค้าบางรายการไม่มีหน่วย/ดึงมาไม่ครบ ({blank} รายการ)")
+    return notes
+
+
+def detect_company_unit_language_mix(bills):
+    """จัดกลุ่มบิลทั้งหมดเป็นราย "บริษัท" → คืน list[dict] ของบริษัทที่มีหมายเหตุหน่วย.
+
+    คืน: [{'company','tax_id','notes':[...], 'th':[...], 'en':[...], 'blank':int}]
+    ใช้โดย Notepad (ภาพรวมทุกบริษัท).
+    """
+    groups = {}
+    for b in (bills or []):
+        groups.setdefault(_company_key(b), []).append(b)
+    out = []
+    for key, gbills in groups.items():
+        notes = company_unit_notes(gbills)
+        if not notes:
+            continue
+        th, en, blank = set(), set(), 0
+        for b in gbills:
+            for it in ((b or {}).get('items') or []):
+                u = (it or {}).get('unit')
+                if not u or not str(u).strip():
+                    if _is_charged(it):
+                        blank += 1
+                    continue
+                sc = script_of(u)
+                if sc == 'th':
+                    th.add(_norm(u))
+                elif sc in ('en', 'mixed'):
+                    en.add(_norm(u))
+        comp = (gbills[0].get('company') or gbills[0].get('company_raw') or key)
+        out.append({'company': comp, 'tax_id': gbills[0].get('tax_id') or '',
+                    'notes': notes, 'th': sorted(th), 'en': sorted(en), 'blank': blank})
+    out.sort(key=lambda d: str(d['company']))
+    return out
 
 
 # ─────────────────── (อาการ 4) หน่วยปนไทย+อังกฤษในไฟล์เดียวกัน ───────────────────

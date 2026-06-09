@@ -189,7 +189,7 @@ RULES = {
     'DT004':{'name':'ปี/วัน/เดือนนอกช่วงสมเหตุผล','severity':'WARNING','category':'วันที่','check':r_dt004,'enabled':True},
     'ITM016':{'name':'รายการซ้ำในบิล','severity':'WARNING','category':'รายการสินค้า','check':r_itm016,'enabled':True},
     'ITM018':{'name':'จำนวน/ยอดผิดปกติ','severity':'WARNING','category':'รายการสินค้า','check':r_itm018,'enabled':True},
-    'ITM019':{'name':'หน่วยสะกดผิด/รูปไม่มาตรฐาน (ตรวจเพิ่ม)','severity':'WARNING','category':'รายการสินค้า','check':r_itm019,'enabled':True},  # [ADD-ON v9.2] spell-check ช่องหน่วย (ปี๊ป→ปี๊บ, แกลอน/แกนลอน→แกลลอน, ตรม. ฯลฯ) — ช่องว่างที่ ITM004/010/011 (ตรวจชื่อ) และ ITM005/006/015 (ตรวจความเหมาะสมหน่วย) ไม่ครอบ. pure check ไม่มี side-effect — ปิดได้ด้วย enabled=False ถ้าต้องการ
+    'ITM019':{'name':'หน่วยสินค้าผิด/ขาดหาย (ตรวจเพิ่ม)','severity':'WARNING','category':'รายการสินค้า','check':r_itm019,'enabled':True},  # [ADD-ON v9.2] ตรวจ "ช่องหน่วย": (ก) สะกดผิด/รูปไม่มาตรฐาน (ปี๊ป→ปี๊บ, แกลอน/แกนลอน→แกลลอน, ตรม.) (ข) หน่วยขาด/ดึงไม่ครบในบิลที่รายการอื่นมีหน่วย — ช่องว่างที่ ITM004/010/011 (ตรวจชื่อ) และ ITM005/006/015 (ตรวจความเหมาะสมหน่วย) ไม่ครอบ. pure check ไม่มี side-effect — ปิดได้ด้วย enabled=False
     'VAT008':{'name':'VAT เป็นศูนย์','severity':'INFO','category':'ยอดเงิน','check':r_vat008,'enabled':True},
     'VAT009':{'name':'Subtotal เป็นศูนย์/ไม่มี','severity':'ERROR','category':'ยอดเงิน','check':r_vat009,'enabled':True},
     'VAT010':{'name':'VAT ไม่ได้ตรวจจริง (ยอดถูกคำนวณเอง)','severity':'WARNING','category':'ยอดเงิน','check':r_vat010,'enabled':False},  # v9.1: ปิด/ลบการทำงานตามคำขอ — run_rules ข้ามกฎ enabled=False; r_vat010 เป็น pure check ไม่มี side-effect

@@ -288,17 +288,25 @@ def _render_unit_consistency(bills) -> List[str]:
         out.append(f"      • {fname}: {shown}")
     out.append("")
 
-    # (2) ปนภาษาไทย+อังกฤษ (ความหมายเดียวกัน)
-    mixes = ux.detect_file_unit_language_mix(bills)
-    if mixes:
-        out.append("   ⚠️ ไฟล์ที่ใช้หน่วยปนภาษาไทย+อังกฤษ (ความหมายเดียวกัน — ควรใช้รูปเดียว):")
-        for d in mixes:
-            for fam in d["mixed_families"]:
-                th = ", ".join(fam["th"])
-                en = ", ".join(fam["en"])
-                out.append(f"      • {d['file']} — [{fam['family']}] ใช้ทั้งไทย \"{th}\" และอังกฤษ \"{en}\"")
+    # (2) ปนภาษาไทย+อังกฤษ / หน่วยขาด — ราย "บริษัท" (ตรงกับหมายเหตุในสรุปบริษัท)
+    comp_mix = ux.detect_company_unit_language_mix(bills)
+    mixed_lang = [d for d in comp_mix if d["th"] and d["en"]]
+    blank_any = [d for d in comp_mix if d["blank"]]
+    if mixed_lang:
+        out.append("   ⚠️ บริษัทที่ใช้หน่วยสินค้าปนภาษาไทย+อังกฤษ (ควรใช้รูปเดียวกัน):")
+        for d in mixed_lang:
+            out.append(f"      • {d['company']} — ไทย: {', '.join(d['th'])} · อังกฤษ: {', '.join(d['en'])}")
     else:
-        out.append("   ✅ ไม่พบไฟล์ที่ใช้หน่วยปนไทย+อังกฤษ (ความหมายเดียวกัน)")
+        out.append("   ✅ ไม่พบบริษัทที่ใช้หน่วยปนไทย+อังกฤษ")
+    out.append("")
+
+    # (2b) หน่วยขาด/ดึงไม่ครบ — ราย "บริษัท"
+    if blank_any:
+        out.append("   ⚠️ บริษัทที่มีหน่วยสินค้าขาด/ดึงมาไม่ครบ (ช่องหน่วยว่างในรายการคิดเงิน):")
+        for d in blank_any:
+            out.append(f"      • {d['company']} — {d['blank']} รายการไม่มีหน่วย")
+    else:
+        out.append("   ✅ ไม่พบหน่วยสินค้าขาด/ดึงไม่ครบ")
     out.append("")
 
     # (3) หน่วยสะกดผิด/รูปไม่มาตรฐาน
