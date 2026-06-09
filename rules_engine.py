@@ -38,6 +38,8 @@ from rules_engine_rules_c import (   # [F3 de-star] explicit — ครอบ __
 )
 from config import (CONSTRUCTION_DICT, ITM012_MIN_WORD_LEN,  # [F3] explicit — config ที่ rules_engine ใช้
                     ITM012_SIM_THRESHOLD, PYTHAINLP_WHITELIST)
+# [ADD-ON v9.2] ITM019 — spell-check ช่องหน่วยสินค้า (โมดูล leaf อิสระ ไม่กระทบ logic เดิม)
+from unit_detection_ext import r_itm019
 
 
 def load_product_master():
@@ -187,6 +189,7 @@ RULES = {
     'DT004':{'name':'ปี/วัน/เดือนนอกช่วงสมเหตุผล','severity':'WARNING','category':'วันที่','check':r_dt004,'enabled':True},
     'ITM016':{'name':'รายการซ้ำในบิล','severity':'WARNING','category':'รายการสินค้า','check':r_itm016,'enabled':True},
     'ITM018':{'name':'จำนวน/ยอดผิดปกติ','severity':'WARNING','category':'รายการสินค้า','check':r_itm018,'enabled':True},
+    'ITM019':{'name':'หน่วยสะกดผิด/รูปไม่มาตรฐาน (ตรวจเพิ่ม)','severity':'WARNING','category':'รายการสินค้า','check':r_itm019,'enabled':True},  # [ADD-ON v9.2] spell-check ช่องหน่วย (ปี๊ป→ปี๊บ, แกลอน/แกนลอน→แกลลอน, ตรม. ฯลฯ) — ช่องว่างที่ ITM004/010/011 (ตรวจชื่อ) และ ITM005/006/015 (ตรวจความเหมาะสมหน่วย) ไม่ครอบ. pure check ไม่มี side-effect — ปิดได้ด้วย enabled=False ถ้าต้องการ
     'VAT008':{'name':'VAT เป็นศูนย์','severity':'INFO','category':'ยอดเงิน','check':r_vat008,'enabled':True},
     'VAT009':{'name':'Subtotal เป็นศูนย์/ไม่มี','severity':'ERROR','category':'ยอดเงิน','check':r_vat009,'enabled':True},
     'VAT010':{'name':'VAT ไม่ได้ตรวจจริง (ยอดถูกคำนวณเอง)','severity':'WARNING','category':'ยอดเงิน','check':r_vat010,'enabled':False},  # v9.1: ปิด/ลบการทำงานตามคำขอ — run_rules ข้ามกฎ enabled=False; r_vat010 เป็น pure check ไม่มี side-effect
@@ -246,5 +249,6 @@ __all__ = [
     'r_cmp005', 'r_addr004', 'r_addr005', 'r_tax007',
     'r_br003', 'r_doc003', 'r_dt004', 'r_itm016',
     'r_itm018', 'r_vat008', 'r_vat009', 'r_vat010',
+    'r_itm019',
     'RULES', 'run_rules',
 ]

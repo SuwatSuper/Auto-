@@ -258,6 +258,63 @@ def _wrap(text: str, width: int) -> List[str]:
     return lines or [""]
 
 
+def _render_unit_consistency(bills) -> List[str]:
+    """[ADD-ON v9.2] ส่วนตรวจ "หน่วยสินค้า" เพิ่มเติม (advisory) — ตอบ 4 อาการที่ลูกค้าแจ้ง:
+       (1) สรุปหน่วยที่พบต่อไฟล์ → ทำให้ 'ตรม.' และหน่วยอื่นปรากฏในรายงาน
+       (2) เตือนไฟล์ที่ใช้หน่วยปนไทย+อังกฤษ (ความหมายเดียวกัน เช่น กก./kg, ตรม./sqm)
+       (3) เตือนหน่วยสะกดผิด/รูปไม่มาตรฐาน (ปี๊ป→ปี๊บ, แกลอน/แกนลอน→แกลลอน ฯลฯ)
+    อ่าน bills อย่างเดียว ไม่แตะผลตรวจหลัก/byte-identical. import แบบกัน (ไม่มีโมดูล → ข้ามเงียบ).
+    """
+    try:
+        import unit_detection_ext as ux
+    except Exception:
+        return []
+
+    out = [_LINE,
+           "   หน่วยสินค้า — ตรวจเพิ่ม (Unit Consistency, advisory)",
+           _LINE]
+    bills = bills or []
+    by_file = ux.summarize_units_by_file(bills)
+    if not by_file:
+        out += ["   (ไม่มีข้อมูลหน่วยสินค้าในรอบนี้)", ""]
+        return out
+
+    # (1) หน่วยที่พบต่อไฟล์ (เรียงตามจำนวนครั้ง มาก→น้อย)
+    out.append("   หน่วยที่พบ (ต่อไฟล์):")
+    for fname in sorted(by_file):
+        units = by_file[fname]
+        parts = [f"{u}×{n}" for u, n in sorted(units.items(), key=lambda kv: (-kv[1], kv[0]))]
+        shown = ", ".join(parts[:20]) + (" …" if len(parts) > 20 else "")
+        out.append(f"      • {fname}: {shown}")
+    out.append("")
+
+    # (2) ปนภาษาไทย+อังกฤษ (ความหมายเดียวกัน)
+    mixes = ux.detect_file_unit_language_mix(bills)
+    if mixes:
+        out.append("   ⚠️ ไฟล์ที่ใช้หน่วยปนภาษาไทย+อังกฤษ (ความหมายเดียวกัน — ควรใช้รูปเดียว):")
+        for d in mixes:
+            for fam in d["mixed_families"]:
+                th = ", ".join(fam["th"])
+                en = ", ".join(fam["en"])
+                out.append(f"      • {d['file']} — [{fam['family']}] ใช้ทั้งไทย \"{th}\" และอังกฤษ \"{en}\"")
+    else:
+        out.append("   ✅ ไม่พบไฟล์ที่ใช้หน่วยปนไทย+อังกฤษ (ความหมายเดียวกัน)")
+    out.append("")
+
+    # (3) หน่วยสะกดผิด/รูปไม่มาตรฐาน
+    typos = ux.collect_unit_typos(bills)
+    if typos:
+        out.append(f"   ⚠️ หน่วยที่อาจสะกดผิด/รูปไม่มาตรฐาน ({len(typos)} รายการ):")
+        for t in typos[:30]:
+            out.append(f"      • {t}")
+        if len(typos) > 30:
+            out.append(f"      … และอีก {len(typos) - 30} รายการ")
+    else:
+        out.append("   ✅ ไม่พบหน่วยที่สะกดผิด/รูปไม่มาตรฐาน")
+    out.append("")
+    return out
+
+
 def render(ctx) -> str:
     """สร้างข้อความรายงานทั้งฉบับ (plain text)."""
     results = ctx.results or {}
@@ -313,6 +370,13 @@ def render(ctx) -> str:
 
     # ---- ส่วนทีมผู้ตรวจเชิงกลไก (Inspection Bank) ----
     L.extend(_render_inspection_board(results.get("verification")))
+
+    # ---- [ADD-ON v9.2] ตรวจหน่วยสินค้าเพิ่มเติม (advisory) ----
+    #   อ่าน ctx.bills อย่างเดียว → ไม่กระทบผลตรวจหลัก/byte-identical. ห่อ try กันส่วนเสริมล้มรายงาน.
+    try:
+        L.extend(_render_unit_consistency(ctx.bills))
+    except Exception:
+        pass
 
     # ---- footer ----
     L.append(_LINE)
