@@ -43,7 +43,7 @@ MAP = {
     "CMP001": (F_NAME, "ชื่อบริษัทไม่ตรง master", MASTER),
     "CMP002": (F_NAME, "คำนำหน้านิติบุคคลผิด", FIX),
     "CMP003": (F_NAME, "ใช้ชื่อแบรนด์แทนชื่อนิติบุคคล", FIX),
-    "CMP004": (F_NAME, "เว้นวรรคชื่อบริษัทไม่ตรง master", REVIEW),
+    "CMP004": (F_NAME, "เว้นวรรคชื่อบริษัทไม่ตรง master", CHECK),
     "CMP005": (F_NAME, "ชื่อบริษัทไม่ครบ (ขาด 'จำกัด')", FIX),
     # ที่อยู่
     "ADDR001": (F_ADDR, "ที่อยู่ไม่ครบ", FIX),
@@ -203,6 +203,19 @@ def clean_detail(code: str, detail: str) -> str:
     """
     d = (detail or "").strip()
     d_nohdr = re.sub(r"^\s*#\d+[:\s]*", "", d)            # ตัด '#N:' หน้าออก (ลำดับแยกคอลัมน์แล้ว)
+    if code == "CMP004":                                   # เว้นวรรคชื่อบริษัท: ย่อเหลือจำนวนช่อง (เลิกโชว์สตริง ␣ ยาว ๆ)
+        m = re.search(r"ไฟล์มี\s*(\d+)\s*ช่องว่าง\s*/\s*master\s*มี\s*(\d+)", d)
+        return (f"เว้นวรรคชื่อบริษัทไม่ตรง master (ไฟล์ {m.group(1)} ช่อง / master {m.group(2)} ช่อง)"
+                if m else "เว้นวรรคชื่อบริษัทไม่ตรง master")
+    if code == "ITM019":                                   # หน่วยสะกดผิด/ขาด: ย่อเหลือสินค้า + หน่วย→ที่ควร
+        mp = re.search(r'"([^"]+)"', d)
+        prod = mp.group(1).strip() if mp else ""
+        if "ไม่มีหน่วย" in d:
+            return (f"สินค้า: {prod} | ไม่มีหน่วยสินค้า (ดึงไม่ครบ)" if prod else "ไม่มีหน่วยสินค้า (ดึงไม่ครบ)")
+        mu = re.search(r'หน่วย\s*"([^"]+)".*?ควรเป็น\s*"([^"]+)"', d)
+        if mu:
+            return (f"สินค้า: {prod} | " if prod else "") + f'หน่วย "{mu.group(1)}" ควรเป็น "{mu.group(2)}"'
+        return d_nohdr
     if code == "ITM010":                                   # สะกดผิด: ของเดิม→ที่ควร + ชื่อสินค้า
         mxy = re.search(r'"([^"]+)"\s*→\s*"([^"]+)"', d)
         mp = re.search(r'ใน\s*"([^"]+)"', d)
