@@ -97,7 +97,7 @@ FUZZY_CODES = {
     "VAT004", "VAT006", "VAT008", "VAT010",             # ปัดเศษ/รวมVAT/VATศูนย์/ไม่ได้ตรวจ
 }
 # MASTER = เทียบ master เท่านั้น ตรวจอิสระ offline ไม่ได้ → ควรตรวจซ้ำ (+หมายเหตุ)
-MASTER_CODES = {"ADDR003", "CMP001", "CMP004", "TAX003", "TAX005"}
+MASTER_CODES = {"ADDR003", "CMP001", "CMP004", "CMP006", "TAX003", "TAX005"}
 # NOTE = ข้อสังเกต (ไม่ใช่ finding ที่ต้องตัดสิน — ลงบรรทัดหมายเหตุของสรุปปกติ ไม่เข้า Ultra)
 NOTE_CODES = {"DT001", "DT002", "DT003"}
 

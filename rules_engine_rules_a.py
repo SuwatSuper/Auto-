@@ -93,6 +93,34 @@ def r_cmp004(b,m,c):
                 f"ไฟล์='{vis(bc_raw)}' | master='{vis(mc_raw)}' (␣ = ช่องว่าง)"]
     return []
 
+def r_cmp006(b, m, c):
+    """[ADD-ON v9.2] ชื่อบริษัทไม่ตรง 100% กับ ภ.พ.20 — โซน fuzzy ที่ CMP001 ปล่อยผ่าน.
+
+    ลูกค้าขอ "ต่างตัวอักษร = ฟ้อง" (เข้มขึ้น). ฟ้องเฉพาะโซนที่ CMP001 (CRITICAL) ไม่จับ:
+      ยกเว้น (= เงียบ): ไม่มี master / ตัวอักษรตรง (ต่างแค่เว้นวรรค = CMP004) /
+                        master เป็น substring ของชื่อบิล (เช่นมี '(สำนักงานใหญ่)' ต่อท้าย) /
+                        fuzzy < 85 (CMP001 จัดการแล้ว — กันฟ้องซ้ำ).
+    advisory: เป็น WARNING/เลน CHECK — โชว์ในสรุปบริษัท (ชื่อบจ.) + Excel. ปิดได้ด้วย enabled=False.
+    """
+    if not m:
+        return []
+    bc_raw = b.get('company_raw') or b.get('company', '') or ''
+    mc_raw = _raw_company_form(m.get('name', '')) or ''
+    nospace = lambda s: re.sub(r'\s+', '', s).strip()
+    bcn, mcn = nospace(bc_raw), nospace(mc_raw)
+    if not bcn or not mcn:
+        return []
+    if bcn == mcn:
+        return []                      # ตัวอักษรตรง (ต่างแค่เว้นวรรค → CMP004)
+    if mcn in bcn or bcn in mcn:
+        return []                      # substring (suffix สำนักงานใหญ่/มหาชน ฯลฯ) = ยอมรับ
+    score = fuzz.token_sort_ratio(normalize_text(b.get('company', '')),
+                                  normalize_text(m.get('name', '')))
+    if score < 85:
+        return []                      # CMP001 (CRITICAL) จับโซนนี้แล้ว — กันฟ้องซ้ำ
+    return [f"ชื่อไม่ตรง 100% กับ ภ.พ.20: บิล='{bc_raw.strip()[:45]}' / "
+            f"ภ.พ.20='{mc_raw.strip()[:45]}' (เหมือน {score}%)"]
+
 # ════════════════════════════════════════════════════════════════════════════
 # v9.2 SMART-ADDR (ADR-014) — เทียบที่อยู่ "ทีละ field" (generic ทุกที่อยู่ ไม่ hardcode)
 #   เลิก "เทียบข้อความเป็นก้อน" (ต้นเหตุ false alarm: ลำดับ/ช่องว่าง/label ฟอร์ม)

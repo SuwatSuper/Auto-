@@ -19,7 +19,7 @@ from rules_engine_base import (   # [F3 de-star] explicit — ครอบ __all
 from rules_engine_rules_a import (   # [F3 de-star] explicit — ครอบ __all__ ∪ internal ∪ rules_engine.X attr
     r_addr001, r_addr002, r_addr003, r_br001,
     r_br002, r_cmp001, r_cmp002, r_cmp003,
-    r_cmp004, r_doc001, r_doc002, r_dt001,
+    r_cmp004, r_cmp006, r_doc001, r_doc002, r_dt001,
     r_dt002, r_dt003, r_itm001, r_itm002,
     r_iv001, r_tax001, r_tax002, r_tax003,
     r_tax004, r_tax005, r_tax006,
@@ -181,6 +181,7 @@ RULES = {
     'VAT007':{'name':'Discount validation','severity':'CRITICAL','category':'ยอดเงิน','check':r_vat007,'enabled':True},
     # v8.1: new rules
     'CMP005':{'name':'suffix นิติบุคคล','severity':'ERROR','category':'บริษัท','check':r_cmp005,'enabled':True},
+    'CMP006':{'name':'ชื่อไม่ตรง 100% กับ ภ.พ.20 (ตรวจเพิ่ม)','severity':'WARNING','category':'บริษัท','check':r_cmp006,'enabled':True},  # [ADD-ON v9.2] ลูกค้าขอเข้มขึ้น: ชื่อต่างตัวอักษรจาก ภ.พ.20 (โซน fuzzy≥85 ที่ CMP001 ปล่อยผ่าน) = ฟ้อง. กันซ้ำ CMP001(<85)/CMP004(เว้นวรรค)/substring. ปิดได้ด้วย enabled=False ถ้า false-positive เยอะ
     'ADDR004':{'name':'กรุงเทพ vs ต่างจังหวัด format','severity':'WARNING','category':'ที่อยู่','check':r_addr004,'enabled':True},
     'ADDR005':{'name':'รหัสไปรษณีย์','severity':'INFO','category':'ที่อยู่','check':r_addr005,'enabled':True},
     'TAX007':{'name':'ประเภทนิติบุคคลจากหลักแรก','severity':'WARNING','category':'เลขภาษี','check':r_tax007,'enabled':True},
@@ -246,7 +247,7 @@ __all__ = [
     'r_itm010', 'r_itm011', '_build_product_whitelist', 'validate_product_word',
     'r_itm012', 'r_vat001', 'r_vat002', 'r_vat003',
     'r_vat004', 'r_vat005', 'r_vat006', 'r_vat007',
-    'r_cmp005', 'r_addr004', 'r_addr005', 'r_tax007',
+    'r_cmp005', 'r_cmp006', 'r_addr004', 'r_addr005', 'r_tax007',
     'r_br003', 'r_doc003', 'r_dt004', 'r_itm016',
     'r_itm018', 'r_vat008', 'r_vat009', 'r_vat010',
     'r_itm019',

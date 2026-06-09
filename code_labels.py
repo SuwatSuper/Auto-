@@ -45,6 +45,7 @@ MAP = {
     "CMP003": (F_NAME, "ใช้ชื่อแบรนด์แทนชื่อนิติบุคคล", FIX),
     "CMP004": (F_NAME, "เว้นวรรคชื่อบริษัทไม่ตรง master", CHECK),
     "CMP005": (F_NAME, "ชื่อบริษัทไม่ครบ (ขาด 'จำกัด')", FIX),
+    "CMP006": (F_NAME, "ชื่อไม่ตรง 100% กับ ภ.พ.20", CHECK),
     # ที่อยู่
     "ADDR001": (F_ADDR, "ที่อยู่ไม่ครบ", FIX),
     "ADDR002": (F_ADDR, "ตัวสะกดถนน/แขวงผิด", CHECK),
@@ -207,6 +208,12 @@ def clean_detail(code: str, detail: str) -> str:
         m = re.search(r"ไฟล์มี\s*(\d+)\s*ช่องว่าง\s*/\s*master\s*มี\s*(\d+)", d)
         return (f"เว้นวรรคชื่อบริษัทไม่ตรง master (ไฟล์ {m.group(1)} ช่อง / master {m.group(2)} ช่อง)"
                 if m else "เว้นวรรคชื่อบริษัทไม่ตรง master")
+    if code == "CMP006":                                   # ชื่อไม่ตรง 100%: ย่อเหลือ บิล vs ภ.พ.20
+        mb = re.search(r"บิล='([^']*)'", d)
+        mm = re.search(r"ภ\.พ\.20='([^']*)'", d)
+        if mb and mm:
+            return f'ชื่อในบิล "{mb.group(1)}" ไม่ตรง ภ.พ.20 "{mm.group(1)}"'
+        return d_nohdr
     if code == "ITM019":                                   # หน่วยสะกดผิด/ขาด: ย่อเหลือสินค้า + หน่วย→ที่ควร
         mp = re.search(r'"([^"]+)"', d)
         prod = mp.group(1).strip() if mp else ""
@@ -279,3 +286,36 @@ def clean_detail(code: str, detail: str) -> str:
         m = re.search(r"'([^']+)'", d)
         return f'ชื่อสินค้าสั้น: {m.group(1)}' if m else d_nohdr
     return d_nohdr
+
+
+# ── [v9.2] สรุป "ที่อยู่" แบบสั้น: บอกเฉพาะ field ที่ผิด + จำนวนบิล (ตามที่ลูกค้าเลือก) ──
+def _addr_bad_fields(detail: str):
+    """ดึง 'ชื่อ field ที่ไม่ตรง' จาก detail ของ ADDR (ตัดค่า บิล/ทะเบียน ออก).
+
+    detail จริง: 'ที่อยู่ไม่ตรงทะเบียน: รหัสไปรษณีย์ไม่ตรง (บิล: .. / ทะเบียน: ..); เขต/อำเภอไม่ตรง (..); ...'
+    → คืน ['รหัสไปรษณีย์','เขต-อำเภอ', ...] (แทน '/' ในชื่อ field ด้วย '-' กันชนกับตัวคั่น).
+    """
+    d = re.sub(r"^.*?ทะเบียน:\s*", "", detail or "")     # ตัดวลีนำ 'ที่อยู่ไม่ตรงทะเบียน:'
+    out = []
+    for chunk in d.split(";"):
+        m = re.match(r"\s*(.+?)\s*ไม่ตรง", chunk)
+        if m:
+            lbl = m.group(1).strip().replace("/", "-")
+            if lbl and lbl not in out:
+                out.append(lbl)
+    return out
+
+
+def addr_summary(entries) -> str:
+    """รวมรายการ ADDR ของช่อง 'ที่อยู่' → บรรทัดสั้น: '<field ที่ผิด> ไม่ตรง (N บิล) รีเช็คครับ'.
+
+    เลือกตามลูกค้า: บอกเฉพาะ field ที่ผิด สั้น ๆ (ไม่ดัมพ์ที่อยู่เต็มทุกบิล).
+    """
+    fields_bad, bills = [], set()
+    for fx in (entries or []):
+        bills.add((fx.get("file", ""), fx.get("sheet", ""), fx.get("date", "")))
+        for lbl in _addr_bad_fields(fx.get("detail", "") or fx.get("type", "")):
+            if lbl not in fields_bad:
+                fields_bad.append(lbl)
+    flds = "/".join(fields_bad) if fields_bad else "ที่อยู่"
+    return f"{flds} ไม่ตรง ({len(bills)} บิล) รีเช็คครับ"
