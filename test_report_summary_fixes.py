@@ -105,6 +105,28 @@ s1 = addr_summary([{'file': 'TSH', 'sheet': '1', 'date': 'x',
 check(s1.startswith('รหัสไปรษณีย์ ไม่ตรง (1 บิล)'), f"ผิด field เดียว → สั้นตรง ({s1})")
 
 
+print("\n[TAX005] เลขภาษีเป็นของบริษัทอื่นใน master (เคสจริง เจ.อาร์./ฉีหยวน)")
+# บิลใช้ tax ของ master (ฉี อัน) แต่ "ชื่อบริษัทคนละเจ้า" → ต้องจับได้ (เดิมเงียบเพราะ m=None)
+spoof = mk('บริษัท เจ.อาร์. (ประเทศไทย) จำกัด')   # ชื่อต่างจากเจ้าของ tax โดยสิ้นเชิง (tax = ของ master)
+cc = codes(spoof)
+check('TAX005' in cc, f"tax ของ master แต่ชื่อคนละเจ้า → TAX005 ฟ้อง (ได้ {[c for c in cc if c.startswith('TAX')]})")
+det = next((i['detail'] for i in spoof['issues'] if i['code'] == 'TAX005'), '')
+check('เป็นของ' in det and 'แต่ในบิลใช้ชื่อ' in det, "TAX005 ระบุเจ้าของจริง + ชื่อในบิล")
+# ชื่อตรงเจ้าของ tax → TAX005 เงียบ (ไม่ FP)
+check('TAX005' not in codes(mk(mname)), "ชื่อตรงเจ้าของ tax → TAX005 เงียบ (ไม่ FP)")
+# viewer: โชว์ในช่อง 'เลขที่ผู้เสียภาษี' หลัก (ไม่ตกเป็น soft/'ไม่มี master')
+with contextlib.redirect_stdout(io.StringIO()):
+    rows = V.build([spoof], master_present=True)
+tax_line = ""
+for i, r in enumerate(rows, 1):
+    for ln in V.render_block(i, r).splitlines():
+        if ln.strip().startswith('เลขที่ผู้เสียภาษี'):
+            tax_line = ln.strip()
+print("    ->", tax_line[:120])
+check('เป็นของ' in tax_line and 'ไม่มี master' not in tax_line,
+      "viewer: ช่องเลขภาษีโชว์ความขัดแย้งจริง (ไม่ใช่ 'ตรง'/'ไม่มี master')")
+
+
 print("\n" + "=" * 64)
 if FAIL:
     print(f"REPORT-SUMMARY: ผ่าน {PASS} / ล้มเหลว {len(FAIL)}")

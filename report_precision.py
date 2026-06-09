@@ -39,7 +39,7 @@ CONFIRM, RECHECK, ABSTAIN = "CONFIRM", "RECHECK", "ABSTAIN"
 _STRUCTURAL = {"ITM002", "ITM013", "ITM014", "CMP005", "IV002", "TAX006", "ADDR002",
                "DT005", "IV005", "DOC001", "DT006", "IV006"}
 # field ที่พึ่ง master (ไม่มี master = ยืนยันไม่ได้ → soft)
-_MASTER_DEPENDENT_CODES = {"CMP001", "CMP004", "TAX003", "ADDR001", "ADDR003"}
+_MASTER_DEPENDENT_CODES = {"CMP001", "CMP004", "TAX003", "TAX005", "ADDR001", "ADDR003"}
 
 
 def _point_key(e):
@@ -75,6 +75,9 @@ def a_taxid_checksum(e, bill, ctx):
     tid = clean_tax_id(bill.get("tax_id", "") if bill else "")
     if tid and (len(tid) != 13 or not _taxid_checksum_ok(tid)):
         return CONFIRM, "เลขภาษี checksum/ความยาวไม่ผ่าน (ยืนยันซ้ำ)"
+    # v9.2: TAX003/TAX005 = "ผลเทียบ master โดยตรง" (master_echo ยืนยันแล้ว) → ไม่ recheck ซ้ำให้ตกเป็น soft
+    if e.get("code") in ("TAX003", "TAX005"):
+        return ABSTAIN, ""
     return RECHECK, "เลขภาษีต้องเทียบ master เพิ่ม"
 
 

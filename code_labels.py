@@ -55,9 +55,9 @@ MAP = {
     # เลขภาษี
     "TAX001": (F_TAX, "เลขภาษีไม่ครบ 13 หลัก", FIX),
     "TAX002": (F_TAX, "เลขภาษีมีตัวอักษรปน", FIX),
-    "TAX003": (F_TAX, "เลขภาษีไม่ตรงกับบริษัท (master)", MASTER),
+    "TAX003": (F_TAX, "เลขภาษีไม่ตรงกับบริษัท (master)", FIX),
     "TAX004": (F_TAX, "เลขภาษีน่าจะ OCR ผิด", CHECK),
-    "TAX005": (F_TAX, "เลขภาษีไม่พบใน master", MASTER),
+    "TAX005": (F_TAX, "เลขภาษีเป็นของบริษัทอื่นใน master", FIX),
     "TAX006": (F_TAX, "เลขภาษี checksum ไม่ผ่าน", FIX),
     "TAX007": (F_TAX, "ประเภทนิติบุคคล (หลักแรก) ผิดปกติ", CHECK),
     # สาขา
@@ -208,6 +208,14 @@ def clean_detail(code: str, detail: str) -> str:
         m = re.search(r"ไฟล์มี\s*(\d+)\s*ช่องว่าง\s*/\s*master\s*มี\s*(\d+)", d)
         return (f"เว้นวรรคชื่อบริษัทไม่ตรง master (ไฟล์ {m.group(1)} ช่อง / master {m.group(2)} ช่อง)"
                 if m else "เว้นวรรคชื่อบริษัทไม่ตรง master")
+    if code == "TAX005":                                   # เลขภาษีเป็นของบริษัทอื่น: บอกเจ้าของจริง vs ชื่อในบิล
+        mo = re.search(r"เป็นของ\s*'([^']*)'", d)
+        mn = re.search(r"ใช้ชื่อ\s*'([^']*)'", d)
+        mt = re.search(r"TaxID\s*(\d+)", d)
+        if mo and mn:
+            tx = f"{mt.group(1)} " if mt else ""
+            return f'เลขภาษี {tx}เป็นของ "{mo.group(1)}" แต่บิลใช้ชื่อ "{mn.group(1)}"'
+        return d_nohdr
     if code == "CMP006":                                   # ชื่อไม่ตรง 100%: ย่อเหลือ บิล vs ภ.พ.20
         mb = re.search(r"บิล='([^']*)'", d)
         mm = re.search(r"ภ\.พ\.20='([^']*)'", d)
@@ -319,3 +327,20 @@ def addr_summary(entries) -> str:
                 fields_bad.append(lbl)
     flds = "/".join(fields_bad) if fields_bad else "ที่อยู่"
     return f"{flds} ไม่ตรง ({len(bills)} บิล) รีเช็คครับ"
+
+
+def field_summary(field, entries) -> str:
+    """สรุปช่องแบบสั้นสำหรับ viewer (กันดัมพ์ซ้ำทุกบิล):
+       • ที่อยู่ → บอกเฉพาะ field ที่ผิด + จำนวนบิล (addr_summary)
+       • อื่น ๆ (เช่น เลขภาษีเป็นของบริษัทอื่น) → ยุบ detail ที่ "เหมือนกัน" เหลือครั้งเดียว + นับบิล
+    """
+    if field == F_ADDR:
+        return addr_summary(entries)
+    bills, details = set(), []
+    for fx in (entries or []):
+        bills.add((fx.get("file", ""), fx.get("sheet", ""), fx.get("date", "")))
+        d = (fx.get("detail") or fx.get("type") or "").strip()
+        if d and d not in details:
+            details.append(d)
+    body = " ; ".join(details) if details else "ไม่ตรง"
+    return f"{body} ({len(bills)} บิล) รีเช็คครับ"

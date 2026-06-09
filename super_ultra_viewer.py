@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from code_labels import (FIELD_ORDER, F_NAME, F_ADDR, F_TAX, F_DATE, F_IV, F_ITEM,
                          F_PREVAT, F_POSTVAT,
                          field_of, lane_of, label_of, clean_detail, action_for,
-                         NOTE, note_phrase, addr_summary)
+                         NOTE, note_phrase, addr_summary, field_summary)
 from viewers import VIEWERS
 from puopuy_dates import _ivp_year2_to_ce, _ivp_year4_to_ce   # เดางวดจากเลขที่เอกสารเมื่อบิลไม่มีวันที่
 import report_precision as _precision   # [Precision Council] ตัดสิน tier ต่อจุด (advisory → golden ไม่ขยับ)
@@ -303,7 +303,7 @@ def build(bills, master_present=True):
 def _pinpoint_field(field, entries):
     """ประกอบข้อความ "ระบุจุด" ของช่องที่ต้องรีเช็ค: ไฟล์/เลขที่เอกสาร/วันที่/ลำดับ/ชื่อ/หน่วย
     ตามฟอร์แมตที่ผู้ใช้ต้องการ (ให้บัญชี/ลูกน้องลูกค้าเปิดไปแก้ถูกจุดได้เลย)."""
-    if field == F_ADDR: return addr_summary(entries)   # [v9.2] ที่อยู่: สรุปสั้น field ที่ผิด + จำนวนบิล
+    if field in (F_ADDR, F_TAX): return field_summary(field, entries)   # [v9.2] ที่อยู่/เลขภาษี: สรุปสั้น + นับบิล (กันดัมพ์ซ้ำ)
     parts = []
     for fx in entries:
         d = (fx.get("date") or "").replace("/", ".")

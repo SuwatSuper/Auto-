@@ -53,9 +53,13 @@ _check("CMP005 (fix) → 'ชื่อบริษัทไม่ครบ' + �
 v = CompanyViewer.verdict(_gi(("CMP001", "x | y"), ("CMP005", "ไม่มีจำกัด")))
 _check("fix ชนะ master (mark=fix ไม่ใช่ 'ไม่มี master')", v["mark"] == "fix")
 
-# TaxIdViewer master lane
+# TaxIdViewer: TAX003/TAX005 = ความขัดแย้งที่ "เทียบ master แล้วเจอจริง" (ไม่ใช่ 'ตรวจไม่ได้')
+#   v9.2 [FIX]: เดิมจัดเลน MASTER → viewer โชว์ 'ไม่มี master ตรวจไม่ได้' ทั้งที่กฎฟ้องแล้ว (บั๊ก) ;
+#   แก้เป็นเลน FIX → โชว์ความขัดแย้งจริง (เช่น 'เลขภาษีเป็นของบริษัทอื่นใน master')
 v = TaxIdViewer.verdict(_gi(("TAX003", "เลขไม่ตรง")))
-_check("TAX003 → 'ไม่มี master ตรวจไม่ได้'", v["mark"] == "master")
+_check("TAX003 (เทียบ master เจอจริง) → โชว์เป็น fix (ไม่ใช่ 'ไม่มี master')", v["mark"] == "fix")
+v5 = TaxIdViewer.verdict(_gi(("TAX005", "TaxID X เป็นของ 'A' — แต่ในบิลใช้ชื่อ 'B'")))
+_check("TAX005 (เลขภาษีเป็นของบริษัทอื่น) → โชว์เป็น fix", v5["mark"] == "fix")
 
 # [งาน D] ItemViewer: ITM010+ITM011 (typo จุดเดียว) → ยุบเหลือ label 'คำสินค้าผิด'
 v = ItemViewer.verdict(_gi(("ITM010", '#3: "มั้วน" → "ม้วน"'), ("ITM011", '#3: "มั้วน" ใกล้เคียง')))

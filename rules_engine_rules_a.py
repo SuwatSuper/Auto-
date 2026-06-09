@@ -306,9 +306,20 @@ def r_tax005(b,m,c):
     for key, mm in all_masters.items():
         if clean_tax_id(mm.get('tax_id','')) == bt:        # v6: .get กัน KeyError
             matched = mm; break
-    if matched and m and clean_tax_id(matched.get('tax_id','')) != clean_tax_id(m.get('tax_id','')):
-        return [f"⚠️ TaxID {bt} เป็นของ '{matched.get('name','')}' — แต่ในบิลใช้ชื่อ '{b['company']}'"]
-    return []
+    if not matched:
+        return []
+    # v9.2 [FIX-TAX005]: เดิมฟ้องเฉพาะตอนบิล match master "คนละเจ้าของ" (เงื่อนไข `m and ...`)
+    #   → พลาดเคสอันตรายสุด: tax นี้เป็นของ matched (เช่น ภ.พ.20=ฉีหยวน) แต่ "ชื่อบิลไม่ตรงใครเลย"
+    #     (match_company คืน m=None เพราะชื่อต่างมาก เช่น เจ.อาร์.) → ทั้งที่ tax ตรง master กลับเงียบ.
+    #   ใหม่: ฟ้องเมื่อ tax เป็นของ matched แต่ "ชื่อในบิล ≠ เจ้าของ tax" (กัน FP ด้วย fuzzy ≥ 85 = ชื่อยังใกล้เคียงพอ).
+    same_owner = (m is not None
+                  and clean_tax_id(matched.get('tax_id','')) == clean_tax_id(m.get('tax_id','')))
+    if same_owner:
+        return []
+    if fuzz.token_sort_ratio(normalize_text(b.get('company','')),
+                             normalize_text(matched.get('name',''))) >= 85:
+        return []   # ชื่อบิลยังใกล้เคียงเจ้าของ tax พอ → ไม่ฟ้อง (กัน false-positive ชื่อย่อ/รูปต่างเล็กน้อย)
+    return [f"⚠️ TaxID {bt} เป็นของ '{matched.get('name','')}' — แต่ในบิลใช้ชื่อ '{b['company']}'"]
 
 def r_tax006(b,m,c):
     """v7: ตรวจ checksum เลขภาษี 13 หลัก (mod 11) — จับเลขปลอม/พิมพ์ผิดที่ "นับหลักครบ" แต่ผิดจริง
