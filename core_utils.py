@@ -96,4 +96,42 @@ def iv_digits_garbage(iv):
     return None
 
 
-__all__ = ['clean_pp20_address', 'parse_address_input', 'sort_bills_by_date', 'iv_digits_garbage']
+def iv_amount_fragment(iv, subtotal=None, vat=None, total=None) -> bool:
+    """[D1/D2] เลข iv เป็น 'เศษทศนิยม/ตรงทั้งก้อนของยอดเงิน' ไหม — จับ parser คว้าเศษ float ของยอด
+    (เช่น iv '0000000002' จาก VAT '1416233.0000000002'). conservative: ยาว ≥6 ถึงเทียบ. single-source."""
+    digits = re.sub(r'\D', '', str(iv or ''))
+    if not digits or len(digits) < 6:
+        return False
+    for v in (total, vat, subtotal):
+        if not isinstance(v, (int, float)):
+            continue
+        s = repr(float(v))
+        if digits == re.sub(r'\D', '', s):                 # iv = ทั้งก้อนตัวเลขของยอด
+            return True
+        if '.' in s:
+            frac = re.sub(r'\D', '', s.split('.', 1)[1])
+            if frac and (digits == frac or (len(frac) >= 6 and digits in frac)):
+                return True
+    return False
+
+
+def validate_iv_post(bill) -> bool:
+    """[D2-GUARD] post-extraction: ปฏิเสธ iv_number ที่เป็นเลขขยะ/มาจากยอดเงิน → ตั้งว่าง (mutate).
+
+    เรียก "หลัง parse ครบ" (มีทั้ง iv + ยอด) — ไม่แก้ flow การ extract. ถ้า iv เป็น all-zeros/ซ้ำ/
+    placeholder หรือเป็นเศษ/ตรงยอดเงิน → ตั้ง iv_number='' เพื่อให้ IV005 (ไม่มีเลข)/IV007 จับ
+    ("ซื่อสัตย์กว่าโชว์เลขผิด"). คืน True ถ้าปฏิเสธ. conservative: เลขรูปแบบสมเหตุผล → ไม่แตะ.
+    """
+    b = bill or {}
+    iv = str(b.get('iv_number', '') or '').strip()
+    if not iv:
+        return False
+    if iv_digits_garbage(iv) or iv_amount_fragment(iv, b.get('subtotal'), b.get('vat'), b.get('total')):
+        b['iv_number'] = ''
+        b['iv_number_raw'] = ''
+        return True
+    return False
+
+
+__all__ = ['clean_pp20_address', 'parse_address_input', 'sort_bills_by_date',
+           'iv_digits_garbage', 'iv_amount_fragment', 'validate_iv_post']

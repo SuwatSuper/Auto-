@@ -18,7 +18,7 @@ from rules_engine_base import (   # [F3 de-star] explicit re-export shim (split-
     validate_company_prefix,
 )  # noqa: F401  (re-export ขึ้น chain — หลายชื่อไม่ได้ใช้ภายในไฟล์นี้)
 from thai_postal import postal_province_mismatch  # [B2] ตาราง prefix ไปรษณีย์→จังหวัด (data-driven)
-from core_utils import iv_digits_garbage           # [D1/D2] เลขใบกำกับขยะ (single-source ใช้ร่วม parser guard)
+from core_utils import iv_digits_garbage, iv_amount_fragment  # [D1/D2] เลขใบกำกับขยะ (single-source ใช้ร่วม parser guard)
 
 def r_vat005(b,m,c):
     try:
@@ -474,39 +474,23 @@ def r_vat010(b, m, c):
             f"ต้องตรวจยอด VAT บนเอกสารด้วยตาก่อนยืนยัน"]
 
 # ── [D1] IV007 — เลขใบกำกับ/เอกสาร "ไม่สมเหตุสมผล" (absolute validity, ไม่พึ่ง master/บิลอื่น) ──────
-def _iv_amount_fragment(digits, b):
-    """เลข iv (digits) เป็น 'เศษทศนิยมของยอดเงิน' ไหม — จับ parser คว้าเศษ float ของยอดมาเป็นเลขเอกสาร
-    (เช่น iv '0000000002' มาจาก VAT '1416233.0000000002'). conservative: ต้องยาวพอ (≥6) ถึงเทียบ."""
-    if not digits or len(digits) < 6:
-        return False
-    for k in ('total', 'vat', 'subtotal'):
-        v = b.get(k)
-        if not isinstance(v, (int, float)):
-            continue
-        s = repr(float(v))
-        if '.' in s:
-            frac = re.sub(r'\D', '', s.split('.', 1)[1])
-            if frac and (digits == frac or (len(frac) >= 6 and digits in frac)):
-                return True
-    return False
-
 def r_iv007(b, m, c):
     """[D1] เลขใบกำกับ 'ไม่สมเหตุสมผล' (ค่าสัมบูรณ์) — จับเลขขยะที่ IV002 (consistency-only) ปล่อยหลุด.
 
     เช่น '0000000002'/'00000000001' (เศษ float ของยอด VAT), '0000000000', '1111111111'. ตรวจได้แม้ไม่มี
     master + ไม่ต้องเทียบบิลอื่น. conservative (false-negative ดีกว่า false-positive): เลขที่มีรูปแบบ
     สมเหตุผล (หลายหลักไม่ซ้ำ เช่น IV6905000279, 01954) → เงียบ. ว่าง → ปล่อย IV005 (validators) ดูแล.
+    หมายเหตุ: D2-guard (parser) อาจตั้ง iv ว่างไปแล้วตั้งแต่ parse → IV005 จับ ; IV007 = safety-net ชั้นกฎ.
     """
     iv = str(b.get('iv_number', '') or '').strip()
     if not iv:
         return []
-    digits = re.sub(r'\D', '', iv)
-    if not digits:
+    if re.sub(r'\D', '', iv) == '':
         return []                                   # ไม่มีตัวเลขเลย (รหัสตัวอักษรล้วน) → ไม่ตัดสินที่นี่
-    reason = iv_digits_garbage(iv)                   # single-source (core_utils) — ใช้ร่วม parser guard [D2]
+    reason = iv_digits_garbage(iv)                   # single-source (core_utils) — ใช้ร่วม parser D2-guard
     if reason:
         return [f"เลขใบกำกับ{reason}: '{iv}' — ไม่ใช่เลขจริง"]
-    if _iv_amount_fragment(digits, b):
+    if iv_amount_fragment(iv, b.get('subtotal'), b.get('vat'), b.get('total')):
         return [f"เลขใบกำกับตรงกับเศษทศนิยมของยอดเงินในบิล: '{iv}' — parser น่าจะคว้าเลขจากยอดเงินผิด"]
     return []
 

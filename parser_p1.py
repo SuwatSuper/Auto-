@@ -12,7 +12,7 @@ _rx.reexport(_up, globals())
 del _rx, _up
 from config import (_ADDRESS_HINT_KEYWORDS, _LBL_SUBTOTAL, _LBL_TOTAL, _LBL_VAT,  # [F3] explicit — config ที่ parser_p1 ใช้
                     _MAX_TEXT_NUM_RECOVERIES, _TAXID_KW, _TAX_CONTEXT_KEYWORDS)
-from core_utils import iv_digits_garbage   # [D2] guard กัน parser คว้าเลขขยะ (เศษ float) เป็น iv
+from core_utils import validate_iv_post   # [D2-GUARD] post-extraction (re-export → parser_p2 ใช้ใน parse_file)
 
 def _detect_vat_rows(df):
     nrows, ncols = df.shape
@@ -524,8 +524,6 @@ def _pb_try_iv(result, v, s):
     _cur = result.get('_iv_score', -10**9)
     picked, score = _pick_best_iv(s, known_tax_id=result.get('tax_id'), return_score=True)
     if picked is not None:
-        if iv_digits_garbage(picked):                  # [D2] เลขขยะ (เศษ float ของยอด/ศูนย์ล้วน) → ไม่เอาเป็น iv
-            return
         if score > _cur:
             result['iv_number'] = picked
             result['iv_number_raw'] = _raw_iv_form(s, picked)
@@ -535,7 +533,7 @@ def _pb_try_iv(result, v, s):
     #   ใช้เฉพาะเมื่อยังไม่มี candidate ที่คะแนนดีกว่า; ให้ scored จริงภายหลังชนะได้เสมอ
     if _cur < 1:
         m = re.search(r'\b([A-Z]{1,4}[-\s]?\d{6,12})\b', s, re.IGNORECASE)
-        if m and not iv_digits_garbage(m.group(1)):    # [D2] guard fallback ด้วย
+        if m:
             result['iv_number'] = m.group(1).upper().replace(' ', '').replace('-', '')
             result['iv_number_raw'] = m.group(1).strip().upper()
             result['_iv_score'] = 1

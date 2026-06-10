@@ -717,24 +717,30 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
 - เทส: `test_iv007.py` (ยิง: ศูนย์ล้วน/ซ้ำ/placeholder/เศษยอด ; เงียบ: เลขจริง/สั้น/ว่าง/อักษรล้วน).
 - coverage: เพิ่ม test_iv007 (+ test_tax008/addr006/br004) เข้า coverage_gate.TESTS → rules_engine branch ≥85% คงผ่าน.
 
-### ADR-032 (D2 — parser guard: ไม่คว้าเลขเอกสารจากเศษ float ของยอดเงิน) — **PENDING REBASELINE (golden-affecting)**
+### ADR-032 (D2-GUARD — post-extraction: ปฏิเสธ iv ขยะ/มาจากยอดเงิน → ว่าง) — **PENDING REBASELINE (golden-affecting)**
 - สถานะ: **PROPOSED** — โค้ด+เทสพร้อม, รอเจ้าของวัดผล (จำนวน iv ที่เปลี่ยน) บน corpus จริงก่อน rebaseline.
-- เหตุ (root cause ของ D1): `_pb_try_iv` (parser_p1) เลือก iv จาก `_pick_best_iv` ซึ่งคว้า '0000000002'
-  จากเซลล์ VAT '1416233.0000000002' (เศษ float). guard นี้ตัดต้นตอ (D1 = flag, D2 = root-cause fix).
-- ทำ (guard ไม่ใช่ rewrite — คุม golden): ใน `_pb_try_iv` ปฏิเสธ candidate ที่ `iv_digits_garbage()` จับได้
-  (ศูนย์ล้วน / เลขเดียวซ้ำ / placeholder ศูนย์นำเกือบหมด) — ทั้ง path scored และ fallback.
-  `iv_digits_garbage` อยู่ใน `core_utils` = **single-source** ใช้ร่วม r_iv007 (D1) → ตรรกะตรงกันเป๊ะ.
-- ขอบเขตผลกระทบ (สำคัญ): เปลี่ยน iv_number "เฉพาะบิลที่ปัจจุบัน iv เป็นเลขขยะ" (ชุดเดียวกับที่ IV007 ฟ้อง) →
-  bounded ไม่ใช่ broad. บิล iv ปกติ = ไม่กระทบ (candidate ไม่ใช่ขยะ). เมื่อ iv ขยะถูกปฏิเสธ → iv ว่าง →
-  IV005 ฟ้อง "ไม่มีเลขที่" (ดีกว่าเลขขยะ). **ยังไม่ขยาย** การจับเลขที่ไม่ขึ้นต้น 'IV' (เช่น '01954') —
-  เลี่ยงผลกระทบ golden กว้าง (work order: "ทำเท่าที่จำเป็น") → เป็นข้อเสนอรอบถัดไปถ้าเจ้าของต้องการ.
-- ผลต่อ golden: fixtures = ไม่ขยับ (parse canary + golden เดิม — fixture ไม่มี iv ขยะ) ; corpus จริง 35b2f7c8
-  = **จะเปลี่ยนเฉพาะบิล iv ขยะ** (iv_number เปลี่ยน → กระทบ IV001/003/IV005/DOC003 ของบิลนั้นด้วย).
-  เจ้าของต้องวัด "iv เปลี่ยนกี่บิล" บน corpus จริงก่อน rebaseline (regression_full.py).
-- เทส: `test_iv_parser_guard.py` (เศษ float → ไม่คว้า ; iv จริง → ยังเลือกได้ ; ขยะไม่ทับ iv valid).
+- **ตัดสินแล้ว (เจ้าของ): ทำ "GUARD เท่านั้น" แบบ post-extraction** — D2-EXTENSION (จับเลขไม่ขึ้นต้น IV เช่น
+  '01954') ⏸️ เลื่อน (golden กว้าง/ตรวจสอบไม่ได้ถ้าไม่มี corpus) · D3 ❌ ไม่ทำ (โซน ⛔ ห้ามแตะยอด, ดู ADR-033).
+- เหตุ (root cause ของ D1): parser เลือก iv จาก `_pick_best_iv` ซึ่งคว้า '0000000002' จากเซลล์ VAT
+  '1416233.0000000002' (เศษ float). guard ตัดต้นตอ (D1 = flag ชั้นกฎ, D2 = ปฏิเสธชั้น parse).
+- ทำ (**post-extraction validation — ไม่แก้ flow การ extract**): `core_utils.validate_iv_post(bill)` เรียกใน
+  `parse_file` (parser_p2) **หลัง parse ครบ** (มี iv + ยอด) → ปฏิเสธ iv ที่ (ก) `iv_digits_garbage` (ศูนย์ล้วน/
+  เลขเดียวซ้ำ/placeholder) (ข)(ค) `iv_amount_fragment` (ตรง/เป็นเศษทศนิยมของ subtotal/vat/total) → ตั้ง
+  `iv_number=''` (+raw). flow extract เดิมไม่ถูกแตะ (ปลอดภัย/คาดเดาได้กว่าการ skip กลาง extraction).
+  `iv_digits_garbage`/`iv_amount_fragment` อยู่ใน `core_utils` = **single-source** ใช้ร่วม r_iv007 (D1).
+- ความซื่อสัตย์: iv ขยะ → ว่าง → IV005 (ไม่มีเลขที่) จับ ; ถ้าหลุดถึงชั้นกฎ → IV007 (safety-net) จับ —
+  **โชว์ "ไม่มี/เลขเสีย" ตรง ๆ ดีกว่าโชว์เลขผิด** (ตรงหลักการ "ทุก agent ต้องซื่อสัตย์").
+- ขอบเขตผลกระทบ: bounded — เปลี่ยน iv เฉพาะบิลที่ปัจจุบัน iv เป็นเลขขยะ (ชุดเดียวกับที่ IV007 ฟ้อง).
+- ผลต่อ golden: fixtures = ไม่ขยับ (golden d8bcde85 + parse canary นิ่ง — fixture ไม่มี iv ขยะ) ;
+  corpus จริง 35b2f7c8 = **จะเปลี่ยนเฉพาะบิล iv ขยะ** (iv ว่าง → กระทบ IV001/003/005/DOC003 ของบิลนั้น).
+  เจ้าของต้องวัด "iv เปลี่ยนกี่บิล" บน corpus จริงก่อน rebaseline.
+- เทส: `test_iv_parser_guard.py` (post-extraction: เศษ float/ขยะ → iv ว่าง ; iv จริง → ไม่แตะ ; parse_file เรียก guard).
 
-### ADR-033 (D3 — sanitize เศษ float ในเซลล์ยอดเงินตอน parse) — **DEFERRED (เสนอ, ยังไม่ทำ)**
-- สถานะ: **PROPOSED / NOT IMPLEMENTED** — เลื่อนออก (priority ต่ำสุด + เสี่ยง golden สูง + ใกล้โซน ⛔ ห้ามแตะ).
+### ADR-033 (D3 — sanitize เศษ float ในเซลล์ยอดเงินตอน parse) — **WON'T DO (ตัดสินแล้ว: ไม่ทำ)**
+- สถานะ: **REJECTED / NOT IMPLEMENTED** — เจ้าของตัดสิน "ไม่ทำ" (priority ต่ำสุด + เสี่ยง golden สูง + ใกล้ ⛔).
+- **ทางเลือกที่ทำได้แทน (golden-safe):** ถ้าต้องการให้ "ยอดใน Excel ดูสะอาด" (ไม่โชว์ `.0000000002`) →
+  ตั้ง **number format** ของเซลล์ Excel เป็น 2 ตำแหน่ง (`'#,##0.00'`) ที่ **ชั้นแสดงผลเท่านั้น** — ไม่แตะ
+  ค่าที่เก็บ ไม่กระทบ golden (คนละเรื่องกับ sanitize ค่าจริง). จัดเป็นงานกอง C ได้ถ้าเจ้าของต้องการ.
 - ข้อเสนอ: ปัด/normalize ตัวเลขเงินที่อ่านจาก Excel ให้ ≤2 ตำแหน่งตอน parse (เช่น 1416233.0000000002 →
   1416233.00) ตามนโยบาย Decimal/ROUND_HALF_UP — ตัดต้นตอเศษ float ที่ระดับแหล่ง.
 - เหตุที่ "ยังไม่ทำ" (ตัดสินแบบ conservative):

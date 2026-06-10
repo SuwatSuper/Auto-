@@ -494,8 +494,7 @@ def parse_sheet(df, sheet_name, filename):
     vat_rows = _detect_vat_rows(df)
     bills = []
 
-    # [FIX-GHOST] บิลจริงต้องมี "เนื้อหา" — มีรายการ หรือ มียอดเงิน
-    #             บิลที่มีแต่ iv_number ลอย ๆ แต่ 0 รายการ + ไม่มียอด = บิลเงา ตัดทิ้ง
+    # [FIX-GHOST] บิลจริงต้องมี "เนื้อหา" (รายการ หรือ ยอดเงิน) — มีแต่ iv ลอย ๆ + 0 รายการ + ไม่มียอด = บิลเงา ตัดทิ้ง
     def _is_real_bill(b):
         has_items = bool(b.get('items'))
         has_money = any(b.get(k) for k in ('subtotal', 'vat', 'total'))
@@ -534,6 +533,7 @@ def parse_file(filepath):
                 try: state._AUDIT_CTX['file'] = _fname; state._AUDIT_CTX['sheet'] = str(sheet)   # v6: context ให้ Text→ตัวเลข audit
                 except Exception: pass
                 sheet_bills = parse_sheet(df, sheet, filepath)
+                for _b in sheet_bills: validate_iv_post(_b)   # [D2-GUARD] post-extraction: ปฏิเสธ iv ขยะ/เศษยอด → ว่าง (ให้ IV005/IV007 จับ)
                 if not sheet_bills and str(sheet).strip().lstrip('0').split('#')[0].isdigit():  # [SYS003] ชีต'วันที่'ดึงบิลไม่ได้=ฟอร์มใหม่/ตกหล่น
                     log_system_issue('SYS003', 'Bill Not Extracted', f'ชีต {sheet} มีข้อมูลแต่ดึงบิลไม่ได้ — อาจเป็นฟอร์มใหม่/บิลตกหล่น', severity='WARNING', file=_fname, sheet=str(sheet), echo=True)
                 bills.extend(sheet_bills)
