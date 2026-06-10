@@ -128,8 +128,18 @@ def r_cmp006(b, m, c):
 # ════════════════════════════════════════════════════════════════════════════
 _ADDR_FUZZ_MIN = 90                                       # token_sort_ratio ≥ 90 = field เดียวกัน
 _ADDR_EMPTY = {'', '-', '–', '—', 'n/a', 'na', 'ไม่มี'}    # ค่าว่าง/ขีด/label เปล่า = ไม่นับ
-_ADDR_ANCHOR = ('zipcode', 'district', 'subdistrict', 'house_no')  # ตรงครบ = ที่อยู่ถูก
-_ADDR_LABEL = {'house_no':'เลขที่','soi':'ซอย','road':'ถนน',
+# v9.2 [ADDR-FULL]: เทียบ master "ครบทุก field" ไม่มีรู — แบ่งตาม "ความเชื่อถือได้ของ parser":
+#   STRICT (ฟ้องถ้าต่าง/ขาด — parser เชื่อถือได้ เพราะมี label/เลขชัด):
+#     เลขที่(house_no) + ไปรษณีย์(zipcode) + แขวง/ตำบล + เขต/อำเภอ + หมู่(moo)
+#   SOFT (ฟ้องเฉพาะ "มีทั้งคู่แต่ต่างจริง" — กัน FP จากกรณี parser ดึงไม่ได้/ไม่มี label):
+#     CORE/ERROR: จังหวัด(province)  ·  SUB/WARNING: ซอย(soi) + ถนน(road)
+#   SUB_STRICT (WARNING, รายละเอียดอาคาร): อาคาร + ชั้น + ห้อง
+#   เดิมตก province/moo/soi/road (parse แล้วแต่ไม่เคยรายงาน) → ปิดรูครบทุก field
+_ADDR_ANCHOR = ('zipcode', 'district', 'subdistrict', 'house_no', 'moo')   # STRICT core
+_ADDR_CORE_SOFT = ('province',)                                            # SOFT core (ฟ้องเฉพาะต่างจริง)
+_ADDR_SUB = ('building', 'floor', 'room')                                  # STRICT sub
+_ADDR_SUB_SOFT = ('soi', 'road')                                           # SOFT sub (ฟ้องเฉพาะต่างจริง)
+_ADDR_LABEL = {'house_no':'เลขที่','moo':'หมู่','soi':'ซอย','road':'ถนน',
                'subdistrict':'แขวง/ตำบล','district':'เขต/อำเภอ','province':'จังหวัด',
                'zipcode':'รหัสไปรษณีย์','building':'อาคาร','floor':'ชั้น','room':'ห้อง'}
 
@@ -201,19 +211,28 @@ def _addr_smart_diff(b, m):
             mp['house_no'] = _fresh_hn
     mp.update(_addr_extra(_mfull))
     res = {f: _addr_field_match(bp.get(f), mp.get(f)) for f in set(list(bp) + list(mp))}
-    anchor_ok = all(res.get(f) is not False for f in _ADDR_ANCHOR)
+    # SOFT = ฟ้องเฉพาะ "บิลมีค่า + ต่างจริง" (ไม่ฟ้อง 'บิลไม่มี' เพราะ parser อาจดึงไม่ได้)
+    _soft_hit = lambda f: res.get(f) is False and not _addr_is_empty(bp.get(f))
+    anchor_ok = (all(res.get(f) is not False for f in _ADDR_ANCHOR)
+                 and not any(_soft_hit(f) for f in _ADDR_CORE_SOFT))
     core = []
-    for f in _ADDR_ANCHOR:
+    for f in _ADDR_ANCHOR:                                  # STRICT: ต่าง/ขาด = ฟ้อง
         if res.get(f) is False:
             lbl, mv, bv = _ADDR_LABEL.get(f, f), mp.get(f, ''), bp.get(f, '')
             core.append(f"ไม่พบ{lbl} (ทะเบียน: {mv})" if _addr_is_empty(bv)
                         else f"{lbl}ไม่ตรง (บิล: {bv} / ทะเบียน: {mv})")
+    for f in _ADDR_CORE_SOFT:                               # SOFT core: เฉพาะมีทั้งคู่แต่ต่าง
+        if _soft_hit(f):
+            core.append(f"{_ADDR_LABEL.get(f, f)}ไม่ตรง (บิล: {bp.get(f, '')} / ทะเบียน: {mp.get(f, '')})")
     sub = []
-    for f in ('building', 'floor', 'room'):
+    for f in _ADDR_SUB:                                     # STRICT sub: ต่าง/ขาด = เตือน
         if res.get(f) is False:
             lbl, mv, bv = _ADDR_LABEL.get(f, f), mp.get(f, ''), bp.get(f, '')
             sub.append(f"ทะเบียนมี{lbl} {mv} (บิลไม่มี)" if _addr_is_empty(bv)
                        else f"{lbl}ต่าง (บิล: {bv} / ทะเบียน: {mv})")
+    for f in _ADDR_SUB_SOFT:                                # SOFT sub: เฉพาะมีทั้งคู่แต่ต่าง
+        if _soft_hit(f):
+            sub.append(f"{_ADDR_LABEL.get(f, f)}ต่าง (บิล: {bp.get(f, '')} / ทะเบียน: {mp.get(f, '')})")
     return {'anchor_ok': anchor_ok, 'core': core, 'sub': sub}
 
 def r_addr001(b,m,c):

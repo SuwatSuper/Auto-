@@ -306,10 +306,14 @@ def _addr_bad_fields(detail: str):
     d = re.sub(r"^.*?ทะเบียน:\s*", "", detail or "")     # ตัดวลีนำ 'ที่อยู่ไม่ตรงทะเบียน:'
     out = []
     for chunk in d.split(";"):
-        m = re.match(r"\s*(.+?)\s*ไม่ตรง", chunk)
+        # รองรับทุกรูป: '<field>ไม่ตรง' / 'ไม่พบ<field> (' / '<field>ต่าง' / 'ทะเบียนมี<field> '
+        m = (re.match(r"\s*(.+?)\s*ไม่ตรง", chunk) or
+             re.search(r"ไม่พบ(.+?)\s*\(", chunk) or
+             re.match(r"\s*(.+?)\s*ต่าง\b", chunk) or
+             re.search(r"ทะเบียนมี(.+?)\s", chunk))
         if m:
             lbl = m.group(1).strip().replace("/", "-")
-            if lbl and lbl not in out:
+            if lbl and lbl not in out and len(lbl) <= 18:
                 out.append(lbl)
     return out
 
