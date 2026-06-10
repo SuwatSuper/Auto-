@@ -314,7 +314,9 @@ def _pinpoint_field(field, entries):
             #   เพื่อให้คนเห็นแล้วรู้ทันทีว่าพิมพ์ผิดตรงไหน + เปิดไปแก้ได้
             _e = extra.replace("\u201c", '"').replace("\u201d", '"')
             _q = re.findall(r'"([^"]+)"', _e)
-            if fx.get("seq") and _q:
+            if fx.get("code") == "ITM019" and (_um := re.search(r'หน่วย\s*"([^"]+)"\s*ควรเป็น\s*"([^"]+)"', _e)):
+                seg += f' หน่วย "{_um.group(1)}" ควรเป็น "{_um.group(2)}"'   # [C2] หน่วยสะกดผิด → ผิด→ถูก
+            elif fx.get("seq") and _q:
                 seg += f" คำว่า{_q[0]}"
             elif extra:
                 seg += f" {extra}"

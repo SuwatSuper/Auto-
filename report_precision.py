@@ -62,9 +62,16 @@ def a_typo_severity(e, bill, ctx):
 
 
 def a_unit_sanity(e, bill, ctx):
-    """2. หน่วยผิดชัด (เช่น เหล็กเพลท/แผ่น ใช้หน่วย 'เส้น') — ITM015 ผ่าน guard เข้มแล้ว."""
+    """2. หน่วยผิดชัด (เช่น เหล็กเพลท/แผ่น ใช้หน่วย 'เส้น') — ITM015 ผ่าน guard เข้มแล้ว.
+    [C2] ITM019 หน่วยสะกดผิด: ถ้ามี mapping ผิด→ถูกชัด ('หน่วย "X" ควรเป็น "Y"') = typo จริง → CONFIRM
+    (ขึ้นช่อง 'รายการสินค้า' เหมือน ITM010/011) ; ถ้าเป็น 'หน่วยขาด/ดึงไม่ได้' = ก้ำกึ่ง → ABSTAIN (คง soft)."""
     if e.get("code") == "ITM015":
         return CONFIRM, "หน่วยไม่เข้ากับชนิดสินค้า (ITM015 guard เข้ม)"
+    if e.get("code") == "ITM019":
+        d = e.get("detail") or ""
+        if re.search(r'หน่วย\s*"[^"]+"\s*ควรเป็น\s*"[^"]+"', d):
+            return CONFIRM, "หน่วยสะกดผิด (มีคำที่ถูกชัด) — เทียบเท่า typo รายการสินค้า"
+        return ABSTAIN, ""        # หน่วยขาด/ดึงไม่ได้ → ก้ำกึ่ง (soft)
     return ABSTAIN, ""
 
 

@@ -71,6 +71,7 @@ run "[3w] super ultra viewer (label คน + บล็อกบริษัท)"
 run "[3w1] honesty รายผู้ขาย (A1 — 'ตรง'=เทียบ master จริง ; รองรับบริษัทใหม่)" "$PY" test_honesty_per_bill.py
 run "[3w1b] SYS-* summary (A5 — silent skip กฎ crash มองเห็นได้ท้ายการรัน)" "$PY" test_sys_summary.py
 run "[3w0] precision council (รีพอร์ตลูกค้า 10 ผู้ตรวจ + 2-tier)" "$PY" test_report_precision.py
+run "[3w0b] รายงานลูกค้า C1+C2 (ระบุไฟล์ + หน่วยสะกดผิดขึ้นช่องรายการสินค้า)" "$PY" test_report_c1_c2.py
 run "[3w2] Ultra Agent (ตรวจทาน-ยืนยันด้วยหลักฐานอิสระ)" "$PY" test_ultra_agent.py
 # ── structural tripwires (ไม่ใช้ข้อมูลจริง — กัน drift เชิงโครงสร้าง/แหล่งความจริง) ──
 run "[3x] golden single-source (doc↔baseline.json sync)" "$PY" test_golden_single_source.py
