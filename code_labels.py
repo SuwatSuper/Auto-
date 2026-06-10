@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 
 # ── ช่อง (field) ในบล็อกบริษัท ───────────────────────────────────────────────
 F_NAME = "ชื่อบจ."
@@ -425,33 +426,55 @@ def _addr_bad_fields(detail: str):
     return out
 
 
-def addr_summary(entries) -> str:
-    """รวมรายการ ADDR ของช่อง 'ที่อยู่' → บรรทัดสั้น: '<field ที่ผิด> ไม่ตรง (N บิล) รีเช็คครับ'.
+def _entry_prefix(fx) -> str:
+    """[C1] ชื่อไฟล์ (prefix) ของบิลที่ผิด — ใช้ key 'prefix' ที่ composer ใส่มา ; ถ้าไม่มี derive จาก 'file'
+    (ตัดส่วนหลัง _ / เว้นวรรค / . ตัวแรก เหมือน _file_prefix ของ composer)."""
+    p = (fx.get("prefix") or "").strip()
+    if p:
+        return p
+    f = (fx.get("file") or "").strip()
+    return re.split(r"[ _.]", f, 1)[0] if f else ""
 
-    เลือกตามลูกค้า: บอกเฉพาะ field ที่ผิด สั้น ๆ (ไม่ดัมพ์ที่อยู่เต็มทุกบิล).
+
+def addr_summary(entries) -> str:
+    """[C1] รวม ADDR ของช่อง 'ที่อยู่' → ระบุ "ไฟล์" + field ที่ผิด + จำนวนบิล (บัญชีเปิดไปแก้ถูกจุด):
+       'ไฟล์ {prefix} <field ผิด> ไม่ตรง (N บิล) รีเช็คครับ' ; หลายไฟล์ → 'ไฟล์ A .. (n), ไฟล์ B .. (m)'.
+    เดิมคืนแค่ '(N บิล)' ลอย ๆ ไม่มีไฟล์ → เปิดไม่ถูกจุด.
     """
-    fields_bad, bills = [], set()
+    groups = OrderedDict()
     for fx in (entries or []):
-        bills.add((fx.get("file", ""), fx.get("sheet", ""), fx.get("date", "")))
+        pre = _entry_prefix(fx)
+        g = groups.setdefault(pre, {"fields": [], "bills": set()})
+        g["bills"].add((fx.get("file", ""), fx.get("sheet", ""), fx.get("date", "")))
         for lbl in _addr_bad_fields(fx.get("detail", "") or fx.get("type", "")):
-            if lbl not in fields_bad:
-                fields_bad.append(lbl)
-    flds = "/".join(fields_bad) if fields_bad else "ที่อยู่"
-    return f"{flds} ไม่ตรง ({len(bills)} บิล) รีเช็คครับ"
+            if lbl not in g["fields"]:
+                g["fields"].append(lbl)
+    parts = []
+    for pre, g in groups.items():
+        flds = "/".join(g["fields"]) if g["fields"] else "ที่อยู่"
+        head = f"ไฟล์ {pre} " if pre else ""
+        parts.append(f"{head}{flds} ไม่ตรง ({len(g['bills'])} บิล)")
+    return (", ".join(parts) if parts else "ที่อยู่ ไม่ตรง (0 บิล)") + " รีเช็คครับ"
 
 
 def field_summary(field, entries) -> str:
-    """สรุปช่องแบบสั้นสำหรับ viewer (กันดัมพ์ซ้ำทุกบิล):
-       • ที่อยู่ → บอกเฉพาะ field ที่ผิด + จำนวนบิล (addr_summary)
-       • อื่น ๆ (เช่น เลขภาษีเป็นของบริษัทอื่น) → ยุบ detail ที่ "เหมือนกัน" เหลือครั้งเดียว + นับบิล
+    """[C1] สรุปช่องแบบสั้น + ระบุไฟล์ (กันดัมพ์ซ้ำทุกบรรทัด แต่บอกไฟล์ให้เปิดถูกจุด):
+       • ที่อยู่ → addr_summary (field ที่ผิด + ไฟล์ + จำนวนบิล)
+       • อื่น ๆ (เช่น เลขภาษีเป็นของบริษัทอื่น) → 'ไฟล์ {prefix} {detail ยุบซ้ำ} (N บิล)' ต่อไฟล์
     """
     if field == F_ADDR:
         return addr_summary(entries)
-    bills, details = set(), []
+    groups = OrderedDict()
     for fx in (entries or []):
-        bills.add((fx.get("file", ""), fx.get("sheet", ""), fx.get("date", "")))
+        pre = _entry_prefix(fx)
+        g = groups.setdefault(pre, {"details": [], "bills": set()})
+        g["bills"].add((fx.get("file", ""), fx.get("sheet", ""), fx.get("date", "")))
         d = (fx.get("detail") or fx.get("type") or "").strip()
-        if d and d not in details:
-            details.append(d)
-    body = " ; ".join(details) if details else "ไม่ตรง"
-    return f"{body} ({len(bills)} บิล) รีเช็คครับ"
+        if d and d not in g["details"]:
+            g["details"].append(d)
+    parts = []
+    for pre, g in groups.items():
+        body = " ; ".join(g["details"]) if g["details"] else "ไม่ตรง"
+        head = f"ไฟล์ {pre} " if pre else ""
+        parts.append(f"{head}{body} ({len(g['bills'])} บิล)")
+    return (", ".join(parts) if parts else "ไม่ตรง (0 บิล)") + " รีเช็คครับ"
