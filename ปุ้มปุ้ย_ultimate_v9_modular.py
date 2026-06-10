@@ -11,7 +11,7 @@ from pukpui_modular_base import (   # [SPLIT #3] shared scope (explicit; contrac
     build_clean_report, build_unit_index, check_duplicate_items, check_invoice_sequence,
     check_iv_date_sequence, check_product_typos, clean_tax_id, compute_bill_confidence,
     datetime, detect_iv_period_mismatch, display, display_executive_dashboard,
-    display_low_confidence_bills, export_excel, export_verification_to_excel, flush_system_issues_to_disk,
+    display_low_confidence_bills, export_excel, export_verification_to_excel, flush_system_issues_to_disk, format_sys_summary,
     get_files_via_drive, get_files_via_upload, input_master_data, load_master,
     match_company, os, run_product_verification, state,
     summarize_by_company, sys, traceback,
@@ -250,6 +250,11 @@ def main():
                     except Exception as e:
                         print(f'⚠️ Analytics fail: {e}')
                         traceback.print_exc()
+
+    # [A5] สรุป SYS-* "ท้ายการรัน" — รวมกฎที่ crash ระหว่าง run_rules (ไม่เข้า bill['issues'])
+    #   → ทำให้ "การข้ามกฎเงียบ" มองเห็นได้เสมอ (ตอนนี้ corpus = 0 SYS แต่อนาคตอาจมี). ไม่เปลี่ยน routing.
+    print('\n' + format_sys_summary())
+    flush_system_issues_to_disk()                 # re-flush ครบทุกเฟส (รวม rule SYS) — sidecar overwrite
 
     # [v9.2 งาน B] รายงานออกสำเร็จแล้ว (โหมด AUTO เท่านั้น) → ย้ายไฟล์ที่ตรวจแล้วออกจาก "พร้อมตรวจ"
     #   ไปเก็บใน รีพอร์ต/ตรวจแล้ว_<วันเวลา>/ เพื่อรอบหน้าจะได้ไม่ตรวจซ้ำ (ปลอดภัย: ย้ายเฉพาะตอน report สำเร็จ)

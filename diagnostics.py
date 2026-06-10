@@ -97,5 +97,30 @@ def _trim_cache(cache, max_size):
         pass
 
 
+def format_sys_summary(issues=None):
+    """[A5] สรุป SYS-* 'ท้ายการรัน' ให้ "การข้ามกฎเงียบ" (silent skip) มองเห็นได้เสมอ.
+
+    เมื่อกฎ crash บนบางบิล run_rules route ไป log_system_issue('SYS-<code>') และ "ไม่ใส่" ใน
+    bill['issues'] → บิลนั้นข้ามกฎนั้นเงียบจากรายงานหลัก. ฟังก์ชันนี้สรุปจำนวน SYS-* ทั้งหมด
+    (รวม rule crash) เป็นบรรทัดท้ายการรัน — อ่าน state อย่างเดียว ไม่เปลี่ยน routing/golden.
+
+    คืนข้อความ (อาจหลายบรรทัด). 0 รายการ → ยืนยันชัดว่า "ไม่มีกฎข้ามเงียบ".
+    """
+    from collections import Counter
+    iss = state._SYSTEM_ISSUES if issues is None else issues
+    if not iss:
+        return '🩺 สรุป SYS-* ท้ายการรัน: 0 — ไม่มีกฎข้ามเงียบ (ทุกกฎรันครบทุกบิล)'
+    # กฎที่ crash ใน run_rules ใช้รหัส 'SYS-<RULECODE>' (มีขีด) ; parse failure ใช้ 'SYS001' ฯลฯ
+    rule_skips = [i for i in iss if str(i.get('code', '')).startswith('SYS-')]
+    bc = Counter(i.get('code', 'SYS001') for i in iss)
+    lines = ['🩺 สรุป SYS-* ท้ายการรัน: %d รายการ (%s)'
+             % (len(iss), ', '.join(f'{c}×{n}' for c, n in sorted(bc.items())))]
+    if rule_skips:
+        skipped_codes = sorted({str(i.get('code', ''))[4:] for i in rule_skips})
+        lines.append('   ⚠️ มีกฎข้ามเงียบ (rule crash) %d ครั้ง บนกฎ %s — บิลเหล่านั้น "ไม่ได้ตรวจกฎนั้น" '
+                     '(ดู sidecar .jsonl / ชีต System Issues)' % (len(rule_skips), ', '.join(skipped_codes)))
+    return '\n'.join(lines)
+
+
 __all__ = ['system_issues_reset', 'log_system_issue',
-           'flush_system_issues_to_disk', '_trim_cache']
+           'flush_system_issues_to_disk', 'format_sys_summary', '_trim_cache']

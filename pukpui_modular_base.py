@@ -178,7 +178,7 @@ from puopuy_core import clean_tax_id, _taxid_checksum_ok   # [prune] เหล�
 # [prune dead-import] puopuy_dates (parse_date_any/_ivp_*) ไม่ถูกใช้ใน monolith + ไม่อยู่สัญญา (ใช้ผ่าน parser/validators layer)
 from puopuy_units import _D, _vat_tolerance   # [prune] เหลือเฉพาะ contract (core_access bind ตรง); extract_unit_hint/_unit_canon ไม่ถูกใช้
 from rules_engine import match_company, run_rules   # [de-star P1] เดิม `import *` (RULES bind จาก reporting-import; เป็น object เดียวกัน)
-from diagnostics import _trim_cache, flush_system_issues_to_disk, system_issues_reset   # [de-star P1] เดิม `import *` (log_system_issue bind จาก validators-import ด้านล่าง)
+from diagnostics import _trim_cache, flush_system_issues_to_disk, format_sys_summary, system_issues_reset   # [de-star P1] เดิม `import *` (log_system_issue bind จาก validators-import ด้านล่าง)
 # [de-star P1] เดิม `from thai_text import *` — ลบทิ้ง: bareword เดียวที่ monolith ใช้คือ
 #   PYTHAINLP_AVAILABLE (บรรทัด print ด้านล่าง) ซึ่ง bind มาจาก `from reporting import (...)`
 #   (reporting re-export จาก thai_text — ค่าเดียวกัน). thai_text fns อื่นใช้ผ่าน rules/parser layer
@@ -485,7 +485,7 @@ __all__ = [
     'cluster_products', 'compute_bill_confidence', 'datetime', 'detect_iv_period_mismatch',
     'detect_price_outliers', 'detect_unit_anomalies', 'display', 'display_executive_dashboard',
     'display_low_confidence_bills', 'export_excel', 'export_verification_to_excel', 'file_guard',
-    'flush_system_issues_to_disk', 'gc', 'get_files_via_drive', 'get_files_via_upload',
+    'flush_system_issues_to_disk', 'format_sys_summary', 'gc', 'get_files_via_drive', 'get_files_via_upload',
     'input_master_data', 'load_audit_excel', 'load_master', 'log_system_issue',
     'match_company', 'os', 'parse_file', 'parse_filename',
     'render_dashboard_html', 'run_product_verification', 'run_rules', 'state',
