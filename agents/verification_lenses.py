@@ -139,9 +139,11 @@ def lens_provenance(x: LensInput) -> Tuple[int, str]:
             f"ยอด {','.join(derived)} เป็นค่าที่ระบบเดาเอง (derived) — อาจไม่ใช่ error เอกสาร",
         )
     if src and all(
-        src.get(k) == "parsed" for k in ("subtotal", "vat", "total") if k in src
+        src.get(k) == "ocr" for k in ("subtotal", "vat", "total") if k in src
     ):
-        return 1, "ยอดอ่านจากเอกสารโดยตรง (parsed) — น่าเชื่อว่าเป็นค่าจริงในใบ"
+        # [A3-FIX] parser ติด provenance เป็น 'ocr' (ไม่ใช่ 'parsed') — เดิมเทียบ 'parsed' = dead branch
+        #   ที่ไม่เคยยิง. แก้ vocabulary ให้ตรง _pb_finalize_amounts → สาขา +1 ทำงานจริง.
+        return 1, "ยอดอ่านจากเอกสารโดยตรง (ocr) — น่าเชื่อว่าเป็นค่าจริงในใบ"
     return 0, ""
 
 

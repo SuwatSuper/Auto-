@@ -43,7 +43,8 @@ def iss(c, s, n):
     return {"code": c, "severity": s, "category": "t", "name": n, "detail": ""}
 
 
-P = {"subtotal": "parsed", "vat": "parsed", "total": "parsed"}
+# [A3-FIX] provenance ที่ parser ติดจริง = 'ocr' (ไม่ใช่ 'parsed' ที่ระบบไม่เคยผลิต) — pin ให้ตรง vocabulary
+P = {"subtotal": "ocr", "vat": "ocr", "total": "ocr"}
 DV = {"subtotal": "derived", "vat": "derived", "total": "derived"}
 DT = datetime.datetime(2025, 1, 15)
 
