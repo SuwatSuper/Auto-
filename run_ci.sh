@@ -42,6 +42,7 @@ run "[3c3] TAX008 (B1 — เลขภาษีเดียวชื่อต่
 run "[3c4] ADDR006 (B2 — ไปรษณีย์↔จังหวัด, ไม่พึ่ง master)" "$PY" test_addr006.py
 run "[3c5] BR004 (B3 — เทียบสาขากับ master)" "$PY" test_br004.py
 run "[3c6] IV007 (D1 — เลขใบกำกับขยะ absolute validity)" "$PY" test_iv007.py
+run "[3c7] IV parser guard (D2 — ไม่คว้าเศษ float เป็นเลขเอกสาร)" "$PY" test_iv_parser_guard.py
 run "[3d] verification agent"    "$PY" test_verification_agent.py
 run "[3d2] verification lens pin"  "$PY" test_verification_lens_pin.py
 run "[3d3] verification lens unit" "$PY" test_verification_lenses_unit.py

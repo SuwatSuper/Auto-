@@ -18,6 +18,7 @@ from rules_engine_base import (   # [F3 de-star] explicit re-export shim (split-
     validate_company_prefix,
 )  # noqa: F401  (re-export ขึ้น chain — หลายชื่อไม่ได้ใช้ภายในไฟล์นี้)
 from thai_postal import postal_province_mismatch  # [B2] ตาราง prefix ไปรษณีย์→จังหวัด (data-driven)
+from core_utils import iv_digits_garbage           # [D1/D2] เลขใบกำกับขยะ (single-source ใช้ร่วม parser guard)
 
 def r_vat005(b,m,c):
     try:
@@ -502,12 +503,9 @@ def r_iv007(b, m, c):
     digits = re.sub(r'\D', '', iv)
     if not digits:
         return []                                   # ไม่มีตัวเลขเลย (รหัสตัวอักษรล้วน) → ไม่ตัดสินที่นี่
-    if set(digits) == {'0'}:
-        return [f"เลขใบกำกับเป็นศูนย์ล้วน: '{iv}' — ไม่ใช่เลขจริง"]
-    if len(digits) >= 4 and len(set(digits)) == 1:
-        return [f"เลขใบกำกับเป็นเลขเดียวซ้ำทั้งหมด: '{iv}' — ไม่ใช่เลขจริง"]
-    if len(digits) >= 8 and len(digits.lstrip('0')) <= 2:
-        return [f"เลขใบกำกับเป็น placeholder (ศูนย์นำเกือบทั้งหมด เหลือ '{digits.lstrip('0') or '0'}'): '{iv}' — น่าจะไม่ใช่เลขจริง"]
+    reason = iv_digits_garbage(iv)                   # single-source (core_utils) — ใช้ร่วม parser guard [D2]
+    if reason:
+        return [f"เลขใบกำกับ{reason}: '{iv}' — ไม่ใช่เลขจริง"]
     if _iv_amount_fragment(digits, b):
         return [f"เลขใบกำกับตรงกับเศษทศนิยมของยอดเงินในบิล: '{iv}' — parser น่าจะคว้าเลขจากยอดเงินผิด"]
     return []

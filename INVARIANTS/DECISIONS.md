@@ -716,3 +716,33 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
 - ผลต่อ golden: fixtures = ไม่ขยับ (ไม่มี FP บน fixture) ; corpus จริง 35b2f7c8 = **จะเปลี่ยน** (บิลเลขขยะ เช่น TNT).
 - เทส: `test_iv007.py` (ยิง: ศูนย์ล้วน/ซ้ำ/placeholder/เศษยอด ; เงียบ: เลขจริง/สั้น/ว่าง/อักษรล้วน).
 - coverage: เพิ่ม test_iv007 (+ test_tax008/addr006/br004) เข้า coverage_gate.TESTS → rules_engine branch ≥85% คงผ่าน.
+
+### ADR-032 (D2 — parser guard: ไม่คว้าเลขเอกสารจากเศษ float ของยอดเงิน) — **PENDING REBASELINE (golden-affecting)**
+- สถานะ: **PROPOSED** — โค้ด+เทสพร้อม, รอเจ้าของวัดผล (จำนวน iv ที่เปลี่ยน) บน corpus จริงก่อน rebaseline.
+- เหตุ (root cause ของ D1): `_pb_try_iv` (parser_p1) เลือก iv จาก `_pick_best_iv` ซึ่งคว้า '0000000002'
+  จากเซลล์ VAT '1416233.0000000002' (เศษ float). guard นี้ตัดต้นตอ (D1 = flag, D2 = root-cause fix).
+- ทำ (guard ไม่ใช่ rewrite — คุม golden): ใน `_pb_try_iv` ปฏิเสธ candidate ที่ `iv_digits_garbage()` จับได้
+  (ศูนย์ล้วน / เลขเดียวซ้ำ / placeholder ศูนย์นำเกือบหมด) — ทั้ง path scored และ fallback.
+  `iv_digits_garbage` อยู่ใน `core_utils` = **single-source** ใช้ร่วม r_iv007 (D1) → ตรรกะตรงกันเป๊ะ.
+- ขอบเขตผลกระทบ (สำคัญ): เปลี่ยน iv_number "เฉพาะบิลที่ปัจจุบัน iv เป็นเลขขยะ" (ชุดเดียวกับที่ IV007 ฟ้อง) →
+  bounded ไม่ใช่ broad. บิล iv ปกติ = ไม่กระทบ (candidate ไม่ใช่ขยะ). เมื่อ iv ขยะถูกปฏิเสธ → iv ว่าง →
+  IV005 ฟ้อง "ไม่มีเลขที่" (ดีกว่าเลขขยะ). **ยังไม่ขยาย** การจับเลขที่ไม่ขึ้นต้น 'IV' (เช่น '01954') —
+  เลี่ยงผลกระทบ golden กว้าง (work order: "ทำเท่าที่จำเป็น") → เป็นข้อเสนอรอบถัดไปถ้าเจ้าของต้องการ.
+- ผลต่อ golden: fixtures = ไม่ขยับ (parse canary + golden เดิม — fixture ไม่มี iv ขยะ) ; corpus จริง 35b2f7c8
+  = **จะเปลี่ยนเฉพาะบิล iv ขยะ** (iv_number เปลี่ยน → กระทบ IV001/003/IV005/DOC003 ของบิลนั้นด้วย).
+  เจ้าของต้องวัด "iv เปลี่ยนกี่บิล" บน corpus จริงก่อน rebaseline (regression_full.py).
+- เทส: `test_iv_parser_guard.py` (เศษ float → ไม่คว้า ; iv จริง → ยังเลือกได้ ; ขยะไม่ทับ iv valid).
+
+### ADR-033 (D3 — sanitize เศษ float ในเซลล์ยอดเงินตอน parse) — **DEFERRED (เสนอ, ยังไม่ทำ)**
+- สถานะ: **PROPOSED / NOT IMPLEMENTED** — เลื่อนออก (priority ต่ำสุด + เสี่ยง golden สูง + ใกล้โซน ⛔ ห้ามแตะ).
+- ข้อเสนอ: ปัด/normalize ตัวเลขเงินที่อ่านจาก Excel ให้ ≤2 ตำแหน่งตอน parse (เช่น 1416233.0000000002 →
+  1416233.00) ตามนโยบาย Decimal/ROUND_HALF_UP — ตัดต้นตอเศษ float ที่ระดับแหล่ง.
+- เหตุที่ "ยังไม่ทำ" (ตัดสินแบบ conservative):
+  1. **เสี่ยง golden สูงและกว้าง** — เปลี่ยนค่าเงินดิบกระทบ VAT001/002/003 ของหลายบิลทั่ว corpus
+     (มากกว่า D2 ที่ bounded เฉพาะบิล iv ขยะ).
+  2. **ใกล้โซน ⛔ "ห้ามแตะ ยอด VAT/total/subtotal"** — แม้ D3 แตะค่า "ดิบ" ไม่ใช่ "derived" แต่ผลลัพธ์
+     ป้อนเข้า VAT-math โดยตรง → ควรให้เจ้าของยืนยันก่อนชัด ๆ.
+  3. **คุณค่าส่วนเพิ่มต่ำ** — บั๊กจริง (iv ขยะ) แก้ครบแล้วด้วย D1 (flag) + D2 (root cause). D3 เป็นแค่
+     "ความสะอาดของตัวเลข" (ยอดดูสวย) — ไม่ใช่ correctness ที่จำเป็น.
+- ถ้าเจ้าของอนุมัติรอบถัดไป: ทำที่จุดอ่านเลขเงิน (parser_p2 `_pb_finalize_amounts`/จุด OCR ตัวเลข) +
+  negative fixture (เซลล์มีเศษ float → ยอดถูกปัด ≤2 ตำแหน่ง) + วัดผล golden บน corpus จริง + ADR sign-off.

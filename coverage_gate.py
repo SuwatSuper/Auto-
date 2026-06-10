@@ -48,7 +48,7 @@ TESTS = [
     ["test_crosscheck_idempotency.py"],
     ["test_parser_helpers.py"], ["test_parser_extra.py"],
     ["test_parser_extra2.py"], ["test_parser_negative.py"], ["test_pinned_logic.py"],
-    ["test_parser_branch.py"],
+    ["test_parser_branch.py"], ["test_iv_parser_guard.py"],   # [D2] guard branch ใน _pb_try_iv
     ["regression_full.py", ".", "tests/fixtures", "tests/fixtures/baseline_fixture.json"],
 ]
 env = dict(os.environ, PYTHONHASHSEED="0", PUOPUY_AUDIT_DATE="2026-06-02")

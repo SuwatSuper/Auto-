@@ -78,4 +78,22 @@ def sort_bills_by_date(bills):
     return sorted(bills, key=lambda b: (b['iv_date'] or datetime.max, b['file'], str(b['sheet'])))
 
 
-__all__ = ['clean_pp20_address', 'parse_address_input', 'sort_bills_by_date']
+def iv_digits_garbage(iv):
+    """[D1/D2] เลขใบกำกับ (เฉพาะส่วนตัวเลข) เป็น 'ขยะ' ไหม — คืนเหตุผล (str) หรือ None ถ้าปกติ.
+
+    single-source ใช้ร่วม: r_iv007 (กฎ flag) + parser guard _pb_try_iv (กัน parser คว้าเศษ float ของยอด
+    เป็นเลขเอกสาร เช่น '1416233.0000000002' → '0000000002'). conservative: เลขรูปแบบสมเหตุผล → None.
+    """
+    digits = re.sub(r'\D', '', str(iv or ''))
+    if not digits:
+        return None
+    if set(digits) == {'0'}:                               # ศูนย์ล้วน
+        return "เป็นศูนย์ล้วน"
+    if len(digits) >= 4 and len(set(digits)) == 1:         # เลขเดียวซ้ำทั้งหมด
+        return "เป็นเลขเดียวซ้ำทั้งหมด"
+    if len(digits) >= 8 and len(digits.lstrip('0')) <= 2:  # placeholder (ศูนย์นำเกือบทั้งหมด)
+        return f"เป็น placeholder (ศูนย์นำเกือบทั้งหมด เหลือ '{digits.lstrip('0') or '0'}')"
+    return None
+
+
+__all__ = ['clean_pp20_address', 'parse_address_input', 'sort_bills_by_date', 'iv_digits_garbage']
