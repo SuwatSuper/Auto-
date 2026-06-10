@@ -701,3 +701,18 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
   ทดสอบเพิ่ม: `_69_12`→ธ.ค. / `_69_01`→ม.ค. / `69.05`→พ.ค. ถูกทุกเคส.
 - สรุป: บั๊ก `0NN→NN` **ไม่มีอยู่จริง** — DT001 (NOTE) ที่ over-fire (ถ้ามีบน corpus จริง) = **บิลคร่อมเดือนจริง**
   (วันบิล ≠ งวดชื่อไฟล์ โดยชอบ) ซึ่งเป็นสิ่งที่ DT001 ตั้งใจ flag เป็นหมายเหตุ. จึงไม่แก้ parser → golden ไม่ขยับ.
+
+### ADR-031 (D1 — IV007: เลขใบกำกับ "ไม่สมเหตุสมผล" absolute validity) — **PENDING REBASELINE (golden-affecting)**
+- สถานะ: **PROPOSED** — โค้ด+เทสพร้อม, รอเจ้าของ rebaseline golden บน corpus จริง (Claude Code ห้าม fabricate hash).
+- เหตุ (forensic — TNT_69_01.xls): เลขที่จริง "01954" (r5c20) แต่ parser ดึง iv_number = "0000000002"
+  (เศษ float ของ VAT "1416233.0000000002"). IV002 เป็น consistency-only (เทียบความยาว/เสียงข้างมากในไฟล์)
+  → ทั้งไฟล์เป็นเลขขยะคล้ายกันก็ "consistent" เลยเงียบ. ต้องมี "absolute validity" จับเลขขยะตรง ๆ.
+- ทำ: `r_iv007` (rules_engine_rules_c) — ฟ้องเมื่อ iv (ค่าสัมบูรณ์ ไม่พึ่ง master/บิลอื่น):
+  (ก) ศูนย์ล้วน  (ข) เลขเดียวซ้ำทั้งหมด (≥4 หลัก)  (ค) placeholder = ≥8 หลักแต่ตัดศูนย์นำเหลือ ≤2 หลัก
+  ('0000000002'→'2')  (ง) ตรงเศษทศนิยมของยอดเงิน (subtotal/vat/total) = parser คว้าเศษ float.
+  conservative: เลขรูปแบบสมเหตุผล (หลายหลักไม่ซ้ำ เช่น IV6905000279/01954) → เงียบ ; ว่าง → ปล่อย IV005.
+- register: RULES (ERROR, enabled) · code_labels.MAP (F_IV, FIX) · config.FIELD_CODES (เลขที่ IV) ·
+  FIELD_LAYOUT (prefix IV auto) · ultra_agent.RELIABLE_CODES (absolute → ยืนยันอิสระต่อบิลได้).
+- ผลต่อ golden: fixtures = ไม่ขยับ (ไม่มี FP บน fixture) ; corpus จริง 35b2f7c8 = **จะเปลี่ยน** (บิลเลขขยะ เช่น TNT).
+- เทส: `test_iv007.py` (ยิง: ศูนย์ล้วน/ซ้ำ/placeholder/เศษยอด ; เงียบ: เลขจริง/สั้น/ว่าง/อักษรล้วน).
+- coverage: เพิ่ม test_iv007 (+ test_tax008/addr006/br004) เข้า coverage_gate.TESTS → rules_engine branch ≥85% คงผ่าน.

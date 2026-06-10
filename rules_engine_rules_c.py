@@ -472,6 +472,46 @@ def r_vat010(b, m, c):
     return [f"VAT ยังไม่ได้ตรวจกับค่าที่พิมพ์จริง - ยอดเหล่านี้ระบบเติมเอง: {parts}. "
             f"ต้องตรวจยอด VAT บนเอกสารด้วยตาก่อนยืนยัน"]
 
+# ── [D1] IV007 — เลขใบกำกับ/เอกสาร "ไม่สมเหตุสมผล" (absolute validity, ไม่พึ่ง master/บิลอื่น) ──────
+def _iv_amount_fragment(digits, b):
+    """เลข iv (digits) เป็น 'เศษทศนิยมของยอดเงิน' ไหม — จับ parser คว้าเศษ float ของยอดมาเป็นเลขเอกสาร
+    (เช่น iv '0000000002' มาจาก VAT '1416233.0000000002'). conservative: ต้องยาวพอ (≥6) ถึงเทียบ."""
+    if not digits or len(digits) < 6:
+        return False
+    for k in ('total', 'vat', 'subtotal'):
+        v = b.get(k)
+        if not isinstance(v, (int, float)):
+            continue
+        s = repr(float(v))
+        if '.' in s:
+            frac = re.sub(r'\D', '', s.split('.', 1)[1])
+            if frac and (digits == frac or (len(frac) >= 6 and digits in frac)):
+                return True
+    return False
+
+def r_iv007(b, m, c):
+    """[D1] เลขใบกำกับ 'ไม่สมเหตุสมผล' (ค่าสัมบูรณ์) — จับเลขขยะที่ IV002 (consistency-only) ปล่อยหลุด.
+
+    เช่น '0000000002'/'00000000001' (เศษ float ของยอด VAT), '0000000000', '1111111111'. ตรวจได้แม้ไม่มี
+    master + ไม่ต้องเทียบบิลอื่น. conservative (false-negative ดีกว่า false-positive): เลขที่มีรูปแบบ
+    สมเหตุผล (หลายหลักไม่ซ้ำ เช่น IV6905000279, 01954) → เงียบ. ว่าง → ปล่อย IV005 (validators) ดูแล.
+    """
+    iv = str(b.get('iv_number', '') or '').strip()
+    if not iv:
+        return []
+    digits = re.sub(r'\D', '', iv)
+    if not digits:
+        return []                                   # ไม่มีตัวเลขเลย (รหัสตัวอักษรล้วน) → ไม่ตัดสินที่นี่
+    if set(digits) == {'0'}:
+        return [f"เลขใบกำกับเป็นศูนย์ล้วน: '{iv}' — ไม่ใช่เลขจริง"]
+    if len(digits) >= 4 and len(set(digits)) == 1:
+        return [f"เลขใบกำกับเป็นเลขเดียวซ้ำทั้งหมด: '{iv}' — ไม่ใช่เลขจริง"]
+    if len(digits) >= 8 and len(digits.lstrip('0')) <= 2:
+        return [f"เลขใบกำกับเป็น placeholder (ศูนย์นำเกือบทั้งหมด เหลือ '{digits.lstrip('0') or '0'}'): '{iv}' — น่าจะไม่ใช่เลขจริง"]
+    if _iv_amount_fragment(digits, b):
+        return [f"เลขใบกำกับตรงกับเศษทศนิยมของยอดเงินในบิล: '{iv}' — parser น่าจะคว้าเลขจากยอดเงินผิด"]
+    return []
+
 
 # OBJ-MAINT: auto-export ทุกชื่อ (รวม helper _ และ import) → from-import * ได้ toolkit ครบ
 __all__ = [n for n in list(globals().keys()) if not n.startswith('__') and n != 'annotations']

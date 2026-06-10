@@ -32,7 +32,7 @@ from rules_engine_rules_b import (   # [F3 de-star] explicit — ครอบ __
 )
 from rules_engine_rules_c import (   # [F3 de-star] explicit — ครอบ __all__ ∪ internal ∪ rules_engine.X attr
     r_addr004, r_addr005, r_addr006, r_br003, r_cmp005,
-    r_doc003, r_dt004, r_itm016, r_itm018,
+    r_doc003, r_dt004, r_itm016, r_itm018, r_iv007,
     r_tax007, r_tax008, r_vat005, r_vat006, r_vat007,
     r_vat008, r_vat009, r_vat010,
 )
@@ -154,6 +154,7 @@ RULES = {
     'DOC001':{'name':'ชีต↔วันที่','severity':'ERROR','category':'เอกสาร','check':r_doc001,'enabled':True},
     'DOC002':{'name':'IV↔วันที่ (ปิดใช้งาน v5.8k)','severity':'ERROR','category':'เอกสาร','check':r_doc002,'enabled':False},
     'IV001':{'name':'IV Prefix','severity':'WARNING','category':'เอกสาร','check':r_iv001,'enabled':True},
+    'IV007':{'name':'เลขใบกำกับไม่สมเหตุสมผล (ศูนย์ล้วน/เศษยอดเงิน)','severity':'ERROR','category':'เอกสาร','check':r_iv007,'enabled':True},  # [D1] absolute validity — จับเลขขยะที่ IV002 (consistency-only) ปล่อยหลุด. ไม่พึ่ง master. conservative
     'DT001':{'name':'เดือน target','severity':'WARNING','category':'วันที่','check':r_dt001,'enabled':True},
     'DT002':{'name':'ไม่ใช่ future','severity':'WARNING','category':'วันที่','check':r_dt002,'enabled':True},
     'DT003':{'name':'พ.ศ./ค.ศ. ชัดเจน','severity':'WARNING','category':'วันที่','check':r_dt003,'enabled':True},
@@ -253,6 +254,6 @@ __all__ = [
     'r_cmp005', 'r_cmp006', 'r_addr004', 'r_addr005', 'r_addr006', 'r_tax007', 'r_tax008',
     'r_br003', 'r_doc003', 'r_dt004', 'r_itm016',
     'r_itm018', 'r_vat008', 'r_vat009', 'r_vat010',
-    'r_itm019',
+    'r_itm019', 'r_iv007',
     'RULES', 'run_rules',
 ]

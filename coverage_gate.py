@@ -41,6 +41,8 @@ _allfiles = [f for _, fs in GROUPS for f in fs]
 SOURCE = ",".join(os.path.splitext(f)[0] for f in _allfiles)
 TESTS = [
     ["test_rules_coverage.py"], ["test_rules_extra.py"], ["test_rules_extra2.py"],
+    # [B/D] กฎใหม่ — ครอบ branch ของ r_tax008/r_addr006/r_br004/r_iv007 (มิฉะนั้น branch coverage ตก)
+    ["test_tax008.py"], ["test_addr006.py"], ["test_br004.py"], ["test_iv007.py"],
     ["test_units_extra.py"], ["test_validators.py"], ["test_validators_extra.py"],
     ["test_validators_coverage.py"], ["test_validators_branch.py"],
     ["test_crosscheck_idempotency.py"],
