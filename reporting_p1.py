@@ -52,9 +52,17 @@ def _xlsx_sheet_monthly(writer, all_bills):
         pd.DataFrame([{'งวดบัญชี':k,**v} for k,v in sorted(monthly.items())]).to_excel(writer, sheet_name='Monthly Pattern', index=False)
 
 def _xlsx_sheet_rules(writer):
-    """ชีต Rules (รายการกฎทั้งหมด)."""
+    """ชีต Rules (รายการกฎทั้งหมด) — [A2] โชว์สถานะ 3 กลุ่ม + เหตุผล (กันโฆษณา 'active' หลอกตา)."""
+    try:
+        import code_registry as _reg
+        _status, _reason = _reg.rule_status, _reg.rule_status_reason
+    except Exception:                                  # advisory column — ขาด registry ไม่ทำรายงานล่ม
+        _status = lambda c: ('active' if RULES[c].get('enabled', True) else 'disabled-by-design')
+        _reason = lambda c: ''
     pd.DataFrame([{'Code':c,'Severity':r['severity'],'Category':r['category'],
-        'Rule':r['name'],'Enabled':r['enabled']} for c, r in RULES.items()]).to_excel(writer, sheet_name='Rules', index=False)
+        'Rule':r['name'],'Enabled':r['enabled'],
+        'สถานะ':_status(c),'เหตุผล (ถ้าไม่ active)':_reason(c)} for c, r in RULES.items()
+        ]).to_excel(writer, sheet_name='Rules', index=False)
 
 def _xlsx_sheet_crossbill(writer, iv_issues, typos, filename_issues):
     """ชีต IV Cross-Bill / Product Typo / Filename (เขียนเมื่อมีข้อมูล)."""

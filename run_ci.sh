@@ -71,6 +71,7 @@ run "[3w2] Ultra Agent (ตรวจทาน-ยืนยันด้วยห�
 # ── structural tripwires (ไม่ใช้ข้อมูลจริง — กัน drift เชิงโครงสร้าง/แหล่งความจริง) ──
 run "[3x] golden single-source (doc↔baseline.json sync)" "$PY" test_golden_single_source.py
 run "[3x2] FIELD_CODES coverage (แดชบอร์ดเห็นทุกกฎ — กัน false-clean)" "$PY" test_field_codes_coverage.py
+run "[3x2b] rule status (A2 — active/disabled/unavailable + เหตุผล ไม่หลอกตา)" "$PY" test_rule_status.py
 run "[3x3] date 2-digit year (พ.ศ./ค.ศ. ไม่ขัดกัน)" "$PY" test_date_2digit_year.py
 run "[3x4] code-table consistency (MAP+FIELD_LAYOUT ตามทันทุกรหัส)" "$PY" test_code_tables_consistency.py
 run "[3x5] A-hardening (advisory/รายงานทนข้อมูลเพี้ยน — ไม่ครัช)" "$PY" test_a_hardening.py
