@@ -17,6 +17,7 @@ from rules_engine_base import (   # [F3 de-star] explicit re-export shim (split-
     statistics, timedelta, to_conf01, unicodedata,
     validate_company_prefix,
 )  # noqa: F401  (re-export ขึ้น chain — หลายชื่อไม่ได้ใช้ภายในไฟล์นี้)
+from thai_postal import postal_province_mismatch  # [B2] ตาราง prefix ไปรษณีย์→จังหวัด (data-driven)
 
 def r_vat005(b,m,c):
     try:
@@ -139,6 +140,71 @@ def r_addr005(b, m, c):
         return []
     except Exception:
         return []
+
+def r_addr006(b, m, c):
+    """[B2] รหัสไปรษณีย์ ↔ จังหวัด ไม่สอดคล้อง (generalize ทุกจังหวัด, ไม่พึ่ง master).
+
+    ฟอร์แมตถูก ≠ ตรงพื้นที่: เช่นที่อยู่เขียน 'เชียงใหม่' แต่ไปรษณีย์ 10250 (กรุงเทพ). ใช้ตาราง
+    prefix→จังหวัด (thai_postal — derive จากข้อมูลจริง 77 จังหวัด). ฟ้องเฉพาะ "ขัดกันชัด" =
+    ไม่มีไปรษณีย์ใดในที่อยู่ prefix ตรงจังหวัดที่ระบุเลย. conservative: ดึงจังหวัด/ไปรษณีย์ไม่ได้ → เงียบ.
+    ไม่ทับ ADDR005: เว้นกรุงเทพฯ (ADDR005 ดูแลช่วง 10xxx แล้ว).
+    """
+    try:
+        res = postal_province_mismatch(normalize_text(b.get('address', '')))
+        if not res:
+            return []
+        province, postal, prefix = res
+        return [f"รหัสไปรษณีย์ {postal} (ขึ้นต้น {prefix}) ไม่สอดคล้องจังหวัด '{province}' ในที่อยู่ "
+                "— ตรวจที่อยู่/รหัสไปรษณีย์ว่าตรงพื้นที่จริง"]
+    except Exception:
+        return []
+
+# ── [B1] TAX008 — เลขภาษีเดียวกันแต่ชื่อบริษัทต่างกันจริง (cross-bill, ไม่พึ่ง master) ───────────
+_TAX008_BRANCH_RE = re.compile(r'\(?\s*(?:สำนักงานใหญ่|สนญ\.?|สาขา\S*)\s*\)?')
+
+def _tax008_name(s):
+    """normalize ชื่อบริษัท + ตัด marker สาขา/สนญ. — ต่างแค่ 'สาขา/สำนักงานใหญ่' = บริษัทเดียวกัน."""
+    s = _TAX008_BRANCH_RE.sub('', normalize_text(s))
+    return re.sub(r'\s+', ' ', s).strip()
+
+def _tax008_same(a, b):
+    """ชื่อเดียวกันไหม — เกณฑ์แนวเดียว CMP001 (exact / substring ย่อ-เต็ม / fuzzy token_sort ≥ 85).
+    ขาดชื่อฝั่งใด → ถือว่า 'เดียวกัน' (conservative: ไม่ฟ้องเมื่อข้อมูลไม่พอ)."""
+    if not a or not b:
+        return True
+    if a == b or a in b or b in a:
+        return True
+    return fuzz.token_sort_ratio(a, b) >= 85
+
+def r_tax008(b, m, c):
+    """[B1] เลขภาษีเดียวกันแต่ชื่อบริษัทต่างกันจริง ข้ามบิล (internal consistency — ไม่พึ่ง master).
+
+    จับคลาส เจ.อาร์./ฉีหยวน: เลขภาษี 13 หลักตัวเดียวถูกใช้กับ 'คนละบริษัทกันจริง' = สัญญาณสวมเลข/ปลอม.
+    conservative (false-negative ดีกว่า false-positive): ฟ้องเฉพาะชื่อที่ "ต่างกันชัด" — ต่างแค่
+    เว้นวรรค/(สำนักงานใหญ่)/สาขา/ลำดับคำ/ย่อ-เต็ม = ชื่อเดียวกัน ไม่ฟ้อง (เกณฑ์แนว CMP001).
+    เงียบเมื่อ: ไม่มี all_bills_ref / tax ไม่ครบ 13 หลัก / บิลไม่มีชื่อบริษัท.
+    """
+    all_bills = c.get('all_bills_for_iv_check', [])
+    if not all_bills:
+        return []
+    this_tax = clean_tax_id(b.get('tax_id', ''))
+    if len(this_tax) != 13 or not this_tax.isdigit():       # เชื่อว่า "เลขเดียวกัน" เฉพาะเลขที่สมบูรณ์
+        return []
+    this_name = _tax008_name(b.get('company', ''))
+    if not this_name:
+        return []
+    conflicts = []
+    for ob in all_bills:
+        if ob is b or clean_tax_id(ob.get('tax_id', '')) != this_tax:
+            continue
+        nm = _tax008_name(ob.get('company', ''))
+        if nm and not _tax008_same(this_name, nm) and nm not in conflicts:
+            conflicts.append(nm)
+    if not conflicts:
+        return []
+    others = '; '.join(sorted(conflicts)[:3])
+    return [f"เลขภาษี {this_tax} ใช้กับชื่อบริษัทต่างกัน: บิลนี้ '{b.get('company','')}' | อื่น '{others}' "
+            "— ตรวจการสวมเลข/เลขปลอม"]
 
 def r_tax007(b, m, c):
     """Tax ID first digit — entity type cross-check (ประเทศไทย)

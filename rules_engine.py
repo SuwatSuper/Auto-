@@ -21,7 +21,7 @@ from rules_engine_rules_a import (   # [F3 de-star] explicit — ครอบ __
     r_br002, r_cmp001, r_cmp002, r_cmp003,
     r_cmp004, r_cmp006, r_doc001, r_doc002, r_dt001,
     r_dt002, r_dt003, r_itm001, r_itm002,
-    r_iv001, r_tax001, r_tax002, r_tax003,
+    r_br004, r_iv001, r_tax001, r_tax002, r_tax003,
     r_tax004, r_tax005, r_tax006,
 )
 from rules_engine_rules_b import (   # [F3 de-star] explicit — ครอบ __all__ ∪ internal ∪ rules_engine.X attr
@@ -31,9 +31,9 @@ from rules_engine_rules_b import (   # [F3 de-star] explicit — ครอบ __
     r_vat001, r_vat002, r_vat003, r_vat004,
 )
 from rules_engine_rules_c import (   # [F3 de-star] explicit — ครอบ __all__ ∪ internal ∪ rules_engine.X attr
-    r_addr004, r_addr005, r_br003, r_cmp005,
+    r_addr004, r_addr005, r_addr006, r_br003, r_cmp005,
     r_doc003, r_dt004, r_itm016, r_itm018,
-    r_tax007, r_vat005, r_vat006, r_vat007,
+    r_tax007, r_tax008, r_vat005, r_vat006, r_vat007,
     r_vat008, r_vat009, r_vat010,
 )
 from config import (CONSTRUCTION_DICT, ITM012_MIN_WORD_LEN,  # [F3] explicit — config ที่ rules_engine ใช้
@@ -150,6 +150,7 @@ RULES = {
     'TAX006':{'name':'checksum เลขภาษี (mod11)','severity':'ERROR','category':'เลขภาษี','check':r_tax006,'enabled':True},
     'BR001':{'name':'รหัสสาขา format','severity':'ERROR','category':'สาขา','check':r_br001,'enabled':True},
     'BR002':{'name':'ต้องระบุสาขา','severity':'ERROR','category':'สาขา','check':r_br002,'enabled':True},
+    'BR004':{'name':'สาขาไม่ตรงทะเบียน master','severity':'ERROR','category':'สาขา','check':r_br004,'enabled':True},  # [B3] เทียบ branch บิล↔master (เมื่อมี master+branch). conservative: ไม่มี master/branch ไม่ชัด → เงียบ (ปล่อย A1 honesty)
     'DOC001':{'name':'ชีต↔วันที่','severity':'ERROR','category':'เอกสาร','check':r_doc001,'enabled':True},
     'DOC002':{'name':'IV↔วันที่ (ปิดใช้งาน v5.8k)','severity':'ERROR','category':'เอกสาร','check':r_doc002,'enabled':False},
     'IV001':{'name':'IV Prefix','severity':'WARNING','category':'เอกสาร','check':r_iv001,'enabled':True},
@@ -184,7 +185,9 @@ RULES = {
     'CMP006':{'name':'ชื่อไม่ตรง 100% กับ ภ.พ.20 (ตรวจเพิ่ม)','severity':'WARNING','category':'บริษัท','check':r_cmp006,'enabled':True},  # [ADD-ON v9.2] ลูกค้าขอเข้มขึ้น: ชื่อต่างตัวอักษรจาก ภ.พ.20 (โซน fuzzy≥85 ที่ CMP001 ปล่อยผ่าน) = ฟ้อง. กันซ้ำ CMP001(<85)/CMP004(เว้นวรรค)/substring. ปิดได้ด้วย enabled=False ถ้า false-positive เยอะ
     'ADDR004':{'name':'กรุงเทพ vs ต่างจังหวัด format','severity':'WARNING','category':'ที่อยู่','check':r_addr004,'enabled':True},
     'ADDR005':{'name':'รหัสไปรษณีย์','severity':'INFO','category':'ที่อยู่','check':r_addr005,'enabled':True},
+    'ADDR006':{'name':'ไปรษณีย์↔จังหวัด ไม่สอดคล้อง','severity':'WARNING','category':'ที่อยู่','check':r_addr006,'enabled':True},  # [B2] generalize ทุกจังหวัด (ไม่พึ่ง master) — เว้นกรุงเทพฯ (ADDR005 ดูแล). conservative: ฟ้องเฉพาะขัดกันชัด
     'TAX007':{'name':'ประเภทนิติบุคคลจากหลักแรก','severity':'WARNING','category':'เลขภาษี','check':r_tax007,'enabled':True},
+    'TAX008':{'name':'เลขภาษีเดียวชื่อต่าง (cross-bill)','severity':'CRITICAL','category':'เลขภาษี','check':r_tax008,'enabled':True},  # [B1] เลขภาษี 13 หลักตัวเดียวถูกใช้กับ "คนละบริษัทจริง" ข้ามบิล — ตรวจได้แม้ไม่มี master (จับสวมเลข/ปลอม). conservative: ฟ้องเฉพาะชื่อต่างชัด (เกณฑ์แนว CMP001)
     'BR003':{'name':'สาขาสม่ำเสมอในไฟล์','severity':'WARNING','category':'สาขา','check':r_br003,'enabled':False},  # v8.4: ปิด — ผู้ขายมีทั้ง สนญ.+สาขา เป็นเรื่องปกติ ไม่ใช่ error (ฟ้องผิด/ซ้ำทุกบิล)
     'DOC003':{'name':'IV ซ้ำในไฟล์','severity':'ERROR','category':'เอกสาร','check':r_doc003,'enabled':True},
     'DT004':{'name':'ปี/วัน/เดือนนอกช่วงสมเหตุผล','severity':'WARNING','category':'วันที่','check':r_dt004,'enabled':True},
@@ -240,14 +243,14 @@ __all__ = [
     'r_tax002', 'r_tax003', 'r_tax004', 'r_tax005',
     'r_tax006', 'r_br001', 'r_br002', 'r_doc001',
     'r_doc002', 'r_iv001', 'r_dt001', 'r_dt002',
-    'r_dt003', 'r_itm001', 'r_itm002', 'r_itm013',
+    'r_br004', 'r_dt003', 'r_itm001', 'r_itm002', 'r_itm013',
     'r_itm014', 'r_itm015', 'r_itm017', 'r_itm003',
     'r_itm004', '_kw_in_name', 'r_itm005', 'r_itm006',
     '_build_cat_keywords', 'r_itm007', 'r_itm008', 'r_itm009',
     'r_itm010', 'r_itm011', '_build_product_whitelist', 'validate_product_word',
     'r_itm012', 'r_vat001', 'r_vat002', 'r_vat003',
     'r_vat004', 'r_vat005', 'r_vat006', 'r_vat007',
-    'r_cmp005', 'r_cmp006', 'r_addr004', 'r_addr005', 'r_tax007',
+    'r_cmp005', 'r_cmp006', 'r_addr004', 'r_addr005', 'r_addr006', 'r_tax007', 'r_tax008',
     'r_br003', 'r_doc003', 'r_dt004', 'r_itm016',
     'r_itm018', 'r_vat008', 'r_vat009', 'r_vat010',
     'r_itm019',

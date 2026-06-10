@@ -651,3 +651,53 @@ parallel == serial. fixture golden (`d8bcde85…`) และ report-det (`fff69f
   reachability สะอาด (report_precision reachable ผ่าน super_ultra_viewer) · golden ไม่ขยับ ·
   coverage ไม่ตก (parser 90.3 / total 89.0). คะแนน 10 ด้านไม่ดรอป (Test/Safety/Correctness หนุนขึ้น).
 - v2 (note): re-surface ITM015 (หน่วยผิด เช่น เหล็กเพลท/เส้น) เข้าสรุปเมื่อ council ยืนยัน — ตอนนี้ยัง _HIDE_IN_SUMMARY.
+
+### ADR-027 (B1 — TAX008: เลขภาษีเดียวกันแต่ชื่อบริษัทต่างกัน) — **PENDING REBASELINE (golden-affecting)**
+- สถานะ: **PROPOSED** — โค้ด+เทสพร้อม, รอเจ้าของ rebaseline golden บน corpus จริง (Claude Code ห้าม fabricate hash).
+- เหตุ: เลขภาษี 13 หลักตัวเดียวถูกใช้กับ "คนละบริษัทกันจริง" ข้ามบิล (คลาส เจ.อาร์./ฉีหยวน) = สัญญาณสวมเลข/ปลอม.
+  ตรวจได้ **แม้ไม่มี master** (internal consistency ข้ามทั้ง corpus).
+- ทำ: `r_tax008` (rules_engine_rules_c) — group ด้วย clean_tax_id ; ฟ้องเมื่อ tax เดียวจับคู่ชื่อ normalize
+  ที่ "ต่างกันชัด ≥ 2 ชื่อ". กัน FP: เกณฑ์แนว CMP001 (exact/substring ย่อ-เต็ม/fuzz.token_sort_ratio ≥ 85) +
+  ตัด marker สาขา/(สำนักงานใหญ่). cross-bill ผ่าน ctx['all_bills_for_iv_check'] (เหมือน DOC003).
+  conservative: tax ไม่ครบ 13 หลัก / ไม่มี all_bills_ref / ชื่อขาด → เงียบ.
+- register: RULES (CRITICAL, enabled) · code_labels.MAP (F_TAX, FIX) · config.FIELD_CODES (เลขภาษี) ·
+  FIELD_LAYOUT (prefix TAX auto) · ultra_agent.FUZZY_CODES (ตรวจอิสระต่อบิลไม่ได้ → ควรตรวจซ้ำ).
+- behavior ที่เปลี่ยน: เพิ่ม issue TAX008 บนบิลที่เลขภาษีถูกใช้กับชื่อต่างกันจริง → **golden เปลี่ยนบน corpus จริง**.
+- ผลต่อ golden: fixtures = ไม่ขยับ (d8bcde85 — fixture ไม่มี pattern นี้ = ไม่มี FP) ; corpus จริง 35b2f7c8 = **จะเปลี่ยน**.
+- เทส: `test_tax008.py` (ยิงเมื่อชื่อต่างจริง ; เงียบเมื่อต่างแค่เว้นวรรค/สาขา/ย่อ-เต็ม/tax ไม่ครบ).
+- rebaseline (เจ้าของ): รัน regression_full.py บน corpus จริง → ตรวจจำนวน/ความถูกต้องที่ยิง → golden_master.py . baseline.json → อัปเดต GOLDEN.md/banner.
+
+### ADR-028 (B2 — ADDR006: รหัสไปรษณีย์ ↔ จังหวัด ไม่สอดคล้อง) — **PENDING REBASELINE (golden-affecting)**
+- สถานะ: **PROPOSED** — โค้ด+เทส+ตารางข้อมูลพร้อม, รอเจ้าของ rebaseline.
+- เหตุ: รหัสไปรษณีย์ 5 หลักต้องสอดคล้องจังหวัดในที่อยู่ (ฟอร์แมตถูก ≠ ตรงพื้นที่). ตรวจได้ **แม้ไม่มี master**.
+- ทำ: `thai_postal.py` — ตาราง prefix 2 หลัก → จังหวัด (data-driven, **derive จากข้อมูลจริง 7,436 ตำบล**
+  ของ thailand-geography-data/thailand-geography-json ครบ 77 จังหวัด ; ไม่เดาจากความจำ).
+  `r_addr006` (rules_engine_rules_c) ฟ้องเมื่อ "ในที่อยู่ระบุจังหวัด X แต่ไม่มีไปรษณีย์ใด prefix ตรง X เลย".
+- กัน FP/ทับซ้อน: map เป็น 'จังหวัด → เซ็ต prefix' (บางจังหวัดหลาย prefix: เชียงใหม่=50,58) ;
+  **เว้นกรุงเทพฯ/กทม.** (ADDR005 ดูแลช่วง 10xxx แล้ว) ; ดึงจังหวัด/ไปรษณีย์ไม่ได้/กำกวม → เงียบ.
+- register: RULES (WARNING, enabled) · code_labels.MAP (F_ADDR, CHECK) · config.FIELD_CODES (ที่อยู่) ·
+  FIELD_LAYOUT (prefix ADDR auto) · ultra_agent.FUZZY_CODES.
+- ผลต่อ golden: fixtures = ไม่ขยับ ; corpus จริง 35b2f7c8 = **จะเปลี่ยน**.
+- เทส: `test_addr006.py` (ยิงเมื่อขัดชัด ; เงียบเมื่อสอดคล้อง/ไม่มีจังหวัด/ไม่มี zip/เป็น กทม./มี zip ถูกอยู่ด้วย).
+- หมายเหตุ: ตาราง `PROVINCE_POSTAL_PREFIXES` แก้ไข/เพิ่มได้ (dict) — เจ้าของควร review ก่อน rebaseline.
+
+### ADR-029 (B3 — BR004: เทียบสาขากับ master) — **PENDING REBASELINE (golden-affecting)**
+- สถานะ: **PROPOSED** — โค้ด+เทสพร้อม, รอเจ้าของ rebaseline.
+- เหตุ: master เก็บ branch ไว้แต่ไม่มีกฎเอามาเทียบ (BR001/BR002 เช็คแค่รูปแบบ/มีหรือไม่ ไม่ใช่ "ตรง master").
+- ทำ: `r_br004` (rules_engine_rules_a) — normalize สาขา 2 ฝั่ง (branch_no 5 หลัก / label 'สำนักงานใหญ่'→00000 /
+  'สาขา NNNNN') แล้วฟ้องเมื่อต่างกันชัด. ส่วน "ไม่มี master / master ไม่มี branch" จัดการที่ honesty A1
+  (ช่องสาขาขึ้น "ตรวจไม่ได้") — **ไม่กระทบ golden**. BR004 = เฉพาะเมื่อมี master + master มี branch.
+- conservative: m=None / master ไม่มี branch / บิลระบุสาขาไม่ชัด → เงียบ.
+- register: RULES (ERROR, enabled) · code_labels.MAP (F_BRANCH, FIX) · config.FIELD_CODES (สาขา) ·
+  FIELD_LAYOUT (prefix BR auto) · ultra_agent.MASTER_CODES (เทียบ master → ควรตรวจซ้ำ offline).
+- ผลต่อ golden: fixtures = ไม่ขยับ ; corpus จริง 35b2f7c8 = **จะเปลี่ยนเฉพาะเมื่อ master มี branch ที่ขัดกับบิล**.
+- เทส: `test_br004.py` (ยิงเมื่อสาขาต่าง master ; เงียบเมื่อตรง/ไม่มี master/ข้อมูลไม่ชัด).
+
+### ADR-030 (B4 — DT001 filename-period) — **NO CHANGE (สอบแล้วไม่พบบั๊ก)**
+- สถานะ: **CLOSED / golden ไม่ขยับ** — สอบสวนตามคำขอแล้ว ไม่แก้ parser (priority ต่ำ + ไม่มีบั๊กจริง).
+- ข้อสงสัย (จาก work order): `_filename_period_ce` อ่าน `XXX_69_012.xls` เป็น "เดือน 12" (012→12) ผิด.
+- หลักฐาน (forensic, ทดสอบจริง): `_filename_period_ce('XXX_69_012.xls')` → **(2026, 1)** = มกราคม **ถูกต้อง**
+  (regex `(\d{1,2})` จับ '01' แล้วเหลือ '2' เป็นชุดที่ 2 — ตรงกับ "พฤติกรรมที่ควรเป็น" ที่ work order ระบุเอง).
+  ทดสอบเพิ่ม: `_69_12`→ธ.ค. / `_69_01`→ม.ค. / `69.05`→พ.ค. ถูกทุกเคส.
+- สรุป: บั๊ก `0NN→NN` **ไม่มีอยู่จริง** — DT001 (NOTE) ที่ over-fire (ถ้ามีบน corpus จริง) = **บิลคร่อมเดือนจริง**
+  (วันบิล ≠ งวดชื่อไฟล์ โดยชอบ) ซึ่งเป็นสิ่งที่ DT001 ตั้งใจ flag เป็นหมายเหตุ. จึงไม่แก้ parser → golden ไม่ขยับ.

@@ -366,6 +366,43 @@ def r_br002(b,m,c):
         return ['ไม่ระบุ สำนักงานใหญ่/สาขา (ต้องลงทุกบิล)']
     return []
 
+# ── [B3] BR004 — เทียบสาขาในบิลกับ branch ในทะเบียน master (เมื่อ master มี branch) ───────────
+_BR004_NO_RE = re.compile(r'(\d{5})')
+
+def _branch_key(branch_no, branch_label):
+    """canonical สาขา: '00000'=สำนักงานใหญ่ / เลขสาขา 5 หลัก ; None = ระบุไม่ชัด (อย่าตัดสิน)."""
+    bn = str(branch_no or '').strip()
+    if re.match(r'^\d{5}$', bn):
+        return bn
+    lbl = str(branch_label or '').strip()
+    if 'สำนัก' in lbl or 'สนญ' in lbl:
+        return '00000'
+    mb = _BR004_NO_RE.search(lbl)
+    if mb:
+        return mb.group(1).zfill(5)
+    return None
+
+def r_br004(b, m, c):
+    """[B3] เทียบสาขาในบิลกับทะเบียน master (เมื่อมี master + master มี branch).
+
+    BR001/BR002 เช็คแค่ "รูปแบบ/มีหรือไม่" ไม่ใช่ "ตรง master". BR004 เติมส่วน "ตรง master".
+    conservative: ไม่มี master match / master ไม่มี branch / บิลระบุสาขาไม่ชัด → เงียบ
+    (กรณีไม่มี master จัดการที่ชั้น honesty A1 = ช่องสาขา 'ตรวจไม่ได้'). ฟ้องเฉพาะเมื่อ "ต่างกันชัด".
+    """
+    if not m:
+        return []
+    mkey = _branch_key(m.get('branch_no'), m.get('branch'))
+    if mkey is None:
+        return []
+    bkey = _branch_key(b.get('branch_no'), b.get('branch'))
+    if bkey is None:
+        return []
+    if bkey != mkey:
+        _bn = 'สำนักงานใหญ่' if bkey == '00000' else f'สาขา {bkey}'
+        _mn = 'สำนักงานใหญ่' if mkey == '00000' else f'สาขา {mkey}'
+        return [f"สาขาในบิล ({_bn}) ไม่ตรงทะเบียน ({_mn}) ของ '{m.get('name','')}'"]
+    return []
+
 def r_doc001(b,m,c):
     if not b['iv_date']: return []
     sd = str(b['sheet']).lstrip('0')

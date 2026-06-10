@@ -87,8 +87,9 @@ RELIABLE_CODES = {
 }
 # FUZZY = ฮิวริสติก/คล้ายคลึง/อิงหน่วย-สเปก/ทบทวน → ให้คนยืนยันก่อน (ควรตรวจซ้ำ)
 FUZZY_CODES = {
-    "ADDR002", "ADDR004", "ADDR005",                    # สะกด/รูปแบบที่อยู่/ไปรษณีย์
+    "ADDR002", "ADDR004", "ADDR005", "ADDR006",         # สะกด/รูปแบบที่อยู่/ไปรษณีย์/ไปรษณีย์↔จังหวัด[B2]
     "BR003",                                            # สาขาไม่สม่ำเสมอในไฟล์
+    "TAX008",                                           # [B1] เลขภาษีเดียวชื่อต่าง (cross-bill — ตรวจอิสระต่อบิลไม่ได้)
     "CMP003",                                           # ใช้แบรนด์แทนชื่อนิติบุคคล
     "ITM003", "ITM004", "ITM005", "ITM006", "ITM007", "ITM008", "ITM009",
     "ITM010", "ITM011", "ITM012", "ITM013", "ITM014", "ITM015", "ITM019",  # ชื่อ/หน่วย/typo/ลำดับ(soft) — ITM019 = หน่วยสะกดผิด (ตรวจเพิ่ม)
@@ -97,7 +98,7 @@ FUZZY_CODES = {
     "VAT004", "VAT006", "VAT008", "VAT010",             # ปัดเศษ/รวมVAT/VATศูนย์/ไม่ได้ตรวจ
 }
 # MASTER = เทียบ master เท่านั้น ตรวจอิสระ offline ไม่ได้ → ควรตรวจซ้ำ (+หมายเหตุ)
-MASTER_CODES = {"ADDR003", "CMP001", "CMP004", "CMP006", "TAX003", "TAX005"}
+MASTER_CODES = {"ADDR003", "CMP001", "CMP004", "CMP006", "TAX003", "TAX005", "BR004"}  # +BR004 [B3] เทียบสาขากับ master
 # NOTE = ข้อสังเกต (ไม่ใช่ finding ที่ต้องตัดสิน — ลงบรรทัดหมายเหตุของสรุปปกติ ไม่เข้า Ultra)
 NOTE_CODES = {"DT001", "DT002", "DT003"}
 
@@ -140,6 +141,8 @@ def verify_finding(b: dict, code: str, detail: str, cs: dict, siblings: list) ->
             corroborated = v is False
             contradicted = v is True
             ev.append(f"คำนวณ mod-11 ซ้ำ: {'ผ่าน' if v else ('ไม่ผ่าน' if v is False else 'ไม่ครบ 13 หลัก')}")
+        elif code == "TAX008":                     # [B1] เลขภาษีเดียวชื่อต่าง (cross-bill)
+            ev.append("เลขภาษีเดียวถูกใช้กับชื่อบริษัทต่างกันข้ามบิล — ต้องดูภาพรวมข้ามบิล ตรวจอิสระต่อบิลไม่ได้")
         elif code in MASTER_CODES:                 # TAX003/TAX005 — อิง master
             ev.append("เลขภาษีถูกตามสูตร (mod-11 ผ่าน) แต่ติด master — ตรวจอิสระ offline ไม่ได้"
                       if v is True else "ต้องเทียบ master — ตรวจอิสระ offline ไม่ได้")
