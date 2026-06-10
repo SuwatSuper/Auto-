@@ -129,11 +129,13 @@ def verify_finding(b: dict, code: str, detail: str, cs: dict, siblings: list) ->
             corroborated = len(digits) != 13
             contradicted = len(digits) == 13
             ev.append(f"นับหลักเลขภาษี = {len(digits)} (ต้อง 13)")
-        elif code == "TAX002":                     # มีตัวอักษรปน
-            has_alpha = any(c.isalpha() for c in raw)
-            corroborated = has_alpha
-            contradicted = not has_alpha
-            ev.append("มีตัวอักษรปนจริง" if has_alpha else "ไม่พบตัวอักษรปน (เลขล้วน)")
+        elif code == "TAX002":                     # [A4] ไม่พบกลุ่มเลขภาษี 13 หลักที่ถูกต้อง (ตรงพฤติกรรม r_tax002)
+            import re as _re
+            _txt = str(b.get("tax_id_raw") or b.get("tax_id") or "")
+            has13 = bool(_re.search(r'(?<!\d)(?:\d[\-\.\s]*){12}\d(?!\d)', _txt))
+            corroborated = not has13
+            contradicted = has13
+            ev.append("พบกลุ่มเลข 13 หลักครบ" if has13 else "ไม่พบกลุ่มเลขภาษี 13 หลักที่ถูกต้อง")
         elif code == "TAX006":                     # checksum ไม่ผ่าน
             corroborated = v is False
             contradicted = v is True
