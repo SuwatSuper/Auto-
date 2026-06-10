@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Cache
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.cache/
+.coverage
+.coverage.*
+
+# Virtual environment
+.venv/
+venv/
+
+# Output / reports (ข้อมูลผู้เสียภาษีดิบ — ห้าม commit)
+audit_reports/
+e2e_output/
+
+# Env
+.env
+*.env
+
+# IDE
+#  .vscode/ = workbench config ที่ตั้งใจแชร์ (ฉบับ offline VS Code) → ไม่ ignore
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+master_companies.json
+
+# stray artifacts จากการรันเครื่องมือ consolidated ด้วยชื่อไฟล์เปล่า (ทดสอบ A1)
+bare_consolidated*.xlsx
