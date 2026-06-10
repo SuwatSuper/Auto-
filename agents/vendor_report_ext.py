@@ -10,6 +10,7 @@ from .vendor_report_base import (   # [de-star P2] เดิม `import *` — e
     _clean_human, _clean_tax, _ctx_prefix, _find_master_entry, _full_company,
     _is_noise_issue, _item_by_seq, _match, _num, _seq_of, _vendor_key, _wrong_word,
 )
+from code_labels import MASTER_FIELD_SHORT  # [A1] ชื่อย่อช่องตัวตนสำหรับสรุปท้าย "ตรวจไม่ได้"
 
 
 def _item_problem(b: dict, iss: dict) -> Tuple[Optional[int], str]:
@@ -246,19 +247,23 @@ def _note_blocks(vbills: List[dict], master: Optional[dict], field_ok: Dict[str,
     return blocks
 
 
-def _summary_sentence(field_ok: "OrderedDict[str, bool]", has_notes: bool) -> str:
+def _summary_sentence(field_ok: "OrderedDict[str, bool]", has_notes: bool, uncheckable=()) -> str:
     """สรุปท้ายภาษาคน (ซอฟ):
-       ตรงหมด               → 'ตรงครับ'
-       มีจุด + มีหมายเหตุ    → 'รีเช็ค{ฟิลด์}และแก้ไขตามหมายเหตุนะครับผม'
-       มีจุด ไม่มีหมายเหตุ   → 'รีเช็ค{ฟิลด์}ครับ ที่เหลือตรงครับผม'
+       ตรงหมด + ตรวจได้ทุกช่อง       → 'ตรงครับ'
+       ตรงหมด แต่บางช่องตัวตนตรวจไม่ได้ → 'ตรงเท่าที่ตรวจได้ (ช่อง .. ตรวจไม่ได้ — ไม่มี master เทียบ)'
+       มีจุด + มีหมายเหตุ            → 'รีเช็ค{ฟิลด์}และแก้ไขตามหมายเหตุนะครับผม{หมายเหตุตรวจไม่ได้}'
+       มีจุด ไม่มีหมายเหตุ           → 'รีเช็ค{ฟิลด์}ครับ{หมายเหตุตรวจไม่ได้} ที่เหลือตรงครับผม'
+    [A1] 'ตรวจไม่ได้' = สถานะที่สาม (ไม่ใช่ error → ไม่เข้า 'รีเช็ค') — กันการพูดว่า 'ตรงครับ' หลอก.
     """
     bad = [_RECHECK_NAME.get(lbl, lbl) for lbl, ok in field_ok.items() if not ok]
+    unck = [MASTER_FIELD_SHORT.get(lbl, _RECHECK_NAME.get(lbl, lbl)) for lbl in uncheckable]
+    unck_note = (f" (ช่อง {'/'.join(unck)} ตรวจไม่ได้ — ไม่มี master เทียบ)") if unck else ""
     if not bad:
-        return "ตรงครับ"
+        return "ตรงครับ" if not unck else f"ตรงเท่าที่ตรวจได้{unck_note}"
     listed = ", ".join(bad)
     if has_notes:
-        return f"รีเช็ค{listed}และแก้ไขตามหมายเหตุนะครับผม"
-    return f"รีเช็ค{listed}ครับ ที่เหลือตรงครับผม"
+        return f"รีเช็ค{listed}และแก้ไขตามหมายเหตุนะครับผม{unck_note}"
+    return f"รีเช็ค{listed}ครับ{unck_note} ที่เหลือตรงครับผม"
 
 
 def _group_by_vendor(bills: List[dict]) -> List[Tuple[str, List[dict]]]:

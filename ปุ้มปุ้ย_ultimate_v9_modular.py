@@ -191,7 +191,7 @@ def main():
             print('   ชีต: Dashboard | Summary | ทุกบิล | รายการสินค้า | Error Report | High Risk | บิลซ้ำ')
             # [v9.1+] ออกไฟล์รายงานการทำงานของ agent (.txt) ข้าง Excel — advisory, reuse บิลในหน่วยความจำ
             _emit_agent_notepad(master, file_list, all_bills, _core, out, filename_issues)
-            _emit_company_summary(all_bills, REPORT_DIR, master_present=_master_present)
+            _emit_company_summary(all_bills, REPORT_DIR, master_present=_master_present, masters=master)
             _report_ok = True
         else:
             print('❌ สร้างรายงานคลีนไม่สำเร็จ')
@@ -237,7 +237,7 @@ def main():
             print(f'\n✅ ไฟล์ผลลัพธ์ Excel บันทึกแล้ว → {os.path.abspath(out)}')
             # [v9.1+] ออกไฟล์รายงานการทำงานของ agent (.txt) ข้าง Excel — advisory, reuse บิลในหน่วยความจำ
             _emit_agent_notepad(master, file_list, all_bills, _core, out, filename_issues)
-            _emit_company_summary(all_bills, REPORT_DIR, master_present=_master_present)
+            _emit_company_summary(all_bills, REPORT_DIR, master_present=_master_present, masters=master)
             _report_ok = True
 
             if ANALYTICS_CFG['ENABLE']:

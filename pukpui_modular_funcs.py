@@ -389,7 +389,7 @@ def _emit_agent_notepad(master, file_list, all_bills, core_result, out_path, fil
         print(f'   ⚠️ ข้ามรายงานการทำงาน agent — {type(_e).__name__}: {str(_e)[:140]}')
 
 
-def _emit_company_summary(all_bills, report_dir, master_present=True):
+def _emit_company_summary(all_bills, report_dir, master_present=True, masters=None):
     """[v9.2 ADVISORY] ออกสรุป "ต่อบริษัท × เดือน" ภาษาคน (company_summary.txt/.xlsx) ข้าง Excel.
 
     ★ ปลอดภัย/เสี่ยงศูนย์ต่อผลตรวจหลัก:
@@ -400,7 +400,7 @@ def _emit_company_summary(all_bills, report_dir, master_present=True):
     """
     try:
         import super_ultra_viewer as _suv
-        _t, _x, _rows = _suv.emit_for_bills(all_bills, report_dir, master_present=master_present)
+        _t, _x, _rows = _suv.emit_for_bills(all_bills, report_dir, master_present=master_present, masters=masters)
         _nfix = sum(1 for r in _rows if r['fix'])
         _nclean = sum(1 for r in _rows if r['clean'])
         print(f'🧾 สรุปต่อบริษัท (ก็อปวางได้) → {os.path.abspath(_t)}')
@@ -412,7 +412,7 @@ def _emit_company_summary(all_bills, report_dir, master_present=True):
     # [Ultra Agent] เวอร์ชัน "ตรวจทานแล้ว" — ยืนยัน finding ด้วยหลักฐานอิสระ (advisory, ข้างของเดิม)
     try:
         import ultra_agent as _ua
-        _up = _ua.emit_ultra_summary(all_bills, report_dir, master_present=master_present)
+        _up = _ua.emit_ultra_summary(all_bills, report_dir, master_present=master_present, masters=masters)
         print(f'🤖 Ultra Agent (ตรวจทานแล้ว)  → {os.path.abspath(_up)}')
     except Exception as _e:                         # ADVISORY: ห้ามล้มงานหลัก
         print(f'   ⚠️ ข้าม Ultra Agent — {type(_e).__name__}: {str(_e)[:140]}')

@@ -361,9 +361,9 @@ def render_ultra_block(idx: int, vc: dict) -> str:
     return "\n".join(out)
 
 
-def build_ultra(bills, master_present=True):
+def build_ultra(bills, master_present=True, masters=None):
     """คืน list ของผลตรวจทานต่อบริษัท×เดือน (เรียงเหมือน super_ultra_viewer)."""
-    rows = _suv.build(bills, master_present=master_present)
+    rows = _suv.build(bills, master_present=master_present, masters=masters)
     # จับ bills กลับเข้ากลุ่มตาม key เดียวกับ build (เลขภาษี/ชื่อ-normalize, เดือน)
     from collections import defaultdict
     groups = defaultdict(list)
@@ -385,11 +385,11 @@ def build_ultra(bills, master_present=True):
     return out
 
 
-def emit_ultra_summary(bills, outdir, master_present=True):
+def emit_ultra_summary(bills, outdir, master_present=True, masters=None):
     """เขียน company_summary_ultra.txt — เวอร์ชัน 'ตรวจทานแล้ว' (advisory, ข้างของเดิม).
     คืน path. ห่อกันล้มงานหลัก (advisory)."""
     from datetime import datetime
-    vcs = build_ultra(bills, master_present=master_present)
+    vcs = build_ultra(bills, master_present=master_present, masters=masters)
     n_conf = sum(v["n_confirm"] for v in vcs)
     n_rech = sum(v["n_recheck"] for v in vcs)
     n_okish = sum(v["n_okish"] for v in vcs)

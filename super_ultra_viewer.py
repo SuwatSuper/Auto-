@@ -30,10 +30,10 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from code_labels import (FIELD_ORDER, F_NAME, F_ADDR, F_TAX, F_DATE, F_IV, F_ITEM,
-                         F_PREVAT, F_POSTVAT,
-                         field_of, lane_of, label_of, clean_detail, action_for,
-                         NOTE, note_phrase, addr_summary, field_summary)
+from code_labels import (FIELD_ORDER, F_NAME, F_ADDR, F_TAX, F_BRANCH, F_DATE, F_IV,
+                         F_ITEM, F_PREVAT, F_POSTVAT, field_of, lane_of, label_of,
+                         clean_detail, action_for, NOTE, note_phrase, addr_summary,
+                         field_summary, MASTER_FIELD_SHORT, apply_identity_honesty)
 from viewers import VIEWERS
 from puopuy_dates import _ivp_year2_to_ce, _ivp_year4_to_ce   # เดางวดจากเลขที่เอกสารเมื่อบิลไม่มีวันที่
 import report_precision as _precision   # [Precision Council] ตัดสิน tier ต่อจุด (advisory → golden ไม่ขยับ)
@@ -144,7 +144,7 @@ def _norm_company(s: str) -> str:
     return s
 
 
-def build(bills, master_present=True):
+def build(bills, master_present=True, masters=None):
     from collections import Counter
     # ★ [FIX-CONSOLIDATE] จัดกลุ่มด้วย (เลขภาษี, เดือน) — เลขภาษี = canonical identity ของบริษัท
     #   กัน "บริษัทเดียว เดือนเดียว" ถูกแยกเป็นหลายบล็อกเพราะชื่อพิมพ์ต่าง ('จำกัด' เกิน/ขาด,
@@ -180,14 +180,9 @@ def build(bills, master_present=True):
                 gi.append((bk, i))
         # เดิน 10 viewers
         verdicts = {v.field: v.verdict(gi) for v in VIEWERS}
-        # [v9.2 งาน A] ไม่มี master จริง → ช่องชื่อบจ./เลขภาษีที่ "ดูเหมือนตรง" ความจริงคือ "ตรวจไม่ได้".
-        #   override เฉพาะช่องที่ยัง ok เท่านั้น — ห้ามกลบ error ที่ตรวจได้โดยไม่ต้องใช้ master
-        #   (เช่น CMP005 ขาด 'จำกัด', TAX001 ไม่ครบ 13 หลัก) เพราะพวกนั้นยังต้องโชว์แม้ไม่มี master.
-        if not master_present:
-            for _f in (F_NAME, F_TAX):
-                if verdicts[_f]["mark"] == "ok":
-                    verdicts[_f]["status"] = "- ไม่มี master ตรวจไม่ได้"
-                    verdicts[_f]["mark"] = "master"
+        # [A1] honesty รายผู้ขาย: ช่องตัวตน (ชื่อ/เลขภาษี/ที่อยู่/สาขา) 'ตรง' ได้เมื่อเทียบ master จริง
+        #   เท่านั้น (ตัดสินจาก master_key รายบิล ไม่ใช่ flag global) + แยกเหตุผล "ตรวจไม่ได้" 3 แบบ.
+        apply_identity_honesty(verdicts, gbills, master_present, masters)
         fix_fields = [f for f in FIELD_ORDER if verdicts[f]["mark"] == "fix"]
         check_fields = [f for f in FIELD_ORDER if verdicts[f]["mark"] == "check"]
         master_fields = [f for f in FIELD_ORDER if verdicts[f]["mark"] == "master"]
@@ -426,16 +421,18 @@ def render_block(n, r):
     #   → soft-only = ตรงสำหรับลูกค้า + มีจุดให้ตรวจตา ; ช่องที่ยังมีจุด 'ชัด' (หรือ verdict ที่ไม่มีใน worklist) คงเดิม
     soft_only_fields = {f for f in by_field if f not in clear_bf}
     footer_problems = [f for f in (r["fix"] + r["check"]) if f not in soft_only_fields]
+    # [A1] ช่องตัวตนที่ "ตรวจไม่ได้" (mark=master) — รวมที่อยู่/สาขา ไม่ใช่แค่ชื่อ/เลขภาษี (per-bill honesty)
+    uncheckable = list(r.get("master", []))
+    unck_note = (f" (ช่อง {'/'.join(MASTER_FIELD_SHORT.get(f, f) for f in uncheckable)}"
+                 f" ตรวจไม่ได้ — ไม่มี master เทียบ)") if uncheckable else ""
     if not footer_problems:
-        if r.get("master_present", True):
-            base = f"{r['company']} {foot_month} ตรงครับ"
-        else:
-            base = f"{r['company']} {foot_month} ตรงเท่าที่ตรวจได้ (ไม่มี master เทียบชื่อ/เลขภาษี)"
+        base = (f"{r['company']} {foot_month} ตรงครับ" if not uncheckable
+                else f"{r['company']} {foot_month} ตรงเท่าที่ตรวจได้{unck_note}")
         if n_soft:
             base += f" (มี {n_soft} จุดให้ตรวจตาเพิ่ม)"
         out.append(base)
     else:
-        out.append(f"{r['company']} {foot_month} รีเช็ค{'/'.join(footer_problems)}ครับ ที่เหลือตรงครับผม")
+        out.append(f"{r['company']} {foot_month} รีเช็ค{'/'.join(footer_problems)}ครับ{unck_note} ที่เหลือตรงครับผม")
     return "\n".join(out)
 
 
@@ -528,7 +525,7 @@ def write_xlsx(rows, path):
         ("เขียว / ตรง", "ผ่าน ไม่มีปัญหา - พร้อมส่งบัญชี"),
         ("แดง", "ต้องแก้ก่อนส่ง (ช่องจะมีข้อความบอกปัญหา; ดูชีต 'ต้องแก้ รายบิล' ว่าแก้บิลไหน)"),
         ("เหลือง", "ควรตรวจด้วยตา (อาจไม่ผิด เช่น ราคา/หน่วยแปลก)"),
-        ("เทา / ไม่มี master", "ไม่มีข้อมูล ภ.พ.20 มาเทียบ - ตรวจชื่อ/เลขภาษีเองไม่ได้"),
+        ("เทา / ตรวจไม่ได้", "ไม่มี ภ.พ.20 มาเทียบ (หรือผู้ขายไม่อยู่ใน master) - ตรวจชื่อ/เลขภาษี/ที่อยู่/สาขา เองไม่ได้"),
         ("หมายเหตุ", "ข้อสังเกต เช่น ลงวันที่ล่วงหน้า/เดือนไม่ตรงไฟล์ (ไม่ใช่ข้อผิดพลาดของช่อง)"),
         ("", ""),
         ("ชีต", "เนื้อหา"),
@@ -547,12 +544,13 @@ def write_xlsx(rows, path):
     wb.save(path)
 
 
-def emit_for_bills(bills, outdir, master_present=True):
+def emit_for_bills(bills, outdir, master_present=True, masters=None):
     """ออกไฟล์สรุปจากบิลที่ parse แล้ว (ใช้ซ้ำหน่วยความจำ — ไม่ parse ใหม่). คืน (txt, xlsx).
 
-    master_present: มี master จริงหรือไม่ — ถ้าไม่มี ช่องชื่อบจ./เลขภาษีจะขึ้น "ไม่มี master ตรวจไม่ได้".
+    master_present: flag global (fallback เมื่อบิลไม่มี master_key) ; masters: dict master จริง (ถ้าส่งมา)
+    → honesty รายผู้ขาย: ช่องตัวตนที่ "ไม่เคยเทียบ master จริง" ขึ้น "ตรวจไม่ได้" แทน "ตรง" หลอก.
     """
-    rows = build(bills, master_present=master_present)
+    rows = build(bills, master_present=master_present, masters=masters)
     os.makedirs(outdir, exist_ok=True)
     txt = os.path.join(outdir, "company_summary.txt")
     xlsx = os.path.join(outdir, "company_summary.xlsx")

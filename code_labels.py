@@ -117,6 +117,110 @@ MAP = {
 # ── ลำดับ field ในบล็อกบริษัท (ตามฟอร์แมตที่ผู้ใช้ต้องการ) ───────────────────
 FIELD_ORDER = [F_NAME, F_ADDR, F_TAX, F_BRANCH, F_DOCNO, F_DATE, F_IV, F_ITEM, F_POSTVAT, F_PREVAT]
 
+# ── [A1] ช่อง "ตัวตน" ที่จะพูดว่า 'ตรง' ได้ ต้องเทียบ master จริงก่อน ──────────────
+#   กลไก "เทียบเท่าเลน MASTER" แต่อยู่ระดับ **ช่อง** ไม่ใช่ระดับ **รหัส** — เพราะ
+#   "กฎที่ฟ้องแล้ว = ตรวจแล้วจริง" (เช่น CMP001 ฟ้อง = เทียบ master แล้วไม่ตรง) ห้ามมีเลน MASTER
+#   (test_report_consistency เป็น tripwire กันไว้). การ downgrade 'ตรง'→'ตรวจไม่ได้' จึงตัดสินที่
+#   "ช่องตัวตนที่ยังไม่มี issue (mark=ok) แต่ไม่เคยเทียบ master จริง" — composer ใช้ชุดนี้รู้ว่า
+#   ช่องไหนต้อง downgrade เมื่อผู้ขายรายนั้น "ไม่อยู่ใน master / ไม่มี master / master ไม่มีข้อมูลช่องนี้".
+MASTER_DEPENDENT_FIELDS = (F_NAME, F_TAX, F_ADDR, F_BRANCH)
+
+# เหตุผลย่อยของ "ตรวจไม่ได้" (แยกให้คนอ่านเข้าใจว่าทำไมยังไม่ใช่ 'ตรง') — ใช้ '-' นำ (อักษรพื้นฐาน
+#   ตามมติ v9.2 งาน C ที่เลิก em-dash/emoji). ทุกข้อความมี '(ตรวจไม่ได้)' กำกับชัด.
+UNCHECKABLE_NO_MASTER = "- ไม่มีใน master (ตรวจไม่ได้)"               # match_company ไม่เจอผู้ขายรายนี้
+UNCHECKABLE_MASTER_NO_FIELD = "- ทะเบียนไม่มีข้อมูลช่องนี้ (ตรวจไม่ได้)"  # เจอผู้ขายแต่ master ไม่มี field นี้
+UNCHECKABLE_BILL_UNREADABLE = "- อ่านจากบิลไม่ได้ (ตรวจไม่ได้)"        # บิลเอง parse field นี้ไม่ติด
+
+# ชื่อย่อช่องตัวตนสำหรับบรรทัดสรุปท้ายบล็อก (footer) ให้กระชับ
+MASTER_FIELD_SHORT = {F_NAME: "ชื่อบจ.", F_TAX: "เลขภาษี", F_ADDR: "ที่อยู่", F_BRANCH: "สาขา"}
+
+# ── [A1] ช่องตัวตน → คีย์ "อ่านจากบิล" / คีย์ "อ้างอิงในทะเบียน(master)" (single source) ──────
+#   ใช้ร่วมทุก composer (super_ultra_viewer + vendor_report) เพื่อตัดสิน honesty ให้สอดคล้องกัน.
+_IDENTITY_BILL_KEYS = {
+    F_NAME: ("company", "company_raw"),
+    F_TAX: ("tax_id", "tax_id_raw"),
+    F_ADDR: ("address",),
+    F_BRANCH: ("branch", "branch_no"),
+}
+_IDENTITY_MASTER_KEYS = {
+    F_NAME: ("name", "name_alt"),
+    F_TAX: ("tax_id",),
+    F_ADDR: ("address_parts", "address_full", "address"),
+    F_BRANCH: ("branch", "branch_no"),
+}
+
+
+def bill_field_readable(field, bills) -> bool:
+    """ช่องตัวตนนี้อ่านค่าจากบิลได้ไหม (มีอย่างน้อย 1 ใบในกลุ่มที่ค่าไม่ว่าง)."""
+    for b in (bills or []):
+        for k in _IDENTITY_BILL_KEYS.get(field, ()):
+            if str((b or {}).get(k) or "").strip():
+                return True
+    return False
+
+
+def master_has_field(field, entry) -> bool:
+    """ทะเบียน (master entry) มีข้อมูลอ้างอิงของช่องตัวตนนี้ไหม (เช่น address_parts / branch)."""
+    if not entry:
+        return False
+    for k in _IDENTITY_MASTER_KEYS.get(field, ()):
+        if entry.get(k):
+            return True
+    return False
+
+
+_NO_MASTER_KEY = "(ไม่พบใน master)"
+
+
+def group_master_status(bills, master_present, masters):
+    """คืน (matched, key, entry) ของกลุ่มผู้ขาย — honesty รายผู้ขาย/รายบิล (ใช้โดย super_ultra_viewer).
+
+    ความน่าเชื่อถือ: สัญญาณรายบิล b['master_key'] (run_rules ตั้งจาก match_company) มาก่อน —
+    ถ้าบิลไม่มี (เทส/ผู้เรียกปั้น bill เอง) ค่อย fallback ไป flag global master_present.
+    masters (dict) ถ้าส่งมา → ใช้ดู "ทะเบียนมีข้อมูลช่องนี้ไหม" (เหตุผลย่อยที่ 2).
+    """
+    from collections import Counter
+    keys = [b.get("master_key") for b in (bills or []) if b.get("master_key") is not None]
+    if keys:
+        matched = [k for k in keys if k and k != _NO_MASTER_KEY]
+        if matched:
+            g_key = Counter(matched).most_common(1)[0][0]
+            return True, g_key, (masters or {}).get(g_key)
+        return False, None, None
+    return bool(master_present), None, None
+
+
+def uncheckable_reason(field, bills, matched, entry):
+    """เหตุผล "ตรวจไม่ได้" ของช่องตัวตน 1 ช่อง — คืนถ้อยคำ หรือ None ถ้า 'ตรง' จริง.
+
+    'ตรง' จริง = อ่านค่าจากบิลได้ + ผู้ขายแมตช์ master + ทะเบียนมีข้อมูลช่องนี้ (เทียบแล้วไม่เจอ error).
+    matched : ผู้ขายรายนี้เทียบ master ได้ไหม (composer แต่ละตัวคำนวณเองจาก master_key/หา entry).
+    entry   : master record ของผู้ขาย (None ถ้าไม่รู้/ไม่ส่ง → ข้ามการเช็ค "ทะเบียนมี field ไหม").
+    """
+    if not bill_field_readable(field, bills):
+        return UNCHECKABLE_BILL_UNREADABLE          # บิลเองอ่านช่องนี้ไม่ติด
+    if not matched:
+        return UNCHECKABLE_NO_MASTER                # ผู้ขายไม่อยู่ใน master (รวมกรณีไม่มี master เลย)
+    if entry is not None and not master_has_field(field, entry):
+        return UNCHECKABLE_MASTER_NO_FIELD          # เจอผู้ขายแต่ทะเบียนไม่มีข้อมูลช่องนี้
+    return None                                     # เทียบ master จริงแล้ว → 'ตรง'
+
+
+def apply_identity_honesty(verdicts, bills, master_present, masters=None):
+    """[A1] downgrade ช่องตัวตน (mark=ok) ที่ "ไม่เคยเทียบ master จริง" → 'ตรวจไม่ได้' (mutate verdicts).
+
+    เรียกหลังเดิน viewers — override เฉพาะ mark=ok (ไม่กลบ error ที่ไม่พึ่ง master เช่น CMP005/TAX001).
+    """
+    matched, _key, entry = group_master_status(bills, master_present, masters)
+    for f in MASTER_DEPENDENT_FIELDS:
+        v = verdicts.get(f)
+        if not v or v.get("mark") != "ok":
+            continue
+        reason = uncheckable_reason(f, bills, matched, entry)
+        if reason is not None:
+            v["status"] = reason
+            v["mark"] = "master"
+
 _DEFAULT = (F_ITEM, "พบข้อสังเกต", CHECK)
 
 

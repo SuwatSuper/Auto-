@@ -9,7 +9,8 @@
   • [งาน D] ช่องรายการสินค้า: ITM010+ITM011 → ยุบเหลือ 'คำสินค้าผิด' ; ช่องวันที่: DOC001 → 'ลงวันที่ผิด'
   • [งาน D] DT001/DT002 = เลน NOTE → ช่องวันที่ยัง 'ตรง' แต่ขึ้นบรรทัด 'หมายเหตุ :' + บริษัทยังคลีนได้
   • [งาน C] บล็อกไม่มี emoji (❌/⚠️/📌) , ไม่ dump รายบิลใน .txt (ย้ายไป Excel) , ท้ายใช้ชื่อนิติบุคคลเต็ม
-  • [งาน A] master_present=False → ช่องชื่อบจ./เลขภาษี = 'ไม่มี master ตรวจไม่ได้' + ไม่ขึ้น 'ตรงครับ ✅' หลอก
+  • [A1] ไม่มี master / ผู้ขายไม่อยู่ใน master → ช่องตัวตนครบ 4 (ชื่อ/เลขภาษี/ที่อยู่/สาขา) = 'ตรวจไม่ได้'
+    (แยกเหตุผล: ไม่มีใน master / ทะเบียนไม่มีข้อมูลช่องนี้ / อ่านจากบิลไม่ได้) + ไม่ขึ้น 'ตรงครับ ✅' หลอก
 self-contained.
 """
 import os
@@ -148,17 +149,27 @@ _check("DT001 → บริษัทยังคลีน (ช่องวัน
 _check("DT001 → มีบรรทัด 'หมายเหตุ :' (ระบุไฟล์ KRR)", "หมายเหตุ :" in blk_nt and "KRR" in blk_nt)
 _check("DT001 (clean+note) → ยังจบ 'ตรงครับ ✅'", blk_nt.strip().endswith("ตรงครับ"))
 
-# ── [v9.2 งาน A] master_present=False → ไม่มี master จริง ──────────────────────
+# ── [A1] master_present=False → ไม่มี master จริง: "ตรวจไม่ได้" ครอบทั้ง 4 ช่องตัวตน ──────────
+#   v9.3 [FIX]: เดิม override เฉพาะ ชื่อบจ./เลขภาษี (ตกหล่นที่อยู่/สาขา → ขึ้น 'ตรง' หลอก) ;
+#   A1 ครอบ ชื่อ/เลขภาษี/ที่อยู่/สาขา ครบ + แยกเหตุผล "ไม่มีใน master (ตรวจไม่ได้)".
 rows_nm = SUV.build([clean_bill], master_present=False)
 blk_nm = SUV.render_block(1, rows_nm[0])
-_check("no-master: ชื่อบจ. → 'ไม่มี master ตรวจไม่ได้'",
-       "ไม่มี master" in rows_nm[0]["verdicts"]["ชื่อบจ."]["status"]
+_check("no-master: ชื่อบจ. → 'ไม่มีใน master (ตรวจไม่ได้)'",
+       "ตรวจไม่ได้" in rows_nm[0]["verdicts"]["ชื่อบจ."]["status"]
+       and "ไม่มีใน master" in rows_nm[0]["verdicts"]["ชื่อบจ."]["status"]
        and rows_nm[0]["verdicts"]["ชื่อบจ."]["mark"] == "master")
-_check("no-master: เลขที่ผู้เสียภาษี → 'ไม่มี master ตรวจไม่ได้'",
-       "ไม่มี master" in rows_nm[0]["verdicts"]["เลขที่ผู้เสียภาษี"]["status"])
+_check("no-master: เลขที่ผู้เสียภาษี → 'ตรวจไม่ได้'",
+       "ตรวจไม่ได้" in rows_nm[0]["verdicts"]["เลขที่ผู้เสียภาษี"]["status"]
+       and rows_nm[0]["verdicts"]["เลขที่ผู้เสียภาษี"]["mark"] == "master")
 _check("no-master: ไม่พิมพ์ 'ตรงครับ ✅' หลอก", "ตรงครับ" not in blk_nm and "ตรงเท่าที่ตรวจได้" in blk_nm)
-_check("no-master: ช่องที่ไม่พึ่ง master (ที่อยู่) ยัง 'ตรง'",
-       rows_nm[0]["verdicts"]["ที่อยู่"]["status"] == "ตรง")
+_check("no-master: ที่อยู่ ก็ 'ตรวจไม่ได้' ด้วย (A1 ครอบที่อยู่ — เลิกขึ้น 'ตรง' หลอก)",
+       "ตรวจไม่ได้" in rows_nm[0]["verdicts"]["ที่อยู่"]["status"]
+       and rows_nm[0]["verdicts"]["ที่อยู่"]["mark"] == "master")
+_check("no-master: สาขา/สนญ. ก็ 'ตรวจไม่ได้' ด้วย (A1 ครอบสาขา)",
+       "ตรวจไม่ได้" in rows_nm[0]["verdicts"]["สาขา/สนญ."]["status"]
+       and rows_nm[0]["verdicts"]["สาขา/สนญ."]["mark"] == "master")
+_check("no-master: footer ระบุช่องที่ตรวจไม่ได้ (รวมที่อยู่/สาขา ไม่ใช่แค่ชื่อ/เลขภาษี)",
+       "ที่อยู่" in blk_nm and "สาขา" in blk_nm and "ไม่มี master เทียบ" in blk_nm)
 
 # master_present=True (default) → คง 'ตรง' + 'ตรงครับ ✅' เหมือนเดิม (กัน regression)
 rows_m = SUV.build([clean_bill], master_present=True)

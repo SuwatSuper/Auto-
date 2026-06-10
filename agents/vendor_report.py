@@ -31,8 +31,10 @@ from __future__ import annotations
 
 from .vendor_report_base import (   # [de-star P2] เดิม `import *` — explicit (13 ชื่อใช้จริง; DIVIDER re-export ผ่าน __all__)
     DIVIDER, Dict, FIELD_LAYOUT, List, Optional, OrderedDict, Tuple,
-    _full_company, _is_noise_issue, _match, _period, _safe_filename, _short_name,
+    _find_master_entry, _full_company, _is_noise_issue, _match, _period,
+    _safe_filename, _short_name,
 )
+from code_labels import MASTER_DEPENDENT_FIELDS, uncheckable_reason  # [A1] honesty 'ตรง'=เทียบ master จริง
 from .vendor_report_ext import (   # [de-star P2] เดิม `import *` — explicit (8 helper ใช้จริง + _pre_vat re-export ให้เทส)
     _amount_line, _bill_count_line, _company_field, _group_by_vendor,
     _item_field_text, _natural_field_text, _note_blocks, _summary_sentence,
@@ -66,6 +68,10 @@ def _render_one(
     field_ok: "OrderedDict[str, bool]" = OrderedDict()
     # ฟิลด์ที่อ้างอิง "หมายเหตุท้าย" (โชว์ค่า master vs บิล) — บรรทัดบนสั้น ๆ
     NOTE_FIELDS = {"ที่อยู่", "เลขที่ผู้เสียภาษี"}
+    # [A1] honesty: ตัดสิน "เทียบ master ได้จริงไหม" ทีละผู้ขาย (หา record จากเลขภาษี/ชื่อ) — ใช้กับช่องตัวตน
+    _ventry = _find_master_entry(vbills, master)
+    _vmatched = _ventry is not None
+    uncheckable: List[str] = []
     for label, spec in FIELD_LAYOUT:
         if label == "ชื่อบจ.":
             ok, text = _company_field(vbills, master)
@@ -84,6 +90,13 @@ def _render_one(
             ok, text = _natural_field_text(vbills, spec, with_date=True)
         else:
             ok, text = _natural_field_text(vbills, spec)
+        # [A1] ช่องตัวตนที่ "ไม่มี issue (ดูเหมือนตรง)" แต่ไม่เคยเทียบ master จริง → 'ตรวจไม่ได้'
+        #   (เลิกขึ้น 'ตรง' หลอก). 'ตรวจไม่ได้' เป็นสถานะที่สาม — ok คงเป็น True (ไม่เข้า 'รีเช็ค').
+        if ok and label in MASTER_DEPENDENT_FIELDS:
+            reason = uncheckable_reason(label, vbills, _vmatched, _ventry)
+            if reason is not None:
+                text = reason
+                uncheckable.append(label)
         field_ok[label] = ok
         lines.append(f"{label} : {text}")
 
@@ -92,7 +105,7 @@ def _render_one(
     foot = full
     if p_foot:
         foot += f" {p_foot}"
-    summary = _summary_sentence(field_ok, has_notes=bool(notes))
+    summary = _summary_sentence(field_ok, has_notes=bool(notes), uncheckable=uncheckable)
     foot += f" {summary}"
     if foot_note:
         foot += f" {foot_note}"
