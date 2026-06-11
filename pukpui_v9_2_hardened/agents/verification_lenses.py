@@ -8,66 +8,65 @@ agents/verification_lenses.py — "คลังผู้ตรวจเชิง
 
 หลักการ (ย่อ — ดูเต็มใน verification_agent.py):
   PRECISION-FIRST: เลนส์ "งดออกเสียง (0)" เมื่อข้อมูลไม่พอ/ไม่เกี่ยว ห้ามเดา.
-  กฎโดเมนล็อค: VAT = round(subtotal×0.07,2) เป๊ะ (L8, ห้าม band).
+  กฎโดเมนล็อก: VAT = round(subtotal×0.07,2) เป๊ะ (L8, ห้าม band).
   OFFLINE/ADVISORY: อ่านอย่างเดียว ไม่มี network; L6 (LLM) งดออกเสียงเมื่อ offline → deterministic.
   เพิ่มผู้ตรวจ = ต่อ Lens(...) ใน INSPECTION_LENSES + unit test + รัน pin test (gated).
 """
 
 from __future__ import annotations
-
 from .verification_lenses_base import (  # [de-star P2] เดิม `import *` — explicit (= __all__ ของ _base เป๊ะ; re-export ครบ)
-    Callable,
     Counter,
+    defaultdict,
+    dataclass,
+    field,
     Decimal,
+    ROUND_HALF_UP,
+    Callable,
     Dict,
     List,
-    ROUND_HALF_UP,
     Tuple,
+    core,
+    parse_llm_json,
     _D,
     _HIGH_PRECISION,
     _HEURISTIC,
     _MONEY_PREFIXES,
-    _MONEY_TOL,
-    _ROUND_BAHT,
     _VAT_RATE,
     _VAT_ROUND_TOL,
+    _MONEY_TOL,
+    _ROUND_BAHT,
     _is_money_issue,
     _q2,
-    core,
-    dataclass,
-    defaultdict,
-    field,
-    Lens,
     LensInput,
-    parse_llm_json,
+    Lens,
 )
 from .verification_lenses_ext import (  # [de-star P2] เดิม `import *` — explicit (= __all__ ของ _ext เป๊ะ; เลนส์กลุ่ม B re-export ให้ registry/เทส)
     lens_amount_completeness,
-    lens_company_multi_taxid,
-    lens_decimal_scale_error,
-    lens_doc_completeness,
-    lens_duplicate_line_in_bill,
-    lens_duplicate_signature,
-    lens_future_date,
-    lens_item_count_sanity,
-    lens_iv_period_conflict,
-    lens_iv_prefix_match,
-    lens_line_amount_negative,
-    lens_line_qty_price,
-    lens_line_sum_amount,
-    lens_magnitude_outlier,
-    lens_master_known,
     lens_money_triple,
+    lens_line_sum_amount,
+    lens_line_qty_price,
     lens_negative_sanity,
+    lens_magnitude_outlier,
+    lens_taxid_checksum,
+    lens_taxid_format,
+    lens_taxid_crosscompany,
+    lens_duplicate_signature,
     lens_period_match,
+    lens_doc_completeness,
+    lens_master_known,
+    lens_iv_prefix_match,
+    lens_vat_zero_exempt,
+    lens_item_count_sanity,
+    lens_line_amount_negative,
+    lens_duplicate_line_in_bill,
+    lens_company_multi_taxid,
+    lens_total_lt_subtotal,
+    lens_decimal_scale_error,
+    lens_vat_present_no_base,
+    lens_future_date,
+    lens_iv_period_conflict,
     lens_qty_negative,
     lens_subtotal_zero_with_items,
-    lens_taxid_checksum,
-    lens_taxid_crosscompany,
-    lens_taxid_format,
-    lens_total_lt_subtotal,
-    lens_vat_present_no_base,
-    lens_vat_zero_exempt,
 )
 
 # ── [de-star P2] public re-export surface ของ hub นี้ ──
@@ -147,7 +146,7 @@ __all__ = [
 # เลนส์ฐาน (v9.1) L1–L6
 # ===========================================================================
 def lens_recompute(x: LensInput) -> Tuple[int, str]:
-    """ระบุ L1: คำนวณยอดใหม่จากต้นทางอย่างอิสระ (เฉพาะ issue กลุ่มยอดเงิน)."""
+    """L1: คำนวณยอดใหม่จากต้นทางอย่างอิสระ (เฉพาะ issue กลุ่มยอดเงิน)."""
     b, code = x.bill, x.code
     tol = _MONEY_TOL
     try:
@@ -212,7 +211,7 @@ def lens_recompute(x: LensInput) -> Tuple[int, str]:
 
 
 def lens_provenance(x: LensInput) -> Tuple[int, str]:
-    """ระบุ L2: ยอด derived (ระบบเดา) ลดความมั่นใจว่าเป็น error เอกสาร / parsed เพิ่มความมั่นใจ."""
+    """L2: ยอด derived (ระบบเดา) ลดความมั่นใจว่าเป็น error เอกสาร / parsed เพิ่มความมั่นใจ."""
     b, code = x.bill, x.code
     if not _is_money_issue(code):
         return 0, ""
@@ -233,7 +232,7 @@ def lens_provenance(x: LensInput) -> Tuple[int, str]:
 
 
 def lens_confidence(x: LensInput) -> Tuple[int, str]:
-    """ระบุ L3: ความเชื่อมั่นการ parse ของทั้งบิล."""
+    """L3: ความเชื่อมั่นการ parse ของทั้งบิล."""
     pc = str(x.bill.get("parse_confidence", "")).upper()
     if pc == "HIGH":
         return 1, "parse confidence HIGH"
@@ -243,7 +242,7 @@ def lens_confidence(x: LensInput) -> Tuple[int, str]:
 
 
 def lens_peer(x: LensInput) -> Tuple[int, str]:
-    """ระบุ L4: โดดเดี่ยวในไฟล์ = anomaly เด่น / พบทั่วไป = อาจเป็นควิร์กของชุด."""
+    """L4: โดดเดี่ยวในไฟล์ = anomaly เด่น / พบทั่วไป = อาจเป็นควิร์กของชุด."""
     b, code, peers = x.bill, x.code, x.peers
     others = [p for p in peers if p is not b]
     if not others:
@@ -263,7 +262,7 @@ def lens_peer(x: LensInput) -> Tuple[int, str]:
 
 
 def lens_ruleclass(x: LensInput) -> Tuple[int, str]:
-    """ระบุ L5: กฎกลุ่มแม่นสูง vs heuristic."""
+    """L5: กฎกลุ่มแม่นสูง vs heuristic."""
     base = x.code.split("-")[0]
     if base in _HIGH_PRECISION:
         return 1, f"กฎ {base} กลุ่มแม่นสูง (เลขคณิต/โครงสร้าง)"
@@ -279,18 +278,19 @@ _LLM_SYSTEM = (
     "คุณคือผู้ช่วยตรวจสอบใบกำกับภาษีไทย ทำหน้าที่ 'ผู้ตรวจซ้ำ' ของระบบ audit. "
     "ระบบเจอ Error หนึ่งจุดบนบิล หน้าที่คุณคือประเมินว่า Error นี้ 'น่าจะเป็นปัญหาจริง' "
     "หรือ 'น่าจะเป็น false positive (เช่นจากการอ่านไฟล์ผิด/ปัดเศษ)'. "
-    '{"verdict":"confirm|refute|uncertain","reason":"สั้นๆ"}'
+    'ตอบเป็น JSON เท่านั้น: {"verdict":"confirm|refute|uncertain","reason":"สั้นๆ"}'
 )
 
 
 def lens_llm(x: LensInput) -> Tuple[int, str]:
-    """ระบุ L6: เลนส์ภาษา (Local LLM, opt-in). offline/probe ไม่ติด → งดออกเสียง (deterministic)."""
+    """L6: เลนส์ภาษา (Local LLM, opt-in). offline/probe ไม่ติด → งดออกเสียง (deterministic)."""
     if x.llm is None:
         return 0, ""
     b, iss, code = x.bill, x.issue, x.code
     try:
         user = (
-            f"Error code: {code} ({iss.get('name','')})ช่องรายละเอียด: {str(iss.get('detail',''))[:200]}ช่อง"
+            f"Error code: {code} ({iss.get('name','')})\n"
+            f"รายละเอียด: {str(iss.get('detail',''))[:200]}\n"
             f"subtotal={b.get('subtotal')} vat={b.get('vat')} total={b.get('total')} "
             f"จำนวนรายการ={len(b.get('items') or [])} "
             f"parse_confidence={b.get('parse_confidence')}"
@@ -312,7 +312,7 @@ def lens_llm(x: LensInput) -> Tuple[int, str]:
 # เลนส์เพิ่ม — ยอดเงิน/เลขคณิต (L7, L8, L11, L12, L13, L14, L15, L16)
 # ===========================================================================
 def lens_rounding_explains(x: LensInput) -> Tuple[int, str]:
-    """ระบุ L7: ส่วนต่างเล็ก ≤ 0.50 บาท = ปัดเศษสตางค์ → ค้าน (เฉพาะ refute)."""
+    """L7: ส่วนต่างเล็ก ≤ 0.50 บาท = ปัดเศษสตางค์ → ค้าน (เฉพาะ refute)."""
     b, code = x.bill, x.code
     if not _is_money_issue(code):
         return 0, ""
@@ -341,7 +341,7 @@ def lens_rounding_explains(x: LensInput) -> Tuple[int, str]:
 
 
 def lens_vat_7pct_exact(x: LensInput) -> Tuple[int, str]:
-    """ระบุ L8: กฎโดเมนล็อค — vat ต้อง = round(subtotal×0.07,2). เป๊ะภายในปัดเศษ → ค้าน,
+    """L8: กฎโดเมนล็อก — vat ต้อง = round(subtotal×0.07,2). เป๊ะภายในปัดเศษ → ค้าน,
     เบี่ยงเกินปัดเศษ → ยืนยัน. (ห้ามใช้ band) งดออกเสียงถ้าไม่คิด VAT (อาจ exempt)."""
     if not x.code.startswith("VAT002"):
         return 0, ""

@@ -96,7 +96,7 @@ run "[3x12] match-guard (กัน fuzzy ผูกข้ามบริษัท
 run "[3x13] rules_c Decimal gates (ค่าขอบเงิน)" "$PY" test_rules_c_decimal_gates.py
 run "[3x7] package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)" "$PY" test_package_integrity.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
-run "[3z] file-size ceiling (≪600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py
+run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py
 run "[3z2] monolith surface contract (26-name getattr API, de-star P1)" "$PY" test_monolith_surface.py
 run "[4] mesh contract"          "$PY" test_mesh_contract.py
 run "[4b] vendor report (.txt รายผู้ขาย)" "$PY" test_vendor_report.py
