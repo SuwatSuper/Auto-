@@ -102,7 +102,7 @@ def _pb_finalize_amounts(result):
     src = {'subtotal': 'ocr' if result['subtotal'] is not None else None,
            'vat':      'ocr' if result['vat']      is not None else None,
            'total':    'ocr' if result['total']    is not None else None}
-    # PATCH 5: vat ที่เป็น rate (≤≤.0) → ทิ้งก่อน reconcile (เป็นอัตรา 0.07 ไม่ใช่ยอด VAT)
+    # PATCH 5: vat ที่เป็น rate (≤1.0) → ทิ้งก่อน reconcile (เป็นอัตรา 0.07 ไม่ใช่ยอด VAT)
     if result['vat'] is not None:
         try:
             if abs(float(result['vat'])) <= 1.0:
@@ -156,7 +156,7 @@ def _iv_embedded_period_ce(iv_text):
 
 def _filename_period_ce(filename):
     """(ปี ค.ศ., เดือน) ที่ชื่อไฟล์ประกาศ (เดือนเดียว) เช่น 'SSN 69.05(3).xls' → (2026, 5).
-    ทนชื่อไฟล์มี prefix ขยะ (เช่น hash) ; None ถ้าไม่ระบุเดือน/เป็นช่วงหลายเดือน (กันเดาผิด)"""
+    ทนชื่อไฟล์มี prefix ขยะ (เช่น hash) ; None ถ้าไม่ระบุเดือน/เป็นช่วงหลายเดือน (กันเดาผิด)."""
     base = os.path.splitext(os.path.basename(filename or ''))[0]
     if re.search(r'(?<!\d)\d{2,4}[.\-_\s]\d{1,2}\s*[-–]\s*\d{1,2}(?!\d)', base):
         return None                       # ช่วงหลายเดือน (YY.MM-MM) → ข้าม (คร่อมเดือน legit)
@@ -171,7 +171,7 @@ def _filename_period_ce(filename):
 
 
 def _pb_prefer_period(df, result, row_start, header_end, ncols, fperiod, sheet_name=None):
-    """[FIX-MULTIBLOCK] ชีตมีบล็อค IV/วันที่ของบิลเก่าค้างเทมเพลตคู่บิลจริง → เลือกตัวที่ตรง 'งวดที่ควรเป็น'
+    """[FIX-MULTIBLOCK] ชีตมีบล็อก IV/วันที่ของบิลเก่าค้างเทมเพลตคู่บิลจริง → เลือกตัวที่ตรง 'งวดที่ควรเป็น'
     (งวดในชื่อไฟล์ ; ถ้าไม่ระบุ → เดาจาก 'วันของชีต'). ทำงานเมื่อมี IV >=2 งวด → ชีตปกติ no-op (golden นิ่ง)."""
     M = df.to_numpy(dtype=object)
     iv_cells = []
@@ -225,7 +225,7 @@ def _pb_prefer_period(df, result, row_start, header_end, ncols, fperiod, sheet_n
 
 def _parse_block(df, sheet_name, filename, row_start, row_end, block_idx=0):
     """parse 1 invoice block (rows row_start..row_end inclusive)
-    v5.8 refactor: แตก loop ชั้นในเป็น helper (_pb_*) เพื่อลด nesting ≦≦
+    v5.8 refactor: แตก loop ชั้นในเป็น helper (_pb_*) เพื่อลด nesting ≤6
     """
     result = {
         'file':os.path.basename(filename),'filepath':filename,
@@ -305,7 +305,7 @@ def _parse_block(df, sheet_name, filename, row_start, row_end, block_idx=0):
 
 def _is_tor_format(df):
     """ตรวจ signature ของ TOR-format (ต้องครบทั้ง 3):
-      1. มี cell ในคอลัมน์ ≦6 ที่ตรง 'IV' + เลข 10-12 หลัก
+      1. มี cell ในคอลัมน์ ≥6 ที่ตรง 'IV' + เลข 10-12 หลัก
       2. มีคำ 'เลขประจำตัวผู้เสียภาษี' อยู่ในชีต
       3. ไม่มีคำ 'ใบกำกับภาษี' / 'TAX INVOICE' (กันชนกับไฟล์ปกติ)
     """
@@ -463,7 +463,7 @@ def _tor_scan_total(df, result, nrows, ncols, last_item_row):
 
 def _parse_tor_sheet(df, sheet_name, filename):
     """แกะใบกำกับ TOR-format ออกเป็น bill dict มาตรฐาน
-    v5.8 refactor: แตก 6 ขั้นตอนเป็น helper (_tor_*) ลด nesting ≦≦
+    v5.8 refactor: แตก 6 ขั้นตอนเป็น helper (_tor_*) ลด nesting ≤6
     คืน dict หรือ None ถ้าหา iv_number ไม่เจอ
     """
     result = {
