@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# hooks/pre-commit — กันการ commit ที่ทำให้ invariant แตก (DECISIONS.md §1, §6)
+#
+# ติดตั้ง:  bash INVARIANTS/install_hooks.sh
+#   (ก๊อปไฟล์นี้ไป .git/hooks/pre-commit — git ไม่ track .git/hooks เลยต้องติดตั้งครั้งเดียว)
+#
+# ฉุกเฉินจริง (เช่นต้อง commit งานเอกสารล้วนตอน CI ภายนอกล่ม) ข้ามได้:
+#   PUOPUY_SKIP_HOOK=1 git commit ...      (จะเตือนเสียงดังว่าเกราะถูกปิด)
+#
+# Windows: git-for-windows มี bash ในตัว → hook นี้รันได้
+
+set -u
+
+if [ "${PUOPUY_SKIP_HOOK:-0}" = "1" ]; then
+  echo "⚠️  PUOPUY_SKIP_HOOK=1 — ข้าม invariant check (เกราะถูกปิดชั่วคราว!)" >&2
+  exit 0
+fi
+
+# repo root จาก git (ทำงานถูกไม่ว่า cwd อยู่ตรงไหนใน repo)
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -z "$ROOT" ] && ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT" || exit 2
+
+PY="${PYTHON:-python3}"
+command -v "$PY" >/dev/null 2>&1 || PY=python
+
+echo "── pre-commit: ตรวจ invariant (golden fixture + pin) ──"
+"$PY" INVARIANTS/check_invariants.py
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  echo "" >&2
+  echo "❌ commit ถูกบล็อก: invariant แตก (ดูข้างบน)" >&2
+  echo "   แก้ให้เขียวก่อน หรือฉุกเฉิน:  PUOPUY_SKIP_HOOK=1 git commit ..." >&2
+  exit 1
+fi
+echo "✅ pre-commit: invariant ครบ — ปล่อย commit"
+exit 0
