@@ -4,6 +4,8 @@ const MAX_POINTS = 300;
 
 let ws = null;
 const priceData = [];
+let latestPricePoint = null;   // buffer — holds latest price received
+let lastChartTick = 0;         // timestamp of last chart update
 
 const chart = new Chart($('chart').getContext('2d'), {
   type: 'line',
@@ -79,15 +81,28 @@ function renderStatus(s) {
 }
 
 function pushPricePoint(p) {
+  // Always update ticker display immediately
   const ts = new Date(p.ts_ms).toLocaleTimeString();
-  priceData.push({ t: ts, v: Number(p.price) });
+  $('price').textContent = fmt.format(Number(p.price));
+  $('price-meta').textContent = `Last update: ${ts} · event_id ${p.event_id.slice(0, 8)}`;
+
+  // Buffer latest price — chart will sample this every 1 second
+  latestPricePoint = { t: ts, v: Number(p.price) };
+}
+
+// Chart ticks at exactly 1-second intervals
+setInterval(() => {
+  if (!latestPricePoint) return;
+  const now = Date.now();
+  if (now - lastChartTick < 1000) return;
+  lastChartTick = now;
+
+  priceData.push(latestPricePoint);
   if (priceData.length > MAX_POINTS) priceData.shift();
   chart.data.labels = priceData.map((d) => d.t);
   chart.data.datasets[0].data = priceData.map((d) => d.v);
   chart.update('none');
-  $('price').textContent = fmt.format(Number(p.price));
-  $('price-meta').textContent = `Last update: ${ts} · event_id ${p.event_id.slice(0, 8)}`;
-}
+}, 1000);
 
 async function api(method, path) {
   try {
