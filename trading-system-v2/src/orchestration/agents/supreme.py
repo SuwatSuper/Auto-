@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from decimal import Decimal, InvalidOperation
+from decimal import InvalidOperation
 
 import orjson
 import structlog

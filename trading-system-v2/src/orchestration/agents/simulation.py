@@ -7,7 +7,9 @@ from decimal import Decimal, InvalidOperation
 import orjson
 import structlog
 
-from domain.backtest.engine import run_backtest
+from domain.backtest.engine import FeeModel, SlippageModel, run_backtest
+from domain.risk.rules import RiskLimits
+from domain.shared.money import THB, Money
 from domain.strategy.ema_cross import EmaCrossStrategy
 from orchestration.ports.event_bus import EventBus
 
@@ -47,14 +49,24 @@ class SimulationAgent:
                     self._prices.append((ts_ms, price))
                     if len(self._prices) >= 50:
                         strategy = EmaCrossStrategy()
+                        limits = RiskLimits(
+                            max_order_qty=Decimal("1"),
+                            max_position_qty=Decimal("1"),
+                            max_daily_loss=Money(amount=Decimal("100000"), currency=THB),
+                            max_drawdown_pct=Decimal("20"),
+                            kill_switch=False,
+                        )
                         report = run_backtest(
-                            strategy,
-                            self._prices[-50:],
-                            Decimal("100000"),
-                            Decimal("0.01"),
+                            prices=self._prices[-50:],
+                            strategy=strategy,
+                            limits=limits,
+                            fees=FeeModel(taker_bps=Decimal("25")),
+                            slippage=SlippageModel(slip_bps=Decimal("5")),
+                            initial_cash=Money(amount=Decimal("100000"), currency=THB),
+                            order_qty=Decimal("0.01"),
                         )
                         out = orjson.dumps({
-                            "total_trades": report.total_trades,
+                            "total_trades": len(report.trades),
                             "win_rate": str(report.win_rate),
                             "expectancy": str(report.expectancy),
                         })

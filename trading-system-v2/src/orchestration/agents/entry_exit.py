@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 import orjson
 import structlog
 
-from domain.strategy.base import Signal
+from domain.strategy.base import SignalAction, StrategyContext
 from domain.strategy.ema_cross import EmaCrossStrategy
 from orchestration.ports.event_bus import EventBus
 
@@ -25,6 +25,7 @@ class EntryExitAgent:
         self._topic_out = topic_out
         self._log = logger
         self._strategy = EmaCrossStrategy()
+        self._prices: list[Decimal] = []
         self.running = False
         self.msg_count = 0
         self.signal_count = 0
@@ -45,10 +46,12 @@ class EntryExitAgent:
                     data = orjson.loads(raw)
                     price = Decimal(str(data.get("price", "0")))
                     ts_ms = int(data.get("ts_ms", 0))
-                    signal = self._strategy.on_price(price, ts_ms)
-                    if signal != Signal.HOLD:
+                    self._prices.append(price)
+                    ctx = StrategyContext(prices=tuple(self._prices), position_qty=Decimal(0))
+                    sig = self._strategy.decide(ctx)
+                    if sig.action != SignalAction.HOLD:
                         self.signal_count += 1
-                        out = orjson.dumps({"signal": signal.value, "price": str(price), "ts_ms": ts_ms})
+                        out = orjson.dumps({"signal": sig.action.value, "price": str(price), "ts_ms": ts_ms})
                         await self._bus.publish(self._topic_out, b"signal", out)
                 except (orjson.JSONDecodeError, KeyError, ValueError, InvalidOperation) as exc:
                     self._log.warning("entry_exit_agent.parse_error", exc_info=exc)

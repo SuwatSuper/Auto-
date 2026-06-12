@@ -7,7 +7,10 @@ from decimal import Decimal, InvalidOperation
 import orjson
 import structlog
 
-from domain.risk.rules import RiskDecision, RiskLimits, evaluate
+from domain.portfolio.models import Account
+from domain.risk.rules import RiskLimits, evaluate
+from domain.shared.money import THB, Money
+from domain.trading.orders import Order, OrderStatus, Side
 from orchestration.ports.event_bus import EventBus
 
 
@@ -25,10 +28,16 @@ class RiskAgent:
         self._topic_out = topic_out
         self._log = logger
         self._limits = limits or RiskLimits(
-            max_position_size=Decimal("1"),
-            max_daily_loss=Decimal("10000"),
+            max_order_qty=Decimal("1"),
+            max_position_qty=Decimal("1"),
+            max_daily_loss=Money(amount=Decimal("100000"), currency=THB),
             max_drawdown_pct=Decimal("20"),
-            max_order_size=Decimal("0.5"),
+            kill_switch=False,
+        )
+        self._account = Account(
+            account_id="risk_agent",
+            cash=Money(amount=Decimal("1000000"), currency=THB),
+            realized_pnl=Money(amount=Decimal(0), currency=THB),
         )
         self.running = False
         self.msg_count = 0
@@ -48,14 +57,33 @@ class RiskAgent:
                 self.msg_count += 1
                 try:
                     data = orjson.loads(raw)
-                    order_size = Decimal(str(data.get("size", "0")))
-                    eval_result = evaluate(order_size, self._limits)
-                    if eval_result.decision == RiskDecision.REJECT:
+                    order_qty = Decimal(str(data.get("qty", "0.01")))
+                    order = Order(
+                        order_id=f"risk-{self.msg_count:06d}",
+                        symbol="THB_BTC",
+                        side=Side.BUY,
+                        qty=order_qty,
+                        limit_price=None,
+                        status=OrderStatus.NEW,
+                        created_ms=0,
+                    )
+                    peak = Money(amount=Decimal("1000000"), currency=THB)
+                    current = Money(amount=Decimal("1000000"), currency=THB)
+                    daily_pnl = Money(amount=Decimal(0), currency=THB)
+                    decision = evaluate(
+                        order=order,
+                        account=self._account,
+                        positions={},
+                        limits=self._limits,
+                        daily_pnl=daily_pnl,
+                        peak_equity=peak,
+                        current_equity=current,
+                    )
+                    if not decision.approved:
                         self.rejected_count += 1
                     out = orjson.dumps({
-                        "decision": eval_result.decision.value,
-                        "reason": eval_result.reason,
-                        "adjusted_size": str(eval_result.adjusted_size) if eval_result.adjusted_size else None,
+                        "approved": decision.approved,
+                        "reasons": [r.value for r in decision.reasons],
                     })
                     await self._bus.publish(self._topic_out, b"risk", out)
                 except (orjson.JSONDecodeError, KeyError, ValueError, InvalidOperation) as exc:
