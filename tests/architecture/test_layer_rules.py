@@ -83,8 +83,8 @@ def test_domain_no_forbidden_modules(forbidden: str) -> None:
 
 
 def test_domain_only_allowed_roots() -> None:
-    """Layer 1: domain imports must come from stdlib, pydantic, or domain."""
-    allowed_roots = _STDLIB | {"pydantic", "domain"}
+    """Layer 1: domain imports must come from stdlib, pydantic, domain, or analytics libs."""
+    allowed_roots = _STDLIB | {"pydantic", "domain", "numpy", "pandas", "pandas_ta"}
     for path in _py_files(_SRC / "domain"):
         imports = _collect_imports(path)
         bad = imports - allowed_roots - {"__future__"}

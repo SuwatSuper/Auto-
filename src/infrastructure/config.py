@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # Agent watchdog / heartbeat
     watchdog_interval_s: float = 2.0
     heartbeat_stale_ms: int = 5000
+    # Enabled strategies (Phase 3) — comma-separated names from domain.strategy.registry
+    enabled_strategies: str = "trend_following"
 
 
 @lru_cache

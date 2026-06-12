@@ -6,3 +6,6 @@ structlog>=24
 pydantic>=2.7
 pydantic-settings>=2.3
 httpx>=0.27
+numpy>=2.0
+pandas>=2.2
+pandas-ta>=0.4.71b0
