@@ -8,7 +8,7 @@ from pathlib import Path
 
 import orjson
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, ORJSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from orchestration.runtime import PipelineRuntime
@@ -22,7 +22,7 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
         yield
         await runtime.stop()
 
-    app = FastAPI(default_response_class=ORJSONResponse, lifespan=lifespan)
+    app = FastAPI(lifespan=lifespan)
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
     @app.get("/", response_class=HTMLResponse)
