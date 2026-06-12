@@ -77,7 +77,8 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
     @app.websocket("/ws")
     async def ws_endpoint(websocket: WebSocket) -> None:
         await websocket.accept()
-        queue = runtime.bus.subscribe(runtime.settings.prices_topic)
+        topic: str = getattr(runtime.settings, "prices_topic", "prices.thb_btc.v1")
+        queue = runtime.bus.subscribe(topic)
 
         async def _forward_prices() -> None:
             """Forward price events from the bus to the WebSocket client."""
@@ -101,6 +102,6 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
         except* Exception:
             pass
         finally:
-            runtime.bus.unsubscribe(runtime.settings.prices_topic, queue)
+            runtime.bus.unsubscribe(topic, queue)
 
     return app

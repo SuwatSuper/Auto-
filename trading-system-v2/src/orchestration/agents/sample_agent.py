@@ -1,4 +1,5 @@
 # Layer 2 — Orchestration (agents/sample_agent)
+"""SampleAgent: consumes price events from the bus and tracks latest price."""
 from __future__ import annotations
 
 import asyncio
@@ -7,14 +8,16 @@ from decimal import Decimal, InvalidOperation
 import orjson
 import structlog
 
-from infrastructure.eventbus.in_memory import InMemoryEventBus
+from orchestration.ports.event_bus import EventBus
 
 
 class SampleAgent:
+    """Consumes price events from the event bus. Depends on EventBus port, not concrete adapter."""
+
     def __init__(
         self,
         name: str,
-        bus: InMemoryEventBus,
+        bus: EventBus,
         topic: str,
         logger: structlog.BoundLogger,
     ) -> None:
@@ -24,12 +27,12 @@ class SampleAgent:
         self._log = logger.bind(agent=name)
         self.running: bool = False
         self.msg_count: int = 0
-        self.parse_failures: int = 0  # B5 fix: track parse failures
+        self.parse_failures: int = 0
         self.latest_price: Decimal | None = None
         self._queue: asyncio.Queue[bytes] | None = None
 
     async def start(self) -> None:
-        # B5 fix: clean event-driven loop with asyncio.timeout, imports at top
+        """Consume events from bus until stop() is called."""
         self.running = True
         queue: asyncio.Queue[bytes] = self._bus.subscribe(self._topic)
         self._queue = queue
@@ -48,7 +51,6 @@ class SampleAgent:
                     if price_val is not None:
                         self.latest_price = Decimal(str(price_val))
                 except (orjson.JSONDecodeError, InvalidOperation, ValueError) as exc:
-                    # B5 fix: narrow exception handling, increment parse_failures
                     self.parse_failures += 1
                     self._log.warning("sample_agent.parse_error", exc_info=exc)
         finally:
@@ -57,13 +59,15 @@ class SampleAgent:
             self._log.info("sample_agent.stopped")
 
     async def stop(self) -> None:
+        """Signal the agent to stop on next timeout."""
         self.running = False
 
     def status(self) -> dict[str, object]:
+        """Return current agent status."""
         return {
             "name": self.name,
             "running": self.running,
             "msg_count": self.msg_count,
-            "parse_failures": self.parse_failures,  # B5 fix: include in status
+            "parse_failures": self.parse_failures,
             "latest_price": str(self.latest_price) if self.latest_price is not None else None,
         }

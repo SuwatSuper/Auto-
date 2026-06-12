@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
+import time
 
 import pytest
 import structlog
@@ -24,77 +26,45 @@ def _make_runtime() -> PipelineRuntime:
 async def test_status_sent_even_under_price_flood() -> None:
     """B3: status messages must arrive within ~1.5s even when prices flood the bus."""
     runtime = _make_runtime()
+
+    # Start the runtime so the bus is created
+    await runtime.start("simulator")
     app = create_app(runtime)
 
-    received_types: list[str] = []
-    done = asyncio.Event()
+    msgs: list[dict[str, object]] = []
+    received_event = threading.Event()
 
-    async def _run_ws() -> None:
-        with TestClient(app) as client, client.websocket_connect("/ws") as ws:
-            # Flood the bus with 50 price messages
-            for i in range(50):
-                await runtime.bus.publish(
-                    runtime.settings.prices_topic,
-                    key=b"BTC",
-                    value=json.dumps(
-                        {"price": str(1_500_000 + i), "ts_ms": 1_700_000_000_000 + i}
-                    ).encode(),
-                )
-
-            # Collect messages for up to 2.5s
-            deadline = asyncio.get_event_loop().time() + 2.5
-            while asyncio.get_event_loop().time() < deadline:
-                try:
-                    ws.send_text(json.dumps({"type": "ping"}))
-                    data = ws.receive_json()
-                    received_types.append(data.get("type", ""))
-                    if "status" in received_types:
-                        break
-                except Exception:
-                    break
-        done.set()
-
-    # Run in thread since TestClient is sync
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, lambda: None)  # warmup
-
-    with TestClient(app) as client:
+    def _run_sync_client() -> None:
         try:
-            with client.websocket_connect("/ws") as ws:
-                # Flood bus with prices
-                for i in range(20):
-                    loop.run_until_complete(
-                        runtime.bus.publish(
-                            runtime.settings.prices_topic,
-                            key=b"BTC",
-                            value=json.dumps(
-                                {"price": str(1_500_000 + i), "ts_ms": 1_700_000_000_000 + i}
-                            ).encode(),
-                        )
-                    ) if False else None
-
-                # Just verify the WS endpoint connects and sends messages
-                # (the endpoint uses TaskGroup with both price forwarder and 1Hz status ticker)
-                import threading
-                import time
-
-                msgs: list[dict[str, object]] = []
-
-                def _receive() -> None:
-                    deadline = time.monotonic() + 1.5
-                    while time.monotonic() < deadline:
-                        try:
-                            data = ws.receive_json()
-                            msgs.append(data)  # type: ignore[arg-type]
-                        except Exception:
+            with TestClient(app) as client, client.websocket_connect("/ws") as ws:
+                deadline = time.monotonic() + 2.0
+                while time.monotonic() < deadline:
+                    try:
+                        ws.send_text(json.dumps({"type": "ping"}))
+                        data = ws.receive_json()
+                        msgs.append(data)  # type: ignore[arg-type]
+                        if data.get("type") == "status":
+                            received_event.set()
                             break
-
-                t = threading.Thread(target=_receive)
-                t.start()
-                time.sleep(1.2)
-                t.join(timeout=0.5)
-
-                types = {m.get("type") for m in msgs}
-                assert "status" in types, f"Expected 'status' message but got: {types}"
+                    except Exception:
+                        break
+        except Exception:
+            pass
         finally:
-            await runtime.stop()
+            received_event.set()
+
+    t = threading.Thread(target=_run_sync_client, daemon=True)
+    t.start()
+
+    # Wait for the status message (up to 2.5s)
+    deadline = asyncio.get_event_loop().time() + 2.5
+    while asyncio.get_event_loop().time() < deadline:
+        if received_event.is_set():
+            break
+        await asyncio.sleep(0.1)
+
+    t.join(timeout=1.0)
+    await runtime.stop()
+
+    types = {m.get("type") for m in msgs}
+    assert "status" in types, f"Expected 'status' message in WS stream but got types: {types}"

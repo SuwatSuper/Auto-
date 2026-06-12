@@ -1,19 +1,13 @@
 # Layer 1 — Domain (trading/market_data)
-"""Market data domain models and normalization for trading.
-
-NOTE: structlog is imported here for P0 compatibility with price_supervisor.py.
-P1 will refactor normalize_bitkub_ticker to be pure (no structlog dependency).
-"""
+"""Market data domain models and pure normalization function."""
 from __future__ import annotations
 
 import uuid
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    import structlog
 
 
 class PriceUpdate(BaseModel, frozen=True):
@@ -27,60 +21,79 @@ class PriceUpdate(BaseModel, frozen=True):
     version: int = 1
 
 
+class NormalizationReason(StrEnum):
+    """Machine-readable rejection codes for normalize_bitkub_ticker."""
+
+    NOT_A_DICT = "NOT_A_DICT"
+    MISSING_LAST = "MISSING_LAST"
+    BAD_PRICE = "BAD_PRICE"
+    NON_POSITIVE_PRICE = "NON_POSITIVE_PRICE"
+    BAD_TIMESTAMP = "BAD_TIMESTAMP"
+    STALE = "STALE"
+    FUTURE_SKEW = "FUTURE_SKEW"
+    INTERNAL = "INTERNAL"
+
+
+class NormalizationFailure(BaseModel, frozen=True):
+    """Returned when a raw ticker cannot be normalized."""
+
+    reason: NormalizationReason
+
+
 def normalize_bitkub_ticker(
-    raw: dict[str, Any],
+    raw: object,
     *,
-    logger: structlog.BoundLogger | None = None,
-) -> PriceUpdate | None:
+    now_ms: int,
+    max_age_ms: int = 60_000,
+    max_skew_ms: int = 5_000,
+) -> PriceUpdate | NormalizationFailure:
     """Normalize a raw Bitkub ticker payload to a PriceUpdate.
 
-    Returns None if the payload is invalid.
+    Pure function: no I/O, no logging, no side effects.
+    The caller passes concrete now_ms so clocks are injected, not called here.
+
+    Returns PriceUpdate on success, NormalizationFailure on any invalid input.
     """
     try:
         if not isinstance(raw, dict):
-            if logger:
-                logger.warning("normalize.not_a_dict", raw_type=type(raw).__name__)
-            return None
+            return NormalizationFailure(reason=NormalizationReason.NOT_A_DICT)
 
-        last_val = raw.get("last")
+        raw_dict: dict[str, Any] = raw
+
+        last_val = raw_dict.get("last")
         if last_val is None:
-            if logger:
-                logger.warning("normalize.missing_last", raw=raw)
-            return None
+            return NormalizationFailure(reason=NormalizationReason.MISSING_LAST)
 
         try:
             price = Decimal(str(last_val))
         except (InvalidOperation, TypeError):
-            if logger:
-                logger.warning("normalize.bad_price", last=last_val)
-            return None
+            return NormalizationFailure(reason=NormalizationReason.BAD_PRICE)
 
         if price <= 0:
-            if logger:
-                logger.warning("normalize.non_positive_price", price=str(price))
-            return None
+            return NormalizationFailure(reason=NormalizationReason.NON_POSITIVE_PRICE)
 
-        # Extract ts_ms from 'ts_ms' field (milliseconds) or 'ts' field (seconds)
-        ts_raw = raw.get("ts_ms") or raw.get("ts")
+        # Accept ts_ms (milliseconds) or ts (seconds)
+        ts_raw = raw_dict.get("ts_ms") or raw_dict.get("ts")
         if ts_raw is None:
-            if logger:
-                logger.warning("normalize.bad_timestamp", raw=raw)
-            return None
+            return NormalizationFailure(reason=NormalizationReason.BAD_TIMESTAMP)
 
-        ts_ms: int
         try:
             ts_int = int(str(ts_raw))
-            # Seconds (< year 2100 in ms would be ~4e12) → convert to ms
+            # Seconds (< year 2100 in ms ≈ 4e12) → convert to ms
             ts_ms = ts_int * 1000 if ts_int < 1_000_000_000_000 else ts_int
         except (ValueError, TypeError):
-            if logger:
-                logger.warning("normalize.bad_timestamp_value", ts_raw=ts_raw)
-            return None
+            return NormalizationFailure(reason=NormalizationReason.BAD_TIMESTAMP)
+
+        age_ms = now_ms - ts_ms
+        if age_ms > max_age_ms:
+            return NormalizationFailure(reason=NormalizationReason.STALE)
+        if ts_ms - now_ms > max_skew_ms:
+            return NormalizationFailure(reason=NormalizationReason.FUTURE_SKEW)
 
         # Extract symbol from stream name
-        stream = str(raw.get("stream", "market.ticker.thb_btc"))
+        stream = str(raw_dict.get("stream", "market.ticker.thb_btc"))
         parts = stream.split(".")
-        symbol = parts[-1].upper() if len(parts) >= 1 else "THB_BTC"
+        symbol = parts[-1].upper() if parts else "THB_BTC"
 
         return PriceUpdate(
             event_id=str(uuid.uuid4()),
@@ -90,7 +103,5 @@ def normalize_bitkub_ticker(
             source="bitkub",
             version=1,
         )
-    except Exception as exc:
-        if logger:
-            logger.error("normalize.internal_error", exc_info=exc)
-        return None
+    except Exception:
+        return NormalizationFailure(reason=NormalizationReason.INTERNAL)

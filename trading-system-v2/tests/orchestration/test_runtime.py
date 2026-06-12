@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import pytest
 import structlog
@@ -20,23 +21,29 @@ def _make_runtime() -> PipelineRuntime:
 @pytest.mark.asyncio
 async def test_switch_mode_keeps_bus_subscribers() -> None:
     """B1: switching mode must NOT orphan existing bus subscribers."""
-    runtime = _make_runtime()
-    # Subscribe to the bus BEFORE starting
-    queue = runtime.bus.subscribe(runtime.settings.prices_topic)
-    original_bus_id = id(runtime.bus)
+    from infrastructure.eventbus.in_memory import InMemoryEventBus
 
-    # Start then switch mode — bus must be the same object
+    runtime = _make_runtime()
+    # Start first so the bus is available
     await runtime.start("simulator")
     try:
+        # Subscribe after start
+        topic = "prices.thb_btc.v1"
+        queue = runtime.bus.subscribe(topic)
+        original_bus_id = id(runtime.bus)
+
+        # Switch mode — bus must be the same object
         await runtime.switch_mode("simulator")
         assert id(runtime.bus) == original_bus_id, "bus object was replaced!"
 
         # Verify the subscriber queue is still registered in the same bus
-        subs = runtime.bus._subs.get(runtime.settings.prices_topic, [])
+        bus_impl: InMemoryEventBus = runtime.bus  # type: ignore[assignment]
+        subs = bus_impl._subs.get(topic, [])
         assert queue in subs, "Pre-switch subscriber was dropped from bus after switch_mode"
     finally:
         await runtime.stop()
-        runtime.bus.unsubscribe(runtime.settings.prices_topic, queue)
+        with contextlib.suppress(Exception):
+            runtime.bus.unsubscribe(topic, queue)
 
 
 @pytest.mark.asyncio

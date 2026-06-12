@@ -1,14 +1,20 @@
+# Layer 2 — Orchestration (supervisors/price_supervisor)
+"""PriceSupervisor: bridges the raw price feed into the typed event bus."""
 from __future__ import annotations
+
+import time
 
 import orjson
 import structlog
 
-from domain.trading.market_data import normalize_bitkub_ticker
+from domain.trading.market_data import NormalizationFailure, normalize_bitkub_ticker
 from orchestration.ports.event_publisher import EventPublisher
 from orchestration.ports.price_feed import PriceFeed
 
 
 class PriceSupervisor:
+    """Consumes raw feed messages, normalizes them, and publishes to the bus."""
+
     def __init__(
         self,
         feed: PriceFeed,
@@ -22,21 +28,26 @@ class PriceSupervisor:
         self._log = logger
 
     async def run(self) -> None:
+        """Run forever, forwarding normalized price events."""
         await self._feed.run(self._handle_raw)
 
     async def _handle_raw(self, raw: dict[str, object]) -> None:
-        price_update = normalize_bitkub_ticker(raw, logger=self._log)
-        if price_update is None:
+        now_ms = int(time.time() * 1000)
+        result = normalize_bitkub_ticker(raw, now_ms=now_ms)
+        if isinstance(result, NormalizationFailure):
+            self._log.warning(
+                "price_supervisor.normalization_failure", reason=result.reason
+            )
             return
-        payload = orjson.dumps(price_update.model_dump(mode="json"))
+        payload = orjson.dumps(result.model_dump(mode="json"))
         await self._bus.publish(
             self._topic,
-            key=price_update.symbol.encode(),
+            key=result.symbol.encode(),
             value=payload,
         )
         self._log.info(
             "price_published",
-            symbol=price_update.symbol,
-            price=str(price_update.price),
-            event_id=price_update.event_id,
+            symbol=result.symbol,
+            price=str(result.price),
+            event_id=result.event_id,
         )
