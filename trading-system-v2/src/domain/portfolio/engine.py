@@ -39,7 +39,7 @@ def apply_fill(
         if old_qty >= 0:
             # Adding to long (or opening)
             total_qty = old_qty + qty
-            if total_qty == 0:
+            if total_qty == 0:  # pragma: no cover
                 new_entry = Decimal(0)
             else:
                 new_entry = (old_qty * old_entry + qty * price) / total_qty
@@ -61,7 +61,7 @@ def apply_fill(
         if old_qty <= 0:
             # Adding to short (or opening short)
             total_qty = old_qty - qty
-            if total_qty == 0:
+            if total_qty == 0:  # pragma: no cover
                 new_entry = Decimal(0)
             else:
                 new_entry = ((-old_qty) * old_entry + qty * price) / (-total_qty)

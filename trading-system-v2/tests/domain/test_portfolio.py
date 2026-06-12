@@ -168,6 +168,49 @@ def test_equity_with_positions() -> None:
     assert eq.amount == Decimal("950000")
 
 
+def test_unrealized_pnl_zero_qty() -> None:
+    """Position with qty=0 returns 0 PnL."""
+    pos = Position(symbol="THB_BTC", qty=Decimal("0"), avg_entry_price=Decimal("1500000"))
+    pnl = unrealized_pnl(pos, Decimal("1600000"))
+    assert pnl.amount == Decimal(0)
+
+
+def test_buy_into_short_to_zero_clears_entry() -> None:
+    """Buying exactly enough to flatten a short should clear entry price."""
+    acct = _account("1000000")
+    positions = {
+        "THB_BTC": Position(symbol="THB_BTC", qty=Decimal("-0.1"), avg_entry_price=Decimal("1500000"))
+    }
+    # Buy 0.1 to fully close the short (no flip)
+    t = _trade("BUY", "0.1", "1500000", "0")
+    acct2, pos = apply_fill(acct, positions, t)
+    assert "THB_BTC" not in pos
+
+
+def test_sell_into_long_to_zero_clears_entry() -> None:
+    """Selling exactly enough to flatten a long should clear entry price."""
+    acct = _account("1000000")
+    positions = {
+        "THB_BTC": Position(symbol="THB_BTC", qty=Decimal("0.1"), avg_entry_price=Decimal("1500000"))
+    }
+    t = _trade("SELL", "0.1", "1500000", "0")
+    acct2, pos = apply_fill(acct, positions, t)
+    assert "THB_BTC" not in pos
+
+
+def test_buy_covering_short_with_open() -> None:
+    """Buying more than needed to cover short opens a long position."""
+    acct = _account("1000000")
+    positions = {
+        "THB_BTC": Position(symbol="THB_BTC", qty=Decimal("-0.1"), avg_entry_price=Decimal("1500000"))
+    }
+    # Buy 0.2 - covers 0.1 short, opens 0.1 long
+    t = _trade("BUY", "0.2", "1600000", "0")
+    acct2, pos = apply_fill(acct, positions, t)
+    assert pos["THB_BTC"].qty == Decimal("0.1")
+    assert pos["THB_BTC"].avg_entry_price == Decimal("1600000")
+
+
 # =====================================================================
 # Hypothesis invariant test
 # =====================================================================

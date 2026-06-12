@@ -132,3 +132,45 @@ def test_backtest_no_lookahead() -> None:
         assert trade.price in price_values, (
             f"Fill price {trade.price} not in price series (lookahead detected)"
         )
+
+
+def test_backtest_empty_prices() -> None:
+    """Empty price series should return initial_cash as final equity."""
+    report = run_backtest(
+        prices=[],
+        strategy=EmaCrossStrategy(fast=3, slow=5),
+        limits=RiskLimits(
+            max_order_qty=Decimal("1"),
+            max_position_qty=Decimal("2"),
+            max_daily_loss=_money("999999"),
+            max_drawdown_pct=Decimal("99"),
+        ),
+        fees=FeeModel(taker_bps=Decimal("10")),
+        slippage=SlippageModel(slip_bps=Decimal("5")),
+        initial_cash=_money("1000000"),
+        order_qty=Decimal("0.01"),
+    )
+    assert report.final_equity.amount == Decimal("1000000")
+    assert report.bars == 0
+
+
+def test_backtest_risk_rejection_recorded_in_equity_curve() -> None:
+    """When risk rules reject an order, equity is still appended at current price."""
+    # Kill switch = True means ALL orders are rejected
+    report = run_backtest(
+        prices=_PRICES_30,
+        strategy=EmaCrossStrategy(fast=3, slow=5),
+        limits=RiskLimits(
+            max_order_qty=Decimal("1"),
+            max_position_qty=Decimal("2"),
+            max_daily_loss=_money("999999999"),
+            max_drawdown_pct=Decimal("99"),
+            kill_switch=True,  # blocks all orders
+        ),
+        fees=FeeModel(taker_bps=Decimal("10")),
+        slippage=SlippageModel(slip_bps=Decimal("5")),
+        initial_cash=_money("10000000"),
+        order_qty=Decimal("0.1"),
+    )
+    assert len(report.trades) == 0  # all orders rejected
+    assert len(report.equity_curve) >= 1
