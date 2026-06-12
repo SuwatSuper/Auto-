@@ -736,8 +736,10 @@ function updateAgentCards() {
    CHARTS
 ────────────────────────────────────────────────────────────── */
 function initDonutChart() {
+  if (typeof Chart === 'undefined') return;
   const ctx = document.getElementById('chart-donut');
   if (!ctx) return;
+  try {
   State.charts.donut = new Chart(ctx.getContext('2d'), {
     type: 'doughnut',
     data: {
@@ -777,11 +779,14 @@ function initDonutChart() {
     row.appendChild(el('span', 'donut-legend-pct', d.pct.toFixed(1) + '%'));
     legend.appendChild(row);
   });
+  } catch(e) { console.warn('Donut chart init failed:', e); }
 }
 
 function initPerfChart() {
+  if (typeof Chart === 'undefined') return;
   const ctx = document.getElementById('chart-perf');
   if (!ctx) return;
+  try {
   const labels = Array.from({ length: 30 }, (_, i) => `${i + 1}`);
   const dummyData = labels.map((_, i) => 100 + Math.sin(i * 0.4) * 5 + i * 0.62);
   State.charts.perf = new Chart(ctx.getContext('2d'), {
@@ -815,6 +820,7 @@ function initPerfChart() {
       animation: { duration: 300 },
     },
   });
+  } catch(e) { console.warn('Perf chart init failed:', e); }
 }
 
 function updatePerfChart() {
@@ -848,28 +854,65 @@ async function fetchStatus() {
 /* ──────────────────────────────────────────────────────────────
    EVENT LISTENERS
 ────────────────────────────────────────────────────────────── */
+/* Visual ripple feedback on any button click */
+function flashBtn(btn, ok = true) {
+  const prev = btn.style.opacity;
+  btn.style.opacity = '0.5';
+  setTimeout(() => { btn.style.opacity = prev || '1'; }, 150);
+}
+
 function bindEvents() {
-  // Mode buttons
-  $('btn-sim').addEventListener('click', () => apiPost('/api/mode/simulator'));
-  $('btn-live').addEventListener('click', () => apiPost('/api/mode/live'));
+  // ── Mode buttons ──
+  const btnSim  = $('btn-sim');
+  const btnLive = $('btn-live');
+  if (btnSim) btnSim.addEventListener('click', () => {
+    flashBtn(btnSim);
+    btnSim.classList.add('active');
+    if (btnLive) btnLive.classList.remove('active');
+    $('stat-mode-badge') && ($('stat-mode-badge').textContent = 'SIMULATOR MODE');
+    apiPost('/api/mode/simulator');
+  });
+  if (btnLive) btnLive.addEventListener('click', () => {
+    flashBtn(btnLive);
+    btnLive.classList.add('active');
+    if (btnSim) btnSim.classList.remove('active');
+    $('stat-mode-badge') && ($('stat-mode-badge').textContent = 'LIVE MODE');
+    apiPost('/api/mode/live');
+  });
 
-  // Emergency
-  $('emergency-stop').addEventListener('click', async () => {
+  // ── Emergency stop / reset ──
+  const eStop  = $('emergency-stop');
+  const eReset = $('emergency-reset');
+  if (eStop) eStop.addEventListener('click', async () => {
+    flashBtn(eStop);
+    eStop.classList.add('hidden');
+    if (eReset) eReset.classList.remove('hidden');
     await apiPost('/api/emergency_stop');
-    $('emergency-stop').classList.add('hidden');
-    $('emergency-reset').classList.remove('hidden');
   });
-  $('emergency-reset').addEventListener('click', async () => {
+  if (eReset) eReset.addEventListener('click', async () => {
+    flashBtn(eReset);
+    eReset.classList.add('hidden');
+    if (eStop) eStop.classList.remove('hidden');
     await apiPost('/api/emergency_reset');
-    $('emergency-reset').classList.add('hidden');
-    $('emergency-stop').classList.remove('hidden');
   });
 
-  // Start/stop all
-  $('start-all').addEventListener('click', () => apiPost('/api/agents/start_all'));
-  $('stop-all').addEventListener('click',  () => apiPost('/api/agents/stop_all'));
+  // ── Start / Stop all agents ──
+  const startAll = $('start-all');
+  const stopAll  = $('stop-all');
+  if (startAll) startAll.addEventListener('click', () => {
+    flashBtn(startAll);
+    AGENTS.forEach(a => { State.agents[a.id] = { running: true }; });
+    updateAgentCards();
+    apiPost('/api/agents/start_all');
+  });
+  if (stopAll) stopAll.addEventListener('click', () => {
+    flashBtn(stopAll);
+    AGENTS.forEach(a => { State.agents[a.id] = { running: false }; });
+    updateAgentCards();
+    apiPost('/api/agents/stop_all');
+  });
 
-  // Nav items
+  // ── Nav items ──
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', e => {
       e.preventDefault();
@@ -878,10 +921,17 @@ function bindEvents() {
     });
   });
 
-  // Language toggle
-  $('lang-toggle').addEventListener('click', () => {
+  // ── Language toggle ──
+  const langBtn = $('lang-toggle');
+  if (langBtn) langBtn.addEventListener('click', () => {
     State.lang = State.lang === 'en' ? 'th' : 'en';
-    $('lang-toggle').textContent = State.lang === 'en' ? 'TH' : 'EN';
+    langBtn.textContent = State.lang === 'en' ? 'TH' : 'EN';
+    flashBtn(langBtn);
+  });
+
+  // ── Header icon buttons (visual only) ──
+  document.querySelectorAll('.hdr-icon-btn').forEach(btn => {
+    btn.addEventListener('click', () => flashBtn(btn));
   });
 }
 
@@ -911,11 +961,14 @@ function startPeriodicUpdates() {
    INIT
 ────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-  renderAgentGrid();
-  initDonutChart();
-  initPerfChart();
-  refreshCityWalkers();   // populate isometric city chibi walkers
+  // ── bindEvents FIRST — ensures buttons always work even if other inits fail ──
   bindEvents();
+
+  try { renderAgentGrid(); }    catch(e) { console.warn('renderAgentGrid:', e); }
+  try { initDonutChart(); }     catch(e) { console.warn('initDonutChart:', e); }
+  try { initPerfChart(); }      catch(e) { console.warn('initPerfChart:', e); }
+  try { refreshCityWalkers(); } catch(e) { console.warn('refreshCityWalkers:', e); }
+
   connectWS();
   fetchStatus();
   startPeriodicUpdates();
