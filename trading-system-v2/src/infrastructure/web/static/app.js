@@ -898,11 +898,13 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (target.id === 'start-all') {
-    await apiCall('POST', '/api/start_all');
+    await apiCall('POST', '/api/agents/start_all');
+    logEvent('All agents started', 'ok');
     return;
   }
   if (target.id === 'stop-all') {
-    await apiCall('POST', '/api/stop_all');
+    await apiCall('POST', '/api/agents/stop_all');
+    logEvent('All agents stopped', 'warn');
     return;
   }
   if (target.id === 'clear-log') {
