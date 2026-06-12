@@ -17,6 +17,7 @@ import asyncio
 import contextlib
 import hashlib
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import orjson
@@ -38,6 +39,10 @@ class ExecutionAgent:
       (c) data/KILL_SWITCH file does not exist
       (d) circuit_breaker.is_open is False
 
+    Optional 5th gate (startup reconciliation):
+      (e) reconciliation_gate() returns True — blocks decisions until the
+          ReconciliationAgent completes its first balance poll.
+
     Any failed gate silently falls back to the paper path and logs CRITICAL
     "live_blocked" with the gate name that failed.
     """
@@ -52,6 +57,7 @@ class ExecutionAgent:
         rate_limiter: object,  # TokenBucket — local import avoids circular deps
         logger: structlog.BoundLogger,
         rest_gateway: object | None = None,
+        reconciliation_gate: Callable[[], bool] | None = None,
     ) -> None:
         self._bus = bus
         self._raw_topic = raw_decisions_topic
@@ -61,6 +67,7 @@ class ExecutionAgent:
         self._rate_limiter = rate_limiter
         self._log = logger.bind(agent="execution_agent")
         self._rest_gateway = rest_gateway
+        self._reconciliation_gate = reconciliation_gate
 
         self.running: bool = False
         self.msg_count: int = 0
@@ -100,6 +107,12 @@ class ExecutionAgent:
             return
 
         if data.get("decision") != "EXECUTE":
+            return
+
+        # 0. Startup reconciliation gate (optional — only present in live wiring)
+        if self._reconciliation_gate is not None and not self._reconciliation_gate():
+            await self._publish_rejection(["STARTUP_NOT_RECONCILED"])
+            self._log.warning("execution_agent.vetoed", reason="STARTUP_NOT_RECONCILED")
             return
 
         # 1. Circuit-breaker fast path

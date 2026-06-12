@@ -218,6 +218,30 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
     async def status() -> dict[str, object]:
         return runtime.status()
 
+    @app.get("/api/health")
+    async def health() -> dict[str, object]:
+        """Detailed health check: agent counts, feed status, uptime."""
+        s = runtime.status()
+        agents: dict[str, object] = s.get("agents", {})  # type: ignore[assignment]
+        stale = [
+            name
+            for name, info in agents.items()
+            if isinstance(info, dict) and info.get("stale", False)
+        ]
+        return {
+            "status": "ok",
+            "ts_ms": int(time.time() * 1000),
+            "uptime_seconds": s.get("uptime_seconds", 0),
+            "agent_count": len(agents),
+            "running_agents": len([
+                a for a in agents.values()
+                if isinstance(a, dict) and a.get("running", False)
+            ]),
+            "stale_agents": stale,
+            "feed_connected": s.get("health", {}).get("feed_connected", False),  # type: ignore[union-attr]
+            "emergency_stopped": s.get("emergency_stopped", False),
+        }
+
     # ── CEO Executive Reporting endpoints (Production Migration) ─────────
     @app.get("/api/ceo/summary")
     async def ceo_summary() -> dict[str, object]:

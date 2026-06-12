@@ -212,6 +212,78 @@ async def test_non_execute_decision_ignored() -> None:
     assert approved_q.empty()
 
 
+# ── Reconciliation gate (gate 0 — STARTUP_NOT_RECONCILED) ────────────
+
+@pytest.mark.asyncio
+async def test_reconciliation_gate_blocks_when_not_reconciled() -> None:
+    """When reconciliation_gate returns False, decisions are vetoed with STARTUP_NOT_RECONCILED."""
+    bus = InMemoryEventBus()
+    vetoed_q = bus.subscribe("paper.decisions.v1")
+
+    agent = ExecutionAgent(
+        bus=bus,
+        raw_decisions_topic="decisions.v1",
+        approved_topic="paper.decisions.v1",
+        settings=_settings("paper"),
+        breaker=CircuitBreaker(),
+        rate_limiter=TokenBucket(capacity=100, refill_per_sec=1000.0),
+        logger=structlog.get_logger("test"),
+        reconciliation_gate=lambda: False,  # not yet reconciled
+    )
+
+    await _run_agent_briefly(
+        agent,
+        publish_fn=bus.publish("decisions.v1", b"k", _decision(decision_id="recon-001")),
+    )
+
+    assert not vetoed_q.empty()
+    msg = orjson.loads(vetoed_q.get_nowait())
+    assert msg["type"] == "EXECUTION_VETOED"
+    assert "STARTUP_NOT_RECONCILED" in msg["reasons"]
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_gate_passes_when_reconciled() -> None:
+    """When reconciliation_gate returns True, decisions flow through normally."""
+    bus = InMemoryEventBus()
+    approved_q = bus.subscribe("paper.decisions.v1")
+
+    agent = ExecutionAgent(
+        bus=bus,
+        raw_decisions_topic="decisions.v1",
+        approved_topic="paper.decisions.v1",
+        settings=_settings("paper"),
+        breaker=CircuitBreaker(),
+        rate_limiter=TokenBucket(capacity=100, refill_per_sec=1000.0),
+        logger=structlog.get_logger("test"),
+        reconciliation_gate=lambda: True,  # already reconciled
+    )
+
+    await _run_agent_briefly(
+        agent,
+        publish_fn=bus.publish("decisions.v1", b"k", _decision(decision_id="recon-pass-001")),
+    )
+
+    assert not approved_q.empty()
+    msg = orjson.loads(approved_q.get_nowait())
+    assert msg["decision"] == "EXECUTE"
+
+
+@pytest.mark.asyncio
+async def test_no_reconciliation_gate_defaults_to_passing() -> None:
+    """Without reconciliation_gate (default None), decisions are not blocked."""
+    bus = InMemoryEventBus()
+    approved_q = bus.subscribe("paper.decisions.v1")
+    agent = _make_agent(bus)  # no reconciliation_gate passed
+
+    await _run_agent_briefly(
+        agent,
+        publish_fn=bus.publish("decisions.v1", b"k", _decision(decision_id="recon-default-001")),
+    )
+
+    assert not approved_q.empty()
+
+
 # ── Integration (skipped by default) ─────────────────────────────────
 
 @pytest.mark.integration

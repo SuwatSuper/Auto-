@@ -322,3 +322,12 @@ def test_old_style_positional_call_still_works() -> None:
         _money("1000000"),
     )
     assert decision.approved is True
+
+
+
+def test_startup_not_reconciled_reason_code_exists() -> None:
+    """STARTUP_NOT_RECONCILED must be a member of RiskReasonCode (Phase 4 startup gate)."""
+    from domain.risk.rules import RiskReasonCode
+
+    assert "STARTUP_NOT_RECONCILED" in [r.value for r in RiskReasonCode]
+    assert RiskReasonCode.STARTUP_NOT_RECONCILED == "STARTUP_NOT_RECONCILED"

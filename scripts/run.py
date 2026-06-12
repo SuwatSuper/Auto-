@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import signal
 
 import structlog
 import uvicorn
@@ -29,7 +31,20 @@ async def main() -> None:
         log_level=settings.log_level.lower(),
     )
     server = uvicorn.Server(config)
+
+    # Graceful shutdown: SIGTERM and SIGINT both set server.should_exit.
+    loop = asyncio.get_running_loop()
+
+    def _handle_shutdown() -> None:
+        logger.info("shutdown.signal_received")
+        server.should_exit = True
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        with contextlib.suppress(NotImplementedError, OSError):
+            loop.add_signal_handler(sig, _handle_shutdown)
+
     await server.serve()
+    logger.info("shutdown.complete")
 
 
 if __name__ == "__main__":
