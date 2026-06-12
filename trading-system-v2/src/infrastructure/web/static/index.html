@@ -22,6 +22,10 @@
         <div class="logo-sub" data-i18n="subtitle">BTC/THB Trading System</div>
       </div>
     </div>
+    <div class="header-meta-row">
+      <div class="header-meta-item">Mode: <span class="header-meta-val" id="sys-mode">—</span></div>
+      <div class="header-meta-item">Up: <span class="header-meta-val" id="sys-uptime">—</span></div>
+    </div>
   </div>
 
   <div class="header-center">
@@ -61,13 +65,12 @@
       <span data-i18n="factory_floor">Operations Factory Floor</span>
       <div class="floor-controls">
         <button id="start-all" class="btn-xs btn-green" data-i18n="start_all">▶ Start All</button>
-        <button id="stop-all" class="btn-xs btn-yellow" data-i18n="stop_all">■ Stop All</button>
+        <button id="stop-all"  class="btn-xs btn-yellow" data-i18n="stop_all">■ Stop All</button>
       </div>
     </div>
 
-    <div id="agent-grid">
-      <!-- Chibi zones injected by app.js -->
-    </div>
+    <!-- Chibi zones injected by app.js -->
+    <div id="agent-grid"></div>
   </section>
 
   <!-- ══════════════════════════════════════════════════════
@@ -78,7 +81,9 @@
     <!-- 5.6 Price Chart -->
     <div class="panel" id="panel-chart">
       <div class="panel-title" data-i18n="price_chart">📈 Price Chart (Last 100)</div>
-      <canvas id="price-chart" height="110"></canvas>
+      <div style="position:relative;height:110px;width:100%">
+        <canvas id="price-chart"></canvas>
+      </div>
     </div>
 
     <!-- 5.7 Portfolio -->
