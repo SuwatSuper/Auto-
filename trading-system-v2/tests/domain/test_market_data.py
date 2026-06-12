@@ -130,3 +130,15 @@ def test_future_skew_returns_failure() -> None:
     result = normalize_bitkub_ticker(raw, now_ms=_NOW_MS)
     assert isinstance(result, NormalizationFailure)
     assert result.reason == NormalizationReason.FUTURE_SKEW
+
+
+def test_bad_timestamp_value_returns_failure() -> None:
+    """A timestamp that can't be parsed as int returns BAD_TIMESTAMP."""
+    raw: dict[str, object] = {
+        "stream": "market.ticker.thb_btc",
+        "last": "1500000.00",
+        "ts": "not-a-timestamp",
+    }
+    result = normalize_bitkub_ticker(raw, now_ms=_NOW_MS)
+    assert isinstance(result, NormalizationFailure)
+    assert result.reason == NormalizationReason.BAD_TIMESTAMP

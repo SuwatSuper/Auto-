@@ -1,0 +1,36 @@
+{
+  "en": {
+    "title": "Trading System v2",
+    "mode": "Mode",
+    "status": "Status",
+    "live": "Live",
+    "simulator": "Simulator",
+    "emergency_stop": "Emergency Stop",
+    "emergency_reset": "Reset",
+    "start_all": "Start All",
+    "stop_all": "Stop All",
+    "latest_price": "Latest Price",
+    "latency_ms": "Latency (ms)",
+    "uptime_sec": "Uptime (s)",
+    "msg_per_sec": "Msg/sec",
+    "agents": "Agents",
+    "emergency_stopped": "Emergency Stopped"
+  },
+  "th": {
+    "title": "ระบบเทรด v2",
+    "mode": "โหมด",
+    "status": "สถานะ",
+    "live": "สด",
+    "simulator": "จำลอง",
+    "emergency_stop": "หยุดฉุกเฉิน",
+    "emergency_reset": "รีเซ็ต",
+    "start_all": "เริ่มทั้งหมด",
+    "stop_all": "หยุดทั้งหมด",
+    "latest_price": "ราคาล่าสุด",
+    "latency_ms": "เวลาแฝง (ms)",
+    "uptime_sec": "เวลาทำงาน (s)",
+    "msg_per_sec": "ข้อความ/วิ",
+    "agents": "เอเจนต์",
+    "emergency_stopped": "หยุดฉุกเฉิน"
+  }
+}
