@@ -1,0 +1,10 @@
+:root { color-scheme: dark; }
+body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+.card { background: #0f172a; border: 1px solid #1e293b; border-radius: 0.75rem; padding: 1rem; }
+.led { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.led-green { background: #10b981; box-shadow: 0 0 10px #10b981; }
+.led-red { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+.event-info { color: #94a3b8; }
+.event-warn { color: #fbbf24; }
+.event-error { color: #f87171; }
+.event-ok { color: #34d399; }
