@@ -16,3 +16,4 @@ data/
 htmlcov/
 .coverage
 coverage.xml
+src/infrastructure/web/__pycache__/
