@@ -1,6 +1,8 @@
 /* ════════════════════════════════════════════════════════════════
    THE KINGDOM PRIME — app.js
+   AI-Powered Investment Ecosystem Dashboard
    Real-time WebSocket data · 20 Agent Emotions · Chart.js charts
+   Vanilla ES2022 — no framework dependency
 ════════════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -20,30 +22,40 @@ const clamp  = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 /* ──────────────────────────────────────────────────────────────
    20 EMOTIONS SYSTEM
+   Each emotion has an id, label, emoji, and associated color
 ────────────────────────────────────────────────────────────── */
-const EMOTIONS = {
-  ecstatic:    { label: 'Ecstatic',    emoji: '🤩', color: '#00e676' },
-  happy:       { label: 'Happy',       emoji: '😊', color: '#69f0ae' },
-  excited:     { label: 'Excited',     emoji: '😄', color: '#ffd740' },
-  confident:   { label: 'Confident',   emoji: '😎', color: '#40c4ff' },
-  focused:     { label: 'Focused',     emoji: '🧐', color: '#2979ff' },
-  calm:        { label: 'Calm',        emoji: '😌', color: '#80deea' },
-  curious:     { label: 'Curious',     emoji: '🤔', color: '#ce93d8' },
-  determined:  { label: 'Determined',  emoji: '💪', color: '#ffb74d' },
-  satisfied:   { label: 'Satisfied',   emoji: '😏', color: '#a5d6a7' },
-  neutral:     { label: 'Neutral',     emoji: '😐', color: '#90a4ae' },
-  cautious:    { label: 'Cautious',    emoji: '🤨', color: '#fff176' },
-  anxious:     { label: 'Anxious',     emoji: '😟', color: '#ffcc02' },
-  stressed:    { label: 'Stressed',    emoji: '😰', color: '#ff9800' },
-  worried:     { label: 'Worried',     emoji: '😧', color: '#ff7043' },
-  tired:       { label: 'Tired',       emoji: '😴', color: '#b0bec5' },
-  overwhelmed: { label: 'Overwhelmed', emoji: '😵', color: '#ef9a9a' },
-  frustrated:  { label: 'Frustrated',  emoji: '😤', color: '#f44336' },
-  panicked:    { label: 'Panicked',    emoji: '😱', color: '#e53935' },
-  angry:       { label: 'Angry',       emoji: '😡', color: '#b71c1c' },
-  sleeping:    { label: 'Sleeping',    emoji: '💤', color: '#78909c' },
-};
+const EMOTIONS = [
+  { id: 'ecstatic',    label: 'Ecstatic',    emoji: '🤩', color: '#00e676' },
+  { id: 'happy',       label: 'Happy',       emoji: '😊', color: '#69f0ae' },
+  { id: 'excited',     label: 'Excited',     emoji: '😄', color: '#ffd740' },
+  { id: 'confident',   label: 'Confident',   emoji: '😎', color: '#40c4ff' },
+  { id: 'focused',     label: 'Focused',     emoji: '🧐', color: '#2979ff' },
+  { id: 'calm',        label: 'Calm',        emoji: '😌', color: '#80deea' },
+  { id: 'curious',     label: 'Curious',     emoji: '🤔', color: '#ce93d8' },
+  { id: 'determined',  label: 'Determined',  emoji: '😤', color: '#ffb74d' },
+  { id: 'satisfied',   label: 'Satisfied',   emoji: '😏', color: '#a5d6a7' },
+  { id: 'neutral',     label: 'Neutral',     emoji: '😐', color: '#90a4ae' },
+  { id: 'cautious',    label: 'Cautious',    emoji: '🤨', color: '#fff176' },
+  { id: 'anxious',     label: 'Anxious',     emoji: '😟', color: '#ffcc02' },
+  { id: 'stressed',    label: 'Stressed',    emoji: '😰', color: '#ff9800' },
+  { id: 'worried',     label: 'Worried',     emoji: '😧', color: '#ff7043' },
+  { id: 'tired',       label: 'Tired',       emoji: '😴', color: '#b0bec5' },
+  { id: 'overwhelmed', label: 'Overwhelmed', emoji: '😵', color: '#ef9a9a' },
+  { id: 'frustrated',  label: 'Frustrated',  emoji: '😤', color: '#f44336' },
+  { id: 'panicked',    label: 'Panicked',    emoji: '😱', color: '#e53935' },
+  { id: 'angry',       label: 'Angry',       emoji: '😡', color: '#b71c1c' },
+  { id: 'sleeping',    label: 'Sleeping',    emoji: '💤', color: '#78909c' },
+];
 
+// Build a fast lookup map: id → emotion object
+const EMOTION_MAP = Object.fromEntries(EMOTIONS.map(e => [e.id, e]));
+
+/**
+ * Determine the current emotion id for an agent given its metrics.
+ * Priority order: extreme states first, then positive states.
+ * @param {{morale:number, stress:number, fatigue:number, confidence:number}} metrics
+ * @returns {string} emotion id
+ */
 function getEmotion(metrics) {
   const { morale = 70, stress = 20, fatigue = 20, confidence = 70 } = metrics;
   if (fatigue > 85)                    return 'sleeping';
