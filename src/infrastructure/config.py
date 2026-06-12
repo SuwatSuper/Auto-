@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     slippage_bps: str = "5"
     survival_floor_pct: str = "70"
     max_daily_loss_pct: str = "5"
+    # Extended risk limits (Phase 1)
+    max_weekly_loss_pct: str = "10"
+    max_monthly_loss_pct: str = "15"
+    max_consecutive_losses: str = "5"
+    max_open_positions: str = "3"
     # State persistence (SQLite, default ON — survives restarts)
     persist_state: bool = True
     state_db_path: str = "data/state.db"

@@ -185,3 +185,140 @@ def test_kelly_negative_clamped_to_zero() -> None:
 def test_kelly_zero_win_loss_ratio() -> None:
     result = kelly_fraction(win_rate=Decimal("0.6"), win_loss_ratio=Decimal("0"))
     assert result == Decimal(0)
+
+
+# --- Extended evaluate() tests (Phase 1) ---
+
+def test_circuit_breaker_open_blocks() -> None:
+    decision = evaluate(
+        order=_order(),
+        account=_account(),
+        positions={},
+        limits=_limits(),
+        daily_pnl=_money("0"),
+        peak_equity=_money("1000000"),
+        current_equity=_money("1000000"),
+        circuit_breaker_open=True,
+    )
+    assert decision.approved is False
+    assert RiskReasonCode.CIRCUIT_BREAKER_OPEN in decision.reasons
+
+
+def test_weekly_loss_exceeded() -> None:
+    decision = evaluate(
+        order=_order(),
+        account=_account(),
+        positions={},
+        limits=_limits(max_weekly_loss=_money("30000")),
+        daily_pnl=_money("0"),
+        peak_equity=_money("1000000"),
+        current_equity=_money("970000"),
+        weekly_pnl=_money("-35000"),
+    )
+    assert decision.approved is False
+    assert RiskReasonCode.WEEKLY_LOSS_EXCEEDED in decision.reasons
+
+
+def test_monthly_loss_exceeded() -> None:
+    decision = evaluate(
+        order=_order(),
+        account=_account(),
+        positions={},
+        limits=_limits(max_monthly_loss=_money("50000")),
+        daily_pnl=_money("0"),
+        peak_equity=_money("1000000"),
+        current_equity=_money("940000"),
+        monthly_pnl=_money("-60000"),
+    )
+    assert decision.approved is False
+    assert RiskReasonCode.MONTHLY_LOSS_EXCEEDED in decision.reasons
+
+
+def test_consecutive_losses_exceeded() -> None:
+    decision = evaluate(
+        order=_order(),
+        account=_account(),
+        positions={},
+        limits=_limits(max_consecutive_losses=3),
+        daily_pnl=_money("0"),
+        peak_equity=_money("1000000"),
+        current_equity=_money("1000000"),
+        consecutive_losses=3,
+    )
+    assert decision.approved is False
+    assert RiskReasonCode.CONSECUTIVE_LOSSES_EXCEEDED in decision.reasons
+
+
+def test_max_open_positions_exceeded() -> None:
+    decision = evaluate(
+        order=_order(),
+        account=_account(),
+        positions={},
+        limits=_limits(max_open_positions=2),
+        daily_pnl=_money("0"),
+        peak_equity=_money("1000000"),
+        current_equity=_money("1000000"),
+        open_positions_count=3,
+    )
+    assert decision.approved is False
+    assert RiskReasonCode.MAX_OPEN_POSITIONS_EXCEEDED in decision.reasons
+
+
+def test_notional_exposure_exceeded() -> None:
+    decision = evaluate(
+        order=_order(),
+        account=_account(),
+        positions={},
+        limits=_limits(max_notional_exposure_pct=Decimal("50")),
+        daily_pnl=_money("0"),
+        peak_equity=_money("1000000"),
+        current_equity=_money("100000"),
+        total_notional_exposure=_money("60000"),  # 60% > 50%
+    )
+    assert decision.approved is False
+    assert RiskReasonCode.NOTIONAL_EXPOSURE_EXCEEDED in decision.reasons
+
+
+def test_none_weekly_monthly_skips_checks() -> None:
+    """None for weekly_pnl / monthly_pnl must skip those checks even with limits set."""
+    decision = evaluate(
+        order=_order(),
+        account=_account(),
+        positions={},
+        limits=_limits(max_weekly_loss=_money("30000"), max_monthly_loss=_money("50000")),
+        daily_pnl=_money("0"),
+        peak_equity=_money("1000000"),
+        current_equity=_money("1000000"),
+        weekly_pnl=None,
+        monthly_pnl=None,
+    )
+    assert decision.approved is True
+
+
+def test_none_notional_skips_check() -> None:
+    """None for total_notional_exposure must skip the notional check."""
+    decision = evaluate(
+        order=_order(),
+        account=_account(),
+        positions={},
+        limits=_limits(max_notional_exposure_pct=Decimal("10")),
+        daily_pnl=_money("0"),
+        peak_equity=_money("1000000"),
+        current_equity=_money("1000000"),
+        total_notional_exposure=None,
+    )
+    assert decision.approved is True
+
+
+def test_old_style_positional_call_still_works() -> None:
+    """Original positional-arg call site must work unchanged after extension."""
+    decision = evaluate(
+        _order("0.01"),
+        _account(),
+        {},
+        _limits(),
+        _money("0"),
+        _money("1000000"),
+        _money("1000000"),
+    )
+    assert decision.approved is True
