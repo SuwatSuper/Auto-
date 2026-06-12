@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     slippage_bps: str = "5"
     survival_floor_pct: str = "70"
     max_daily_loss_pct: str = "5"
+    # Execution engine (Phase 2) — default must stay "paper"
+    execution_engine: str = "paper"
+    live_trading_confirm: str = ""
     # Extended risk limits (Phase 1)
     max_weekly_loss_pct: str = "10"
     max_monthly_loss_pct: str = "15"
