@@ -81,66 +81,38 @@ function getEmotion(metrics) {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   AGENT DEFINITIONS (7 agents matching image)
+   AGENT DEFINITIONS — 7 AI agents with distinct visual identities
 ────────────────────────────────────────────────────────────── */
-const AGENT_DEFS = [
-  {
-    id: 'market_analyst',
-    label: 'Market Analyst',
-    statusText: 'Analyzing…',
-    hairColor: '#93c5fd', bodyColor: '#1d4ed8', skinColor: '#fde68a',
-    accessory: 'chart',
-    initialMetrics: { morale: 85, stress: 15, fatigue: 20, confidence: 88 },
-  },
-  {
-    id: 'news_sentiment',
-    label: 'News Intelligence',
-    statusText: 'Monitoring…',
-    hairColor: '#f9a8d4', bodyColor: '#be185d', skinColor: '#fecaca',
-    accessory: 'antenna',
-    initialMetrics: { morale: 80, stress: 22, fatigue: 25, confidence: 82 },
-  },
-  {
-    id: 'risk',
-    label: 'Risk Management',
-    statusText: 'Protecting…',
-    hairColor: '#86efac', bodyColor: '#15803d', skinColor: '#bbf7d0',
-    accessory: 'shield',
-    initialMetrics: { morale: 90, stress: 10, fatigue: 18, confidence: 92 },
-  },
-  {
-    id: 'entry_exit',
-    label: 'Execution Agent',
-    statusText: 'Executing…',
-    hairColor: '#fcd34d', bodyColor: '#b45309', skinColor: '#fde68a',
-    accessory: 'sword',
-    initialMetrics: { morale: 95, stress: 8, fatigue: 15, confidence: 96 },
-  },
-  {
-    id: 'probability',
-    label: 'Rebalancing',
-    statusText: 'Optimizing…',
-    hairColor: '#c4b5fd', bodyColor: '#7c3aed', skinColor: '#ede9fe',
-    accessory: 'crystal',
-    initialMetrics: { morale: 78, stress: 28, fatigue: 30, confidence: 80 },
-  },
-  {
-    id: 'simulation',
-    label: 'Compliance Agent',
-    statusText: 'Verifying…',
-    hairColor: '#94a3b8', bodyColor: '#334155', skinColor: '#f1f5f9',
-    accessory: 'book',
-    initialMetrics: { morale: 88, stress: 12, fatigue: 20, confidence: 90 },
-  },
-  {
-    id: 'supreme',
-    label: 'Capital Guardian',
-    statusText: 'Preserving…',
-    hairColor: '#fde047', bodyColor: '#a16207', skinColor: '#fef3c7',
-    accessory: 'crown',
-    initialMetrics: { morale: 97, stress: 5, fatigue: 10, confidence: 98 },
-  },
+const AGENTS = [
+  { id: 'market_analyst',    name: 'Market Analyst',    role: 'Analyzes market trends', status: 'Analyzing...', hairColor: '#ffd740', accessory: 'glasses' },
+  { id: 'news_intelligence', name: 'News Intelligence', role: 'Monitors news feeds',    status: 'Monitoring...', hairColor: '#00e676', accessory: 'antenna' },
+  { id: 'risk_management',   name: 'Risk Management',   role: 'Manages risk exposure',  status: 'Calculating...', hairColor: '#ff7043', accessory: 'shield' },
+  { id: 'execution_agent',   name: 'Execution Agent',   role: 'Executes trades',        status: 'Ready...',      hairColor: '#40c4ff', accessory: 'bolt' },
+  { id: 'rebalancing_agent', name: 'Rebalancing Agent', role: 'Rebalances portfolio',   status: 'Optimizing...', hairColor: '#ce93d8', accessory: 'scales' },
+  { id: 'compliance_agent',  name: 'Compliance Agent',  role: 'Ensures compliance',     status: 'Checking...',   hairColor: '#fff176', accessory: 'checkmark' },
+  { id: 'capital_guardian',  name: 'Capital Guardian',  role: 'Preserves capital',      status: 'Guarding...',   hairColor: '#ef9a9a', accessory: 'crown' },
 ];
+
+// Legacy alias so old code referencing AGENT_DEFS still works during transition
+const AGENT_DEFS = AGENTS.map(a => ({
+  id:           a.id,
+  label:        a.name,
+  statusText:   a.status,
+  hairColor:    a.hairColor,
+  bodyColor:    shadeColor(a.hairColor, -45),
+  skinColor:    '#fde68a',
+  accessory:    a.accessory,
+  initialMetrics: { morale: 82, stress: 16, fatigue: 18, confidence: 84 },
+}));
+
+/** Darken/lighten a hex color by amt (negative = darker) */
+function shadeColor(hex, amt) {
+  const num = parseInt((hex || '#888888').replace('#', ''), 16);
+  const r   = Math.max(0, Math.min(255, ((num >> 16) & 0xff) + amt));
+  const g   = Math.max(0, Math.min(255, ((num >> 8)  & 0xff) + amt));
+  const b   = Math.max(0, Math.min(255, (num & 0xff) + amt));
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
 
 /* ──────────────────────────────────────────────────────────────
    SVG CHIBI BUILDER
@@ -197,20 +169,55 @@ function buildEyesSVG(emoId) {
 
 function buildAccessorySVG(type, bodyColor, accentColor) {
   switch (type) {
+    // Glasses — round frames on face
+    case 'glasses':
+      return `<circle cx="12" cy="11" r="3.5" fill="none" stroke="${accentColor}" stroke-width="1" opacity="0.95"/>
+              <circle cx="20" cy="11" r="3.5" fill="none" stroke="${accentColor}" stroke-width="1" opacity="0.95"/>
+              <line x1="15.5" y1="11" x2="16.5" y2="11" stroke="${accentColor}" stroke-width="0.8"/>
+              <line x1="8.5"  y1="10.5" x2="6"  y2="9.5" stroke="${accentColor}" stroke-width="0.8"/>
+              <line x1="23.5" y1="10.5" x2="26" y2="9.5" stroke="${accentColor}" stroke-width="0.8"/>`;
+    // Antenna — signal dish on head
+    case 'antenna':
+      return `<line x1="20" y1="2" x2="20" y2="8" stroke="${accentColor}" stroke-width="1.2"/>
+              <circle cx="20" cy="2" r="1.5" fill="${accentColor}" opacity="0.95"/>
+              <circle cx="20" cy="2" r="3"   fill="${accentColor}" opacity="0.25"/>`;
+    // Shield — protective badge on chest
+    case 'shield':
+      return `<path d="M16 27 L16 34 Q16 37 20 39 Q24 37 24 34 L24 27 Z"
+                fill="${bodyColor}" stroke="${accentColor}" stroke-width="1"/>
+              <line x1="20" y1="29" x2="20" y2="36" stroke="${accentColor}" stroke-width="0.8"/>
+              <line x1="17" y1="32" x2="23" y2="32" stroke="${accentColor}" stroke-width="0.8"/>`;
+    // Bolt — lightning on chest
+    case 'bolt':
+      return `<polygon points="22,22 18,30 21,30 17,40 25,28 22,28"
+                fill="${accentColor}" opacity="0.9"/>`;
+    // Scales — balance scales
+    case 'scales':
+      return `<line x1="20" y1="24" x2="20" y2="36" stroke="${accentColor}" stroke-width="1" stroke-linecap="round"/>
+              <line x1="14" y1="28" x2="26" y2="28" stroke="${accentColor}" stroke-width="1" stroke-linecap="round"/>
+              <circle cx="14" cy="31" r="2.5" fill="none" stroke="${accentColor}" stroke-width="0.9"/>
+              <circle cx="26" cy="30" r="2.5" fill="none" stroke="${accentColor}" stroke-width="0.9"/>
+              <circle cx="20" cy="24" r="1.2" fill="${accentColor}"/>`;
+    // Checkmark — compliance badge
+    case 'checkmark':
+      return `<circle cx="20" cy="33" r="6" fill="${accentColor}" opacity="0.2"
+                stroke="${accentColor}" stroke-width="1"/>
+              <polyline points="16,33 19,36 24,28" fill="none" stroke="${accentColor}"
+                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    // Crown — authority crown above head
+    case 'crown':
+      return `<polygon points="13,8 16,2 20,8 24,2 27,8 27,13 13,13"
+                fill="${accentColor}" stroke="#b45309" stroke-width="0.7"/>
+              <circle cx="16" cy="5"  r="1.5" fill="#f87171"/>
+              <circle cx="20" cy="3"  r="2"   fill="#60a5fa"/>
+              <circle cx="24" cy="5"  r="1.5" fill="#34d399"/>`;
+    // Legacy types kept for compatibility
     case 'chart':
       return `<rect x="17" y="27" width="11" height="8" rx="1" fill="#0a1525" stroke="${accentColor}" stroke-width="0.6"/>
               <line x1="19" y1="32" x2="19" y2="34" stroke="${accentColor}" stroke-width="1.2"/>
               <line x1="21" y1="30" x2="21" y2="34" stroke="${accentColor}" stroke-width="1.2"/>
               <line x1="23" y1="31" x2="23" y2="34" stroke="${accentColor}" stroke-width="1.2"/>
               <line x1="25" y1="29" x2="25" y2="34" stroke="${accentColor}" stroke-width="1.2"/>`;
-    case 'antenna':
-      return `<line x1="24" y1="2" x2="24" y2="8" stroke="${accentColor}" stroke-width="1.2"/>
-              <circle cx="24" cy="2" r="1.5" fill="${accentColor}" opacity="0.9"/>
-              <circle cx="24" cy="2" r="3" fill="${accentColor}" opacity="0.3"/>`;
-    case 'shield':
-      return `<path d="M16 27 L16 34 Q16 37 20 39 Q24 37 24 34 L24 27 Z" fill="${bodyColor}" stroke="${accentColor}" stroke-width="1"/>
-              <line x1="20" y1="29" x2="20" y2="36" stroke="${accentColor}" stroke-width="0.8"/>
-              <line x1="17" y1="32" x2="23" y2="32" stroke="${accentColor}" stroke-width="0.8"/>`;
     case 'sword':
       return `<line x1="26" y1="20" x2="18" y2="40" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
               <line x1="21" y1="32" x2="25" y2="30" stroke="#94a3b8" stroke-width="1.5"/>
@@ -224,55 +231,73 @@ function buildAccessorySVG(type, bodyColor, accentColor) {
               <line x1="22" y1="27" x2="22" y2="39" stroke="${accentColor}" stroke-width="0.7"/>
               <line x1="18" y1="30" x2="21" y2="30" stroke="${accentColor}" stroke-width="0.5"/>
               <line x1="18" y1="32" x2="21" y2="32" stroke="${accentColor}" stroke-width="0.5"/>`;
-    case 'crown':
-      return `<polygon points="13,8 16,2 20,8 24,2 27,8 27,13 13,13" fill="${accentColor}" stroke="#b45309" stroke-width="0.7"/>
-              <circle cx="16" cy="5" r="1.5" fill="#f87171"/>
-              <circle cx="20" cy="3" r="2" fill="#60a5fa"/>
-              <circle cx="24" cy="5" r="1.5" fill="#34d399"/>`;
     default:
       return '';
   }
 }
 
+/**
+ * Build a complete chibi SVG for an agent.
+ * Works with both the new AGENTS array and legacy AGENT_DEFS.
+ * @param {Object} def  - agent definition (must have hairColor, accessory; optionally bodyColor, skinColor)
+ * @param {string} emoId - emotion id string
+ * @returns {string} SVG markup
+ */
 function buildChibiSVG(def, emoId) {
-  const { hairColor, bodyColor, skinColor, accessory } = def;
-  const emo = EMOTIONS[emoId] || EMOTIONS.neutral;
-  const accentColor = emo.color;
-  const eyes = buildEyesSVG(emoId);
-  const acc  = buildAccessorySVG(accessory, bodyColor, accentColor);
+  const hairColor  = def.hairColor  || '#93c5fd';
+  const bodyColor  = def.bodyColor  || shadeColor(hairColor, -45);
+  const skinColor  = def.skinColor  || '#fde68a';
+  const accessory  = def.accessory  || 'checkmark';
+
+  const emoObj       = EMOTION_MAP[emoId] || EMOTION_MAP['neutral'];
+  const accentColor  = emoObj.color;
+  const eyes         = buildEyesSVG(emoId);
+  const acc          = buildAccessorySVG(accessory, bodyColor, accentColor);
   const blushOpacity = ['happy','ecstatic','excited','confident'].includes(emoId) ? '0.5' : '0.1';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 50" width="44" height="55">
+  <!-- Emotion aura under feet -->
+  <ellipse cx="20" cy="47" rx="12" ry="3.5" fill="${accentColor}" opacity="0.15"/>
   <!-- Shadow -->
   <ellipse cx="20" cy="47" rx="10" ry="3" fill="#000" opacity="0.3"/>
   <!-- Legs -->
   <rect x="13" y="34" width="5" height="9" rx="2.5" fill="${bodyColor}"/>
   <rect x="22" y="34" width="5" height="9" rx="2.5" fill="${bodyColor}"/>
-  <!-- Feet -->
+  <!-- Feet / shoes -->
   <ellipse cx="15.5" cy="43" rx="4" ry="2.5" fill="#1e293b"/>
   <ellipse cx="24.5" cy="43" rx="4" ry="2.5" fill="#1e293b"/>
   <!-- Torso -->
   <rect x="11" y="22" width="18" height="15" rx="4" fill="${bodyColor}"/>
+  <!-- Torso accent stripe -->
+  <rect x="17" y="24" width="6" height="10" rx="2" fill="${hairColor}" opacity="0.2"/>
   <!-- Arms -->
-  <rect x="5"  y="24" width="7"  height="7" rx="3.5" fill="${bodyColor}"/>
-  <rect x="28" y="24" width="7"  height="7" rx="3.5" fill="${bodyColor}"/>
+  <rect x="5"  y="24" width="7" height="7" rx="3.5" fill="${bodyColor}"/>
+  <rect x="28" y="24" width="7" height="7" rx="3.5" fill="${bodyColor}"/>
   <!-- Neck -->
   <rect x="17" y="19" width="6" height="5" rx="2.5" fill="${skinColor}"/>
   <!-- Head -->
   <ellipse cx="20" cy="12" rx="11" ry="12" fill="${skinColor}"/>
   <!-- Hair back -->
   <ellipse cx="20" cy="6" rx="11" ry="7" fill="${hairColor}"/>
-  <!-- Blush -->
+  <!-- Hair front shape -->
+  <path d="M9 10 Q9 4 15 3 Q20 1 25 3 Q31 4 31 10" fill="${hairColor}"/>
+  <!-- Blush cheeks -->
   <circle cx="11" cy="14" r="3" fill="#f9a8d4" opacity="${blushOpacity}"/>
   <circle cx="29" cy="14" r="3" fill="#f9a8d4" opacity="${blushOpacity}"/>
-  <!-- Eyes & mouth -->
+  <!-- Ears -->
+  <ellipse cx="9"  cy="12" rx="2.5" ry="3" fill="${skinColor}"/>
+  <ellipse cx="31" cy="12" rx="2.5" ry="3" fill="${skinColor}"/>
+  <!-- Face (eyes + mouth) -->
   ${eyes}
+  <!-- Nose -->
+  <circle cx="20" cy="15" r="0.8" fill="${skinColor === '#fde68a' ? '#e6a080' : '#d09070'}"/>
   <!-- Accessory -->
   ${acc}
-  <!-- Aura glow at feet -->
-  <ellipse cx="20" cy="44" rx="9" ry="2.5" fill="${accentColor}" opacity="0.2"/>
 </svg>`;
 }
+
+/** Alias used in some code paths */
+const generateChibiSVG = buildChibiSVG;
 
 /* ──────────────────────────────────────────────────────────────
    APP STATE
@@ -299,20 +324,25 @@ const State = {
   charts: { perf: null, donut: null },
 };
 
-// Seed agent metrics
+// Seed agent metrics from AGENTS (new canonical list)
+AGENTS.forEach(a => {
+  State.agentMetrics[a.id] = { morale: 82, stress: 16, fatigue: 18, confidence: 84 };
+});
+// Also seed from AGENT_DEFS for any legacy keys
 AGENT_DEFS.forEach(d => {
-  State.agentMetrics[d.id] = { ...d.initialMetrics };
+  if (!State.agentMetrics[d.id]) {
+    State.agentMetrics[d.id] = { ...d.initialMetrics };
+  }
 });
 
 /* ──────────────────────────────────────────────────────────────
-   PORTFOLIO ALLOCATION DATA
+   PORTFOLIO ALLOCATION DATA — BTC 45%, ETH 25%, BNB 15%, Others 15%
 ────────────────────────────────────────────────────────────── */
 const ALLOC_DATA = [
-  { label: 'Bitcoin',  pct: 45.2, color: '#f97316' },
-  { label: 'Ethereum', pct: 20.1, color: '#8b5cf6' },
-  { label: 'USDT',     pct: 15.3, color: '#22d3ee' },
-  { label: 'Solana',   pct: 7.8,  color: '#84cc16' },
-  { label: 'Others',   pct: 11.6, color: '#6366f1' },
+  { label: 'BTC',    pct: 45, color: '#f7931a' },
+  { label: 'ETH',    pct: 25, color: '#627eea' },
+  { label: 'BNB',    pct: 15, color: '#f3ba2f' },
+  { label: 'Others', pct: 15, color: '#2979ff' },
 ];
 
 /* ──────────────────────────────────────────────────────────────
@@ -458,10 +488,11 @@ function renderPortfolio() {
   $('city-positions').textContent = `${State.positions} POSITIONS`;
   $('stat-equity-change').textContent = '24H Portfolio Overview';
   $('stat-equity-change').className = 'stat-change positive';
-  // Monthly return: estimate from pnl
+  // Monthly return: estimate from pnl (~22 trading days)
   if (State.pnlToday !== null && State.equity) {
     const monthlyEst = ((State.pnlToday * 22) / State.equity * 100).toFixed(2);
-    $('stat-monthly').textContent = monthlyEst + ' %';
+    const mEl = $('stat-monthly-val');
+    if (mEl) mEl.textContent = '+' + monthlyEst + ' %';
   }
 }
 
@@ -513,20 +544,23 @@ function renderModeBtn() {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   SIMULATE AGENT METRICS (gradual drift based on market)
+   SIMULATE AGENT METRICS — gradual drift toward healthy baseline
+   Each agent has morale/stress/fatigue/confidence values 0-100
+   that drift randomly every 3 seconds to keep the UI alive.
 ────────────────────────────────────────────────────────────── */
 function simulateAgentMetrics() {
-  AGENT_DEFS.forEach(def => {
-    const m = State.agentMetrics[def.id];
+  AGENTS.forEach(agent => {
+    const m = State.agentMetrics[agent.id];
     if (!m) return;
-    // Drift morale toward 80, stress toward 20, fatigue toward 25
-    const drift = (target, cur, speed) => cur + (target - cur) * speed + (Math.random() - 0.5) * 4;
+    // Drift: target + small random noise
+    const drift = (target, cur, speed) =>
+      cur + (target - cur) * speed + (Math.random() - 0.5) * 4;
     m.morale     = clamp(drift(80, m.morale,     0.05), 0, 100);
     m.stress     = clamp(drift(20, m.stress,     0.05), 0, 100);
     m.fatigue    = clamp(drift(25, m.fatigue,    0.03), 0, 100);
     m.confidence = clamp(drift(82, m.confidence, 0.05), 0, 100);
 
-    // If kill switch active, stress agents
+    // If kill switch active, stress all agents
     if (State.killSwitch) {
       m.stress  = clamp(m.stress  + 15, 0, 100);
       m.fatigue = clamp(m.fatigue + 8,  0, 100);
@@ -535,13 +569,32 @@ function simulateAgentMetrics() {
   });
 }
 
+/** Refresh chibi walkers in the isometric city scene */
+function refreshCityWalkers() {
+  [0, 1, 2].forEach(i => {
+    const walkerEl = $(`walker-${i + 1}`);
+    if (!walkerEl) return;
+    const agent   = AGENTS[i];
+    if (!agent) return;
+    const metrics  = State.agentMetrics[agent.id] || { morale:80, stress:20, fatigue:20, confidence:80 };
+    const emoId    = getEmotion(metrics);
+    const def = {
+      hairColor: agent.hairColor,
+      bodyColor: shadeColor(agent.hairColor, -45),
+      skinColor: '#fde68a',
+      accessory: agent.accessory,
+    };
+    walkerEl.innerHTML = buildChibiSVG(def, emoId);
+  });
+}
+
 /* ──────────────────────────────────────────────────────────────
    AGENT CARDS
 ────────────────────────────────────────────────────────────── */
 function buildAgentCard(def) {
-  const metrics = State.agentMetrics[def.id] || def.initialMetrics;
+  const metrics = State.agentMetrics[def.id] || def.initialMetrics || { morale:82, stress:16, fatigue:18, confidence:84 };
   const emoId   = getEmotion(metrics);
-  const emo     = EMOTIONS[emoId];
+  const emo     = EMOTION_MAP[emoId] || EMOTION_MAP['neutral'];
   const runtime = State.agents[def.id] || {};
   const running = runtime.running !== false;
   const perf    = clamp(metrics.confidence, 50, 100);
@@ -603,17 +656,44 @@ function buildAgentCard(def) {
 
 function renderAgentGrid() {
   const grid = $('agent-grid');
+  if (!grid) return;
   grid.innerHTML = '';
-  AGENT_DEFS.forEach(def => grid.appendChild(buildAgentCard(def)));
+  // Use new AGENTS array (7 canonical agents)
+  AGENTS.forEach((agent, i) => {
+    // Build a merged def compatible with buildAgentCard
+    const def = {
+      id:           agent.id,
+      label:        agent.name,
+      statusText:   agent.status,
+      hairColor:    agent.hairColor,
+      bodyColor:    shadeColor(agent.hairColor, -45),
+      skinColor:    '#fde68a',
+      accessory:    agent.accessory,
+      initialMetrics: { morale: 82, stress: 16, fatigue: 18, confidence: 84 },
+    };
+    const card = buildAgentCard(def);
+    card.style.animationDelay = `${i * 0.06}s`;
+    grid.appendChild(card);
+  });
 }
 
 function updateAgentCards() {
-  AGENT_DEFS.forEach(def => {
+  // Update all cards based on AGENTS canonical list
+  AGENTS.forEach(agent => {
+    const def = {
+      id:           agent.id,
+      label:        agent.name,
+      statusText:   agent.status,
+      hairColor:    agent.hairColor,
+      bodyColor:    shadeColor(agent.hairColor, -45),
+      skinColor:    '#fde68a',
+      accessory:    agent.accessory,
+    };
     const existing = $(`agent-card-${def.id}`);
     if (!existing) return;
-    const metrics = State.agentMetrics[def.id] || def.initialMetrics;
+    const metrics = State.agentMetrics[def.id] || { morale: 82, stress: 16, fatigue: 18, confidence: 84 };
     const emoId   = getEmotion(metrics);
-    const emo     = EMOTIONS[emoId];
+    const emo     = EMOTION_MAP[emoId] || EMOTION_MAP['neutral'];
     const runtime = State.agents[def.id] || {};
     const running = runtime.running !== false;
     const perf    = clamp(metrics.confidence, 50, 100);
@@ -809,14 +889,16 @@ function bindEvents() {
    PERIODIC UPDATES
 ────────────────────────────────────────────────────────────── */
 function startPeriodicUpdates() {
-  // Refresh status every 2s
-  setInterval(fetchStatus, 2000);
-  // Simulate metrics drift every 3s
+  // Poll /api/status every 5 seconds
+  setInterval(fetchStatus, 5000);
+  // Simulate emotion metrics drift every 3 seconds
   setInterval(() => {
     simulateAgentMetrics();
     updateAgentCards();
   }, 3000);
-  // Jitter notifications
+  // Refresh city walkers every 6 seconds
+  setInterval(refreshCityWalkers, 6000);
+  // Jitter notification badge
   setInterval(() => {
     const delta = Math.random() < 0.3 ? 1 : 0;
     State.notifCount = Math.max(0, State.notifCount + delta);
@@ -832,21 +914,23 @@ document.addEventListener('DOMContentLoaded', () => {
   renderAgentGrid();
   initDonutChart();
   initPerfChart();
+  refreshCityWalkers();   // populate isometric city chibi walkers
   bindEvents();
   connectWS();
   fetchStatus();
   startPeriodicUpdates();
-  // Initial mock equity so dashboard doesn't appear empty
+  // Initial mock equity so dashboard doesn't appear empty on first load
   handleStatus({
-    equity: 1284567.89,
-    pnl_today: 24567.89,
-    positions: 3,
-    win_rate: 0.724,
-    daily_loss_pct: 0.012,
-    drawdown_pct: 0.045,
-    kill_switch: false,
-    uptime_seconds: 0,
-    mode: 'simulator',
-    agents: Object.fromEntries(AGENT_DEFS.map(d => [d.id, { running: true }])),
+    equity:           1284567.89,
+    pnl_today:        24567.89,
+    positions:        3,
+    win_rate:         0.724,
+    daily_loss_pct:   0.012,
+    drawdown_pct:     0.045,
+    kill_switch:      false,
+    uptime_seconds:   0,
+    mode:             'simulator',
+    // Mark all 7 agents as running initially
+    agents: Object.fromEntries(AGENTS.map(a => [a.id, { running: true }])),
   });
 });
