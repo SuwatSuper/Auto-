@@ -232,150 +232,587 @@
           </div>
         </div>
 
-        <!-- Isometric City Scene -->
+        <!-- Isometric City Scene — SVG -->
         <div class="iso-scene" id="iso-scene">
+        <svg id="iso-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 420" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <!-- Backgrounds & gradients -->
+          <radialGradient id="bg-rg" cx="50%" cy="45%" r="65%">
+            <stop offset="0%" stop-color="#0d2040"/>
+            <stop offset="60%" stop-color="#060d1c"/>
+            <stop offset="100%" stop-color="#020509"/>
+          </radialGradient>
+          <linearGradient id="bld-front" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#102255"/>
+            <stop offset="100%" stop-color="#071228"/>
+          </linearGradient>
+          <linearGradient id="bld-top" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1a3570"/>
+            <stop offset="100%" stop-color="#0d2048"/>
+          </linearGradient>
+          <linearGradient id="bld-side" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#091a3a"/>
+            <stop offset="100%" stop-color="#040c1a"/>
+          </linearGradient>
+          <linearGradient id="srv-front" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#0c1e46"/>
+            <stop offset="100%" stop-color="#060f22"/>
+          </linearGradient>
+          <linearGradient id="holo-beam" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#00e5ff" stop-opacity="0.02"/>
+          </linearGradient>
+          <linearGradient id="screen-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#051830"/>
+            <stop offset="100%" stop-color="#030e1e"/>
+          </linearGradient>
+          <linearGradient id="truck-body" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#dde6ff"/>
+            <stop offset="100%" stop-color="#b8c8f0"/>
+          </linearGradient>
+          <!-- Filters -->
+          <filter id="gcyan" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="gsoft" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="gblur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="6"/>
+          </filter>
+          <!-- Solar panel pattern -->
+          <pattern id="solar" x="0" y="0" width="18" height="12" patternUnits="userSpaceOnUse">
+            <rect width="18" height="12" fill="#0a1e3a" stroke="#1e4080" stroke-width="0.5"/>
+            <rect x="1" y="1" width="7" height="4.5" fill="#0d2a50" stroke="#2060a0" stroke-width="0.3"/>
+            <rect x="10" y="1" width="7" height="4.5" fill="#0d2a50" stroke="#2060a0" stroke-width="0.3"/>
+            <rect x="1" y="6.5" width="7" height="4.5" fill="#0d2a50" stroke="#2060a0" stroke-width="0.3"/>
+            <rect x="10" y="6.5" width="7" height="4.5" fill="#0d2a50" stroke="#2060a0" stroke-width="0.3"/>
+          </pattern>
+          <!-- Floor clip -->
+          <clipPath id="floor-cp">
+            <polygon points="0,420 410,185 820,420"/>
+          </clipPath>
+        </defs>
 
-          <!-- Ambient glow layers -->
-          <div class="iso-ambient-glow"></div>
+        <!-- ══ BACKGROUND ══ -->
+        <rect width="820" height="420" fill="url(#bg-rg)"/>
+        <ellipse cx="410" cy="200" rx="280" ry="120" fill="#1a3a7008" filter="url(#gblur)"/>
 
-          <!-- Grid Floor with neon lines -->
-          <div class="iso-floor">
-            <div class="iso-grid"></div>
-          </div>
+        <!-- ══ FLOOR ══ -->
+        <polygon points="0,420 410,185 820,420" fill="#040a14"/>
+        <!-- Floor grid — left-slope lines (clip keeps them inside triangle) -->
+        <g clip-path="url(#floor-cp)" stroke="#00e5ff" stroke-width="0.5" opacity="0.28">
+          <line x1="-100" y1="740" x2="720" y2="185"/>
+          <line x1="-50"  y1="740" x2="770" y2="185"/>
+          <line x1="0"    y1="740" x2="820" y2="185"/>
+          <line x1="50"   y1="740" x2="870" y2="185"/>
+          <line x1="100"  y1="740" x2="920" y2="185"/>
+          <line x1="150"  y1="740" x2="970" y2="185"/>
+          <line x1="200"  y1="740" x2="1020" y2="185"/>
+          <line x1="250"  y1="740" x2="1070" y2="185"/>
+          <line x1="300"  y1="740" x2="1120" y2="185"/>
+          <line x1="350"  y1="740" x2="1170" y2="185"/>
+          <line x1="400"  y1="740" x2="1220" y2="185"/>
+          <line x1="450"  y1="740" x2="1270" y2="185"/>
+          <line x1="500"  y1="740" x2="1320" y2="185"/>
+        </g>
+        <!-- Floor grid — right-slope lines -->
+        <g clip-path="url(#floor-cp)" stroke="#00e5ff" stroke-width="0.5" opacity="0.28">
+          <line x1="0"   y1="-50"  x2="820" y2="406"/>
+          <line x1="0"   y1="0"    x2="820" y2="456"/>
+          <line x1="0"   y1="50"   x2="820" y2="506"/>
+          <line x1="0"   y1="100"  x2="820" y2="556"/>
+          <line x1="0"   y1="150"  x2="820" y2="606"/>
+          <line x1="0"   y1="200"  x2="820" y2="656"/>
+          <line x1="0"   y1="250"  x2="820" y2="706"/>
+          <line x1="0"   y1="300"  x2="820" y2="756"/>
+          <line x1="0"   y1="350"  x2="820" y2="806"/>
+          <line x1="0"   y1="400"  x2="820" y2="856"/>
+          <line x1="-50" y1="420"  x2="770" y2="876"/>
+          <line x1="-100" y1="420" x2="720" y2="876"/>
+          <line x1="-150" y1="420" x2="670" y2="876"/>
+        </g>
+        <!-- Ground glow streaks -->
+        <g clip-path="url(#floor-cp)" opacity="0.12">
+          <line x1="0" y1="350" x2="820" y2="350" stroke="#00e5ff" stroke-width="2"/>
+          <line x1="0" y1="380" x2="820" y2="380" stroke="#00e5ff" stroke-width="1.5"/>
+          <line x1="0" y1="405" x2="820" y2="405" stroke="#00e5ff" stroke-width="1"/>
+        </g>
 
-          <!-- ── Tall Building far-left background ── -->
-          <div class="iso-building small-bld bld-bg-left">
-            <div class="iso-building-top"></div>
-            <div class="iso-building-front">
-              <div class="building-windows">
-                <div class="win-row"><span class="win"></span><span class="win on"></span></div>
-                <div class="win-row"><span class="win on"></span><span class="win"></span></div>
-                <div class="win-row"><span class="win on"></span><span class="win on"></span></div>
-                <div class="win-row"><span class="win"></span><span class="win on"></span></div>
-              </div>
-            </div>
-            <div class="iso-building-side"></div>
-          </div>
+        <!-- ══ LEFT BACKGROUND BUILDING ══ -->
+        <polygon points="68,230 178,230 178,338 68,338" fill="url(#bld-front)" stroke="#1a3060" stroke-width="0.7"/>
+        <polygon points="68,230 128,200 238,200 178,230" fill="url(#bld-top)" stroke="#2040a0" stroke-width="0.7"/>
+        <polygon points="178,230 238,200 238,308 178,338" fill="url(#bld-side)" stroke="#0e1e40" stroke-width="0.7"/>
+        <!-- Windows on left building -->
+        <g fill="#00e5ff" opacity="0.25">
+          <rect x="80" y="244" width="12" height="8" rx="1"/>
+          <rect x="100" y="244" width="12" height="8" rx="1"/>
+          <rect x="120" y="244" width="12" height="8" rx="1"/>
+          <rect x="140" y="244" width="12" height="8" rx="1"/>
+          <rect x="80" y="260" width="12" height="8" rx="1"/>
+          <rect x="100" y="260" width="12" height="8" rx="1"/>
+          <rect x="120" y="260" width="12" height="8" rx="1"/>
+          <rect x="140" y="260" width="12" height="8" rx="1"/>
+          <rect x="80" y="276" width="12" height="8" rx="1"/>
+          <rect x="100" y="276" width="12" height="8" rx="1"/>
+          <rect x="120" y="276" width="12" height="8" rx="1"/>
+          <rect x="80" y="292" width="12" height="8" rx="1"/>
+          <rect x="100" y="292" width="12" height="8" rx="1"/>
+          <rect x="120" y="292" width="12" height="8" rx="1"/>
+          <rect x="140" y="292" width="12" height="8" rx="1"/>
+        </g>
+        <!-- Bright windows (on) -->
+        <g fill="#00e5ff" opacity="0.7" filter="url(#gsoft)">
+          <rect x="80"  y="244" width="12" height="8" rx="1"/>
+          <rect x="120" y="260" width="12" height="8" rx="1"/>
+          <rect x="100" y="276" width="12" height="8" rx="1"/>
+          <rect x="140" y="292" width="12" height="8" rx="1"/>
+        </g>
 
-          <!-- ── Small Building 1 — left ── -->
-          <div class="iso-building small-bld bld-1">
-            <div class="iso-building-top"></div>
-            <div class="iso-building-front">
-              <div class="building-windows">
-                <div class="win-row"><span class="win on"></span><span class="win"></span><span class="win on"></span></div>
-                <div class="win-row"><span class="win"></span><span class="win on"></span><span class="win"></span></div>
-                <div class="win-row"><span class="win on"></span><span class="win on"></span><span class="win"></span></div>
-              </div>
-            </div>
-            <div class="iso-building-side"></div>
-          </div>
+        <!-- ══ RIGHT SERVER TOWERS ══ -->
+        <!-- Tower 1 -->
+        <polygon points="620,118 670,118 670,278 620,278" fill="url(#srv-front)" stroke="#1a2e5a" stroke-width="0.7"/>
+        <polygon points="620,118 658,94 708,94 670,118"  fill="url(#bld-top)"   stroke="#2040a0" stroke-width="0.7"/>
+        <polygon points="670,118 708,94 708,254 670,278" fill="url(#bld-side)"  stroke="#0a1830" stroke-width="0.7"/>
+        <!-- Server rack lines on tower 1 -->
+        <g stroke="#2050a0" stroke-width="0.7" opacity="0.8">
+          <line x1="623" y1="128" x2="667" y2="128"/>
+          <line x1="623" y1="138" x2="667" y2="138"/>
+          <line x1="623" y1="148" x2="667" y2="148"/>
+          <line x1="623" y1="158" x2="667" y2="158"/>
+          <line x1="623" y1="168" x2="667" y2="168"/>
+          <line x1="623" y1="178" x2="667" y2="178"/>
+          <line x1="623" y1="188" x2="667" y2="188"/>
+          <line x1="623" y1="198" x2="667" y2="198"/>
+          <line x1="623" y1="208" x2="667" y2="208"/>
+          <line x1="623" y1="218" x2="667" y2="218"/>
+          <line x1="623" y1="228" x2="667" y2="228"/>
+          <line x1="623" y1="238" x2="667" y2="238"/>
+          <line x1="623" y1="248" x2="667" y2="248"/>
+          <line x1="623" y1="258" x2="667" y2="258"/>
+          <line x1="623" y1="268" x2="667" y2="268"/>
+        </g>
+        <!-- Server status LEDs tower 1 -->
+        <g fill="#00e676" opacity="0.9" filter="url(#gsoft)">
+          <circle cx="631" cy="132" r="2"/>
+          <circle cx="631" cy="142" r="2"/>
+          <circle cx="631" cy="162" r="2"/>
+          <circle cx="631" cy="182" r="2"/>
+          <circle cx="631" cy="202" r="2"/>
+        </g>
+        <g fill="#ffd740" opacity="0.8">
+          <circle cx="631" cy="152" r="2"/>
+          <circle cx="631" cy="172" r="2"/>
+          <circle cx="631" cy="222" r="2"/>
+        </g>
+        <!-- Tower 2 -->
+        <polygon points="695,100 742,100 742,252 695,252" fill="url(#srv-front)" stroke="#162845" stroke-width="0.7"/>
+        <polygon points="695,100 733,78 780,78 742,100"  fill="url(#bld-top)"   stroke="#1a3580" stroke-width="0.7"/>
+        <polygon points="742,100 780,78 780,230 742,252" fill="url(#bld-side)"  stroke="#081528" stroke-width="0.7"/>
+        <g stroke="#1a3a70" stroke-width="0.7" opacity="0.8">
+          <line x1="698" y1="112" x2="739" y2="112"/>
+          <line x1="698" y1="122" x2="739" y2="122"/>
+          <line x1="698" y1="132" x2="739" y2="132"/>
+          <line x1="698" y1="142" x2="739" y2="142"/>
+          <line x1="698" y1="152" x2="739" y2="152"/>
+          <line x1="698" y1="162" x2="739" y2="162"/>
+          <line x1="698" y1="172" x2="739" y2="172"/>
+          <line x1="698" y1="182" x2="739" y2="182"/>
+          <line x1="698" y1="192" x2="739" y2="192"/>
+          <line x1="698" y1="202" x2="739" y2="202"/>
+          <line x1="698" y1="212" x2="739" y2="212"/>
+          <line x1="698" y1="222" x2="739" y2="222"/>
+          <line x1="698" y1="232" x2="739" y2="232"/>
+          <line x1="698" y1="242" x2="739" y2="242"/>
+        </g>
+        <g fill="#00e676" opacity="0.9" filter="url(#gsoft)">
+          <circle cx="703" cy="116" r="2"/>
+          <circle cx="703" cy="136" r="2"/>
+          <circle cx="703" cy="156" r="2"/>
+          <circle cx="703" cy="196" r="2"/>
+          <circle cx="703" cy="216" r="2"/>
+        </g>
 
-          <!-- ── Small Building 2 — near left ── -->
-          <div class="iso-building small-bld bld-2">
-            <div class="iso-building-top"></div>
-            <div class="iso-building-front">
-              <div class="building-windows">
-                <div class="win-row"><span class="win"></span><span class="win on"></span></div>
-                <div class="win-row"><span class="win on"></span><span class="win on"></span></div>
-              </div>
-            </div>
-            <div class="iso-building-side"></div>
-          </div>
+        <!-- ══ MAIN KINGDOM PRIME BUILDING ══ -->
+        <!-- Top face — solar panels -->
+        <polygon points="248,175 393,120 648,120 503,175" fill="url(#solar)" stroke="#204080" stroke-width="1"/>
+        <polygon points="248,175 393,120 648,120 503,175" fill="url(#bld-top)" opacity="0.18" stroke="none"/>
+        <!-- Building outline glow -->
+        <polygon points="248,175 503,175 503,348 248,348" fill="none" stroke="#2979ff" stroke-width="1" opacity="0.5" filter="url(#gsoft)"/>
+        <!-- Front face -->
+        <polygon points="248,175 503,175 503,348 248,348" fill="url(#bld-front)" stroke="#1e3870" stroke-width="0.8"/>
+        <!-- Right side face -->
+        <polygon points="503,175 648,120 648,293 503,348" fill="url(#bld-side)" stroke="#0e1e40" stroke-width="0.8"/>
 
-          <!-- ── MAIN KINGDOM PRIME TOWER (center) ── -->
-          <div class="iso-building main-building">
-            <div class="iso-building-top">
-              <!-- Solar panels pattern via CSS background -->
-            </div>
-            <div class="building-antenna">
-              <div class="antenna-shaft"></div>
-              <div class="antenna-light"></div>
-            </div>
-            <div class="iso-building-front">
-              <div class="building-label">THE KINGDOM<br>PRIME</div>
-              <div class="building-windows">
-                <div class="win-row">
-                  <span class="win on"></span><span class="win"></span><span class="win on"></span><span class="win on"></span><span class="win"></span>
-                </div>
-                <div class="win-row">
-                  <span class="win"></span><span class="win on"></span><span class="win on"></span><span class="win"></span><span class="win on"></span>
-                </div>
-                <div class="win-row">
-                  <span class="win on"></span><span class="win"></span><span class="win"></span><span class="win on"></span><span class="win on"></span>
-                </div>
-                <div class="win-row">
-                  <span class="win on"></span><span class="win on"></span><span class="win"></span><span class="win on"></span><span class="win"></span>
-                </div>
-                <div class="win-row">
-                  <span class="win"></span><span class="win on"></span><span class="win on"></span><span class="win on"></span><span class="win on"></span>
-                </div>
-              </div>
-            </div>
-            <div class="iso-building-side">
-              <div class="building-windows side-wins">
-                <div class="win-row"><span class="win on"></span><span class="win"></span></div>
-                <div class="win-row"><span class="win"></span><span class="win on"></span></div>
-                <div class="win-row"><span class="win on"></span><span class="win on"></span></div>
-              </div>
-            </div>
-            <!-- Ground floor glow -->
-            <div class="building-glow-base"></div>
-          </div>
+        <!-- Front face details -->
+        <!-- Crown logo -->
+        <text x="375" y="196" text-anchor="middle" font-size="13" fill="#ffd740" filter="url(#gsoft)">👑</text>
+        <!-- Building name -->
+        <text x="375" y="212" text-anchor="middle" font-size="9" font-weight="800" fill="#00e5ff" letter-spacing="2" filter="url(#gsoft)">THE KINGDOM PRIME</text>
+        <text x="375" y="222" text-anchor="middle" font-size="6.5" fill="#4a7ab0" letter-spacing="1.5">AI INVESTMENT ENGINE</text>
 
-          <!-- ── Small Building 3 — near right ── -->
-          <div class="iso-building small-bld bld-3">
-            <div class="iso-building-top"></div>
-            <div class="iso-building-front">
-              <div class="building-windows">
-                <div class="win-row"><span class="win on"></span><span class="win on"></span><span class="win"></span></div>
-                <div class="win-row"><span class="win"></span><span class="win on"></span><span class="win on"></span></div>
-                <div class="win-row"><span class="win on"></span><span class="win"></span><span class="win on"></span></div>
-              </div>
-            </div>
-            <div class="iso-building-side"></div>
-          </div>
+        <!-- Live display screen on building front -->
+        <rect x="262" y="228" width="120" height="60" rx="2" fill="url(#screen-grad)" stroke="#2050a0" stroke-width="0.8"/>
+        <text x="322" y="240" text-anchor="middle" font-size="5.5" fill="#4a80b0">LIVE PORTFOLIO OVERVIEW</text>
+        <!-- Chart lines on screen -->
+        <polyline points="268,268 280,258 292,263 304,250 316,255 328,242 340,248 352,238 364,244 376,235" fill="none" stroke="#00e676" stroke-width="1.2"/>
+        <polyline points="268,270 280,265 292,260 304,258 316,263 328,256 340,261 352,255 364,259 376,250" fill="none" stroke="#2979ff" stroke-width="0.8" opacity="0.7"/>
+        <!-- Screen glow -->
+        <rect x="262" y="228" width="120" height="60" rx="2" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.4" filter="url(#gsoft)"/>
 
-          <!-- ── Small Building 4 — far right ── -->
-          <div class="iso-building small-bld bld-4">
-            <div class="iso-building-top"></div>
-            <div class="iso-building-front">
-              <div class="building-windows">
-                <div class="win-row"><span class="win on"></span><span class="win on"></span></div>
-                <div class="win-row"><span class="win"></span><span class="win on"></span></div>
-              </div>
-            </div>
-            <div class="iso-building-side"></div>
-          </div>
+        <!-- Windows right section of front -->
+        <g fill="#00e5ff">
+          <rect x="398" y="232" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="418" y="232" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="438" y="232" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="458" y="232" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="478" y="232" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="398" y="248" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="418" y="248" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="438" y="248" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="458" y="248" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="398" y="264" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="418" y="264" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="438" y="264" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="458" y="264" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="478" y="264" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="398" y="280" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="418" y="280" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="438" y="280" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="458" y="280" width="14" height="9" rx="1" opacity="0.18"/>
+          <rect x="478" y="280" width="14" height="9" rx="1" opacity="0.18"/>
+          <!-- Glowing on windows -->
+          <rect x="418" y="232" width="14" height="9" rx="1" opacity="0.65" filter="url(#gsoft)">
+            <animate attributeName="opacity" values="0.65;0.2;0.65" dur="2.3s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="458" y="248" width="14" height="9" rx="1" opacity="0.65" filter="url(#gsoft)">
+            <animate attributeName="opacity" values="0.2;0.65;0.2" dur="3.1s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="438" y="264" width="14" height="9" rx="1" opacity="0.65" filter="url(#gsoft)">
+            <animate attributeName="opacity" values="0.65;0.1;0.65" dur="1.9s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="478" y="280" width="14" height="9" rx="1" opacity="0.65" filter="url(#gsoft)">
+            <animate attributeName="opacity" values="0.1;0.65;0.1" dur="2.7s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="398" y="280" width="14" height="9" rx="1" opacity="0.65" filter="url(#gsoft)">
+            <animate attributeName="opacity" values="0.65;0.3;0.65" dur="1.5s" repeatCount="indefinite"/>
+          </rect>
+        </g>
+        <!-- Roof antenna -->
+        <line x1="410" y1="120" x2="410" y2="96" stroke="#5580c0" stroke-width="1.2"/>
+        <circle cx="410" cy="94" r="3" fill="#ff4444" filter="url(#gsoft)">
+          <animate attributeName="opacity" values="1;0.1;1" dur="1.2s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Building bottom glow line -->
+        <line x1="248" y1="348" x2="503" y2="348" stroke="#2979ff" stroke-width="1.5" opacity="0.5" filter="url(#gsoft)"/>
 
-          <!-- ── Tall Building far-right background ── -->
-          <div class="iso-building small-bld bld-bg-right">
-            <div class="iso-building-top"></div>
-            <div class="iso-building-front">
-              <div class="building-windows">
-                <div class="win-row"><span class="win on"></span><span class="win"></span></div>
-                <div class="win-row"><span class="win"></span><span class="win on"></span></div>
-                <div class="win-row"><span class="win on"></span><span class="win"></span></div>
-                <div class="win-row"><span class="win"></span><span class="win on"></span></div>
-              </div>
-            </div>
-            <div class="iso-building-side"></div>
-          </div>
+        <!-- ══ HOLOGRAM PLATFORM (left) ══ -->
+        <!-- Beam -->
+        <polygon points="148,308 182,308 174,240 156,240" fill="url(#holo-beam)" opacity="0.6"/>
+        <!-- Platform ring glow -->
+        <ellipse cx="165" cy="308" rx="48" ry="16" fill="#00e5ff" opacity="0.06" filter="url(#gblur)"/>
+        <!-- Platform base -->
+        <ellipse cx="165" cy="308" rx="44" ry="14" fill="#04101e" stroke="#00e5ff" stroke-width="1.2" filter="url(#gcyan)" opacity="0.9"/>
+        <ellipse cx="165" cy="308" rx="38" ry="11" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.5"/>
+        <!-- Hologram globe -->
+        <g transform="translate(165,258)">
+          <ellipse cx="0" cy="0" rx="22" ry="22" fill="#00e5ff" opacity="0.04" filter="url(#gblur)"/>
+          <ellipse cx="0" cy="0" rx="20" ry="20" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.7" filter="url(#gcyan)">
+            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="8s" repeatCount="indefinite"/>
+          </ellipse>
+          <ellipse cx="0" cy="0" rx="10" ry="20" fill="none" stroke="#00e5ff" stroke-width="0.6" opacity="0.5">
+            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="8s" repeatCount="indefinite"/>
+          </ellipse>
+          <ellipse cx="0" cy="0" rx="20" ry="8" fill="none" stroke="#00e5ff" stroke-width="0.6" opacity="0.5"/>
+          <ellipse cx="0" cy="0" rx="20" ry="3" fill="none" stroke="#00e5ff" stroke-width="0.4" opacity="0.3"/>
+          <text x="0" y="5" text-anchor="middle" font-size="8" fill="#00e5ff" opacity="0.8">₿</text>
+        </g>
 
-          <!-- Neon Roads (flat grid lines on floor) -->
-          <div class="city-road road-h"></div>
-          <div class="city-road road-v"></div>
+        <!-- ══ DELIVERY TRUCK (left front) ══ -->
+        <g transform="translate(58,345)">
+          <!-- Truck box/cargo body -->
+          <polygon points="38,-45 128,-45 128,-5 38,-5" fill="url(#truck-body)" stroke="#8090c0" stroke-width="0.8"/>
+          <!-- Box top -->
+          <polygon points="38,-45 58,-58 148,-58 128,-45" fill="#c8d4f0" stroke="#8090c0" stroke-width="0.8"/>
+          <!-- Box right side -->
+          <polygon points="128,-45 148,-58 148,-18 128,-5" fill="#a8b8e0" stroke="#7080b0" stroke-width="0.8"/>
+          <!-- Cab front face -->
+          <polygon points="4,-5 38,-5 38,-40 8,-40" fill="#d8e4ff" stroke="#8090c0" stroke-width="0.8"/>
+          <!-- Cab top -->
+          <polygon points="8,-40 38,-40 58,-54 28,-54" fill="#c0ceee" stroke="#8090c0" stroke-width="0.8"/>
+          <!-- Cab right side -->
+          <polygon points="38,-40 38,-5 38,-5 58,-18 58,-54" fill="#b0bedd" stroke="#7080b0" stroke-width="0.8"/>
+          <!-- Windshield -->
+          <polygon points="9,-13 36,-13 36,-38 11,-38" fill="#93c5fd" opacity="0.75"/>
+          <!-- Wheels -->
+          <circle cx="18" cy="3"  r="9" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+          <circle cx="95" cy="3"  r="9" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+          <circle cx="118" cy="3" r="9" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+          <!-- KINGDOM label on truck -->
+          <text x="83" y="-28" text-anchor="middle" font-size="6.5" font-weight="800" fill="#1a3070" letter-spacing="1">KINGDOM</text>
+          <text x="83" y="-18" text-anchor="middle" font-size="10" fill="#ffd740">👑</text>
+          <!-- Headlights -->
+          <rect x="5" y="-15" width="5" height="8" rx="1" fill="#fef3c7" opacity="0.8"/>
+        </g>
 
-          <!-- Decorative trees -->
-          <div class="city-tree tree-1">🌲</div>
-          <div class="city-tree tree-2">🌲</div>
-          <div class="city-tree tree-3">🌲</div>
+        <!-- ══ BITCOIN CRATES ══ -->
+        <!-- Crate 1 -->
+        <g transform="translate(464,330)">
+          <polygon points="0,18 22,18 22,0 0,0" fill="#92400e" stroke="#d97706" stroke-width="0.8"/>
+          <polygon points="0,0 12,-8 34,-8 22,0" fill="#d97706" stroke="#fbbf24" stroke-width="0.8"/>
+          <polygon points="22,0 34,-8 34,10 22,18" fill="#78350f" stroke="#b45309" stroke-width="0.8"/>
+          <text x="11" y="13" font-size="9" fill="#fbbf24" text-anchor="middle" font-weight="800">₿</text>
+        </g>
+        <!-- Crate 2 -->
+        <g transform="translate(490,340)">
+          <polygon points="0,18 22,18 22,0 0,0" fill="#92400e" stroke="#d97706" stroke-width="0.8"/>
+          <polygon points="0,0 12,-8 34,-8 22,0" fill="#d97706" stroke="#fbbf24" stroke-width="0.8"/>
+          <polygon points="22,0 34,-8 34,10 22,18" fill="#78350f" stroke="#b45309" stroke-width="0.8"/>
+          <text x="11" y="13" font-size="9" fill="#fbbf24" text-anchor="middle" font-weight="800">₿</text>
+        </g>
+        <!-- Crate 3 (stacked) -->
+        <g transform="translate(472,314)">
+          <polygon points="0,18 22,18 22,0 0,0" fill="#92400e" stroke="#d97706" stroke-width="0.8"/>
+          <polygon points="0,0 12,-8 34,-8 22,0" fill="#b45309" stroke="#fbbf24" stroke-width="0.8"/>
+          <polygon points="22,0 34,-8 34,10 22,18" fill="#78350f" stroke="#b45309" stroke-width="0.8"/>
+          <text x="11" y="13" font-size="8" fill="#fbbf24" text-anchor="middle" font-weight="800">₿</text>
+        </g>
+        <!-- Crate 4 -->
+        <g transform="translate(515,336)">
+          <polygon points="0,18 22,18 22,0 0,0" fill="#92400e" stroke="#d97706" stroke-width="0.8"/>
+          <polygon points="0,0 12,-8 34,-8 22,0" fill="#d97706" stroke="#fbbf24" stroke-width="0.8"/>
+          <polygon points="22,0 34,-8 34,10 22,18" fill="#78350f" stroke="#b45309" stroke-width="0.8"/>
+          <text x="11" y="13" font-size="9" fill="#fbbf24" text-anchor="middle" font-weight="800">₿</text>
+        </g>
 
-          <!-- Chibi walkers — populated by app.js -->
-          <div class="chibi-walker walker-1" id="walker-1"></div>
-          <div class="chibi-walker walker-2" id="walker-2"></div>
-          <div class="chibi-walker walker-3" id="walker-3"></div>
+        <!-- ══ BICYCLES (parked) ══ -->
+        <g transform="translate(395,355)" fill="none" stroke="#4a6090" stroke-width="1.4">
+          <circle cx="0" cy="0" r="9"/><circle cx="22" cy="0" r="9"/>
+          <line x1="0" y1="0" x2="11" y2="-11"/>
+          <line x1="11" y1="-11" x2="22" y2="0"/>
+          <line x1="11" y1="-11" x2="11" y2="-17"/>
+          <line x1="8" y1="-17" x2="14" y2="-17"/>
+          <line x1="8" y1="-17" x2="5" y2="-14"/>
+        </g>
+        <g transform="translate(425,352)" fill="none" stroke="#4a6090" stroke-width="1.4">
+          <circle cx="0" cy="0" r="9"/><circle cx="22" cy="0" r="9"/>
+          <line x1="0" y1="0" x2="11" y2="-11"/>
+          <line x1="11" y1="-11" x2="22" y2="0"/>
+          <line x1="11" y1="-11" x2="11" y2="-17"/>
+          <line x1="8" y1="-17" x2="14" y2="-17"/>
+        </g>
 
-          <!-- Portfolio metric overlay (top-right corner) -->
+        <!-- ══ FORKLIFT (right front) ══ -->
+        <g transform="translate(588,350)">
+          <!-- Body -->
+          <polygon points="0,0 45,0 45,-28 0,-28" fill="#b45309" stroke="#d97706" stroke-width="0.8" rx="2"/>
+          <!-- Cabin -->
+          <rect x="8" y="-44" width="24" height="18" rx="2" fill="#d97706" stroke="#fbbf24" stroke-width="0.8"/>
+          <!-- Cabin window -->
+          <rect x="10" y="-42" width="20" height="12" rx="1" fill="#93c5fd" opacity="0.6"/>
+          <!-- Fork arms -->
+          <rect x="-18" y="-15" width="18" height="3" rx="1" fill="#94a3b8"/>
+          <rect x="-18" y="-8"  width="18" height="3" rx="1" fill="#94a3b8"/>
+          <!-- Vertical mast -->
+          <rect x="-4" y="-50" width="4" height="38" rx="1" fill="#78350f" stroke="#d97706" stroke-width="0.5"/>
+          <!-- Wheels -->
+          <circle cx="10" cy="5" r="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+          <circle cx="35" cy="5" r="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+          <!-- Wheel hub -->
+          <circle cx="10" cy="5" r="3" fill="#334155"/>
+          <circle cx="35" cy="5" r="3" fill="#334155"/>
+        </g>
+
+        <!-- ══ CHIBI CHARACTERS ══ -->
+
+        <!-- Char 1: Boss on hologram platform (white/silver hair, suit) -->
+        <g transform="translate(165,285)">
+          <ellipse cx="0" cy="4" rx="12" ry="3.5" fill="#000" opacity="0.25"/>
+          <rect x="-6" y="-12" width="5" height="11" rx="2.5" fill="#1e3a5f"/>
+          <rect x="1"  y="-12" width="5" height="11" rx="2.5" fill="#1e3a5f"/>
+          <ellipse cx="-3.5" cy="0"  rx="4" ry="2.5" fill="#111"/>
+          <ellipse cx="3.5"  cy="0"  rx="4" ry="2.5" fill="#111"/>
+          <rect x="-9" y="-28" width="18" height="17" rx="4" fill="#1e3a5f"/>
+          <rect x="-13" y="-26" width="5" height="10" rx="2.5" fill="#1e3a5f"/>
+          <rect x="8"   y="-26" width="5" height="10" rx="2.5" fill="#1e3a5f"/>
+          <rect x="-4"  y="-32" width="8" height="5"  rx="2.5" fill="#ffe4b8"/>
+          <ellipse cx="0" cy="-39" rx="11" ry="11" fill="#ffe4b8"/>
+          <ellipse cx="0" cy="-45" rx="11" ry="7" fill="#e8e0c0"/>
+          <circle cx="-3.5" cy="-39" r="2" fill="#fff"/>
+          <circle cx="3.5"  cy="-39" r="2" fill="#fff"/>
+          <circle cx="-3"   cy="-39" r="1" fill="#1e293b"/>
+          <circle cx="4"    cy="-39" r="1" fill="#1e293b"/>
+          <path d="M-2.5,-34 Q0,-32 2.5,-34" stroke="#f97316" stroke-width="0.9" fill="none"/>
+          <!-- Tie -->
+          <polygon points="-1,-28 1,-28 0.5,-18 -0.5,-18" fill="#ffd740"/>
+          <!-- Tablet/book in hand -->
+          <rect x="8" y="-24" width="10" height="8" rx="1" fill="#0a1e3a" stroke="#00e5ff" stroke-width="0.7"/>
+          <!-- Aura glow -->
+          <ellipse cx="0" cy="3" rx="14" ry="4" fill="#ffd740" opacity="0.2" filter="url(#gblur)"/>
+        </g>
+
+        <!-- Char 2: Brown hair, working near left (left-front area) -->
+        <g transform="translate(295,358)">
+          <ellipse cx="0" cy="3" rx="10" ry="3" fill="#000" opacity="0.25"/>
+          <rect x="-5" y="-10" width="4.5" height="10" rx="2" fill="#7c3aed"/>
+          <rect x="1"  y="-10" width="4.5" height="10" rx="2" fill="#7c3aed"/>
+          <ellipse cx="-3" cy="1" rx="3.5" ry="2" fill="#111"/>
+          <ellipse cx="3"  cy="1" rx="3.5" ry="2" fill="#111"/>
+          <rect x="-8" y="-24" width="16" height="14" rx="3.5" fill="#7c3aed"/>
+          <rect x="-11" y="-22" width="4" height="9" rx="2" fill="#7c3aed"/>
+          <rect x="7"   y="-22" width="4" height="9" rx="2" fill="#7c3aed"/>
+          <rect x="-3"  y="-27" width="6" height="4" rx="2" fill="#fde68a"/>
+          <ellipse cx="0" cy="-33" rx="9" ry="9" fill="#fde68a"/>
+          <ellipse cx="0" cy="-38" rx="9" ry="6" fill="#92400e"/>
+          <circle cx="-3" cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="3"  cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="-2.5" cy="-33" r="0.9" fill="#1e293b"/>
+          <circle cx="3.5"  cy="-33" r="0.9" fill="#1e293b"/>
+          <path d="M-2,-29 Q0,-27 2,-29" stroke="#f97316" stroke-width="0.8" fill="none"/>
+        </g>
+
+        <!-- Char 3: Dark hair, center-left, walking -->
+        <g transform="translate(350,370)">
+          <ellipse cx="0" cy="3" rx="10" ry="3" fill="#000" opacity="0.25"/>
+          <rect x="-5" y="-8" width="4.5" height="10" rx="2" fill="#1e3a5f"/>
+          <rect x="2"  y="-11" width="4.5" height="10" rx="2" fill="#1e3a5f"/>
+          <ellipse cx="-3" cy="3"  rx="3.5" ry="2" fill="#111"/>
+          <ellipse cx="4"  cy="0"  rx="3.5" ry="2" fill="#111"/>
+          <rect x="-8" y="-24" width="16" height="14" rx="3.5" fill="#1e3a5f"/>
+          <rect x="-11" y="-22" width="4" height="9" rx="2" fill="#1e3a5f"/>
+          <rect x="7"   y="-22" width="4" height="9" rx="2" fill="#1e3a5f"/>
+          <rect x="-3"  y="-27" width="6" height="4" rx="2" fill="#fde68a"/>
+          <ellipse cx="0" cy="-33" rx="9" ry="9" fill="#fde68a"/>
+          <ellipse cx="0" cy="-39" rx="9" ry="6" fill="#1e293b"/>
+          <circle cx="-3" cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="3"  cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="-2.5" cy="-33" r="0.9" fill="#1e293b"/>
+          <circle cx="3.5"  cy="-33" r="0.9" fill="#1e293b"/>
+          <path d="M-2,-29 Q0,-27 2,-29" stroke="#f97316" stroke-width="0.8" fill="none"/>
+          <ellipse cx="0" cy="3" rx="10" ry="3" fill="#2979ff" opacity="0.15" filter="url(#gblur)"/>
+        </g>
+
+        <!-- Char 4: White hair, center, standing with tablet -->
+        <g transform="translate(415,372)">
+          <ellipse cx="0" cy="3" rx="10" ry="3" fill="#000" opacity="0.25"/>
+          <rect x="-5" y="-10" width="4.5" height="10" rx="2" fill="#334155"/>
+          <rect x="1"  y="-10" width="4.5" height="10" rx="2" fill="#334155"/>
+          <ellipse cx="-3" cy="1" rx="3.5" ry="2" fill="#111"/>
+          <ellipse cx="3"  cy="1" rx="3.5" ry="2" fill="#111"/>
+          <rect x="-8" y="-24" width="16" height="14" rx="3.5" fill="#334155"/>
+          <rect x="-11" y="-22" width="4" height="9" rx="2" fill="#334155"/>
+          <rect x="7"   y="-22" width="4" height="9" rx="2" fill="#334155"/>
+          <rect x="-3"  y="-27" width="6" height="4" rx="2" fill="#fca5a5"/>
+          <ellipse cx="0" cy="-33" rx="9" ry="9" fill="#fca5a5"/>
+          <ellipse cx="0" cy="-38" rx="9" ry="6" fill="#94a3b8"/>
+          <circle cx="-3" cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="3"  cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="-2.5" cy="-33" r="0.9" fill="#1e293b"/>
+          <circle cx="3.5"  cy="-33" r="0.9" fill="#1e293b"/>
+          <path d="M-2,-29 Q0,-27 2,-29" stroke="#f97316" stroke-width="0.8" fill="none"/>
+          <rect x="7" y="-22" width="9" height="7" rx="1" fill="#0a1e3a" stroke="#00e5ff" stroke-width="0.6"/>
+        </g>
+
+        <!-- Char 5: Dark hair, right side near crates -->
+        <g transform="translate(455,362)">
+          <ellipse cx="0" cy="3" rx="10" ry="3" fill="#000" opacity="0.25"/>
+          <rect x="-5" y="-10" width="4.5" height="10" rx="2" fill="#15803d"/>
+          <rect x="1"  y="-10" width="4.5" height="10" rx="2" fill="#15803d"/>
+          <ellipse cx="-3" cy="1" rx="3.5" ry="2" fill="#111"/>
+          <ellipse cx="3"  cy="1" rx="3.5" ry="2" fill="#111"/>
+          <rect x="-8" y="-24" width="16" height="14" rx="3.5" fill="#15803d"/>
+          <rect x="-11" y="-22" width="4" height="9" rx="2" fill="#15803d"/>
+          <rect x="7"   y="-22" width="4" height="9" rx="2" fill="#15803d"/>
+          <rect x="-3"  y="-27" width="6" height="4" rx="2" fill="#bbf7d0"/>
+          <ellipse cx="0" cy="-33" rx="9" ry="9" fill="#bbf7d0"/>
+          <ellipse cx="0" cy="-38" rx="9" ry="6" fill="#064e3b"/>
+          <circle cx="-3" cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="3"  cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="-2.5" cy="-33" r="0.9" fill="#1e293b"/>
+          <circle cx="3.5"  cy="-33" r="0.9" fill="#1e293b"/>
+          <path d="M-2,-29 Q0,-27 2,-29" stroke="#f97316" stroke-width="0.8" fill="none"/>
+          <ellipse cx="0" cy="3" rx="10" ry="3" fill="#00e676" opacity="0.15" filter="url(#gblur)"/>
+        </g>
+
+        <!-- Char 6: Bald/short hair, carrying box near crates -->
+        <g transform="translate(540,360)">
+          <ellipse cx="0" cy="3" rx="10" ry="3" fill="#000" opacity="0.25"/>
+          <rect x="-5" y="-10" width="4.5" height="10" rx="2" fill="#374151"/>
+          <rect x="1"  y="-10" width="4.5" height="10" rx="2" fill="#374151"/>
+          <ellipse cx="-3" cy="1" rx="3.5" ry="2" fill="#111"/>
+          <ellipse cx="3"  cy="1" rx="3.5" ry="2" fill="#111"/>
+          <rect x="-8" y="-24" width="16" height="14" rx="3.5" fill="#374151"/>
+          <rect x="-11" y="-20" width="5" height="8" rx="2" fill="#374151"/>
+          <rect x="6"   y="-20" width="5" height="8" rx="2" fill="#374151"/>
+          <rect x="-3"  y="-27" width="6" height="4" rx="2" fill="#fde68a"/>
+          <ellipse cx="0" cy="-33" rx="9" ry="9" fill="#fde68a"/>
+          <ellipse cx="0" cy="-38" rx="9" ry="5" fill="#4b5563"/>
+          <circle cx="-3" cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="3"  cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="-2.5" cy="-33" r="0.9" fill="#1e293b"/>
+          <circle cx="3.5"  cy="-33" r="0.9" fill="#1e293b"/>
+          <path d="M-2,-29 Q0,-27 2,-29" stroke="#f97316" stroke-width="0.8" fill="none"/>
+          <!-- Box being carried -->
+          <rect x="-7" y="-38" width="14" height="10" rx="1" fill="#d97706" stroke="#fbbf24" stroke-width="0.6"/>
+          <text x="0" y="-30" font-size="6" fill="#fbbf24" text-anchor="middle">₿</text>
+        </g>
+
+        <!-- Char 7: White coat, near server rack (right) -->
+        <g transform="translate(598,312)">
+          <ellipse cx="0" cy="3" rx="10" ry="3" fill="#000" opacity="0.25"/>
+          <rect x="-5" y="-10" width="4.5" height="10" rx="2" fill="#f1f5f9"/>
+          <rect x="1"  y="-10" width="4.5" height="10" rx="2" fill="#f1f5f9"/>
+          <ellipse cx="-3" cy="1" rx="3.5" ry="2" fill="#111"/>
+          <ellipse cx="3"  cy="1" rx="3.5" ry="2" fill="#111"/>
+          <rect x="-8" y="-24" width="16" height="14" rx="3.5" fill="#f1f5f9"/>
+          <rect x="-11" y="-22" width="4" height="9" rx="2" fill="#f1f5f9"/>
+          <rect x="7"   y="-22" width="4" height="9" rx="2" fill="#f1f5f9"/>
+          <rect x="-3"  y="-27" width="6" height="4" rx="2" fill="#fde68a"/>
+          <ellipse cx="0" cy="-33" rx="9" ry="9" fill="#fde68a"/>
+          <ellipse cx="0" cy="-38" rx="9" ry="6" fill="#94a3b8"/>
+          <circle cx="-3" cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="3"  cy="-33" r="1.8" fill="#fff"/>
+          <circle cx="-2.5" cy="-33" r="0.9" fill="#1e293b"/>
+          <circle cx="3.5"  cy="-33" r="0.9" fill="#1e293b"/>
+          <path d="M-2,-29 Q0,-27 2,-29" stroke="#f97316" stroke-width="0.8" fill="none"/>
+          <!-- Clipboard/tablet -->
+          <rect x="7" y="-24" width="9" height="12" rx="1" fill="#0a1525" stroke="#2979ff" stroke-width="0.6"/>
+        </g>
+
+        <!-- ══ GLOW EFFECTS ══ -->
+        <!-- Building base glow -->
+        <line x1="248" y1="348" x2="503" y2="348" stroke="#2979ff" stroke-width="3" opacity="0.12" filter="url(#gblur)"/>
+        <!-- Floor neon streaks (ground level) -->
+        <line x1="50"  y1="400" x2="250" y2="370" stroke="#00e5ff" stroke-width="1" opacity="0.2" filter="url(#gsoft)"/>
+        <line x1="570" y1="370" x2="770" y2="400" stroke="#00e5ff" stroke-width="1" opacity="0.2" filter="url(#gsoft)"/>
+        <!-- Ambient particles -->
+        <g fill="#00e5ff" opacity="0.6">
+          <circle cx="195" cy="205" r="1.5"><animate attributeName="opacity" values="0.6;0;0.6" dur="2.2s" repeatCount="indefinite"/></circle>
+          <circle cx="620" cy="190" r="1.5"><animate attributeName="opacity" values="0;0.6;0" dur="3.1s" repeatCount="indefinite"/></circle>
+          <circle cx="380" cy="165" r="1"><animate attributeName="opacity" values="0.6;0;0.6" dur="1.8s" repeatCount="indefinite"/></circle>
+          <circle cx="450" cy="155" r="1"><animate attributeName="opacity" values="0;0.6;0" dur="2.5s" repeatCount="indefinite"/></circle>
+          <circle cx="310" cy="200" r="1"><animate attributeName="opacity" values="0.4;0;0.4" dur="3.4s" repeatCount="indefinite"/></circle>
+          <circle cx="560" cy="170" r="1.5"><animate attributeName="opacity" values="0;0.5;0" dur="2.8s" repeatCount="indefinite"/></circle>
+        </g>
+        <g fill="#ffd740" opacity="0.5">
+          <circle cx="170" cy="275" r="1"><animate attributeName="opacity" values="0.5;0;0.5" dur="1.6s" repeatCount="indefinite"/></circle>
+          <circle cx="640" cy="195" r="1"><animate attributeName="opacity" values="0;0.5;0" dur="2.3s" repeatCount="indefinite"/></circle>
+        </g>
+
+        <!-- Bottom vignette -->
+        <defs>
+          <linearGradient id="vig" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="transparent"/>
+            <stop offset="100%" stop-color="#03050e"/>
+          </linearGradient>
+        </defs>
+        <rect y="310" width="820" height="110" fill="url(#vig)" opacity="0.7"/>
+
+        <!-- ══ OVERLAY INFO ══ -->
+        </svg>
+
           <div class="city-overlay-info">
             <div class="city-metric">
               <span class="city-metric-label" data-i18n="equity">EQUITY</span>
