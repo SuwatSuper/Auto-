@@ -39,6 +39,7 @@ def _check_rate_limit(ip: str) -> bool:
 def create_app(runtime: PipelineRuntime) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        await runtime.start("simulator")
         yield
         await runtime.stop()
 
