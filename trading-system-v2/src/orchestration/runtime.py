@@ -1,3 +1,4 @@
+# Layer 2 — Orchestration (runtime)
 from __future__ import annotations
 
 import asyncio
@@ -24,6 +25,7 @@ class PipelineRuntime:
     def __init__(self, settings: Settings, logger: structlog.BoundLogger) -> None:
         self.settings = settings
         self.logger = logger
+        # B1 fix: bus is created once in constructor and never replaced
         self.bus = InMemoryEventBus()
         self.mode: str = "simulator"
         self.feed: PriceFeed | None = None
@@ -72,17 +74,27 @@ class PipelineRuntime:
 
         if self.supervisor_task and not self.supervisor_task.done():
             self.supervisor_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
+            # B7 fix: suppress only CancelledError and TimeoutError; log others
+            try:
                 await asyncio.wait_for(self.supervisor_task, timeout=2.0)
+            except (asyncio.CancelledError, TimeoutError):
+                pass
+            except Exception:
+                self.logger.warning("runtime.stop_supervisor_error", exc_info=True)
 
         if self._window_task and not self._window_task.done():
             self._window_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._window_task
 
     async def switch_mode(self, mode: str) -> None:
+        # B1 fix: stop agents/feed/supervisor, recreate components but reuse same bus
         await self.stop()
-        self.bus = InMemoryEventBus()
-        for name in _AGENT_NAMES:
-            self.agents[name] = SampleAgent(name, self.bus, self.settings.prices_topic, self.logger)
+        # Recreate agents using the SAME bus (do not replace self.bus)
+        self.agents = {
+            name: SampleAgent(name, self.bus, self.settings.prices_topic, self.logger)
+            for name in _AGENT_NAMES
+        }
         self.agent_tasks = {}
         await self.start(mode)
 
@@ -104,18 +116,27 @@ class PipelineRuntime:
             task = self.agent_tasks.pop(name)
             if not task.done():
                 task.cancel()
-                with contextlib.suppress(asyncio.CancelledError, Exception):
+                # B7 fix: suppress only CancelledError and TimeoutError; log others
+                try:
                     await asyncio.wait_for(task, timeout=2.0)
+                except (asyncio.CancelledError, TimeoutError):
+                    pass
+                except Exception:
+                    self.logger.warning("runtime.stop_agent_error", name=name, exc_info=True)
 
     async def emergency_stop(self) -> None:
         for name in list(self.agents):
             await self.stop_agent(name)
         self.emergency_stopped = True
 
+    # B2 fix: add emergency_reset() to clear the emergency_stopped flag
+    async def emergency_reset(self) -> None:
+        """Clear the emergency_stopped flag. Does not auto-start anything."""
+        self.emergency_stopped = False
+
     def record_message(self, price: Decimal, latency_ms: int) -> None:
         self._latest_price = price
-        self._latest_latency_ms = latency_ms
-        self._msg_count_current += 1
+        self._latest_latency_ms = max(0, latency_ms)  # B9 fix: clamp latency >= 0
 
     async def _tick_window(self) -> None:
         while True:
@@ -130,11 +151,13 @@ class PipelineRuntime:
         uptime_sec = int((time.time() * 1000 - self.start_time_ms) / 1000)
         window = list(self.msg_count_window)
         msg_per_sec = round(sum(window) / max(len(window), 1), 1)
+        # B9 fix: add latency_precision field
         return {
             "mode": self.mode,
             "uptime_sec": uptime_sec,
             "msg_per_sec": msg_per_sec,
             "latency_ms": self._latest_latency_ms,
+            "latency_precision": "ms",
             "latest_price": str(self._latest_price) if self._latest_price is not None else None,
             "emergency_stopped": self.emergency_stopped,
             "agents": [a.status() for a in self.agents.values()],
@@ -154,7 +177,12 @@ class _CountingBusProxy:
             ts_ms_val = data.get("ts_ms")
             if price_val is not None and isinstance(ts_ms_val, int):
                 price = Decimal(str(price_val))
-                latency = int(time.time() * 1000) - ts_ms_val
+                raw_latency = int(time.time() * 1000) - ts_ms_val
+                latency = max(0, raw_latency)  # B9 fix: clamp latency >= 0
                 self._runtime.record_message(price, latency)
+                self._runtime._msg_count_current += 1
+        # B7 fix: only suppress CancelledError/TimeoutError; log other exceptions
+        except (asyncio.CancelledError, TimeoutError):
+            raise
         except Exception:
-            pass
+            self._runtime.logger.warning("counting_bus.parse_error", exc_info=True)

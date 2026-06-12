@@ -1,3 +1,4 @@
+# Layer 3 — Infrastructure (gateway/bitkub_ws)
 from __future__ import annotations
 
 import asyncio
@@ -6,7 +7,7 @@ from collections.abc import Awaitable, Callable
 
 import orjson
 import structlog
-import websockets.legacy.client
+from websockets.asyncio.client import connect
 
 
 class BitkubWebSocketGateway:
@@ -41,8 +42,9 @@ class BitkubWebSocketGateway:
     async def _connect_and_consume(
         self, on_raw: Callable[[dict[str, object]], Awaitable[None]]
     ) -> None:
+        # B6 fix: use websockets.asyncio.client.connect (new API, not legacy)
         self._log.info("bitkub_ws.connecting", url=self._url)
-        async with websockets.legacy.client.connect(self._url) as ws:
+        async with connect(self._url) as ws:
             self._log.info("bitkub_ws.connected", url=self._url)
             last_heartbeat = asyncio.get_event_loop().time()
             async for message in ws:

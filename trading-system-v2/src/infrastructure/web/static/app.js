@@ -56,27 +56,61 @@ function renderStatus(s) {
   if (s.latest_price != null) {
     $('price').textContent = fmt.format(Number(s.latest_price));
   }
+  // B8 fix: use DOM methods instead of innerHTML to prevent XSS
   const wrap = $('agents');
-  wrap.innerHTML = '';
+  while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
   s.agents.forEach((a) => {
     const row = document.createElement('div');
     row.className = 'flex items-center justify-between bg-slate-900 rounded px-3 py-2';
-    row.innerHTML = `
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="led ${a.running ? 'led-green' : 'led-red'}"></span>
-          <span class="font-semibold">${a.name}</span>
-        </div>
-        <div class="text-xs text-slate-500 font-mono">msgs: ${a.msg_count} · last: ${a.latest_price ?? '—'}</div>
-      </div>
-      <div class="flex gap-1">
-        <button data-act="start" data-name="${a.name}" class="bg-green-700 hover:bg-green-600 py-1 px-2 rounded text-xs">Start</button>
-        <button data-act="stop"  data-name="${a.name}" class="bg-yellow-700 hover:bg-yellow-600 py-1 px-2 rounded text-xs">Stop</button>
-      </div>`;
+
+    const infoDiv = document.createElement('div');
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'flex items-center gap-2';
+    const led = document.createElement('span');
+    led.className = `led ${a.running ? 'led-green' : 'led-red'}`;
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'font-semibold';
+    nameSpan.textContent = a.name;
+    nameRow.appendChild(led);
+    nameRow.appendChild(nameSpan);
+
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'text-xs text-slate-500 font-mono';
+    metaDiv.textContent = `msgs: ${a.msg_count} · last: ${a.latest_price ?? '—'}`;
+
+    infoDiv.appendChild(nameRow);
+    infoDiv.appendChild(metaDiv);
+
+    const btnDiv = document.createElement('div');
+    btnDiv.className = 'flex gap-1';
+
+    const startBtn = document.createElement('button');
+    startBtn.dataset.act = 'start';
+    startBtn.dataset.name = a.name;
+    startBtn.className = 'bg-green-700 hover:bg-green-600 py-1 px-2 rounded text-xs';
+    startBtn.textContent = 'Start';
+
+    const stopBtn = document.createElement('button');
+    stopBtn.dataset.act = 'stop';
+    stopBtn.dataset.name = a.name;
+    stopBtn.className = 'bg-yellow-700 hover:bg-yellow-600 py-1 px-2 rounded text-xs';
+    stopBtn.textContent = 'Stop';
+
+    btnDiv.appendChild(startBtn);
+    btnDiv.appendChild(stopBtn);
+
+    row.appendChild(infoDiv);
+    row.appendChild(btnDiv);
     wrap.appendChild(row);
   });
+  // B2 fix: show emergency_reset button when stopped
   if (s.emergency_stopped) {
-    $('emergency-stop').textContent = '🛑 STOPPED — Click to clear';
+    $('emergency-stop').textContent = '🛑 STOPPED';
+    $('emergency-reset').classList.remove('hidden');
+  } else {
+    $('emergency-stop').textContent = '🛑 EMERGENCY STOP';
+    $('emergency-reset').classList.add('hidden');
   }
 }
 
@@ -138,9 +172,15 @@ document.addEventListener('click', async (e) => {
     logEvent('EMERGENCY STOP triggered', 'error');
     return;
   }
+  // B2 fix: handle emergency reset button
+  if (t.id === 'emergency-reset') {
+    await api('POST', '/api/emergency_reset');
+    logEvent('Emergency stop cleared — system ready', 'ok');
+    return;
+  }
   if (t.id === 'start-all') { await api('POST', '/api/agents/start_all'); return; }
   if (t.id === 'stop-all') { await api('POST', '/api/agents/stop_all'); return; }
-  if (t.id === 'clear-log') { $('events').innerHTML = ''; return; }
+  if (t.id === 'clear-log') { const el = $('events'); while (el.firstChild) el.removeChild(el.firstChild); return; }
   if (t.dataset.mode) { await api('POST', `/api/mode/${t.dataset.mode}`); return; }
   if (t.dataset.act && t.dataset.name) {
     await api('POST', `/api/agents/${t.dataset.name}/${t.dataset.act}`);

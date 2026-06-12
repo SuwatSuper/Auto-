@@ -1,3 +1,4 @@
+# Layer 3 — Infrastructure (web/api)
 from __future__ import annotations
 
 import asyncio
@@ -66,19 +67,38 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
         await runtime.emergency_stop()
         return {"ok": True}
 
+    # B2 fix: add emergency_reset endpoint
+    @app.post("/api/emergency_reset")
+    async def emergency_reset() -> dict[str, object]:
+        await runtime.emergency_reset()
+        return {"ok": True}
+
+    # B3 fix: decouple price forwarding from status ticker using asyncio.TaskGroup
     @app.websocket("/ws")
     async def ws_endpoint(websocket: WebSocket) -> None:
         await websocket.accept()
         queue = runtime.bus.subscribe(runtime.settings.prices_topic)
-        try:
+
+        async def _forward_prices() -> None:
+            """Forward price events from the bus to the WebSocket client."""
             while True:
-                try:
-                    value = await asyncio.wait_for(queue.get(), timeout=1.0)
-                    payload: dict[str, object] = orjson.loads(value)
-                    await websocket.send_json({"type": "price", "data": payload})
-                except TimeoutError:
-                    await websocket.send_json({"type": "status", "data": runtime.status()})
-        except WebSocketDisconnect:
+                value = await queue.get()
+                payload: dict[str, object] = orjson.loads(value)
+                await websocket.send_json({"type": "price", "data": payload})
+
+        async def _send_status() -> None:
+            """Send status at exactly 1 Hz regardless of price flood."""
+            while True:
+                await asyncio.sleep(1.0)
+                await websocket.send_json({"type": "status", "data": runtime.status()})
+
+        try:
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(_forward_prices())
+                tg.create_task(_send_status())
+        except* WebSocketDisconnect:
+            pass
+        except* Exception:
             pass
         finally:
             runtime.bus.unsubscribe(runtime.settings.prices_topic, queue)
