@@ -18,7 +18,7 @@ from tests._fixtures import FakePriceFeed
 
 
 def _make_runtime() -> PipelineRuntime:
-    settings = Settings(persist_state=False, initial_capital="1000", prices_topic="prices.thb_btc.v1")
+    settings = Settings(training_mode=False, persist_state=False, initial_capital="1000", prices_topic="prices.thb_btc.v1")
     logger = structlog.get_logger("test")
     bus = InMemoryEventBus()
     deps = RuntimeDeps(

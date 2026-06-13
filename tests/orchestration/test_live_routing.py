@@ -64,7 +64,7 @@ def _agent(bus, gw, settings, order_fn):  # type: ignore[no-untyped-def]
 async def test_live_order_placed_when_gates_open() -> None:
     bus = InMemoryEventBus()
     gw = _MockGateway()
-    settings = Settings(execution_engine="live", live_trading_confirm=_LIVE, persist_state=False)
+    settings = Settings(training_mode=False, execution_engine="live", live_trading_confirm=_LIVE, persist_state=False)
     spec = {"action": "bid", "symbol": "thb_btc", "amount": "100.00", "rate": "1500000"}
     agent = _agent(bus, gw, settings, lambda _d: spec)
     await _run_one(agent, bus, orjson.dumps({"decision": "EXECUTE", "signal": "BUY"}))
@@ -77,7 +77,7 @@ async def test_no_live_order_when_gate_closed() -> None:
     bus = InMemoryEventBus()
     gw = _MockGateway()
     # engine paper -> live gate closed
-    settings = Settings(execution_engine="paper", persist_state=False)
+    settings = Settings(training_mode=False, execution_engine="paper", persist_state=False)
     agent = _agent(bus, gw, settings, lambda _d: {"action": "bid", "symbol": "x", "amount": "1", "rate": "1"})
     await _run_one(agent, bus, orjson.dumps({"decision": "EXECUTE", "signal": "BUY"}))
     assert gw.bids == [] and gw.asks == []
@@ -88,7 +88,7 @@ async def test_no_live_order_when_gate_closed() -> None:
 async def test_live_order_skipped_when_spec_none() -> None:
     bus = InMemoryEventBus()
     gw = _MockGateway()
-    settings = Settings(execution_engine="live", live_trading_confirm=_LIVE, persist_state=False)
+    settings = Settings(training_mode=False, execution_engine="live", live_trading_confirm=_LIVE, persist_state=False)
     agent = _agent(bus, gw, settings, lambda _d: None)  # nothing to place
     await _run_one(agent, bus, orjson.dumps({"decision": "EXECUTE", "signal": "BUY"}))
     assert gw.bids == [] and agent.live_orders_placed == 0
@@ -97,7 +97,7 @@ async def test_live_order_skipped_when_spec_none() -> None:
 # ── sizing + single-order cap ────────────────────────────────────────
 
 def _rt() -> PipelineRuntime:
-    rt = PipelineRuntime(settings=Settings(persist_state=False), logger=structlog.get_logger("t"))
+    rt = PipelineRuntime(settings=Settings(training_mode=False, persist_state=False), logger=structlog.get_logger("t"))
     rt.agents = rt._make_agents()
     return rt
 

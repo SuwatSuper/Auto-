@@ -27,7 +27,15 @@ class Settings(BaseSettings):
     bitkub_api_secret: SecretStr = SecretStr("")
     # Control-plane key: when set, all POST /api/* endpoints require X-API-Key.
     dashboard_api_key: SecretStr = SecretStr("")
-    # Paper-trading starting equity (THB). Experiment default: 1,000,000 THB.
+    # ── TRAINING MODE (agent self-training) ─────────────────────────────
+    # ON by default right now: unlocks ALL limits + a 10,000,000 THB paper
+    # bankroll so the agents trade freely and train on real prices. It FORCES
+    # paper execution, so unlimited loss can never touch real money. When you
+    # are confident, set TRAINING_MODE=false to restore the disciplined config
+    # (80% entry gate, breaker, survival floor, daily-loss limit).
+    training_mode: bool = True
+    training_capital: str = "10000000"
+    # Paper-trading starting equity (THB). Used when TRAINING_MODE=false.
     initial_capital: str = "1000000"
     risk_per_trade_pct: str = "1.0"
     stop_pct: str = "1.0"

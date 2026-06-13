@@ -14,7 +14,7 @@ from orchestration.runtime import PipelineRuntime
 @pytest.fixture
 async def client():
     runtime = PipelineRuntime(
-        settings=Settings(persist_state=False, dashboard_api_key=""),
+        settings=Settings(training_mode=False, persist_state=False, dashboard_api_key=""),
         logger=structlog.get_logger("test"),
     )
     # Build agents (trader/treasury/breaker/risk gate) without starting the live feed.
@@ -92,7 +92,7 @@ async def test_control_audit_lists_actions(client) -> None:  # type: ignore[no-u
 @pytest.mark.asyncio
 async def test_control_requires_auth_when_key_set() -> None:
     runtime = PipelineRuntime(
-        settings=Settings(persist_state=False, dashboard_api_key="secret123"),
+        settings=Settings(training_mode=False, persist_state=False, dashboard_api_key="secret123"),
         logger=structlog.get_logger("test"),
     )
     runtime.agents = runtime._make_agents()
@@ -130,7 +130,7 @@ async def test_login_flow() -> None:
 @pytest.mark.asyncio
 async def test_login_not_configured() -> None:
     runtime = PipelineRuntime(
-        settings=Settings(persist_state=False), logger=structlog.get_logger("test")
+        settings=Settings(training_mode=False, persist_state=False), logger=structlog.get_logger("test")
     )
     runtime.agents = runtime._make_agents()
     app = create_app(runtime)
@@ -161,7 +161,7 @@ async def test_localhost_bypasses_api_key_even_when_set() -> None:
     # Key configured, but a LOCAL (loopback) request needs no key — this is the
     # single-user local control room: open localhost:8000 and it just works.
     runtime = PipelineRuntime(
-        settings=Settings(persist_state=False, dashboard_api_key="secret123"),
+        settings=Settings(training_mode=False, persist_state=False, dashboard_api_key="secret123"),
         logger=structlog.get_logger("test"),
     )
     runtime.agents = runtime._make_agents()

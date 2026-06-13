@@ -23,6 +23,7 @@ def make_test_runtime(**settings_overrides: object) -> PipelineRuntime:
         "persist_state": False,
         "initial_capital": "1000",
         "prices_topic": "prices.thb_btc.v1",
+        "training_mode": False,  # tests exercise the disciplined config
     }
     defaults.update(settings_overrides)
     settings = Settings(**defaults)  # type: ignore[arg-type]

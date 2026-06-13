@@ -21,7 +21,7 @@ class _Bad:
 
 
 def _rt():
-    rt = PipelineRuntime(settings=Settings(persist_state=False), logger=structlog.get_logger("t"))
+    rt = PipelineRuntime(settings=Settings(training_mode=False, persist_state=False), logger=structlog.get_logger("t"))
     rt.agents = rt._make_agents()
     return rt
 

@@ -45,7 +45,7 @@ async def test_dropped_messages_in_runtime_status() -> None:
     from orchestration.runtime import PipelineRuntime, RuntimeDeps
     from tests._fixtures import FakePriceFeed
 
-    settings = Settings(persist_state=False, initial_capital="1000")
+    settings = Settings(training_mode=False, persist_state=False, initial_capital="1000")
     bus = InMemoryEventBus()
     deps = RuntimeDeps(
         bus=bus,

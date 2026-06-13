@@ -26,6 +26,7 @@ from tests._fixtures import FakePriceFeed
 
 def _make_runtime() -> PipelineRuntime:
     settings = Settings(
+        training_mode=False,
         persist_state=False,
         initial_capital="1000",
         prices_topic="prices.thb_btc.v1",

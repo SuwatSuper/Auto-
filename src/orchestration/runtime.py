@@ -90,6 +90,10 @@ class PipelineRuntime:
         self.settings = settings
         self.logger = logger
         self._deps = deps
+        # TRAINING MODE: unlock all limits + big paper bankroll so the agents
+        # can trade freely and train on real prices. Applied BEFORE any setting
+        # is read below. Forces paper execution — never risks real money.
+        self._apply_training_mode()
 
         # Bus: prefer injected (deps), otherwise create lazily via _CountingBusProxy
         # The actual concrete bus is stored in _bus_impl; _counting_bus wraps it.
@@ -151,6 +155,35 @@ class PipelineRuntime:
         self._trades_day_key: str = ""
         self._entries_baseline: int = 0
         self._gate_block_reasons: dict[str, int] = {}
+
+    def _apply_training_mode(self) -> None:
+        """When TRAINING_MODE is on, loosen every limit so the agents trade
+        freely and self-train on a large paper bankroll. Overrides the relevant
+        settings IN PLACE (beats any .env value) and FORCES paper execution so
+        an unlimited-loss config can never touch real money. Flip TRAINING_MODE
+        back to false to restore the disciplined, real-money config."""
+        if not bool(getattr(self.settings, "training_mode", False)):
+            return
+        capital = str(getattr(self.settings, "training_capital", "10000000"))
+        forced: dict[str, object] = {
+            "initial_capital": capital,        # big bankroll (default 10,000,000 THB)
+            "survival_floor_pct": "0",         # no survival-floor halt
+            "max_daily_loss_pct": "100",       # daily-loss cap effectively off
+            "max_consecutive_losses": "1000000000",  # breaker never auto-trips
+            "entry_gate_enabled": False,       # no 80% gate — trade to train
+            "max_open_positions": "5",
+            "execution_engine": "paper",       # SAFETY: never live while unlimited
+            "live_trading_confirm": "",
+        }
+        for key, value in forced.items():
+            with contextlib.suppress(Exception):
+                setattr(self.settings, key, value)
+        self.logger.warning(
+            "runtime.training_mode_active",
+            capital=capital, breaker="unlimited", daily_loss="100%",
+            survival_floor="0%", entry_gate="off", execution="paper(forced)",
+            note="set TRAINING_MODE=false to restore the disciplined config",
+        )
 
     @property
     def bus(self) -> EventBus:

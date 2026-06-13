@@ -110,7 +110,7 @@ async def test_live_gate_blocked_without_confirm() -> None:
     logger = structlog.get_logger("test")
 
     # Settings with live engine but empty confirmation token
-    settings = Settings(execution_engine="live", live_trading_confirm="", persist_state=False)
+    settings = Settings(training_mode=False, execution_engine="live", live_trading_confirm="", persist_state=False)
 
     mock_called = False
 

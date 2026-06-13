@@ -12,7 +12,7 @@ from orchestration.runtime import PipelineRuntime
 
 def _rt(**kw: object) -> PipelineRuntime:
     rt = PipelineRuntime(
-        settings=Settings(persist_state=False, **kw), logger=structlog.get_logger("t")
+        settings=Settings(training_mode=False, persist_state=False, **kw), logger=structlog.get_logger("t")
     )
     rt.agents = rt._make_agents()
     return rt

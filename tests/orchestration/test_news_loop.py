@@ -20,7 +20,7 @@ class _FakeNews:
 @pytest.mark.asyncio
 async def test_news_loop_publishes_score_to_bus():
     rt = PipelineRuntime(
-        settings=Settings(persist_state=False, news_poll_interval_s=0.2),
+        settings=Settings(training_mode=False, persist_state=False, news_poll_interval_s=0.2),
         logger=structlog.get_logger("t"),
     )
     rt._news_source = _FakeNews()

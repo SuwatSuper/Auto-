@@ -61,7 +61,7 @@ TEST_KEY = "test-key-1234567890"
 
 
 def _runtime(key: str = "") -> PipelineRuntime:
-    settings = Settings(persist_state=False, initial_capital="1000", prices_topic="prices.thb_btc.v1",
+    settings = Settings(training_mode=False, persist_state=False, initial_capital="1000", prices_topic="prices.thb_btc.v1",
         dashboard_api_key=SecretStr(key),
     )
     bus = InMemoryEventBus()

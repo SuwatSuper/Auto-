@@ -14,7 +14,7 @@ from orchestration.runtime import PipelineRuntime
 
 def _rt() -> PipelineRuntime:
     rt = PipelineRuntime(
-        settings=Settings(persist_state=False), logger=structlog.get_logger("test")
+        settings=Settings(training_mode=False, persist_state=False), logger=structlog.get_logger("test")
     )
     rt.agents = rt._make_agents()  # builds trader, treasury, breaker, risk gate (as start() does)
     return rt
