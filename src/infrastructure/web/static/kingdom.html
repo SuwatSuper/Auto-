@@ -2322,16 +2322,15 @@ html, body {
           </div>
           <div class="field">
             <label data-i18n="lbl_symbol">Symbol</label>
-            <select class="kp-select" id="ot-symbol">
-              <option value="BTC">BTC / THB</option>
-              <option value="ETH">ETH / THB</option>
-              <option value="BNB">BNB / THB</option>
-              <option value="SOL">SOL / THB</option>
+            <select class="kp-select" id="ot-symbol" title="ระบบนี้เทรดคู่ THB_BTC เท่านั้น">
+              <option value="THB_BTC">BTC / THB</option>
             </select>
           </div>
-          <div class="field">
+          <!-- Quantity is hidden: order size is computed automatically from risk%
+               on the server (the qty field was decorative and ignored). -->
+          <div class="field" style="display:none;">
             <label data-i18n="lbl_qty">Quantity</label>
-            <input class="kp-input" id="ot-qty" type="number" min="0" step="0.001" value="0.05" />
+            <input class="kp-input" id="ot-qty" type="number" min="0" step="0.001" value="0" />
           </div>
           <div class="field">
             <label data-i18n="lbl_type">Order Type</label>
@@ -2391,8 +2390,8 @@ html, body {
       </div>
 
       <div class="panel-grid cols-4" style="margin-bottom:14px;">
-        <div class="metric-tile"><div class="mt-label" data-i18n="mt_daily_loss">Daily Loss</div><div class="mt-value red" id="rk-daily">0%</div><div class="mt-sub" data-i18n="mt_limit_2">Limit 2.0%</div></div>
-        <div class="metric-tile"><div class="mt-label" data-i18n="mt_drawdown">Drawdown</div><div class="mt-value gold" id="rk-dd">0%</div><div class="mt-sub" data-i18n="mt_limit_10">Limit 10.0%</div></div>
+        <div class="metric-tile"><div class="mt-label" data-i18n="mt_daily_loss">Daily Loss</div><div class="mt-value red" id="rk-daily">0%</div><div class="mt-sub" id="rk-daily-lim">Limit —</div></div>
+        <div class="metric-tile"><div class="mt-label" data-i18n="mt_drawdown">Drawdown</div><div class="mt-value gold" id="rk-dd">0%</div><div class="mt-sub" id="rk-dd-lim">Limit —</div></div>
         <div class="metric-tile"><div class="mt-label" data-i18n="mt_exposure">Net Exposure</div><div class="mt-value cyan" id="rk-exp">—%</div><div class="mt-sub" data-i18n="mt_of_equity">of equity</div></div>
         <div class="metric-tile"><div class="mt-label">VaR (95%)</div><div class="mt-value" id="rk-var">฿ —</div><div class="mt-sub" data-i18n="mt_1day">1-day horizon</div></div>
       </div>
@@ -3071,7 +3070,15 @@ function handleStatus(data) {
   }
   State.executionEngine  = data.execution_engine || State.executionEngine || 'paper';
   State.dataSource       = data.data_source || State.dataSource || '—';
+  // Real risk settings drive the gauges + limit labels (no hardcoded limits).
+  if (data.risk_settings) {
+    State.riskSettings = data.risk_settings;
+    const mdl = parseFloat(data.risk_settings.max_daily_loss_pct);
+    if (!isNaN(mdl)) { State.dailyLimit = mdl; State.ddLimit = mdl; }
+  }
+  if (data.breaker) State.breaker = data.breaker;
   State.equity         = data.equity != null ? Number(data.equity) : State.equity;
+  State.initialCapital = data.initial_capital != null ? Number(data.initial_capital) : State.initialCapital;
   State.cash           = data.cash   != null ? Number(data.cash)   : State.cash;
   State.pnlToday       = data.pnl_today != null ? Number(data.pnl_today) : State.pnlToday;
   State.positions      = data.positions ?? data.open_positions ?? 0;
@@ -3177,11 +3184,17 @@ function renderPortfolio() {
   $('city-positions').textContent = `${State.positions} POSITIONS`;
   $('stat-equity-change').textContent = '24H Portfolio Overview';
   $('stat-equity-change').className = 'stat-change positive';
-  // Monthly return: estimate from pnl (~22 trading days)
-  if (State.pnlToday !== null && State.equity) {
-    const monthlyEst = ((State.pnlToday * 22) / State.equity * 100).toFixed(2);
-    const mEl = $('stat-monthly-val');
-    if (mEl) mEl.textContent = '+' + monthlyEst + ' %';
+  // Today's REAL return = today's PnL (realized + open) / starting capital.
+  // No fabricated monthly extrapolation; sign shown honestly.
+  const mEl = $('stat-monthly-val');
+  if (mEl) {
+    const base = Number(State.initialCapital) || Number(State.equity) || 0;
+    if (State.pnlToday !== null && base > 0) {
+      const ret = (Number(State.pnlToday) / base) * 100;
+      mEl.textContent = (ret >= 0 ? '+' : '') + ret.toFixed(2) + ' %';
+    } else {
+      mEl.textContent = '— %';
+    }
   }
 }
 
@@ -3231,10 +3244,15 @@ function renderUptime() {
 }
 
 function renderModeBtn() {
+  // Reflect the REAL execution engine (paper/live), never a hardcoded "LIVE".
+  const eng = String(State.executionEngine || 'paper').toUpperCase();
+  const isLive = eng === 'LIVE';
   const btnLive = $('btn-live');
-  if (btnLive) btnLive.classList.add('active');
-  $('stat-mode-badge').textContent = 'LIVE MODE';
-  $('stat-mode-badge').className   = 'stat-change positive';
+  if (btnLive) btnLive.classList.toggle('active', isLive);
+  const mb = $('stat-mode-badge');
+  if (mb) { mb.textContent = eng + ' MODE'; mb.className = 'stat-change ' + (isLive ? 'positive' : 'neutral'); }
+  const pb = $('perf-live-badge');
+  if (pb) { pb.textContent = isLive ? '● LIVE' : '● PAPER'; pb.className = 'card-badge ' + (isLive ? 'green' : ''); }
 }
 
 function renderBitkubAccount() {
@@ -3619,8 +3637,8 @@ function bindEvents() {
   const btnLive = $('btn-live');
   if (btnLive) btnLive.addEventListener('click', () => {
     flashBtn(btnLive);
-    btnLive.classList.add('active');
-    $('stat-mode-badge') && ($('stat-mode-badge').textContent = 'LIVE MODE');
+    // Real execution mode is armed in the Command Room (token-gated); this only
+    // pokes the price-mode endpoint. The badge reflects real status, not a click.
     apiPost('/api/mode/live');
   });
 
@@ -3766,8 +3784,8 @@ const I18N = {
   en: {
     nav_dashboard:'Dashboard', nav_portfolio:'Portfolio', nav_trading:'Trading',
     nav_analytics:'Analytics', nav_risk:'Risk', nav_agents:'Agents', nav_settings:'Settings',
-    stat_portfolio:'TOTAL PORTFOLIO', stat_profit:"TODAY'S PROFIT", stat_monthly:'MONTHLY RETURN',
-    this_month:'This month', stat_btc:'BITCOIN PRICE', stat_uptime:'UPTIME STATUS',
+    stat_portfolio:'TOTAL PORTFOLIO', stat_profit:"TODAY'S PROFIT", stat_monthly:'RETURN TODAY',
+    this_month:'Realized + open today', stat_btc:'BITCOIN PRICE', stat_uptime:'UPTIME STATUS',
     portfolio_overview:'LIVE PORTFOLIO OVERVIEW', equity:'EQUITY', pnl_today:'P&L TODAY',
     win_rate:'WIN RATE', portfolio_allocation:'Portfolio Allocation', performance:'Performance',
     risk_exposure:'Risk Exposure', daily_loss:'Daily Loss', drawdown:'Drawdown',
@@ -3808,8 +3826,8 @@ const I18N = {
   th: {
     nav_dashboard:'แดชบอร์ด', nav_portfolio:'พอร์ตโฟลิโอ', nav_trading:'เทรด',
     nav_analytics:'วิเคราะห์', nav_risk:'ความเสี่ยง', nav_agents:'เอเจนต์', nav_settings:'ตั้งค่า',
-    stat_portfolio:'มูลค่าพอร์ตรวม', stat_profit:'กำไรวันนี้', stat_monthly:'ผลตอบแทนรายเดือน',
-    this_month:'เดือนนี้', stat_btc:'ราคาบิตคอยน์', stat_uptime:'สถานะระบบ',
+    stat_portfolio:'มูลค่าพอร์ตรวม', stat_profit:'กำไรวันนี้', stat_monthly:'ผลตอบแทนวันนี้',
+    this_month:'รับรู้+ลอยตัววันนี้', stat_btc:'ราคาบิตคอยน์', stat_uptime:'สถานะระบบ',
     portfolio_overview:'ภาพรวมพอร์ตแบบเรียลไทม์', equity:'มูลค่าสุทธิ', pnl_today:'กำไร/ขาดทุนวันนี้',
     win_rate:'อัตราชนะ', portfolio_allocation:'สัดส่วนพอร์ต', performance:'ผลการดำเนินงาน',
     risk_exposure:'ความเสี่ยงที่เปิดอยู่', daily_loss:'ขาดทุนรายวัน', drawdown:'ดรอว์ดาวน์',
@@ -4233,6 +4251,11 @@ function renderRiskPage() {
   const dl = Number(State.dailyLossPct) || 0, dd = Number(State.drawdownPct) || 0;
   $('rk-daily').textContent = dl.toFixed(1) + '%';
   $('rk-dd').textContent    = dd.toFixed(1) + '%';
+  // Real configured limits (from /api/status risk_settings), not hardcoded text.
+  const lim = (State.riskSettings && State.riskSettings.max_daily_loss_pct != null)
+    ? Number(State.riskSettings.max_daily_loss_pct).toFixed(1) + '%' : '—';
+  const dlim = $('rk-daily-lim'); if (dlim) dlim.textContent = 'Limit ' + lim;
+  const ddlimEl = $('rk-dd-lim'); if (ddlimEl) ddlimEl.textContent = 'Limit ' + lim;
   // Net exposure from REAL open positions (market value / equity).
   const positions = (LAST_STATUS && Array.isArray(LAST_STATUS.portfolio)) ? LAST_STATUS.portfolio : [];
   const exposure = positions.reduce((s, p) => s + Math.abs(Number(p.market_value || 0)), 0);
@@ -4308,8 +4331,19 @@ function renderAgentsPage() {
 
 function renderSettingsPage() {
   syncSettingsActiveStates();
-  $('set-daily-val').textContent = (State.dailyLimit || 2).toFixed(1) + '%';
-  $('set-dd-val').textContent    = (State.ddLimit || 10).toFixed(1) + '%';
+  // Sliders reflect the REAL configured daily-loss cap (from /api/status).
+  const daily = (State.dailyLimit != null ? State.dailyLimit : 2);
+  const ds = $('set-daily-limit'); if (ds && document.activeElement !== ds) ds.value = daily;
+  $('set-daily-val').textContent = Number(daily).toFixed(1) + '%';
+  // The drawdown guard uses the same real daily-loss cap, so this row mirrors it
+  // read-only (disabled) instead of pretending to be a separate control.
+  const dd = $('set-dd-limit');
+  if (dd) { dd.value = daily; dd.disabled = true; dd.title = 'มิเรอร์เพดานขาดทุนรายวันจริง'; }
+  $('set-dd-val').textContent = Number(daily).toFixed(1) + '%';
+  // Live uptime (was a frozen 00:00:00).
+  const s = Math.floor(State.uptimeSeconds || 0), pad = n => String(n).padStart(2, '0');
+  const up = $('set-uptime');
+  if (up) up.textContent = `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
   const src = State.dataSource || '—';
   $('set-source').textContent = src === 'live_bitkub_ws' ? 'Live Bitkub (WebSocket)' : src;
 }
@@ -4449,20 +4483,20 @@ function refreshOrderTicketLabel() {
 
 function updateOrderSummary() {
   const sumEl = $('ot-summary'); if (!sumEl) return;
-  const sym  = ($('ot-symbol') || {}).value || 'BTC';
-  const qty  = parseFloat(($('ot-qty') || {}).value) || 0;
-  const type = ($('ot-type') || {}).value || 'market';
-  const px   = type === 'limit'
-    ? (parseFloat(($('ot-price') || {}).value) || markPrice(sym))
-    : markPrice(sym);
-  const notional = qty * px;
-  const fee = notional * 0.0010; // 0.10% commission (backtest-fidelity)
-  const slip = type === 'market' ? notional * 0.0005 : 0; // 5bps slippage on market
+  // Honest summary built ONLY from real settings — the server sizes the order
+  // from risk%, so we never fabricate a notional/fee from an ignored qty field.
+  const rs = State.riskSettings || {};
+  const risk = rs.risk_per_trade_pct != null ? rs.risk_per_trade_pct : '—';
+  const cap  = rs.max_single_order_thb != null ? Number(rs.max_single_order_thb) : 0;
+  const eng  = String(State.executionEngine || 'paper').toUpperCase();
+  const side = State.orderSide === 'sell' ? 'ขาย / ปิดทั้งโพซิชัน' : 'ซื้อ (เปิดไม้ใหม่)';
   sumEl.innerHTML =
-    `Notional: <b>${fmtThb(notional)}</b><br>` +
-    `Commission (0.10%): <b>${fmtThb(fee)}</b><br>` +
-    `Est. slippage: <b>${fmtThb(slip)}</b><br>` +
-    `Total cost: <b>${fmtThb(notional + fee + slip)}</b>`;
+    `โหมด: <b>${eng}</b> · คำสั่ง: <b>${side}</b><br>` +
+    `ขนาดไม้คำนวณอัตโนมัติจากความเสี่ยง <b>${risk}%</b>/ไม้ (ฝั่งเซิร์ฟเวอร์)<br>` +
+    `เพดานต่อออเดอร์: <b>${cap > 0 ? fmtThb(cap) : 'ไม่จำกัด'}</b><br>` +
+    (eng === 'LIVE'
+      ? `<span style="color:var(--accent-red)">⚠ LIVE = ส่งคำสั่งเงินจริงบน Bitkub</span>`
+      : `<span style="color:var(--text-mid)">PAPER = พอร์ตจำลอง (ไม่ใช้เงินจริง)</span>`);
 }
 
 let REAL_FILLS = [];
@@ -4579,16 +4613,24 @@ function bindPageEvents() {
       }
     });
   });
-  // Settings: risk threshold sliders
-  const dailySlider = $('set-daily-limit'), ddSlider = $('set-dd-limit');
-  if (dailySlider) dailySlider.addEventListener('input', () => {
-    State.dailyLimit = parseFloat(dailySlider.value);
-    $('set-daily-val').textContent = State.dailyLimit.toFixed(1) + '%';
-  });
-  if (ddSlider) ddSlider.addEventListener('input', () => {
-    State.ddLimit = parseFloat(ddSlider.value);
-    $('set-dd-val').textContent = State.ddLimit.toFixed(1) + '%';
-  });
+  // Settings: Daily-Loss slider is a REAL control of max_daily_loss_pct.
+  const dailySlider = $('set-daily-limit');
+  if (dailySlider) {
+    // live label while dragging
+    dailySlider.addEventListener('input', () => {
+      const v = parseFloat(dailySlider.value);
+      State.dailyLimit = v; State.ddLimit = v;
+      $('set-daily-val').textContent = v.toFixed(1) + '%';
+      $('set-dd-val').textContent = v.toFixed(1) + '%';
+    });
+    // on release: persist to the live control plane (token-gated like the form)
+    dailySlider.addEventListener('change', async () => {
+      const v = parseFloat(dailySlider.value);
+      const res = await cmdSend('/api/risk/settings', 'POST', { max_daily_loss_pct: String(v) });
+      showToast(res.ok ? `✅ ตั้งเพดานขาดทุนรายวัน = ${v.toFixed(1)}%` : `❌ ${cmdErr(res)}`);
+    });
+  }
+  // (the Drawdown slider is a read-only mirror of the same real cap — disabled in renderSettingsPage)
 }
 
 /* ──────────────────────────────────────────────────────────────

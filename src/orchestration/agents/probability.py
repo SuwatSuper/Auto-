@@ -49,7 +49,11 @@ class ProbabilityAgent:
                     if len(self._prices) > 500:
                         self._prices = self._prices[-500:]
                     rsi_vals = rsi_wilder(self._prices, 14)
-                    rsi = rsi_vals[-1] if rsi_vals else Decimal("50")
+                    rsi = rsi_vals[-1] if rsi_vals else Decimal("NaN")
+                    # Honest: until RSI can actually be computed (warm-up), do NOT
+                    # publish a fabricated 0.5 probability — stay silent.
+                    if rsi.is_nan():
+                        continue
                     prob_bull = (Decimal("100") - rsi) / Decimal("100")
                     out = orjson.dumps({"prob_bull": str(prob_bull), "rsi": str(rsi)})
                     await self._bus.publish(self._topic_out, b"probability", out)

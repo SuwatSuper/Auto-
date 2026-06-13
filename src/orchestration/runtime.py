@@ -220,7 +220,10 @@ class PipelineRuntime:
         agents: dict[str, AgentLike] = {
             "market_analyst": EntryExitAgent(bus, prices, _TOPIC_SIGNALS, log),
             "news_intelligence": NewsSentimentAgent(bus, _TOPIC_NEWS_RAW, _TOPIC_SENTIMENT, log),
-            "risk_management": RiskAgent(bus, _TOPIC_DECISIONS, _TOPIC_RISK, log),
+            "risk_management": RiskAgent(
+                bus, _TOPIC_DECISIONS, _TOPIC_RISK, log,
+                equity_fn=self._risk_equity_state,
+            ),
             "probability_lab": ProbabilityAgent(bus, prices, _TOPIC_PROBABILITY, log),
             "research_dept": HistoricalResearchAgent(bus, prices, _TOPIC_RESEARCH, log),
             "execution_agent": SimulationAgent(bus, prices, _TOPIC_SIM_RESULTS, log),
@@ -856,6 +859,17 @@ class PipelineRuntime:
             "leaderboard": rows,
             "feed": feed[:limit],
         }
+
+    def _risk_equity_state(self) -> tuple[Decimal, Decimal, Decimal]:
+        """Real (peak_equity, current_equity, daily_pnl) for the Risk agent's
+        drawdown / daily-loss checks. Before any trade this is the honest
+        no-movement baseline (equity == peak, pnl == 0), not a fabrication."""
+        if self._treasury is not None and self._trader is not None:
+            current = self._treasury.cash + self._trader.open_market_value()
+            daily_pnl = self._treasury.realized_today + self._trader.unrealized_pnl()
+            peak = self._peak_equity if self._peak_equity >= current else current
+            return peak, current, daily_pnl
+        return self._initial_capital, self._initial_capital, Decimal("0")
 
     def _win_rate(self) -> float | None:
         """Win rate of the rolling paper backtest run by the execution

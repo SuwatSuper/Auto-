@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 
 import orjson
@@ -23,11 +24,15 @@ class RiskAgent:
         topic_out: str,
         logger: structlog.BoundLogger,
         limits: RiskLimits | None = None,
+        equity_fn: Callable[[], tuple[Decimal, Decimal, Decimal]] | None = None,
     ) -> None:
         self._bus = bus
         self._topic_in = topic_in
         self._topic_out = topic_out
         self._log = logger
+        # Returns REAL (peak_equity, current_equity, daily_pnl) so the drawdown /
+        # daily-loss limbs vet against live treasury state, not a constant.
+        self._equity_fn = equity_fn
         self._limits = limits or RiskLimits(
             max_order_qty=Decimal("1"),
             max_position_qty=Decimal("1"),
@@ -70,9 +75,17 @@ class RiskAgent:
                         status=OrderStatus.NEW,
                         created_ms=0,
                     )
-                    peak = Money(amount=Decimal("1000000"), currency=THB)
-                    current = Money(amount=Decimal("1000000"), currency=THB)
-                    daily_pnl = Money(amount=Decimal(0), currency=THB)
+                    # Real account state when wired; otherwise the honest
+                    # no-movement baseline (peak == current, daily_pnl == 0),
+                    # never a fabricated drawdown.
+                    if self._equity_fn is not None:
+                        peak_d, current_d, daily_d = self._equity_fn()
+                    else:
+                        peak_d = current_d = self._account.cash.amount
+                        daily_d = Decimal(0)
+                    peak = Money(amount=peak_d, currency=THB)
+                    current = Money(amount=current_d, currency=THB)
+                    daily_pnl = Money(amount=daily_d, currency=THB)
                     decision = evaluate(
                         order=order,
                         account=self._account,

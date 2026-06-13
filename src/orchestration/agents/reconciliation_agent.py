@@ -66,10 +66,14 @@ class ReconciliationAgent:
             while self.running:
                 self.last_beat_ms = int(time.time() * 1000)
                 await self._poll()
-                # Sleep in small chunks so stop() is responsive
+                # Sleep in small chunks so stop() is responsive AND refresh the
+                # heartbeat each chunk — otherwise the 60s wallet-poll interval
+                # would exceed the 5s stale threshold and the agent would show
+                # permanently "ค้าง/stale" on the dashboard even while healthy.
                 deadline = time.monotonic() + self._poll_interval
                 while self.running and time.monotonic() < deadline:
                     await asyncio.sleep(0.1)
+                    self.last_beat_ms = int(time.time() * 1000)
         finally:
             self._log.info("reconciliation_agent.stopped")
 

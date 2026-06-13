@@ -431,7 +431,9 @@ class DynamicPositionSizerAgent(PeriodicAgent):
                         "adapt",
                     )
         tail = " · ใช้จริงแล้ว ✅" if applied else (" · รอ ≥10 ไม้จึงปรับจริง" if total < 10 else "")
-        self.detail = f"Kelly แนะนำเสี่ยง {self.suggested_risk_pct:.2f}%/ไม้ (WR {float(wr) * 100:.0f}%, {total} ไม้){tail}"
+        # Honest: show WR only once there are real closed trades (no fake 50%).
+        wr_txt = f"{float(wr) * 100:.0f}%" if total > 0 else "—"
+        self.detail = f"Kelly แนะนำเสี่ยง {self.suggested_risk_pct:.2f}%/ไม้ (WR {wr_txt}, {total} ไม้){tail}"
 
 
 # ── 8. Risk: Trailing Stop Bot (real, advisory) ──────────────────────

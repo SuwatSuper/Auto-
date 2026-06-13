@@ -43,6 +43,29 @@ async def _run_one_poll(agent: ReconciliationAgent, settle: float = 0.3) -> None
 
 
 @pytest.mark.asyncio
+async def test_heartbeat_stays_fresh_during_long_poll_interval() -> None:
+    """Regression: with a 60s poll interval the heartbeat must still refresh
+    every chunk, so the agent never looks stale (> 5s) while healthy."""
+    bus = InMemoryEventBus()
+    agent = ReconciliationAgent(
+        bus=bus,
+        balance_source=NullBalanceSource(),
+        poll_interval_s=60.0,  # long real-wallet cadence
+        logger=structlog.get_logger("test"),
+    )
+    task = asyncio.create_task(agent.start())
+    try:
+        await asyncio.sleep(0.4)  # well inside the 60s wait, after first poll
+        now_ms = int(__import__("time").time() * 1000)
+        assert now_ms - agent.last_beat_ms < 1000  # beat within the last second
+    finally:
+        await agent.stop()
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
+@pytest.mark.asyncio
 async def test_null_source_reconciles_immediately() -> None:
     """NullBalanceSource immediately sets is_reconciled=True."""
     bus = InMemoryEventBus()
