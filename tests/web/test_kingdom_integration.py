@@ -25,6 +25,7 @@ from orchestration.runtime import PipelineRuntime, RuntimeDeps
 from tests._fixtures import FakePriceFeed
 
 EXPECTED_AGENTS = {
+    # core 11
     "market_analyst",
     "news_intelligence",
     "risk_management",
@@ -36,6 +37,22 @@ EXPECTED_AGENTS = {
     "paper_trader",
     "ceo",
     "risk_gate",
+    # Phase-2 extended (15, all real / data-driven)
+    "volatility_oracle",
+    "trend_follower",
+    "mean_reversion",
+    "breakout_specialist",
+    "black_swan_detector",
+    "drawdown_guardian",
+    "position_sizer",
+    "trailing_stop",
+    "profit_sweeper",
+    "fee_optimizer",
+    "latency_pinger",
+    "api_monitor",
+    "dashboard_synth",
+    "tax_clerk",
+    "garbage_collector",
 }
 
 TEST_KEY = "test-key-1234567890"
@@ -139,6 +156,12 @@ async def test_status_has_dashboard_contract_fields(open_client) -> None:  # typ
     assert data["win_rate"] is None
     names = {a["name"] for a in data["agents"]}
     assert names == EXPECTED_AGENTS
+    # every agent carries an EXP/level (skill) view, capped at 5000
+    for a in data["agents"]:
+        assert {"exp", "exp_max", "level", "rank"} <= a.keys()
+        assert 0 <= a["exp"] <= 5000
+        assert a["exp_max"] == 5000
+        assert 1 <= a["level"] <= 50
 
 
 @pytest.mark.asyncio
@@ -189,4 +212,4 @@ async def test_metrics_report_real_uptime_and_agent_count(open_client) -> None: 
     _, client = open_client
     await client.get("/healthz")
     text = (await client.get("/metrics")).text
-    assert "trading_agent_count 11" in text
+    assert "trading_agent_count 26" in text

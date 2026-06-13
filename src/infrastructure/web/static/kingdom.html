@@ -1281,6 +1281,13 @@ html, body {
 .agm-badge.down{background:rgba(224,67,78,.18);color:#ff6b73;}
 .agm-metrics{font-size:11px;color:var(--text-mid,#8a96b0);text-align:right;line-height:1.5;}
 .agm-metrics b{color:var(--text-hi,#cdd6ea);}
+.agm-dept{margin:14px 0 6px;font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--text-hi,#e8eefc);border-bottom:1px solid #1a2740;padding-bottom:4px;}
+.agm-dept:first-child{margin-top:0;}
+.agm-lv{font-size:9px;font-weight:800;border:1px solid;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;}
+.agm-detail{font-size:11px;color:var(--text-hi,#cdd6ea);margin-top:3px;}
+.agm-expbar{height:4px;border-radius:3px;background:#16203a;margin-top:5px;overflow:hidden;max-width:260px;}
+.agm-expfill{height:100%;border-radius:3px;transition:width .5s ease;}
+.agm-exptext{font-size:9px;color:var(--text-mid,#6b7a99);margin-top:2px;font-family:var(--font-mono,monospace);}
 </style>
 <link rel="stylesheet" href="/static/ceo_character.css">
 </head>
@@ -4786,30 +4793,67 @@ function initCommandRoom() {
 }
 
 /* ── Live agent monitor (real /api/status metrics) ── */
+const DEPARTMENTS = [
+  { id: 'data',   label: '📡 หน่วยข่าวกรองและหาข้อมูล (Data & Alpha)' },
+  { id: 'strat',  label: '⚔️ หน่วยยุทธวิธีทำกำไร (Strategy)' },
+  { id: 'risk',   label: '🛡️ หน่วยบริหารความเสี่ยงและคลัง (Risk & Treasury)' },
+  { id: 'exec',   label: '🎯 หน่วยลงมือสังหาร (Execution)' },
+  { id: 'system', label: '⚙️ หน่วยควบคุมและดูแลระบบ (System & Audit)' },
+];
 const AGENT_INFO = {
-  market_analyst:    { th: 'นักวิเคราะห์ตลาด',     role: 'ดูราคา BTC คำนวณ EMA-cross → ออกสัญญาณ', needs: 'price' },
-  probability_lab:   { th: 'ห้องความน่าจะเป็น',     role: 'คำนวณ RSI ให้คะแนนสัญญาณ',            needs: 'price' },
-  news_intelligence: { th: 'หน่วยข่าวกรอง',         role: 'รวม sentiment ข่าว (รอแหล่งข่าวจริง)', needs: 'news' },
-  research_dept:     { th: 'ฝ่ายวิจัย',             role: 'สถิติย้อนหลังแบบ rolling',            needs: 'price' },
-  risk_management:   { th: 'จัดการความเสี่ยง',       role: 'veto ออเดอร์ที่ละเมิดกฎ',             needs: 'decisions' },
-  probability:       { th: 'ความน่าจะเป็น',         role: 'คะแนนความน่าจะเป็น',                  needs: 'price' },
-  execution_agent:   { th: 'ฝ่ายทดสอบ backtest',    role: 'รัน backtest กระดาษ + ค่าธรรมเนียม',  needs: 'price' },
-  supreme_commander: { th: 'ผู้บัญชาการสูงสุด',      role: 'รวมสัญญาณ → ตัดสินใจสั่งเทรด',         needs: 'signals' },
-  risk_gate:         { th: 'ด่านความเสี่ยง (gate)',  role: 'อนุมัติ/บล็อกออเดอร์ก่อนส่ง',          needs: 'decisions' },
-  treasury:          { th: 'คลัง (เงินสด+PnL)',      role: 'เจ้าของเงินสดและบัญชีกำไรขาดทุน',      needs: 'always' },
-  paper_trader:      { th: 'เครื่องเทรดกระดาษ',      role: 'เปิด/ปิด position พร้อม stop+TP',      needs: 'decisions' },
-  ceo:               { th: 'CEO (ผู้สังเกตการณ์)',   role: 'ดูทุกอย่าง บันทึก audit',             needs: 'always' },
-  reconciliation:    { th: 'กระทบยอดบัญชีจริง',      role: 'อ่านยอด wallet Bitkub จริง',          needs: 'always' },
+  // 📡 Data & Alpha
+  market_analyst:    { dept: 'data',   th: 'นักวิเคราะห์ตลาด',     role: 'ดูราคา BTC คำนวณ EMA-cross → ออกสัญญาณ' },
+  probability_lab:   { dept: 'data',   th: 'ห้องความน่าจะเป็น',     role: 'คำนวณ RSI ให้คะแนนความน่าจะเป็น' },
+  news_intelligence: { dept: 'data',   th: 'หน่วยข่าวกรอง',         role: 'รวม sentiment ข่าว (รอแหล่งข่าวจริง)' },
+  volatility_oracle: { dept: 'data',   th: 'หยั่งรู้ความผันผวน',     role: 'ATR/Bollinger Squeeze — ตลาดจะระเบิดแรงแค่ไหน' },
+  // ⚔️ Strategy
+  research_dept:     { dept: 'strat',  th: 'ฝ่ายวิจัย',             role: 'สถิติย้อนหลังแบบ rolling ปรับโมเดล' },
+  trend_follower:    { dept: 'strat',  th: 'นักล่าเทรนด์',          role: 'ถือยาวตามเทรนด์ (EMA20/50 cross)' },
+  mean_reversion:    { dept: 'strat',  th: 'บอทสวนเทรนด์',          role: 'ดักตีกลับเมื่อ RSI oversold/overbought' },
+  breakout_specialist:{ dept: 'strat', th: 'ผู้ชำนาญเบรกเอาต์',     role: 'เกาะรถเมื่อราคาทะลุกรอบ (Donchian)' },
+  // 🛡️ Risk & Treasury
+  risk_management:   { dept: 'risk',   th: 'จัดการความเสี่ยง',       role: 'veto ออเดอร์ที่ละเมิดกฎ' },
+  treasury:          { dept: 'risk',   th: 'คลัง (เงินสด+PnL)',      role: 'เจ้าของเงินสดและบัญชีกำไรขาดทุน' },
+  risk_gate:         { dept: 'risk',   th: 'ด่านความเสี่ยง (gate)',  role: 'อนุมัติ/บล็อกออเดอร์ก่อนส่ง' },
+  black_swan_detector:{ dept: 'risk',  th: 'จับสัญญาณหงส์ดำ',        role: 'ตรวจราคาตกแรง → สั่งหยุดฉุกเฉิน' },
+  drawdown_guardian: { dept: 'risk',   th: 'ผู้พิทักษ์ดรอว์ดาวน์',   role: 'สวิตช์ดับเครื่องเมื่อขาดทุนเกินเพดาน' },
+  position_sizer:    { dept: 'risk',   th: 'คำนวณขนาดไม้',          role: 'Kelly Criterion ตามความแม่นช่วงนั้น' },
+  trailing_stop:     { dept: 'risk',   th: 'ล็อกกำไร trailing',      role: 'ขยับ stop ตามราคาที่พุ่งขึ้น' },
+  profit_sweeper:    { dept: 'risk',   th: 'กวาดกำไรเข้าคลัง',       role: 'โอนกำไรไปเก็บใน stablecoin vault' },
+  // 🎯 Execution
+  supreme_commander: { dept: 'exec',   th: 'ผู้บัญชาการสูงสุด',      role: 'รวมสัญญาณทุกฝ่าย → ตัดสินใจสั่งการ' },
+  execution_agent:   { dept: 'exec',   th: 'ฝ่ายทดสอบ backtest',    role: 'รัน backtest กระดาษ + ค่าธรรมเนียม' },
+  paper_trader:      { dept: 'exec',   th: 'เครื่องเทรดกระดาษ',      role: 'เปิด/ปิด position พร้อม stop+TP' },
+  fee_optimizer:     { dept: 'exec',   th: 'ปรับค่าธรรมเนียม',       role: 'เลือก Maker/Taker ให้คุ้มสุด' },
+  latency_pinger:    { dept: 'exec',   th: 'เช็กความหน่วง (ping)',   role: 'ถ้าเน็ตแล็กจะชะลอการยิงออเดอร์' },
+  // ⚙️ System & Audit
+  ceo:               { dept: 'system', th: 'CEO (ผู้สังเกตการณ์)',   role: 'ดูทุกอย่าง บันทึก audit trail' },
+  api_monitor:       { dept: 'system', th: 'เฝ้า API/การเชื่อมต่อ',  role: 'เช็กฟีด/บัญชีขาดไหม รายงานทันที' },
+  tax_clerk:         { dept: 'system', th: 'เสมียนบัญชี/ภาษี',       role: 'บันทึกกำไรรับรู้ทุกไม้เพื่อภาษี' },
+  dashboard_synth:   { dept: 'system', th: 'สรุปแดชบอร์ด',          role: 'ย่อย 4 ตัวเลขสำคัญ + push เที่ยงคืน' },
+  garbage_collector: { dept: 'system', th: 'เก็บกวาดหน่วยความจำ',    role: 'เคลียร์ RAM/objects ให้ระบบลื่น' },
+  reconciliation:    { dept: 'system', th: 'กระทบยอดบัญชีจริง',      role: 'อ่านยอด wallet Bitkub จริง' },
 };
+const RANK_COLORS = { Rookie:'#5a7ab0', Skilled:'#36d07f', Expert:'#00e5ff', Master:'#ffd740', Grandmaster:'#ff9100', Legendary:'#ff5252' };
 
+function _esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+}
 function agentMonitorRender(agents) {
   const box = $('agent-monitor');
   if (!box) return;
   if (!Array.isArray(agents) || agents.length === 0) { box.textContent = 'ยังไม่มีข้อมูลเอเจนต์ (ระบบยังไม่เริ่ม?)'; return; }
   const now = Date.now();
-  let working = 0, waiting = 0, down = 0;
-  const rows = agents.map(a => {
-    const info = AGENT_INFO[a.name] || { th: a.name, role: '', needs: '' };
+  let working = 0, waiting = 0, down = 0, expSum = 0;
+
+  const byDept = {};
+  agents.forEach(a => {
+    const info = AGENT_INFO[a.name] || { dept: 'system', th: a.name, role: '' };
+    (byDept[info.dept] = byDept[info.dept] || []).push(a);
+  });
+
+  const rowHtml = (a) => {
+    const info = AGENT_INFO[a.name] || { th: a.name, role: '' };
     const msgs = a.msg_count || 0;
     let cls, badge;
     if (a.crashed) { cls = 'down'; badge = '🔴 พัง'; down++; }
@@ -4817,6 +4861,14 @@ function agentMonitorRender(agents) {
     else if (a.stale) { cls = 'wait'; badge = '⚠️ ค้าง'; waiting++; }
     else if (msgs === 0) { cls = 'wait'; badge = '⏳ รอข้อมูล'; waiting++; }
     else { cls = 'work'; badge = '🟢 ทำงาน'; working++; }
+
+    const lvl = a.level != null ? a.level : 1;
+    const exp = a.exp != null ? a.exp : 0;
+    const expMax = a.exp_max || 5000;
+    const rank = a.rank || 'Rookie';
+    expSum += exp;
+    const rc = RANK_COLORS[rank] || '#5a7ab0';
+    const pct = clamp(exp / expMax * 100, 0, 100);
 
     const extra = [];
     if (a.signal_count != null) extra.push(`สัญญาณ <b>${a.signal_count}</b>`);
@@ -4827,14 +4879,37 @@ function agentMonitorRender(agents) {
     const beat = ago != null ? `· ${ago}s ที่แล้ว` : '';
 
     return `<div class="agm-row ${cls}">
-      <div><div class="agm-name">${info.th}</div><div class="agm-role">${info.role}</div></div>
+      <div>
+        <div class="agm-name">${_esc(info.th)} <span class="agm-lv" style="border-color:${rc};color:${rc}">Lv.${lvl} · ${rank}</span></div>
+        <div class="agm-role">${_esc(info.role)}</div>
+        ${a.detail ? `<div class="agm-detail">${_esc(a.detail)}</div>` : ''}
+        <div class="agm-expbar"><div class="agm-expfill" style="width:${pct}%;background:${rc}"></div></div>
+        <div class="agm-exptext">EXP ${exp.toLocaleString()} / ${expMax.toLocaleString()}</div>
+      </div>
       <div class="agm-badge ${cls}">${badge}</div>
-      <div class="agm-metrics">ประมวลผล <b>${msgs.toLocaleString()}</b> ข้อความ ${beat}<br>${extra.join(' · ') || '&nbsp;'}</div>
+      <div class="agm-metrics">ประมวลผล <b>${msgs.toLocaleString()}</b> ${beat}<br>${extra.join(' · ') || '&nbsp;'}</div>
     </div>`;
-  }).join('');
-  box.innerHTML = rows;
+  };
+
+  let html = '';
+  const seen = new Set();
+  DEPARTMENTS.forEach(d => {
+    const list = byDept[d.id];
+    if (!list || !list.length) return;
+    list.forEach(a => seen.add(a.name));
+    html += `<div class="agm-dept">${d.label} <span style="color:var(--text-mid);font-weight:400;">(${list.length})</span></div>`;
+    html += list.map(rowHtml).join('');
+  });
+  const orphans = agents.filter(a => !seen.has(a.name));
+  if (orphans.length) {
+    html += `<div class="agm-dept">อื่น ๆ (${orphans.length})</div>` + orphans.map(rowHtml).join('');
+  }
+  box.innerHTML = html;
+
+  const total = agents.length;
+  const avgLv = total ? (1 + Math.round(expSum / total / 100)) : 1;
   const sum = $('agmon-summary');
-  if (sum) sum.textContent = `— 🟢 ทำงาน ${working} · ⏳ รอข้อมูล ${waiting} · 🔴 หยุด ${down}`;
+  if (sum) sum.textContent = `— ${total} เอเจนต์ · 🟢 ${working} · ⏳ ${waiting} · 🔴 ${down} · เลเวลเฉลี่ย ~${avgLv}`;
 }
 
 async function realStatusTick() {

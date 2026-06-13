@@ -221,6 +221,53 @@ class PipelineRuntime:
                 live_order_fn=self._build_live_order,
             ),
         }
+        # ── Phase-2 extended departments — all real, data-driven ──────
+        from orchestration.agents.extended import (  # noqa: PLC0415
+            ApiConnectionMonitorAgent,
+            BlackSwanDetectorAgent,
+            BreakoutSpecialistAgent,
+            DashboardSynthesizerAgent,
+            DrawdownGuardianAgent,
+            DynamicPositionSizerAgent,
+            FeeOptimizerAgent,
+            GarbageCollectorAgent,
+            LatencyPingerAgent,
+            MeanReversionAgent,
+            ProfitSweeperAgent,
+            TaxAccountingClerkAgent,
+            TrailingStopBotAgent,
+            TrendFollowerAgent,
+            VolatilityOracleAgent,
+        )
+
+        def _flt(key: str, default: float) -> float:
+            try:
+                return float(str(getattr(self.settings, key, default)))
+            except (TypeError, ValueError):
+                return default
+
+        taker_bps = _flt("fee_taker_bps", 25.0)
+        maker_bps = _flt("fee_maker_bps", taker_bps)
+        dd_limit = _flt("max_daily_loss_pct", 100.0)
+        agents.update(
+            {
+                "volatility_oracle": VolatilityOracleAgent("volatility_oracle", bus, prices, log),
+                "trend_follower": TrendFollowerAgent("trend_follower", bus, prices, _TOPIC_SIGNALS, log),
+                "mean_reversion": MeanReversionAgent("mean_reversion", bus, prices, _TOPIC_SIGNALS, log),
+                "breakout_specialist": BreakoutSpecialistAgent("breakout_specialist", bus, prices, _TOPIC_SIGNALS, log),
+                "black_swan_detector": BlackSwanDetectorAgent("black_swan_detector", bus, prices, self, log),
+                "drawdown_guardian": DrawdownGuardianAgent("drawdown_guardian", self, dd_limit, log),
+                "position_sizer": DynamicPositionSizerAgent("position_sizer", self, 2.0, log),
+                "trailing_stop": TrailingStopBotAgent("trailing_stop", self, 1.5, log),
+                "profit_sweeper": ProfitSweeperAgent("profit_sweeper", self, 0.5, log),
+                "fee_optimizer": FeeOptimizerAgent("fee_optimizer", maker_bps, taker_bps, log),
+                "latency_pinger": LatencyPingerAgent("latency_pinger", self, log),
+                "api_monitor": ApiConnectionMonitorAgent("api_monitor", self, log),
+                "dashboard_synth": DashboardSynthesizerAgent("dashboard_synth", self, 2.0, log),
+                "tax_clerk": TaxAccountingClerkAgent("tax_clerk", self, log),
+                "garbage_collector": GarbageCollectorAgent("garbage_collector", log),
+            }
+        )
         money = self._make_money_agents(bus, prices)
         agents.update(money)
         # CEO observer — must be added AFTER money agents so it can see them
@@ -238,6 +285,21 @@ class PipelineRuntime:
                 "treasury":          "Sole owner of cash and PnL ledger",
                 "paper_trader":      "Bracketed paper execution engine",
                 "ceo":               "Executive observer / audit trail",
+                "volatility_oracle": "ATR/Bollinger volatility + squeeze",
+                "trend_follower":    "Rides confirmed trends (EMA20/50)",
+                "mean_reversion":    "Fades RSI extremes",
+                "breakout_specialist": "Donchian breakout trader",
+                "black_swan_detector": "Detects crashes; trips breaker",
+                "drawdown_guardian": "Halts on daily-loss breach",
+                "position_sizer":    "Kelly position sizing",
+                "trailing_stop":     "Trailing stop to lock profit",
+                "profit_sweeper":    "Sweeps profit to a vault",
+                "fee_optimizer":     "Maker/taker fee minimiser",
+                "latency_pinger":    "Exchange latency watchdog",
+                "api_monitor":       "Feed/account health monitor",
+                "dashboard_synth":   "Daily KPI synthesizer",
+                "tax_clerk":         "Realized-PnL tax ledger",
+                "garbage_collector": "Memory hygiene / GC",
             },
         )
         self._ceo = agents["ceo"]
@@ -536,6 +598,26 @@ class PipelineRuntime:
         rejected_count = getattr(agent, "rejected_count", None)
         if isinstance(rejected_count, int):
             status["rejected_count"] = rejected_count
+
+        # Human-readable detail (new agents expose .detail; others fall back).
+        detail = getattr(agent, "detail", "")
+        if isinstance(detail, str) and detail:
+            status["detail"] = detail
+
+        # ── EXP / level (skill) — earned from REAL work, hard-capped at 5000 ──
+        sig = signal_count if isinstance(signal_count, int) else 0
+        dec = decision_count if isinstance(decision_count, int) else 0
+        rej = rejected_count if isinstance(rejected_count, int) else 0
+        restarts = self.restart_counts.get(name, 0)
+        raw_exp = agent.msg_count + sig * 15 + dec * 20 + rej * 10
+        exp = max(0, min(self._EXP_CAP, raw_exp - restarts * 50))
+        level = min(50, 1 + exp // 100)
+        ranks = ["Rookie", "Skilled", "Expert", "Master", "Grandmaster", "Legendary"]
+        rank = ranks[min(len(ranks) - 1, level // 10)]
+        status["exp"] = exp
+        status["exp_max"] = self._EXP_CAP
+        status["level"] = level
+        status["rank"] = rank
         return status
 
     def _win_rate(self) -> float | None:
@@ -555,6 +637,7 @@ class PipelineRuntime:
     _LIVE_TOKEN = "I_ACCEPT_REAL_MONEY_RISK"
     _BREAKER_RESET_TOKEN = "MANUAL_RESET_CONFIRMED"
     _CONTROL_KEY = "control.settings.v1"
+    _EXP_CAP = 5000  # max agent skill (EXP) — agents level up from real work
 
     def _risk_gate(self) -> object | None:
         return self.agents.get("risk_gate")
@@ -1115,6 +1198,7 @@ class PipelineRuntime:
             "cash": float(cash),
             "initial_capital": str(self._initial_capital),
             "pnl_today": pnl_today,
+            "realized_today": float(realized_today),
             "daily_loss_pct": daily_loss_pct,
             "drawdown_pct": drawdown_pct,
             "positions": positions,
