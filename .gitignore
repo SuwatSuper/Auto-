@@ -16,3 +16,6 @@ data/
 htmlcov/
 .coverage
 coverage.xml
+
+# Packaged build artifacts (produced by scripts/make_zip.py)
+*.zip
