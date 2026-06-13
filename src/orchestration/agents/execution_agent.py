@@ -100,6 +100,17 @@ class ExecutionAgent:
             raise ValueError("max_open_positions must be >= 1")
         self._max_open_positions = value
 
+    def set_rest_gateway(self, gateway: object | None) -> None:
+        """Inject / replace / clear the live REST gateway at runtime.
+
+        The runtime builds the signed Bitkub gateway AFTER this agent is
+        constructed (and rebuilds it when the operator connects an account),
+        so it must push the gateway in here. Without this, ``_rest_gateway``
+        stays None and every decision falls back to paper even when all four
+        live gates are open — i.e. real orders can never fire (the live path
+        was dead code before this wiring)."""
+        self._rest_gateway = gateway
+
     async def start(self) -> None:
         """Subscribe and process decisions until stopped."""
         self.running = True
@@ -239,13 +250,28 @@ class ExecutionAgent:
             return
 
         self.live_orders_placed += 1
-        order_id = result.get("result", {}).get("id") if isinstance(result, dict) else None
+        res = result.get("result", {}) if isinstance(result, dict) else {}
+        order_id = res.get("id") if isinstance(res, dict) else None
+        # Surface the real fill so paper/dashboard reflect what actually
+        # happened, not an assumed instant fill. Bitkub echoes the filled
+        # receive/amount on the order ack; we log it and forward it to the
+        # paper mirror so its qty can track the REAL fill (avoids the
+        # paper-vs-live divergence when an order partially fills).
+        filled = res.get("rec") if isinstance(res, dict) else None  # coin received (bid)
+        spent = res.get("amt") if isinstance(res, dict) else None
         self._log.info(
             "execution_agent.live_order_placed",
-            action=action, symbol=sym, amount=amount, order_id=order_id,
+            action=action, symbol=sym, amount=amount, rate=rate,
+            order_id=order_id, filled_rec=filled, spent_amt=spent,
         )
         # Mirror to the paper trader so the dashboard position view tracks it.
-        await self._route_paper(orjson.dumps(data))
+        # Carry the exchange's actual rate/fill so the paper position mirrors
+        # the live order rather than re-deriving its own (single source of truth).
+        mirror = dict(data)
+        mirror["live_mirror"] = True
+        if rate:
+            mirror["price"] = str(rate)
+        await self._route_paper(orjson.dumps(mirror))
 
     async def _route_paper(self, raw: bytes) -> None:
         """Re-publish the approved decision to the paper-trader's input topic."""

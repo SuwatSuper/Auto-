@@ -171,6 +171,56 @@ async def test_opposite_signal_closes_and_emergency_flatten() -> None:
 
 
 @pytest.mark.asyncio
+async def test_trailing_stop_locks_profit_above_entry() -> None:
+    """The trailing-stop overlay can sit ABOVE entry (lock profit) and fires
+    before the fixed bracket stop, closing the trade in profit."""
+    bus = InMemoryEventBus()
+    treasury, trader = _mk(bus)
+    # wide TP so the bracket take-profit doesn't close first
+    trader._params.take_profit_pct = D("50")
+    task = asyncio.create_task(trader.start())
+    try:
+        await _drive_price(bus, trader, "1500000")
+        await _send_decision(bus, "BUY", lambda: trader.position is not None)
+        entry = trader.position.entry_price
+        # ratchet the trailing stop above entry once price has risen
+        await _drive_price(bus, trader, "1600000")
+        assert trader.set_trail_stop(D("1590000")) is True
+        assert trader.trail_stop > entry  # profit locked above cost
+        # a dip below the trailing stop (but above the fixed bracket stop)
+        await _drive_price(bus, trader, "1585000", cond=lambda: trader.trades_closed >= 1)
+        assert trader.position is None
+        trade = trader.last_trade
+        assert trade is not None and trade.reason == ExitReason.TRAILING_STOP
+        assert trade.pnl > 0  # closed in profit, not at the loss bracket
+        assert treasury.cash == D("1000") + treasury.realized_pnl
+    finally:
+        await trader.stop()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+
+def test_set_trail_stop_only_ratchets_up_and_below_mark() -> None:
+    bus = InMemoryEventBus()
+    _, trader = _mk(bus)
+    # no position → no-op
+    assert trader.set_trail_stop(D("100")) is False
+    from domain.trading.paper import PaperPosition
+    trader.position = PaperPosition(
+        symbol="THB_BTC", qty=D("0.001"), entry_price=D("1500000"),
+        stop_price=D("1485000"), take_profit_price=D("1600000"),
+        entry_fee=D("3.75"), opened_ms=1,
+    )
+    trader.mark_price = D("1600000")
+    assert trader.set_trail_stop(D("1590000")) is True       # first set
+    assert trader.set_trail_stop(D("1580000")) is False      # lower → ignored
+    assert trader.set_trail_stop(D("1595000")) is True       # higher → raised
+    assert trader.set_trail_stop(D("1600000")) is False      # >= mark → rejected
+    assert trader.trail_stop == D("1595000")
+
+
+@pytest.mark.asyncio
 async def test_treasury_halt_blocks_new_entries() -> None:
     bus = InMemoryEventBus()
     treasury, trader = _mk(bus)

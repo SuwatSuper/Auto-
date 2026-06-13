@@ -231,6 +231,31 @@ async def test_supreme_agent_stamps_unique_decision_id() -> None:
     assert len(set(ids)) == 5  # all unique
 
 
+async def test_supreme_consensus_requires_multiple_sources() -> None:
+    """With buy_votes=2, one source BUY -> OBSERVE; a second distinct source
+    BUY within the window -> EXECUTE (real multi-agent consensus)."""
+    bus = InMemoryEventBus()
+    out_q = bus.subscribe("out")
+    agent = SupremeAgent(
+        bus=bus, topic_in="in", topic_out="out", logger=_logger(),
+        window_s=8.0, buy_votes=2, sell_votes=2,
+    )
+    task = asyncio.create_task(agent.start())
+    await asyncio.sleep(0.05)
+    await bus.publish("in", b"k", orjson.dumps({"signal": "BUY", "source": "trend_follower", "ts_ms": 1000}))
+    await asyncio.sleep(0.05)
+    await bus.publish("in", b"k", orjson.dumps({"signal": "BUY", "source": "breakout_specialist", "ts_ms": 1100}))
+    await asyncio.sleep(0.1)
+    await agent.stop()
+    await asyncio.wait_for(task, timeout=2.0)
+
+    decisions = [orjson.loads(out_q.get_nowait()) for _ in range(2)]
+    assert decisions[0]["decision"] == "OBSERVE"   # only 1 source so far
+    assert decisions[1]["decision"] == "EXECUTE"   # 2 sources agree
+    assert decisions[1]["signal"] == "BUY"
+    assert decisions[1]["net_votes"] == 2
+
+
 async def test_supreme_agent_hold_observes() -> None:
     bus = InMemoryEventBus()
     out_q = bus.subscribe("out")

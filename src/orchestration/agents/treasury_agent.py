@@ -28,6 +28,9 @@ from orchestration.ports.event_bus import EventBus
 from orchestration.ports.state_store import StateStore
 
 _STATE_KEY = "treasury.account.v1"
+# Combined atomic snapshot written by the paper trader (position + treasury).
+# Must match PaperTraderAgent._SESSION_KEY — the single source of truth on load.
+_SESSION_KEY = "paper.session.v1"
 
 
 class TreasuryAgent:
@@ -149,6 +152,28 @@ class TreasuryAgent:
             return  # session key already loaded by paper_trader — skip stale own key
         if self._store is None:
             return
+        # Prefer the atomic combined session snapshot (paper.session.v1), which
+        # the paper trader writes on every open/close. Reading it directly here
+        # removes the startup race: treasury and paper_trader now both restore
+        # from the SAME authoritative key regardless of task scheduling, so a
+        # crash between the two persistence writes can't roll cash back a trade.
+        session_raw = await self._store.get(_SESSION_KEY)
+        if session_raw is not None:
+            try:
+                t = orjson.loads(session_raw).get("treasury")
+                if t:
+                    self.cash = Decimal(str(t["cash"]))
+                    self.realized_pnl = Decimal(str(t["realized_pnl"]))
+                    self.realized_today = Decimal(str(t["realized_today"]))
+                    self.day_key = str(t["day_key"])
+                    self.wins = int(t["wins"])
+                    self.losses = int(t["losses"])
+                    self.halted = bool(t["halted"])
+                    self._rollover_if_new_day()
+                    self._log.info("treasury_agent.state_restored_from_session", cash=str(self.cash))
+                    return
+            except (orjson.JSONDecodeError, KeyError, ValueError, InvalidOperation):
+                self._log.warning("treasury_agent.session_corrupt_ignored", exc_info=True)
         raw = await self._store.get(_STATE_KEY)
         if raw is None:
             return

@@ -55,6 +55,20 @@ class Settings(BaseSettings):
     heartbeat_stale_ms: int = 5000
     # Enabled strategies (Phase 3) — comma-separated names from domain.strategy.registry
     enabled_strategies: str = "trend_following"
+    # Adaptive sizing/exits — when ON the advisory agents take REAL effect:
+    #   kelly_sizing   → Dynamic Position Sizer drives risk_per_trade_pct
+    #                    (clamped to [0.25 .. kelly_max_risk_pct]; needs ≥10 trades)
+    #   trailing_stop  → Trailing-Stop Bot ratchets the live position's stop up
+    kelly_sizing_enabled: bool = True
+    kelly_max_risk_pct: str = "2.0"
+    trailing_stop_enabled: bool = True
+    # Supreme commander consensus: tally the latest vote per source agent inside
+    # a sliding window; EXECUTE only when net agreement meets the thresholds.
+    # Defaults (1/1) keep a lone signal acting; raise to 2+ to demand that
+    # multiple strategy agents agree before entering (less noise).
+    supreme_window_s: float = 8.0
+    supreme_buy_votes: int = 1
+    supreme_sell_votes: int = 1
     # Operator login (optional): password to obtain the control token
     dashboard_password: SecretStr = SecretStr("")
     # Alerts (Phase 1 — Telegram bot or generic webhook)

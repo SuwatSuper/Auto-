@@ -210,7 +210,12 @@ class PipelineRuntime:
             "probability_lab": ProbabilityAgent(bus, prices, _TOPIC_PROBABILITY, log),
             "research_dept": HistoricalResearchAgent(bus, prices, _TOPIC_RESEARCH, log),
             "execution_agent": SimulationAgent(bus, prices, _TOPIC_SIM_RESULTS, log),
-            "supreme_commander": SupremeAgent(bus, _TOPIC_SIGNALS, _TOPIC_DECISIONS, log),
+            "supreme_commander": SupremeAgent(
+                bus, _TOPIC_SIGNALS, _TOPIC_DECISIONS, log,
+                window_s=float(getattr(self.settings, "supreme_window_s", 8.0)),
+                buy_votes=int(getattr(self.settings, "supreme_buy_votes", 1)),
+                sell_votes=int(getattr(self.settings, "supreme_sell_votes", 1)),
+            ),
             "risk_gate": ExecutionAgent(
                 bus=bus,
                 raw_decisions_topic=_TOPIC_DECISIONS,
@@ -312,6 +317,12 @@ class PipelineRuntime:
         self._maybe_build_reconciliation(bus, log)
         if self._reconciliation is not None:
             agents["reconciliation"] = self._reconciliation  # type: ignore[assignment,unused-ignore]
+        # Hand the (possibly None) live gateway to the execution gate. Without
+        # this the gate's _rest_gateway stays None and real orders never fire,
+        # even with all four live gates open.
+        gate = agents.get("risk_gate")
+        if gate is not None and hasattr(gate, "set_rest_gateway"):
+            gate.set_rest_gateway(self._rest_gateway)  # type: ignore[attr-defined]
         return agents
 
     def _maybe_build_reconciliation(self, bus: EventBus, log: structlog.BoundLogger) -> None:
@@ -805,10 +816,47 @@ class PipelineRuntime:
             gate.set_max_open_positions(new.max_open_positions)  # type: ignore[attr-defined]
         self._max_deployable_thb = new.max_deployable_thb
         self._max_single_order_thb = new.max_single_order_thb
+        # Keep the paper sizing cap in lockstep with the live order cap so a
+        # real order and its paper mirror size identically.
+        if tp is not None:
+            tp.max_order_thb = new.max_single_order_thb  # type: ignore[attr-defined]
 
         await self._persist_controls(new.as_str_dict())
         self._record_control("risk_settings_updated", dict(patch))
         return True, {"settings": new.as_str_dict()}
+
+    def update_trailing_stop(self, new_stop: object) -> bool:
+        """Let the Trailing-Stop agent ratchet the live position's protective
+        stop UP (lock profit). Real effect — not advisory. Returns True if
+        the stop moved. Disabled via trailing_stop_enabled=false."""
+        if self._trader is None:
+            return False
+        if not bool(getattr(self.settings, "trailing_stop_enabled", True)):
+            return False
+        try:
+            stop = Decimal(str(new_stop))
+        except (InvalidOperation, ValueError, TypeError):
+            return False
+        return self._trader.set_trail_stop(stop)
+
+    def apply_kelly_risk(self, suggested_pct: object) -> bool:
+        """Let the Kelly sizer drive the live per-trade risk %, clamped to a
+        safe band [0.25 .. kelly_max_risk_pct]. Real effect on the NEXT entry.
+        Disabled via kelly_sizing_enabled=false. Returns True if applied."""
+        tp = self._trade_params
+        if tp is None or not bool(getattr(self.settings, "kelly_sizing_enabled", True)):
+            return False
+        try:
+            val = Decimal(str(suggested_pct))
+        except (InvalidOperation, ValueError, TypeError):
+            return False
+        lo = Decimal("0.25")
+        hi = self._dec_setting("kelly_max_risk_pct", "2.0")
+        if hi < lo:
+            hi = lo
+        clamped = max(lo, min(hi, val))
+        tp.risk_per_trade_pct = clamped  # type: ignore[attr-defined]
+        return True
 
     def trip_breaker(self, reason: str = "MANUAL") -> dict[str, object]:
         """Manually open the circuit breaker (halts trading via the risk gate)."""
@@ -966,10 +1014,16 @@ class PipelineRuntime:
             )
             if qty <= 0:
                 return None
-            notional = qty * mark
+            # Apply the per-order THB cap on QTY (not notional) so the real
+            # order and its paper mirror — which caps qty identically — end up
+            # the same size. No divergence when the cap is active.
             cap = self._max_single_order_thb
-            if cap > 0 and notional > cap:
-                notional = cap
+            if cap > 0 and entry > 0 and qty * entry > cap:
+                from decimal import ROUND_DOWN  # noqa: PLC0415
+                qty = (cap / entry).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+            if qty <= 0:
+                return None
+            notional = qty * mark
             return {
                 "action": "bid",
                 "symbol": symbol,
@@ -1050,6 +1104,12 @@ class PipelineRuntime:
         )
         self._reconciliation = recon
         self.agents["reconciliation"] = recon  # type: ignore[assignment]
+        # Keep the execution gate's live gateway in sync with the freshly
+        # connected account (None-safe; only a real signed gateway can order).
+        gate = self.agents.get("risk_gate")
+        if gate is not None and hasattr(gate, "set_rest_gateway"):
+            gw = self._rest_gateway if hasattr(self._rest_gateway, "place_bid") else None
+            gate.set_rest_gateway(gw)  # type: ignore[attr-defined]
 
         # Immediately VERIFY by reading the real wallet once, so the Connect
         # response tells the truth: real balances on success, or the real
@@ -1083,6 +1143,11 @@ class PipelineRuntime:
 
     async def _disconnect_account(self) -> None:
         """Stop any existing reconciliation poller and close the gateway."""
+        # Disable live order routing first — never leave the gate holding a
+        # gateway that is about to be closed.
+        gate = self.agents.get("risk_gate")
+        if gate is not None and hasattr(gate, "set_rest_gateway"):
+            gate.set_rest_gateway(None)  # type: ignore[attr-defined]
         if "reconciliation" in self.agents:
             with contextlib.suppress(Exception):
                 await self.stop_agent("reconciliation")
@@ -1177,6 +1242,17 @@ class PipelineRuntime:
             return False, {"error": "KILL_SWITCH file present — remove it first"}
         if self._circuit_breaker is not None and self._circuit_breaker.is_open:
             return False, {"error": "circuit breaker is OPEN — reset it first"}
+        # Real-money guard: never arm live with an unbounded order size. Require
+        # a per-order THB cap so the first live orders are bounded even if the
+        # experiment-mode loss limits are still wide open.
+        if self._max_single_order_thb <= 0:
+            return False, {
+                "error": (
+                    "set a per-order cap first: max_single_order_thb must be > 0 "
+                    "before going live (protects against an unbounded first order)"
+                ),
+                "field": "max_single_order_thb",
+            }
         self.settings.execution_engine = "live"  # type: ignore[attr-defined]
         self.settings.live_trading_confirm = self._LIVE_TOKEN  # type: ignore[attr-defined]
         self._record_control("execution_mode", {"mode": "live"})
@@ -1303,10 +1379,12 @@ class PipelineRuntime:
             "losses": losses,
             "trades_closed": trades_closed,
             "treasury_halted": halted,
-            # Production-migration honesty: live PRICE feed, paper EXECUTION engine.
-            # The dashboard renders a banner from this dict — do not remove.
+            # Production-migration honesty: live PRICE feed. The execution
+            # engine reflects the REAL configured mode (paper unless the
+            # operator armed live behind all four gates) — never hardcoded,
+            # so the dashboard cannot claim paper while orders fire live.
             "data_source": "live_bitkub_ws",
-            "execution_engine": "paper",
+            "execution_engine": str(getattr(self.settings, "execution_engine", "paper")),
             # Price-feed health so the dashboard can explain a missing price
             # instead of showing a bare "—".
             "price_feed": {
@@ -1327,13 +1405,7 @@ class PipelineRuntime:
             "p95_latency_ms": p95_ms,
             "state_restored": state_restored,
             "state_db_path": state_db_path,
-            "execution_warning": (
-                "Real Bitkub account connected READ-ONLY (live wallet). "
-                if account_connected
-                else "No Bitkub API key configured — paper over live prices. "
-            )
-            + "Order firing is still SIMULATED; enabling live orders is a "
-            "separate, tested step behind the 4 safety gates.",
+            "execution_warning": self._execution_warning(account_connected),
             "dropped_messages": self._count_dropped_messages(),
             "risk_settings": self.get_risk_settings(),
             "breaker": {
@@ -1348,9 +1420,38 @@ class PipelineRuntime:
                 ),
             },
             "execution_mode": self.get_execution_mode(),
+            "live_orders_armed": self._live_orders_armed(),
             "news": dict(self.last_news),
             "agents": [self._agent_status(n, a) for n, a in self.agents.items()],
         }
+
+    def _live_orders_armed(self) -> bool:
+        """True only when real orders can actually fire RIGHT NOW: live mode +
+        all four gates open + a signed gateway wired into the execution gate."""
+        engine = str(getattr(self.settings, "execution_engine", "paper"))
+        if engine != "live" or not all(self._live_gate_checklist().values()):
+            return False
+        gate = self.agents.get("risk_gate")
+        gw = getattr(gate, "_rest_gateway", None) if gate is not None else None
+        return bool(gw is not None and hasattr(gw, "place_bid"))
+
+    def _execution_warning(self, account_connected: bool) -> str:
+        """Truthful one-line execution banner for the dashboard."""
+        if self._live_orders_armed():
+            return (
+                "🔴 LIVE: real orders WILL fire on Bitkub — all four safety "
+                "gates are open and a signed account is connected."
+            )
+        prefix = (
+            "Real Bitkub account connected READ-ONLY (live wallet). "
+            if account_connected
+            else "No Bitkub API key configured — paper over live prices. "
+        )
+        return prefix + (
+            "Order firing is SIMULATED; live orders require arming all four "
+            "safety gates (execution_engine=live + confirm token + no "
+            "KILL_SWITCH + breaker closed) with an account connected."
+        )
 
     def _compute_wallet_value_thb(self, balances: dict[str, str]) -> dict[str, object]:
         """Compute wallet value in THB from real balances + real latest price."""

@@ -121,8 +121,19 @@ def test_switch_to_live_blocked_when_breaker_open() -> None:
     assert "breaker" in str(payload).lower()
 
 
-def test_switch_to_live_succeeds_when_gates_open() -> None:
+def test_switch_to_live_requires_order_cap() -> None:
+    """Real-money safety: arming live with no per-order cap is rejected."""
     rt = _rt()
+    ok, payload = rt.set_execution_mode("live", confirm="I_ACCEPT_REAL_MONEY_RISK")
+    assert not ok
+    assert "max_single_order_thb" in str(payload)
+    assert rt.get_execution_mode()["mode"] == "paper"
+
+
+def test_switch_to_live_succeeds_when_gates_open() -> None:
+    from decimal import Decimal  # noqa: PLC0415
+    rt = _rt()
+    rt._max_single_order_thb = Decimal("10000")  # per-order cap set → live allowed
     ok, payload = rt.set_execution_mode("live", confirm="I_ACCEPT_REAL_MONEY_RISK")
     assert ok, payload
     assert rt.get_execution_mode()["mode"] == "live"

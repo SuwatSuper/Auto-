@@ -149,7 +149,11 @@ class PriceListenerAgent(_AgentBase):
         self.signal_count += 1
         # Record the prediction so the REAL outcome can be graded later.
         self.learner.predict(action, price, ts_ms)
-        out = orjson.dumps({"signal": action, "price": str(price), "ts_ms": ts_ms})
+        # `source` lets the Supreme commander tally a real multi-agent
+        # consensus instead of acting on each lone signal.
+        out = orjson.dumps(
+            {"signal": action, "price": str(price), "ts_ms": ts_ms, "source": self.name}
+        )
         await self._bus.publish(self._topic_out, b"signal", out)
 
     def _hr_txt(self) -> str:
@@ -413,7 +417,21 @@ class DynamicPositionSizerAgent(PeriodicAgent):
         wr = Decimal(wins) / Decimal(total) if total > 0 else Decimal("0.5")
         k = kelly_fraction(wr, self._wl)
         self.suggested_risk_pct = float(k) * 100
-        self.detail = f"Kelly แนะนำเสี่ยง {self.suggested_risk_pct:.2f}%/ไม้ (WR {float(wr) * 100:.0f}%, {total} ไม้)"
+        # Apply for REAL once there is a meaningful sample (>=10 closed trades):
+        # the runtime clamps it to a safe band and feeds the next entry's size.
+        applied = False
+        if total >= 10:
+            fn = getattr(self._rt, "apply_kelly_risk", None)
+            if callable(fn):
+                applied = bool(fn(self.suggested_risk_pct))
+                if applied:
+                    self.learner.log(
+                        f"ปรับความเสี่ยง/ไม้ตาม Kelly เป็น ~{self.suggested_risk_pct:.2f}% "
+                        f"(WR {float(wr) * 100:.0f}%, {total} ไม้)",
+                        "adapt",
+                    )
+        tail = " · ใช้จริงแล้ว ✅" if applied else (" · รอ ≥10 ไม้จึงปรับจริง" if total < 10 else "")
+        self.detail = f"Kelly แนะนำเสี่ยง {self.suggested_risk_pct:.2f}%/ไม้ (WR {float(wr) * 100:.0f}%, {total} ไม้){tail}"
 
 
 # ── 8. Risk: Trailing Stop Bot (real, advisory) ──────────────────────
@@ -443,9 +461,19 @@ class TrailingStopBotAgent(PeriodicAgent):
         prev_peak = self._peak
         self._peak = mark if self._peak is None else max(self._peak, mark)
         self.trail_stop = self._peak * (1 - self._trail / 100)
-        self.detail = f"จุดสูงสุด {self._peak:.0f} · trailing-stop {self.trail_stop:.0f} ({self._trail:.1f}%)"
-        if prev_peak is not None and self._peak > prev_peak:
-            self.learner.log(f"ราคาทำจุดสูงสุดใหม่ {self._peak:.0f} → ขยับ stop ขึ้นเป็น {self.trail_stop:.0f}", "event")
+        # Push the stop into the live position for REAL (ratchets up only).
+        moved = False
+        fn = getattr(self._rt, "update_trailing_stop", None)
+        if callable(fn):
+            moved = bool(fn(self.trail_stop))
+        self.detail = (
+            f"จุดสูงสุด {self._peak:.0f} · trailing-stop {self.trail_stop:.0f} ({self._trail:.1f}%)"
+            + (" · ป้องกันจริง ✅" if moved else "")
+        )
+        if moved:
+            self.learner.log(f"ขยับ stop ป้องกันกำไรขึ้นเป็น {self.trail_stop:.0f} (ของจริง)", "adapt")
+        elif prev_peak is not None and self._peak > prev_peak:
+            self.learner.log(f"ราคาทำจุดสูงสุดใหม่ {self._peak:.0f} → trailing-stop {self.trail_stop:.0f}", "event")
 
 
 # ── 9. Risk/Treasury: Profit Sweeper (real bookkeeping) ──────────────

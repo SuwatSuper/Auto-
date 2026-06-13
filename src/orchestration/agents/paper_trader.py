@@ -50,6 +50,7 @@ class TradeParams:
         fee_taker_bps: str = "25",
         slippage_bps: str = "5",
         symbol: str = "THB_BTC",
+        max_order_thb: str = "0",
     ) -> None:
         self.risk_per_trade_pct = Decimal(risk_per_trade_pct)
         self.stop_pct = Decimal(stop_pct)
@@ -57,6 +58,10 @@ class TradeParams:
         self.fee_taker_bps = Decimal(fee_taker_bps)
         self.slippage_bps = Decimal(slippage_bps)
         self.symbol = symbol
+        # Hard per-order notional cap in THB (0 = unlimited). Shared by the
+        # live order builder so the real order and its paper mirror size to
+        # the SAME qty (no divergence when a cap is active).
+        self.max_order_thb = Decimal(max_order_thb)
 
 
 class PaperTraderAgent:
@@ -90,6 +95,11 @@ class PaperTraderAgent:
 
         self.position: PaperPosition | None = None
         self.mark_price: Decimal | None = None
+        # Trailing-stop overlay (lives beside the H1 bracket, NOT inside the
+        # frozen PaperPosition — a trailing stop legitimately rises above entry
+        # once in profit, which the bracket validator forbids). Only ever
+        # ratcheted UP; reset whenever the position changes.
+        self.trail_stop: Decimal | None = None
         self.trades_closed: int = 0
         self.entries_opened: int = 0
         self.entries_rejected: int = 0
@@ -175,6 +185,21 @@ class PaperTraderAgent:
         if self.position is not None and self.mark_price is not None:
             await self._close(self.mark_price, reason)
 
+    def set_trail_stop(self, new_stop: Decimal) -> bool:
+        """Ratchet the trailing stop UP (never down) for the open position.
+
+        Returns True if the stop was raised. No-op when flat, when the new stop
+        is not above the current trailing level, or when it is at/above the
+        latest mark (a stop must sit below price to be meaningful)."""
+        if self.position is None or new_stop <= 0:
+            return False
+        if self.mark_price is not None and new_stop >= self.mark_price:
+            return False
+        if self.trail_stop is None or new_stop > self.trail_stop:
+            self.trail_stop = new_stop
+            return True
+        return False
+
     async def manual_buy(self, price: Decimal | None = None) -> tuple[bool, str]:
         """Operator-initiated paper BUY. Uses the given price or the latest mark.
 
@@ -218,6 +243,13 @@ class PaperTraderAgent:
             return
         if self.position is not None:
             reason = check_exit(self.position, self.mark_price)
+            # Trailing-stop overlay: fires only if the fixed bracket didn't.
+            if (
+                reason is None
+                and self.trail_stop is not None
+                and self.mark_price <= self.trail_stop
+            ):
+                reason = ExitReason.TRAILING_STOP
             if reason is not None:
                 await self._close(self.mark_price, reason)
 
@@ -231,6 +263,11 @@ class PaperTraderAgent:
         if data.get("decision") != "EXECUTE":
             return
         signal = data.get("signal")
+        # A live mirror carries the exchange's actual fill rate so the paper
+        # position opens/closes at the SAME price the real order used.
+        if data.get("live_mirror") and data.get("price") is not None:
+            with contextlib.suppress(InvalidOperation, ValueError):
+                self.mark_price = Decimal(str(data.get("price")))
         if signal == "SELL" and self.position is not None and self.mark_price is not None:
             await self._close(self.mark_price, ExitReason.OPPOSITE_SIGNAL)
             return
@@ -250,6 +287,12 @@ class PaperTraderAgent:
             fee_bps=p.fee_taker_bps,
             slippage_bps=Decimal("0"),  # entry already slipped above
         )
+        # Hard per-order notional cap (THB). Keeps the paper position in lockstep
+        # with the live order builder, which applies the same cap.
+        cap = getattr(p, "max_order_thb", Decimal("0"))
+        if cap > 0 and entry > 0 and qty * entry > cap:
+            from decimal import ROUND_DOWN  # noqa: PLC0415
+            qty = (cap / entry).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
         if qty <= 0:
             self.entries_rejected += 1
             return
@@ -280,6 +323,7 @@ class PaperTraderAgent:
             self._treasury.release_reservation(order_cost)
             self._log.error("paper_trader.open_failed_refunded", exc_info=True)
             return
+        self.trail_stop = None  # fresh position — no trailing level yet
         self.entries_opened += 1
         await self._publish_event(
             "FILL",
@@ -305,6 +349,7 @@ class PaperTraderAgent:
             int(time.time() * 1000),
         )
         self.position = None
+        self.trail_stop = None
         self.trades_closed += 1
         self.last_trade = trade
         self._treasury.settle_close(trade)
