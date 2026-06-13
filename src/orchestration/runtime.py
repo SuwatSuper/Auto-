@@ -371,6 +371,7 @@ class PipelineRuntime:
             bus, _TOPIC_DECISIONS_APPROVED, prices, _TOPIC_PAPER_EVENTS,
             self.logger, treasury, params, store,
             circuit_breaker=self._circuit_breaker,
+            live_close_fn=self._live_close,
         )
         self._treasury = treasury
         self._trader = trader
@@ -979,6 +980,30 @@ class PipelineRuntime:
             except Exception:
                 self.logger.warning("news.loop_error", exc_info=True)
             await asyncio.sleep(interval)
+
+    async def _live_close(self, qty: object, rate: object) -> None:
+        """Place a REAL closing ask for a protective exit (stop/TP/trailing/
+        manual/emergency) on the live exchange. Called by the paper trader only
+        for live-backed positions; no-ops unless live orders are armed so it is
+        always safe to wire in paper mode."""
+        if not self._live_orders_armed():
+            return
+        gate = self.agents.get("risk_gate")
+        gw = getattr(gate, "_rest_gateway", None) if gate is not None else None
+        if gw is None or not hasattr(gw, "place_ask"):
+            return
+        symbol = str(getattr(self._trade_params, "symbol", "THB_BTC")).lower()
+        try:
+            result = await gw.place_ask(symbol, str(qty), str(rate))  # type: ignore[attr-defined]
+            self.logger.info("runtime.live_exit_order", qty=str(qty), rate=str(rate),
+                             order_id=(result.get("result", {}) or {}).get("id")
+                             if isinstance(result, dict) else None)
+        except Exception:
+            self.logger.error("runtime.live_exit_failed", exc_info=True)
+            self._schedule_alert(
+                f"⚠️ ปิด position จริงไม่สำเร็จ (qty {qty}) — ตรวจสอบบัญชี Bitkub ด่วน",
+                "critical",
+            )
 
     def _build_live_order(self, data: dict[str, object]) -> dict[str, str] | None:
         """Turn an approved decision into a sized, capped live order spec.

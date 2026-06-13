@@ -78,6 +78,7 @@ class PaperTraderAgent:
         params: TradeParams,
         state_store: StateStore | None = None,
         circuit_breaker: CircuitBreaker | None = None,
+        live_close_fn: object | None = None,
     ) -> None:
         self._bus = bus
         self._decisions_topic = decisions_topic
@@ -88,6 +89,15 @@ class PaperTraderAgent:
         self._params = params
         self._store = state_store
         self._circuit_breaker = circuit_breaker
+        # Async hook to close the REAL exchange position on a protective exit
+        # (stop/TP/trailing/manual/emergency). Without it, a live position would
+        # be left open with no stop-loss when the paper bracket fires. The
+        # runtime no-ops it unless live orders are armed. Opposite-signal closes
+        # are NOT routed here — the execution gate already placed that ask.
+        self._live_close_fn = live_close_fn
+        # Whether the open position is backed by a REAL order (opened via the
+        # live mirror). Only such positions are closed on the exchange.
+        self._position_is_live: bool = False
 
         self.running = False
         self.msg_count = 0
@@ -272,10 +282,10 @@ class PaperTraderAgent:
             await self._close(self.mark_price, ExitReason.OPPOSITE_SIGNAL)
             return
         if signal == "BUY" and self.position is None and self.mark_price is not None:
-            await self._open(self.mark_price)
+            await self._open(self.mark_price, is_live=bool(data.get("live_mirror")))
 
     # ── open / close ─────────────────────────────────────────────
-    async def _open(self, signal_price: Decimal) -> None:
+    async def _open(self, signal_price: Decimal, is_live: bool = False) -> None:
         p = self._params
         entry = slip_buy(signal_price, p.slippage_bps)
         stop = entry * (Decimal("1") - p.stop_pct / Decimal("100"))
@@ -324,6 +334,7 @@ class PaperTraderAgent:
             self._log.error("paper_trader.open_failed_refunded", exc_info=True)
             return
         self.trail_stop = None  # fresh position — no trailing level yet
+        self._position_is_live = is_live  # real order backs this position?
         self.entries_opened += 1
         await self._publish_event(
             "FILL",
@@ -340,6 +351,8 @@ class PaperTraderAgent:
     async def _close(self, mark: Decimal, reason: ExitReason) -> None:
         if self.position is None:
             return
+        closing_qty = self.position.qty
+        was_live = self._position_is_live
         trade = close_position(
             self.position,
             mark,
@@ -350,9 +363,22 @@ class PaperTraderAgent:
         )
         self.position = None
         self.trail_stop = None
+        self._position_is_live = False
         self.trades_closed += 1
         self.last_trade = trade
         self._treasury.settle_close(trade)
+        # Close the REAL position on the exchange for protective exits. An
+        # OPPOSITE_SIGNAL close arrived as a mirrored SELL decision that the
+        # execution gate already placed live — routing it again would double-sell.
+        if (
+            was_live
+            and reason is not ExitReason.OPPOSITE_SIGNAL
+            and self._live_close_fn is not None
+        ):
+            try:
+                await self._live_close_fn(closing_qty, mark)  # type: ignore[operator]
+            except Exception:  # never let a live-close error corrupt paper state
+                self._log.error("paper_trader.live_close_failed", exc_info=True)
         if self._circuit_breaker is not None:
             self._circuit_breaker.record_trade(trade.pnl)
         await self._publish_event(
@@ -394,6 +420,7 @@ class PaperTraderAgent:
                     self.position = PaperPosition.model_validate(pos_data)
                 self.trades_closed = int(data.get("trades_closed", 0))
                 self.entries_opened = int(data.get("entries_opened", 0))
+                self._position_is_live = bool(data.get("position_is_live", False))
                 # Restore treasury from the same snapshot
                 t_data = data.get("treasury")
                 if t_data:
@@ -452,6 +479,7 @@ class PaperTraderAgent:
                 "seq": self._session_seq,
                 "treasury": self._treasury_snapshot(),
                 "position": pos,
+                "position_is_live": self._position_is_live,
                 "trades_closed": self.trades_closed,
                 "entries_opened": self.entries_opened,
             }

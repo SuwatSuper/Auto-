@@ -221,6 +221,45 @@ def test_set_trail_stop_only_ratchets_up_and_below_mark() -> None:
 
 
 @pytest.mark.asyncio
+async def test_live_backed_stop_closes_real_position_but_paper_does_not() -> None:
+    """A protective exit on a LIVE-backed position must place a real closing
+    order; a paper-only position must not. Opposite-signal closes are skipped
+    (the execution gate already placed that ask)."""
+    bus = InMemoryEventBus()
+    treasury = TreasuryAgent(bus, "treasury.v1", _LOG, _limits())
+    closes: list[tuple[str, str]] = []
+
+    async def _live_close(qty, rate):  # type: ignore[no-untyped-def]
+        closes.append((str(qty), str(rate)))
+
+    trader = PaperTraderAgent(
+        bus, "decisions.v1", "prices.v1", "paper.events.v1", _LOG, treasury,
+        TradeParams(), None, live_close_fn=_live_close,
+    )
+    task = asyncio.create_task(trader.start())
+    try:
+        await _drive_price(bus, trader, "1500000")
+        # paper-only BUY → stop → NO real close
+        await _send_decision(bus, "BUY", lambda: trader.position is not None)
+        assert trader._position_is_live is False
+        await _drive_price(bus, trader, "1480000", cond=lambda: trader.trades_closed >= 1)
+        assert closes == []  # paper exit placed nothing real
+
+        # LIVE-backed BUY (mirror flag) → stop → ONE real close
+        await bus.publish("decisions.v1", b"d", orjson.dumps(
+            {"decision": "EXECUTE", "signal": "BUY", "live_mirror": True}))
+        await _until(lambda: trader.position is not None)
+        assert trader._position_is_live is True
+        await _drive_price(bus, trader, "1450000", cond=lambda: trader.trades_closed >= 2)
+        assert len(closes) == 1  # real ask placed exactly once for the live stop
+    finally:
+        await trader.stop()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+
+@pytest.mark.asyncio
 async def test_treasury_halt_blocks_new_entries() -> None:
     bus = InMemoryEventBus()
     treasury, trader = _mk(bus)
