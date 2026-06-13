@@ -1128,6 +1128,15 @@ class PipelineRuntime:
             # The dashboard renders a banner from this dict — do not remove.
             "data_source": "live_bitkub_ws",
             "execution_engine": "paper",
+            # Price-feed health so the dashboard can explain a missing price
+            # instead of showing a bare "—".
+            "price_feed": {
+                "mode": str(getattr(self.settings, "price_feed_mode", "rest")),
+                "connected": self._latest_price is not None,
+                "last_error": (
+                    getattr(self.feed, "last_error", None) if self.feed is not None else None
+                ),
+            },
             # Phase A: real Bitkub account connected READ-ONLY when a key is set.
             "bitkub_account_connected": account_connected,
             "bitkub_reconciled": reconciled,

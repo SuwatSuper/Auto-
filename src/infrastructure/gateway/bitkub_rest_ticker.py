@@ -23,10 +23,26 @@ import httpx
 import structlog
 
 
+def _pair_aliases(symbol: str) -> set[str]:
+    """All accepted spellings of a THB/BTC pair.
+
+    Bitkub has shipped the pair in BOTH orientations across API versions:
+      - classic / some v3 responses → ``THB_BTC``
+      - newer v3 responses          → ``BTC_THB``
+    Matching either (case-insensitively) makes the feed version-proof.
+    """
+    s = symbol.upper()
+    out = {s}
+    if "_" in s:
+        a, b = s.split("_", 1)
+        out.add(f"{b}_{a}")
+    return out
+
+
 def extract_last_price(data: object, symbol: str = "THB_BTC") -> Decimal | None:
     """Pull the last price for ``symbol`` from any common Bitkub ticker shape.
 
-    Handles:
+    Handles (and matches the pair in EITHER orientation, THB_BTC / BTC_THB):
       - {"THB_BTC": {"last": 2883194.85, ...}}            (classic / v3 map)
       - [{"symbol": "THB_BTC", "last": ...}, ...]         (list of tickers)
       - {"error": 0, "result": <one of the above>}        (enveloped)
@@ -37,13 +53,15 @@ def extract_last_price(data: object, symbol: str = "THB_BTC") -> Decimal | None:
     if isinstance(data, dict) and "result" in data and "last" not in data:
         data = data["result"]
 
+    aliases = _pair_aliases(symbol)
     candidate: Any = None
     if isinstance(data, dict):
-        if symbol in data and isinstance(data[symbol], dict):
-            candidate = data[symbol].get("last")
-        elif symbol.upper() in data and isinstance(data[symbol.upper()], dict):
-            candidate = data[symbol.upper()].get("last")
-        elif "last" in data:
+        # Match any key spelling (THB_BTC or BTC_THB), case-insensitively.
+        for key, value in data.items():
+            if str(key).upper() in aliases and isinstance(value, dict):
+                candidate = value.get("last")
+                break
+        if candidate is None and "last" in data:
             candidate = data.get("last")
     elif isinstance(data, list):
         # Find the matching symbol; fall back to a single-item list.
@@ -51,7 +69,7 @@ def extract_last_price(data: object, symbol: str = "THB_BTC") -> Decimal | None:
             if not isinstance(item, dict):
                 continue
             sym = str(item.get("symbol") or item.get("sym") or "").upper()
-            if sym == symbol.upper():
+            if sym in aliases:
                 candidate = item.get("last")
                 break
         if candidate is None and len(data) == 1 and isinstance(data[0], dict):
@@ -85,6 +103,8 @@ class BitkubRestTickerFeed:
         self._client = client
         self._log = structlog.get_logger(__name__)
         self.last_price: Decimal | None = None
+        # Diagnostics surfaced to the dashboard so a missing price is explained.
+        self.last_error: str | None = None
 
     async def run(self, on_raw: Callable[[dict[str, object]], Awaitable[None]]) -> None:
         client = self._client or httpx.AsyncClient(timeout=10.0)
@@ -97,12 +117,18 @@ class BitkubRestTickerFeed:
                     price = await self._poll_once(client)
                     if price is not None:
                         self.last_price = price
+                        self.last_error = None
                         await on_raw({"last": str(price), "symbol": self._symbol})
+                    else:
+                        # 200 OK but the pair was not found in the response.
+                        self.last_error = "ticker ok but pair not found in response"
+                        self._log.warning("bitkub_rest_ticker.no_price", symbol=self._symbol)
                     attempt = 0
                     await asyncio.sleep(self._interval)
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
+                    self.last_error = f"{type(exc).__name__}: {exc}"
                     delay = self._backoff(attempt)
                     self._log.warning(
                         "bitkub_rest_ticker.error", error=str(exc), retry_s=round(delay, 2)
@@ -115,10 +141,42 @@ class BitkubRestTickerFeed:
                     await client.aclose()
 
     async def _poll_once(self, client: httpx.AsyncClient) -> Decimal | None:
+        """Resilient poll: try the symbol-scoped query in both orientations,
+        then fall back to the full ticker. Version-proof against Bitkub's
+        THB_BTC ↔ BTC_THB symbol change."""
         url = f"{self._base_url}/api/v3/market/ticker"
-        resp = await client.get(url, params={"sym": self._symbol})
-        resp.raise_for_status()
-        return extract_last_price(resp.json(), self._symbol)
+        # 1) symbol-scoped queries (tolerate per-query HTTP errors, e.g. an
+        #    "invalid symbol" 400 for the orientation this API version rejects).
+        for sym in _pair_aliases(self._symbol):
+            data = await self._get(client, url, {"sym": sym}, raise_on_error=False)
+            if data is not None:
+                price = extract_last_price(data, self._symbol)
+                if price is not None:
+                    return price
+        # 2) full ticker (no sym filter) — most robust; pick our pair from the
+        #    list/map. Let a hard failure here propagate so the loop backs off.
+        data = await self._get(client, url, None, raise_on_error=True)
+        return extract_last_price(data, self._symbol)
+
+    async def _get(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        params: dict[str, str] | None,
+        *,
+        raise_on_error: bool,
+    ) -> object | None:
+        """GET helper. Returns parsed JSON, or None on HTTP error when
+        ``raise_on_error`` is False (so a fallback can still be tried)."""
+        try:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            payload: object = resp.json()
+            return payload
+        except Exception:
+            if raise_on_error:
+                raise
+            return None
 
     def _backoff(self, attempt: int) -> float:
         base = min(self._BACKOFF_BASE * float(2**attempt), self._BACKOFF_CAP)

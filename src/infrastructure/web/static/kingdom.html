@@ -3059,6 +3059,18 @@ function handleStatus(data) {
   }
   if (State.bitkubReconciled) { State._bitkubConnectTime = null; }
 
+  // Price-feed health: when no price has arrived yet, explain why (instead of "—").
+  const pf = data.price_feed || {};
+  if ((data.latest_price == null || data.latest_price === '') && State.latestPrice == null) {
+    const chg = $('stat-btc-change');
+    if (chg) {
+      chg.textContent = pf.last_error
+        ? '⚠ ฟีดราคา: ' + pf.last_error
+        : (State.lang === 'th' ? 'กำลังรอราคาจาก Bitkub…' : 'Awaiting Bitkub price…');
+      chg.className = 'stat-change ' + (pf.last_error ? 'negative' : '');
+    }
+  }
+
   // Feed the REAL equity curve (drives Analytics + VaR) and refresh allocation.
   recordEquitySample(State.equity);
   renderPortfolio();
