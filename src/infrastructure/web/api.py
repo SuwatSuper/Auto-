@@ -347,6 +347,13 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
             )
         return {"ok": True, "mode": "live"}
 
+    @app.get("/api/agents/learning")
+    async def agents_learning(request: Request, limit: int = 40) -> dict[str, object]:
+        """Self-improvement view: per-agent daily score, real accuracy, and a
+        merged real-time learning feed (every entry is a real, timestamped
+        event — never fabricated)."""
+        return runtime.learning_overview(max(1, min(limit, 200)))
+
     @app.post("/api/agents/{name}/start")
     async def start_agent(name: str, request: Request) -> dict[str, object]:
         _check_api_key(request, runtime)

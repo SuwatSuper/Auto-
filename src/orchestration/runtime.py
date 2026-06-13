@@ -19,6 +19,7 @@ from domain.risk.circuit_breaker import CircuitBreaker
 from orchestration.agents.ceo_agent import CeoAgent
 from orchestration.agents.entry_exit import EntryExitAgent
 from orchestration.agents.historical_research import HistoricalResearchAgent
+from orchestration.agents.learning import Learner, blended_score, reliability_score
 from orchestration.agents.news_sentiment import NewsSentimentAgent
 from orchestration.agents.paper_trader import PaperTraderAgent, TradeParams
 from orchestration.agents.probability import ProbabilityAgent
@@ -120,11 +121,13 @@ class PipelineRuntime:
         self._ceo: CeoAgent | None = None
         self._state_store: StateStore | None = None
         self._watchdog_task: asyncio.Task[None] | None = None
+        self._coach_task: asyncio.Task[None] | None = None
         self._news_task: asyncio.Task[None] | None = None
         self._news_source: object | None = None  # NewsRssFeed (injectable for tests)
         self.last_news: dict[str, object] = {}
         self.restart_counts: dict[str, int] = {}
         self.crashed_agents: dict[str, str] = {}
+        self._learners: dict[str, Learner] = {}
         # Circuit breaker — shared between ExecutionAgent and paper trader close
         self._circuit_breaker: CircuitBreaker | None = None
         # Operator control plane (live, dashboard-driven)
@@ -425,6 +428,7 @@ class PipelineRuntime:
         for name in list(self.agents):
             await self.start_agent(name)
         self._watchdog_task = asyncio.create_task(self._watchdog())
+        self._coach_task = asyncio.create_task(self._coach_loop())
         if bool(getattr(self.settings, "news_enabled", True)):
             self._news_task = asyncio.create_task(self._news_loop())
 
@@ -434,6 +438,10 @@ class PipelineRuntime:
             self._watchdog_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._watchdog_task
+        if self._coach_task and not self._coach_task.done():
+            self._coach_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._coach_task
         if self._news_task and not self._news_task.done():
             self._news_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -560,9 +568,38 @@ class PipelineRuntime:
                 self.logger.error(
                     "watchdog.agent_crashed_restarting", agent=name, reason=reason
                 )
+                self._learner_for(name, agent).log(
+                    f"พัง ({reason}) → ระบบรีสตาร์ทอัตโนมัติ (self-healing)", "event"
+                )
                 self.agent_tasks.pop(name, None)
                 agent.running = False
                 await self.start_agent(name)
+
+    async def _coach_loop(self) -> None:
+        """Peer-coaching: the best strategy agent of the round coaches the
+        laggards (they tighten their own params). Real, logged, no fakery."""
+        while True:
+            try:
+                await asyncio.sleep(60.0)
+            except asyncio.CancelledError:
+                break
+            strat: list[tuple[str, AgentLike, float]] = []
+            for name, agent in self.agents.items():
+                learner = self._learner_for(name, agent)
+                if learner.kind != "strategy" or learner.today_resolved < 8:
+                    continue
+                hr = learner.today_hit_rate() or 0.0
+                strat.append((name, agent, hr))
+            if len(strat) < 2:
+                continue
+            strat.sort(key=lambda t: t[2], reverse=True)
+            best_name, _, best_hr = strat[0]
+            self._learner_for(best_name, self.agents[best_name]).log(
+                f"เป็นโค้ชรอบนี้ (แม่นวันนี้ {best_hr * 100:.0f}%)", "coach"
+            )
+            for _name, agent, hr in strat[1:]:
+                if hr < 0.45 and hasattr(agent, "coach_tighten"):
+                    agent.coach_tighten(best_name)  # type: ignore[attr-defined]
 
     def _task_alive(self, name: str) -> bool:
         task = self.agent_tasks.get(name)
@@ -618,7 +655,65 @@ class PipelineRuntime:
         status["exp_max"] = self._EXP_CAP
         status["level"] = level
         status["rank"] = rank
+
+        # ── Self-improvement view: daily score + REAL accuracy ──
+        learner = self._learner_for(name, agent)
+        learner.roll_day()
+        reliability = reliability_score(
+            running=alive, stale=stale,
+            crashed=bool(agent.running and not self._task_alive(name)),
+            restarts=restarts, msg_count=agent.msg_count,
+        )
+        learner.score = round(blended_score(reliability, learner), 1)
+        status["score"] = learner.score
+        status["score_kind"] = learner.kind
+        hr = learner.hit_rate()
+        status["hit_rate"] = round(hr * 100, 1) if hr is not None else None
+        status["resolved"] = learner.resolved
+        status["adapt_count"] = learner.adapt_count
         return status
+
+    def _learner_for(self, name: str, agent: AgentLike) -> Learner:
+        """The agent's own Learner if it has one (extended agents), else a
+        runtime-side reliability learner created on demand."""
+        own = getattr(agent, "learner", None)
+        if isinstance(own, Learner):
+            return own
+        if name not in self._learners:
+            self._learners[name] = Learner(name, "reliability")
+        return self._learners[name]
+
+    def learning_overview(self, limit: int = 40) -> dict[str, object]:
+        """Leaderboard + merged real-time learning feed across all agents.
+
+        Every entry is a REAL event with a real timestamp — nothing fabricated.
+        """
+        rows: list[dict[str, object]] = []
+        feed: list[dict[str, object]] = []
+        for name, agent in self.agents.items():
+            learner = self._learner_for(name, agent)
+            hr = learner.hit_rate()
+            rows.append({
+                "name": name,
+                "score": learner.score,
+                "kind": learner.kind,
+                "hit_rate": round(hr * 100, 1) if hr is not None else None,
+                "resolved": learner.resolved,
+                "today_resolved": learner.today_resolved,
+                "adapt_count": learner.adapt_count,
+            })
+            for entry in learner.recent(limit):
+                e = dict(entry)
+                e["agent"] = name
+                feed.append(e)
+        rows.sort(key=lambda r: (r["score"] if isinstance(r["score"], int | float) else 0), reverse=True)
+        feed.sort(key=lambda e: e.get("ts_ms", 0), reverse=True)  # type: ignore[arg-type,return-value]
+        return {
+            "ts_ms": int(time.time() * 1000),
+            "llm_critic": "disabled (no API key) — scores are statistical, not LLM",
+            "leaderboard": rows,
+            "feed": feed[:limit],
+        }
 
     def _win_rate(self) -> float | None:
         """Win rate of the rolling paper backtest run by the execution

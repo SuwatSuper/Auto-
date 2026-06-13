@@ -135,3 +135,52 @@ async def test_garbage_collector_runs() -> None:
     await agent.tick()
     assert agent.collections == 1
     assert "gc" in agent.detail
+
+
+# ── self-improvement loop: real outcome grading + self-tuning ────────
+
+def test_learner_grades_real_outcomes() -> None:
+    from orchestration.agents.learning import Learner
+
+    learner = Learner("x", "strategy")
+    learner.predict("BUY", Decimal("100"), 1_000)
+    learner.resolve(Decimal("102"), 1_000 + 61_000)  # matured, +2% → BUY win
+    assert learner.resolved == 1 and learner.correct == 1
+    assert learner.hit_rate() == 1.0
+    learner.predict("SELL", Decimal("100"), 200_000)
+    learner.resolve(Decimal("103"), 200_000 + 61_000)  # price rose → SELL loss
+    assert learner.resolved == 2 and learner.correct == 1
+    assert learner.hit_rate() == 0.5
+    assert any(e.kind == "outcome" for e in learner.journal)
+
+
+def test_learner_ignores_unmatured_and_ambiguous() -> None:
+    from orchestration.agents.learning import Learner
+
+    learner = Learner("x", "strategy")
+    learner.predict("BUY", Decimal("100"), 1_000)
+    learner.resolve(Decimal("105"), 1_000 + 10_000)  # not matured yet (<60s)
+    assert learner.resolved == 0
+    learner.resolve(Decimal("100.05"), 1_000 + 61_000)  # matured but <edge → ambiguous
+    assert learner.resolved == 0  # never fabricated
+
+
+def test_mean_reversion_self_tightens_on_losses() -> None:
+    bus = _RecBus()
+    agent = MeanReversionAgent("mr", bus, "prices", "signals", _LOG)  # type: ignore[arg-type]
+    agent.learner.today_resolved = 8
+    agent.learner.today_correct = 2  # 25% hit-rate → should tighten
+    o, ob = agent._strat.oversold, agent._strat.overbought
+    agent._maybe_adapt()
+    assert agent._strat.oversold < o and agent._strat.overbought > ob
+    assert agent.learner.adapt_count == 1
+    assert any(e.kind == "adapt" for e in agent.learner.journal)
+
+
+def test_trend_follower_coaching_tightens() -> None:
+    bus = _RecBus()
+    agent = TrendFollowerAgent("tf", bus, "prices", "signals", _LOG)  # type: ignore[arg-type]
+    before = agent._min_gap_pct
+    agent.coach_tighten("breakout_specialist")
+    assert agent._min_gap_pct > before
+    assert any(e.kind == "coach" for e in agent.learner.journal)

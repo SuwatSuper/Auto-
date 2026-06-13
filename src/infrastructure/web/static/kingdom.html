@@ -1288,6 +1288,18 @@ html, body {
 .agm-expbar{height:4px;border-radius:3px;background:#16203a;margin-top:5px;overflow:hidden;max-width:260px;}
 .agm-expfill{height:100%;border-radius:3px;transition:width .5s ease;}
 .agm-exptext{font-size:9px;color:var(--text-mid,#6b7a99);margin-top:2px;font-family:var(--font-mono,monospace);}
+.lf-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #16203a;font-size:11px;line-height:1.45;}
+.lf-time{color:#5a7ab0;font-family:var(--font-mono,monospace);white-space:nowrap;}
+.lf-agent{color:var(--text-hi,#cdd6ea);font-weight:700;white-space:nowrap;}
+.lf-text{color:var(--text-mid,#8a96b0);}
+.lf-row.outcome .lf-text{color:#cdd6ea;}
+.lf-row.adapt .lf-text{color:#ffd740;}
+.lf-row.coach .lf-text{color:#00e5ff;}
+.lf-row.day .lf-text{color:#9a7aff;}
+.lb-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #16203a;}
+.lb-name{color:var(--text-hi,#e8eefc);font-weight:700;font-size:12px;}
+.lb-sub{font-size:10px;color:var(--text-mid);margin-top:1px;}
+.lb-score{font-family:var(--font-mono,monospace);font-weight:800;font-size:18px;}
 </style>
 <link rel="stylesheet" href="/static/ceo_character.css">
 </head>
@@ -2422,6 +2434,20 @@ html, body {
         <div id="agmon-news" style="font-size:12px;color:var(--text-mid);margin-top:6px;">📰 ข่าว: กำลังโหลด… (ดึงทุก ~2 นาที จาก RSS)</div>
         <div id="agent-monitor" style="margin-top:10px;">กำลังโหลด…</div>
       </div>
+
+      <!-- 🧠 Self-improvement loop — leaderboard + REAL-TIME learning feed -->
+      <div class="panel-grid side" style="margin-bottom:14px;">
+        <div class="kp-card">
+          <div class="kp-card-title">🧠 การเรียนรู้แบบเรียลไทม์ <span id="learn-note" style="font-size:11px;color:var(--text-mid);font-weight:400;"></span></div>
+          <div style="font-size:11px;color:var(--text-mid);margin:4px 0 8px;">บันทึกจริงทุกวินาที — เอเจนต์ตัวไหนเรียนรู้อะไร (ห้ามโกหก: ทุกบรรทัดมาจากเหตุการณ์จริง)</div>
+          <div id="learn-feed" style="max-height:360px;overflow-y:auto;">กำลังโหลด…</div>
+        </div>
+        <div class="kp-card">
+          <div class="kp-card-title">🏆 กระดานคะแนน (รายวัน)</div>
+          <div id="learn-board" style="margin-top:8px;">กำลังโหลด…</div>
+        </div>
+      </div>
+
       <div class="panel-grid cols-3" id="ag-roster" style="display:none;"></div>
     </section>
 
@@ -4940,9 +4966,61 @@ async function realStatusTick() {
   try { renderTradingPage(); } catch (_) {}
 }
 
+/* 🧠 Self-improvement loop — leaderboard + real-time learning feed. */
+async function renderLearning() {
+  const r = await cmdGet('/api/agents/learning?limit=60');
+  if (!(r.ok && r.data)) return;
+  const d = r.data;
+  const note = $('learn-note'); if (note) note.textContent = d.llm_critic ? ('· LLM critic: ' + d.llm_critic) : '';
+
+  const board = $('learn-board');
+  if (board) {
+    board.innerHTML = '';
+    (d.leaderboard || []).forEach((a, i) => {
+      const info = AGENT_INFO[a.name] || { th: a.name };
+      const sc = a.score != null ? a.score : 0;
+      const col = sc >= 70 ? '#36d07f' : (sc >= 50 ? '#ffd740' : '#ff6b73');
+      const sub = a.hit_rate != null
+        ? `แม่น ${a.hit_rate}% (${a.resolved} ไม้)${a.adapt_count ? ' · ปรับ ' + a.adapt_count + ' ครั้ง' : ''}`
+        : (a.kind === 'strategy' ? 'ยังไม่มีผลตัดสิน' : 'วัดจากความเสถียร');
+      const row = el('div', 'lb-row');
+      const left = el('div');
+      left.appendChild(el('div', 'lb-name', `${i + 1}. ${info.th}`));
+      left.appendChild(el('div', 'lb-sub', sub));
+      const right = el('div', 'lb-score', sc.toFixed(0));
+      right.style.color = col;
+      row.appendChild(left); row.appendChild(right);
+      board.appendChild(row);
+    });
+  }
+
+  const feed = $('learn-feed');
+  if (feed) {
+    feed.innerHTML = '';
+    const items = d.feed || [];
+    if (!items.length) {
+      feed.appendChild(el('div', '', State.lang === 'th'
+        ? 'ยังไม่มีบันทึกการเรียนรู้ — รอเอเจนต์ทำงาน/ราคาเข้า'
+        : 'No learning entries yet — waiting for agents/prices'));
+    }
+    items.forEach(e => {
+      const info = AGENT_INFO[e.agent] || { th: e.agent };
+      const tm = new Date(e.ts_ms).toLocaleTimeString();
+      const row = el('div', 'lf-row ' + (e.kind || 'info'));
+      const ts = el('span', 'lf-time', tm);
+      const ag = el('span', 'lf-agent', info.th);
+      const tx = el('span', 'lf-text', e.text);
+      row.appendChild(ts); row.appendChild(ag); row.appendChild(tx);
+      feed.appendChild(row);
+    });
+  }
+}
+
 function startAgentMonitor() {
   realStatusTick();
   setInterval(realStatusTick, 2000);
+  renderLearning();
+  setInterval(renderLearning, 3000);
 }
 </script>
 <script src="/static/ceo_character.js"></script>

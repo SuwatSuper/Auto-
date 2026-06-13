@@ -165,6 +165,20 @@ async def test_status_has_dashboard_contract_fields(open_client) -> None:  # typ
 
 
 @pytest.mark.asyncio
+async def test_learning_endpoint_scores_every_agent(open_client) -> None:  # type: ignore[no-untyped-def]
+    _, client = open_client
+    d = (await client.get("/api/agents/learning")).json()
+    assert "leaderboard" in d and "feed" in d
+    # honest about the LLM critic being OFF (no fabricated AI involvement)
+    assert "llm_critic" in d and "disabled" in d["llm_critic"]
+    assert len(d["leaderboard"]) == len(EXPECTED_AGENTS)  # every agent measured
+    for row in d["leaderboard"]:
+        assert 0 <= row["score"] <= 100
+        assert "kind" in row
+    assert isinstance(d["feed"], list)
+
+
+@pytest.mark.asyncio
 async def test_runtime_builds_the_seven_departments(open_client) -> None:  # type: ignore[no-untyped-def]
     runtime, client = open_client
     assert set(runtime.agents) == EXPECTED_AGENTS
