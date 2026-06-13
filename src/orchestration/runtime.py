@@ -63,6 +63,7 @@ _TOPIC_RESEARCH = "research.v1"
 _TOPIC_SIM_RESULTS = "sim.results.v1"
 _TOPIC_TREASURY = "treasury.v1"
 _TOPIC_PAPER_EVENTS = "paper.events.v1"
+_TOPIC_TIMELINE = "timeline.v1"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -141,6 +142,15 @@ class PipelineRuntime:
         # before (paper execution over the live price feed).
         self._rest_gateway: object | None = None
         self._reconciliation: object | None = None
+        # Timeline Analyst (win-probability gate source) + daily trade governance
+        self._timeline: object | None = None
+        self._entry_gate_enabled: bool = bool(getattr(settings, "entry_gate_enabled", True))
+        self._max_trades_per_day: int = int(getattr(settings, "max_trades_per_day", 1000))
+        self._target_daily_profit_pct: Decimal = self._dec_setting("target_daily_profit_pct", "5")
+        self._stop_at_daily_target: bool = bool(getattr(settings, "stop_at_daily_target", False))
+        self._trades_day_key: str = ""
+        self._entries_baseline: int = 0
+        self._gate_block_reasons: dict[str, int] = {}
 
     @property
     def bus(self) -> EventBus:
@@ -227,6 +237,8 @@ class PipelineRuntime:
                 open_positions_fn=lambda: self._trader.open_positions() if self._trader is not None else 0,
                 max_open_positions=int(getattr(self.settings, "max_open_positions", 1)),
                 live_order_fn=self._build_live_order,
+                entry_gate_fn=self._entry_gate,
+                trade_budget_fn=self._trade_budget,
             ),
         }
         # ── Phase-2 extended departments — all real, data-driven ──────
@@ -276,6 +288,13 @@ class PipelineRuntime:
                 "garbage_collector": GarbageCollectorAgent("garbage_collector", log),
             }
         )
+        # Timeline Analyst — replays full history, measures p_win, gates entries.
+        from orchestration.agents.timeline_analyst import TimelineAnalystAgent  # noqa: PLC0415
+        self._timeline = TimelineAnalystAgent(
+            "timeline_analyst", bus, prices, _TOPIC_TIMELINE, log,
+            min_p_win=self._dec_setting("min_p_win", "0.80"),
+        )
+        agents["timeline_analyst"] = self._timeline
         money = self._make_money_agents(bus, prices)
         agents.update(money)
         # CEO observer — must be added AFTER money agents so it can see them
@@ -308,6 +327,7 @@ class PipelineRuntime:
                 "dashboard_synth":   "Daily KPI synthesizer",
                 "tax_clerk":         "Realized-PnL tax ledger",
                 "garbage_collector": "Memory hygiene / GC",
+                "timeline_analyst":  "Replays full history; win-probability entry gate",
             },
         )
         self._ceo = agents["ceo"]
@@ -683,7 +703,88 @@ class PipelineRuntime:
         status["hit_rate"] = round(hr * 100, 1) if hr is not None else None
         status["resolved"] = learner.resolved
         status["adapt_count"] = learner.adapt_count
+        # Learning board: what this agent learns from mistakes + can improve,
+        # with the real recent losses and parameter changes it made.
+        status.update(self._learning_card(name, agent, learner))
         return status
+
+    # Per-agent "learns from mistakes / can improve" cards for the dashboard
+    # learning board. Agents that expose learns_from()/can_improve() override
+    # these; the rest get an honest, specific description here.
+    _LEARNING_CARDS: dict[str, tuple[str, str]] = {
+        "market_analyst": ("สัญญาณ EMA-cross ที่ทายผิดทิศ (เกรดกับราคาจริง)",
+                           "เพิ่มเงื่อนไขยืนยัน gap EMA เมื่อแพ้บ่อย / ผ่อนเมื่อแม่น"),
+        "news_intelligence": ("ข่าวที่ให้ sentiment ผิดทาง",
+                             "ถ่วงน้ำหนักแหล่งข่าวที่แม่นกว่า (ขยาย feed)"),
+        "risk_management": ("ออเดอร์ที่ปล่อยผ่านแล้วชนลิมิต",
+                           "ปรับเพดานความเสี่ยง/exposure อัตโนมัติ"),
+        "probability_lab": ("ค่าความน่าจะเป็น RSI ที่ทายผิด",
+                           "ปรับช่วง RSI/threshold ที่ใช้คำนวณ"),
+        "research_dept": ("สถิติย้อนหลังที่คลาดเคลื่อนจากของจริง",
+                         "ขยายหน้าต่างข้อมูล/ความถี่ rolling"),
+        "execution_agent": ("ผล backtest หมุนที่ขาดทุน",
+                           "ปรับโมเดล fee/slippage ให้ตรงตลาดจริง"),
+        "supreme_commander": ("การตัดสินใจที่สวนเสียงส่วนใหญ่แล้วผิด",
+                             "ปรับเกณฑ์ consensus (จำนวนโหวต/กรอบเวลา)"),
+        "risk_gate": ("ออเดอร์ที่โดน veto / โดนเกต p_win",
+                     "ปรับ rate-limit + เกณฑ์ win-probability"),
+        "treasury": ("การขาดทุนที่ทะลุเพดานรายวัน",
+                    "ปรับ survival-floor / daily-loss limit"),
+        "paper_trader": ("ไม้ที่โดน stop-loss",
+                        "ปรับ stop / take-profit / trailing"),
+        "ceo": ("เหตุการณ์เสี่ยงที่ควรเตือนแต่พลาด",
+               "ปรับเกณฑ์การรายงาน/แจ้งเตือน"),
+        "volatility_oracle": ("การพยากรณ์ squeeze/ระเบิดที่พลาด",
+                             "ปรับ threshold ความผันผวน"),
+        "trend_follower": ("เทรนด์หลอก (สัญญาณ EMA ผิด)",
+                          "เพิ่ม gap ยืนยัน EMA จากผลแพ้/ชนะจริง"),
+        "mean_reversion": ("การ fade ที่ผิด (ราคาไม่เด้งกลับ)",
+                          "ปรับ RSI oversold/overbought จากผลจริง"),
+        "breakout_specialist": ("เบรกหลอก (false breakout)",
+                               "ขยาย/ลดกรอบ Donchian N จากผลจริง"),
+        "black_swan_detector": ("การจับช็อกราคาช้า/พลาด",
+                               "ปรับ threshold %การเคลื่อนไหว 60 วิ"),
+        "drawdown_guardian": ("การสั่งหยุดเทรดช้าเกินไป",
+                             "ปรับเพดาน drawdown รายวัน"),
+        "position_sizer": ("ขนาดไม้ที่ใหญ่/เล็กเกินจาก Kelly",
+                          "ปรับสูตร Kelly จาก win-rate จริง"),
+        "trailing_stop": ("การล็อกกำไรช้าไป (คืนกำไร)",
+                         "ปรับ %trailing ให้ตามกำไรจริง"),
+        "profit_sweeper": ("จังหวะกวาดกำไรที่พลาด",
+                          "ปรับสัดส่วนกวาดกำไรเข้าคลัง"),
+        "fee_optimizer": ("การเลือก maker/taker ที่จ่ายแพง",
+                         "ปรับกลยุทธ์ลดค่าธรรมเนียม"),
+        "latency_pinger": ("ช่วง latency พุ่งที่ตอบสนองช้า",
+                          "ปรับ threshold ชะลอการยิงออเดอร์"),
+        "api_monitor": ("ช่วงฟีด/บัญชีหลุดที่จับช้า",
+                       "ปรับความถี่/เกณฑ์การตรวจสอบ"),
+        "dashboard_synth": ("KPI สรุปที่คลาดเคลื่อน",
+                           "ปรับการกลั่น KPI รายวัน"),
+        "tax_clerk": ("รายการ PnL ที่ตกหล่น",
+                     "ปรับการจัดหมวดเพื่อภาษี"),
+        "garbage_collector": ("รอบ GC ที่คืนหน่วยความจำได้น้อย",
+                             "ปรับความถี่/เกณฑ์การเก็บกวาดหน่วยความจำ"),
+    }
+
+    def _learning_card(self, name: str, agent: AgentLike, learner: Learner) -> dict[str, object]:
+        """What this agent learns from its mistakes + what it can improve, with
+        REAL recent losing outcomes and the parameter changes it made."""
+        lf = getattr(agent, "learns_from", None)
+        ci = getattr(agent, "can_improve", None)
+        learns_from = lf() if callable(lf) else None
+        can_improve = ci() if callable(ci) else None
+        if learns_from is None or can_improve is None:
+            default = self._LEARNING_CARDS.get(
+                name, ("ผลการทำงานจริงเทียบกับสิ่งที่คาด", "ปรับพารามิเตอร์จากสถิติจริง")
+            )
+            learns_from = learns_from or default[0]
+            can_improve = can_improve or default[1]
+        return {
+            "learns_from": learns_from,
+            "can_improve": can_improve,
+            "recent_mistakes": learner.recent_mistakes(5),
+            "recent_improvements": learner.recent_improvements(5),
+        }
 
     def _learner_for(self, name: str, agent: AgentLike) -> Learner:
         """The agent's own Learner if it has one (extended agents), else a
@@ -705,6 +806,7 @@ class PipelineRuntime:
         for name, agent in self.agents.items():
             learner = self._learner_for(name, agent)
             hr = learner.hit_rate()
+            card = self._learning_card(name, agent, learner)
             rows.append({
                 "name": name,
                 "score": learner.score,
@@ -713,6 +815,7 @@ class PipelineRuntime:
                 "resolved": learner.resolved,
                 "today_resolved": learner.today_resolved,
                 "adapt_count": learner.adapt_count,
+                **card,
             })
             for entry in learner.recent(limit):
                 e = dict(entry)
@@ -914,8 +1017,16 @@ class PipelineRuntime:
                 return False, {"error": f"bad price {price!r}"}
         side_u = str(side).upper()
         if side_u == "BUY":
-            ok, msg = await self._trader.manual_buy(px)
+            # In live-armed mode a manual BUY fires a REAL bid first; the paper
+            # position is then marked live-backed so its exits close the real
+            # position too. Manual orders bypass the p_win gate (operator override).
+            placed_live = await self._place_manual_live_bid(px)
+            ok, msg = await self._trader.manual_buy(px, is_live=placed_live)
+            if placed_live and ok:
+                msg = f"{msg} (ส่งคำสั่งจริงบน Bitkub แล้ว)"
         elif side_u in ("SELL", "CLOSE"):
+            # manual_close → _close(MANUAL) → live_close_fn closes the real
+            # position when it was live-backed.
             ok, msg = await self._trader.manual_close(px)
         else:
             return False, {"error": f"unknown side {side!r} (use BUY/SELL)"}
@@ -923,6 +1034,33 @@ class PipelineRuntime:
         if ok:
             self._schedule_alert(f"📋 Manual {side_u}: {msg}", "info")
         return ok, {"message": msg, "positions": self._trader.open_positions()}
+
+    async def _place_manual_live_bid(self, px: Decimal | None) -> bool:
+        """Place a REAL bid for an operator BUY when live orders are armed and
+        no position is open. Returns True only if the real order was placed."""
+        if self._trader is None or self._trade_params is None:
+            return False
+        if self._trader.position is not None or not self._live_orders_armed():
+            return False
+        if px is not None:
+            self._trader.mark_price = px  # ensure sizing uses the operator price
+        symbol = str(getattr(self._trade_params, "symbol", "THB_BTC"))
+        spec = self._build_live_order({"signal": "BUY", "symbol": symbol})
+        if not spec:
+            return False
+        gate = self.agents.get("risk_gate")
+        gw = getattr(gate, "_rest_gateway", None) if gate is not None else None
+        if gw is None or not hasattr(gw, "place_bid"):
+            return False
+        try:
+            await gw.place_bid(  # type: ignore[attr-defined]
+                spec["symbol"], spec["amount"], spec["rate"], spec.get("typ", "market")
+            )
+            self.logger.info("runtime.manual_live_bid", amount=spec["amount"])
+            return True
+        except Exception:
+            self.logger.error("runtime.manual_live_bid_failed", exc_info=True)
+            return False
 
     async def close_all(self) -> dict[str, object]:
         """Flatten all open paper positions (operator action)."""
@@ -981,6 +1119,76 @@ class PipelineRuntime:
                 self.logger.warning("news.loop_error", exc_info=True)
             await asyncio.sleep(interval)
 
+    # ── Entry governance: win-probability gate + daily trade budget ──────
+    def _roll_trade_day(self) -> None:
+        today = self._treasury.day_key if self._treasury is not None else ""
+        if today != self._trades_day_key:
+            self._trades_day_key = today
+            self._entries_baseline = self._trader.entries_opened if self._trader is not None else 0
+
+    def trades_today(self) -> int:
+        cur = self._trader.entries_opened if self._trader is not None else 0
+        return max(0, cur - self._entries_baseline)
+
+    def daily_profit_pct(self) -> Decimal:
+        if self._treasury is None or self._initial_capital <= 0:
+            return Decimal("0")
+        return (self._treasury.realized_today / self._initial_capital * Decimal("100"))
+
+    def _trade_budget(self) -> bool:
+        """True while a new entry is allowed today (trade-count quota + optional
+        profit-target lock). Daily LOSS halting is owned by the treasury."""
+        self._roll_trade_day()
+        if self._max_trades_per_day > 0 and self.trades_today() >= self._max_trades_per_day:
+            return False
+        target_locked = (
+            self._stop_at_daily_target
+            and self._target_daily_profit_pct > 0
+            and self.daily_profit_pct() >= self._target_daily_profit_pct
+        )
+        return not target_locked  # opt-in: halt new entries once target reached
+
+    def _entry_gate(self, data: dict[str, object]) -> tuple[bool, list[str]]:
+        """Confluence + win-probability gate for a proposed BUY entry.
+        Returns (approved, reason_codes). Honest: p_win is the Timeline Analyst's
+        MEASURED historical win rate, not a promise."""
+        if not self._entry_gate_enabled:
+            return True, []
+        from domain.strategy.base import SignalAction  # noqa: PLC0415
+        from domain.strategy.confluence import (  # noqa: PLC0415
+            EntryInputs,
+            GateParams,
+            evaluate_entry,
+        )
+
+        tl = self._timeline
+        p_win = Decimal(str(getattr(tl, "p_win", "0"))) if tl is not None else Decimal("0")
+        samples = int(getattr(tl, "p_win_samples", 0)) if tl is not None else 0
+        regime = str(getattr(tl, "regime", "RANGE")) if tl is not None else "RANGE"
+        try:
+            sentiment = Decimal(str(self.last_news.get("score", "0")))
+        except (InvalidOperation, ValueError, TypeError):
+            sentiment = Decimal("0")
+
+        inputs = EntryInputs(
+            signal_action=SignalAction.BUY,
+            signal_confidence=Decimal("1"),  # already cleared Supreme consensus
+            regime=regime,
+            sentiment_score=sentiment,
+            p_win=p_win,
+            p_win_samples=samples,
+            trend_agree=(regime != "TREND_DOWN"),
+        )
+        params = GateParams(
+            min_p_win=self._dec_setting("min_p_win", "0.80"),
+            min_confidence=self._dec_setting("gate_min_confidence", "0.50"),
+        )
+        decision = evaluate_entry(inputs, params)
+        reasons = [r.value for r in decision.reasons]
+        for r in reasons:
+            self._gate_block_reasons[r] = self._gate_block_reasons.get(r, 0) + 1
+        return decision.approved, reasons
+
     async def _live_close(self, qty: object, rate: object) -> None:
         """Place a REAL closing ask for a protective exit (stop/TP/trailing/
         manual/emergency) on the live exchange. Called by the paper trader only
@@ -994,7 +1202,8 @@ class PipelineRuntime:
             return
         symbol = str(getattr(self._trade_params, "symbol", "THB_BTC")).lower()
         try:
-            result = await gw.place_ask(symbol, str(qty), str(rate))  # type: ignore[attr-defined]
+            # market order: a protective stop must FILL even as price falls through.
+            result = await gw.place_ask(symbol, str(qty), str(rate), "market")  # type: ignore[attr-defined]
             self.logger.info("runtime.live_exit_order", qty=str(qty), rate=str(rate),
                              order_id=(result.get("result", {}) or {}).get("id")
                              if isinstance(result, dict) else None)
@@ -1054,6 +1263,7 @@ class PipelineRuntime:
                 "symbol": symbol,
                 "amount": str(notional.quantize(Decimal("0.01"))),
                 "rate": str(mark),
+                "typ": str(getattr(self.settings, "live_order_type", "market")),
             }
 
         if signal == "SELL":
@@ -1065,6 +1275,7 @@ class PipelineRuntime:
                 "symbol": symbol,
                 "amount": str(pos.qty),
                 "rate": str(mark),
+                "typ": str(getattr(self.settings, "live_order_type", "market")),
             }
         return None
 
@@ -1446,6 +1657,9 @@ class PipelineRuntime:
             },
             "execution_mode": self.get_execution_mode(),
             "live_orders_armed": self._live_orders_armed(),
+            "timeline": self._timeline_status(),
+            "entry_gate": self._entry_gate_status(),
+            "daily": self._daily_status(),
             "news": dict(self.last_news),
             "agents": [self._agent_status(n, a) for n, a in self.agents.items()],
         }
@@ -1477,6 +1691,50 @@ class PipelineRuntime:
             "safety gates (execution_engine=live + confirm token + no "
             "KILL_SWITCH + breaker closed) with an account connected."
         )
+
+    def _timeline_status(self) -> dict[str, object]:
+        """Timeline Analyst snapshot for the dashboard (win-prob + regime)."""
+        tl = self._timeline
+        if tl is None:
+            return {"available": False}
+        return {
+            "available": True,
+            "p_win": str(getattr(tl, "p_win", "0")),
+            "p_win_pct": round(float(getattr(tl, "p_win", 0)) * 100, 1),
+            "p_win_samples": int(getattr(tl, "p_win_samples", 0)),
+            "regime": str(getattr(tl, "regime", "RANGE")),
+            "past_win_rate": getattr(tl, "past_win_rate", None),
+            "recent_win_rate": getattr(tl, "recent_win_rate", None),
+            "min_p_win": str(self._dec_setting("min_p_win", "0.80")),
+            "passes_gate": (
+                int(getattr(tl, "p_win_samples", 0)) >= 20
+                and Decimal(str(getattr(tl, "p_win", "0"))) >= self._dec_setting("min_p_win", "0.80")
+            ),
+            "analysis": dict(getattr(tl, "analysis", {})),
+        }
+
+    def _entry_gate_status(self) -> dict[str, object]:
+        return {
+            "enabled": self._entry_gate_enabled,
+            "min_p_win": str(self._dec_setting("min_p_win", "0.80")),
+            "blocked_by_reason": dict(self._gate_block_reasons),
+            "blocked_total": sum(self._gate_block_reasons.values()),
+        }
+
+    def _daily_status(self) -> dict[str, object]:
+        """Daily trade-budget + profit-target progress (honest: a target, not a
+        promise — the market decides whether it is reached)."""
+        profit_pct = float(self.daily_profit_pct())
+        target = float(self._target_daily_profit_pct)
+        return {
+            "trades_today": self.trades_today(),
+            "max_trades_per_day": self._max_trades_per_day,
+            "target_profit_pct": target,
+            "profit_pct_today": round(profit_pct, 3),
+            "target_reached": profit_pct >= target if target > 0 else False,
+            "stop_at_target": self._stop_at_daily_target,
+            "note": "เป้าหมาย ไม่ใช่การการันตี — ตลาดเป็นผู้กำหนด",
+        }
 
     def _compute_wallet_value_thb(self, balances: dict[str, str]) -> dict[str, object]:
         """Compute wallet value in THB from real balances + real latest price."""

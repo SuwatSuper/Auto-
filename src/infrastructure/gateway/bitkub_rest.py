@@ -143,14 +143,16 @@ class BitkubRestGateway:
         resp.raise_for_status()
         return self._check(resp.json())
 
-    async def place_bid(self, symbol: str, amount_thb: str, rate: str) -> dict[str, Any]:
+    async def place_bid(self, symbol: str, amount_thb: str, rate: str, typ: str = "limit") -> dict[str, Any]:
         """POST /api/v3/market/place-bid — buy order (spend THB, receive coin).
 
         symbol uses lowercase convention per Bitkub POST body docs (e.g. 'thb_btc').
-        amount_thb: THB amount to spend; rate: limit price.
+        amount_thb: THB amount to spend; rate: limit price (ignored for market).
+        typ: 'limit' (default) or 'market' — market guarantees a fill, which a
+        protective stop / chasing entry needs when price is moving fast.
         """
         path = "/api/v3/market/place-bid"
-        body_dict = {"sym": symbol, "amt": amount_thb, "rat": rate, "typ": "limit"}
+        body_dict = {"sym": symbol, "amt": amount_thb, "rat": rate, "typ": typ}
         body = json.dumps(body_dict, separators=(",", ":"))
         ts_ms = self._ts()
         headers = self._signed_headers(ts_ms, "POST", path + body)
@@ -163,14 +165,16 @@ class BitkubRestGateway:
         resp.raise_for_status()
         return self._check(resp.json())
 
-    async def place_ask(self, symbol: str, amount_coin: str, rate: str) -> dict[str, Any]:
+    async def place_ask(self, symbol: str, amount_coin: str, rate: str, typ: str = "limit") -> dict[str, Any]:
         """POST /api/v3/market/place-ask — sell order (spend coin, receive THB).
 
         symbol uses lowercase convention per Bitkub POST body docs (e.g. 'thb_btc').
-        amount_coin: coin quantity to sell; rate: limit price.
+        amount_coin: coin quantity to sell; rate: limit price (ignored for market).
+        typ: 'limit' (default) or 'market' — a protective stop uses 'market' so it
+        actually fills when price is falling through the level.
         """
         path = "/api/v3/market/place-ask"
-        body_dict = {"sym": symbol, "amt": amount_coin, "rat": rate, "typ": "limit"}
+        body_dict = {"sym": symbol, "amt": amount_coin, "rat": rate, "typ": typ}
         body = json.dumps(body_dict, separators=(",", ":"))
         ts_ms = self._ts()
         headers = self._signed_headers(ts_ms, "POST", path + body)

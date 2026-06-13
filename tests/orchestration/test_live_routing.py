@@ -24,11 +24,11 @@ class _MockGateway:
         self.bids: list[tuple[str, str, str]] = []
         self.asks: list[tuple[str, str, str]] = []
 
-    async def place_bid(self, sym: str, amount: str, rate: str) -> dict[str, object]:
+    async def place_bid(self, sym: str, amount: str, rate: str, typ: str = "limit") -> dict[str, object]:
         self.bids.append((sym, amount, rate))
         return {"error": 0, "result": {"id": 1}}
 
-    async def place_ask(self, sym: str, amount: str, rate: str) -> dict[str, object]:
+    async def place_ask(self, sym: str, amount: str, rate: str, typ: str = "limit") -> dict[str, object]:
         self.asks.append((sym, amount, rate))
         return {"error": 0, "result": {"id": 2}}
 
@@ -113,6 +113,8 @@ def test_build_live_order_buy_sizes_and_caps() -> None:
     # notional clamped to the 50 THB cap
     assert Decimal(spec["amount"]) <= Decimal("50")
     assert spec["rate"] == "1500000"
+    # R-1: orders default to market type so entries/stops actually fill
+    assert spec["typ"] == "market"
 
 
 def test_build_live_order_sell_uses_position_qty() -> None:

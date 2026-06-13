@@ -210,11 +210,15 @@ class PaperTraderAgent:
             return True
         return False
 
-    async def manual_buy(self, price: Decimal | None = None) -> tuple[bool, str]:
-        """Operator-initiated paper BUY. Uses the given price or the latest mark.
+    async def manual_buy(
+        self, price: Decimal | None = None, is_live: bool = False
+    ) -> tuple[bool, str]:
+        """Operator-initiated BUY. Uses the given price or the latest mark.
 
         Respects the treasury cash check and the single-position rule. Returns
-        (ok, message). No real exchange order is sent in paper mode.
+        (ok, message). ``is_live`` marks the position as real-order-backed so its
+        protective exits close the real position too (the runtime places the
+        real bid before calling this).
         """
         if price is not None:
             self.mark_price = price
@@ -223,7 +227,7 @@ class PaperTraderAgent:
         if self.position is not None:
             return False, "a position is already open"
         before = self.entries_opened
-        await self._open(self.mark_price)
+        await self._open(self.mark_price, is_live=is_live)
         if self.entries_opened > before:
             return True, "opened"
         return False, "entry rejected (cash/limits)"

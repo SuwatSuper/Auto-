@@ -64,6 +64,8 @@ class ExecutionAgent:
         open_positions_fn: Callable[[], int] | None = None,
         max_open_positions: int = 1,
         live_order_fn: Callable[[dict[str, object]], dict[str, str] | None] | None = None,
+        entry_gate_fn: Callable[[dict[str, object]], tuple[bool, list[str]]] | None = None,
+        trade_budget_fn: Callable[[], bool] | None = None,
     ) -> None:
         self._bus = bus
         self._raw_topic = raw_decisions_topic
@@ -79,7 +81,14 @@ class ExecutionAgent:
         # Builds the sized+capped live order spec from a decision (provided by
         # the runtime, which owns cash/price/params). None => no live placement.
         self._live_order_fn = live_order_fn
+        # Confluence/win-probability gate for ENTRIES: returns (approved, reasons).
+        # Blocks BUYs whose estimated win probability / regime / sentiment fail.
+        self._entry_gate_fn = entry_gate_fn
+        # Daily trade-budget gate: returns True while the day's trade quota and
+        # profit-target rules still allow a new entry.
+        self._trade_budget_fn = trade_budget_fn
         self.live_orders_placed: int = 0
+        self.gate_blocked: int = 0
 
         self.running: bool = False
         self.msg_count: int = 0
@@ -166,6 +175,26 @@ class ExecutionAgent:
                 self._log.warning("execution_agent.vetoed", reason="POSITION_CAP_REACHED")
                 return
 
+        # 2a. Daily trade budget (quota / profit-target) — entries only
+        if (
+            self._trade_budget_fn is not None
+            and data.get("signal") == "BUY"
+            and not self._trade_budget_fn()
+        ):
+            await self._publish_rejection(["DAILY_BUDGET_REACHED"])
+            self._log.info("execution_agent.vetoed", reason="DAILY_BUDGET_REACHED")
+            return
+
+        # 2b. Confluence / win-probability gate — entries only. Only ≥min_p_win
+        # setups in a sane regime pass; everything else is observed, not traded.
+        if self._entry_gate_fn is not None and data.get("signal") == "BUY":
+            approved, reasons = self._entry_gate_fn(data)
+            if not approved:
+                self.gate_blocked += 1
+                await self._publish_rejection(reasons)
+                self._log.info("execution_agent.gate_blocked", reasons=reasons)
+                return
+
         # 3. Idempotency check
         # Only an explicit decision_id / event_id identifies a genuine
         # duplicate. When neither is present we mint a fresh monotonic id so
@@ -237,11 +266,12 @@ class ExecutionAgent:
         sym = spec.get("symbol", symbol)
         amount = spec.get("amount", "")
         rate = spec.get("rate", "")
+        typ = spec.get("typ", "limit")
         try:
             if action == "bid":
-                result = await gw.place_bid(sym, amount, rate)  # type: ignore[attr-defined]
+                result = await gw.place_bid(sym, amount, rate, typ)  # type: ignore[attr-defined]
             elif action == "ask":
-                result = await gw.place_ask(sym, amount, rate)  # type: ignore[attr-defined]
+                result = await gw.place_ask(sym, amount, rate, typ)  # type: ignore[attr-defined]
             else:
                 self._log.warning("execution_agent.live_bad_action", action=str(action))
                 return

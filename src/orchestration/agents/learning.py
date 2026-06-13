@@ -69,6 +69,22 @@ class Learner:
         items = list(self.journal)[-limit:]
         return [e.as_dict() for e in reversed(items)]
 
+    def recent_mistakes(self, limit: int = 5) -> list[dict[str, object]]:
+        """Recent graded LOSSES — the real mistakes this agent made."""
+        out = [
+            e.as_dict() for e in reversed(self.journal)
+            if e.kind == "outcome" and "❌" in e.text
+        ]
+        return out[:limit]
+
+    def recent_improvements(self, limit: int = 5) -> list[dict[str, object]]:
+        """Recent parameter changes the agent made to improve (adapt/coach)."""
+        out = [
+            e.as_dict() for e in reversed(self.journal)
+            if e.kind in ("adapt", "coach")
+        ]
+        return out[:limit]
+
     # ── execution → reflection (real outcome grading) ─────────────
     def predict(self, action: str, price: Decimal, ts_ms: int) -> None:
         self._open.append((ts_ms, action, price))

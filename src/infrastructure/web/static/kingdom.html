@@ -3528,15 +3528,14 @@ function initPerfChart() {
   const ctx = document.getElementById('chart-perf');
   if (!ctx) return;
   try {
-  const labels = Array.from({ length: 30 }, (_, i) => `${i + 1}`);
-  const dummyData = labels.map((_, i) => 100 + Math.sin(i * 0.4) * 5 + i * 0.62);
+  // No mock data: start EMPTY and fill from the real equity curve / live prices.
   State.charts.perf = new Chart(ctx.getContext('2d'), {
     type: 'line',
     data: {
-      labels,
+      labels: [],
       datasets: [{
         label: 'Performance',
-        data: dummyData,
+        data: [],
         borderColor: '#00e676',
         backgroundColor: 'rgba(0,230,118,0.08)',
         borderWidth: 2,
@@ -3566,7 +3565,18 @@ function initPerfChart() {
 
 function updatePerfChart() {
   const chart = State.charts.perf;
-  if (!chart || State.prices.length < 2) return;
+  if (!chart) return;
+  // Prefer the REAL equity curve (the bot's actual performance, normalized to
+  // 100). Fall back to live price performance until enough equity is sampled.
+  if (REAL_EQUITY_CURVE.length >= 2) {
+    const eqc  = REAL_EQUITY_CURVE.slice(-60);
+    const base = eqc[0] || 1;
+    chart.data.labels = eqc.map((_, i) => String(i + 1));
+    chart.data.datasets[0].data = eqc.map(v => ((v / base) * 100).toFixed(2));
+    chart.update('none');
+    return;
+  }
+  if (State.prices.length < 2) return;
   const last30 = State.prices.slice(-30);
   const base   = last30[0].v;
   chart.data.labels = last30.map((_, i) => String(i + 1));
@@ -4987,6 +4997,25 @@ async function renderLearning() {
       const left = el('div');
       left.appendChild(el('div', 'lb-name', `${i + 1}. ${info.th}`));
       left.appendChild(el('div', 'lb-sub', sub));
+      // What this agent learns from its mistakes + what it can improve (every agent).
+      if (a.learns_from) {
+        const lf = el('div', 'lb-sub', '📚 เรียนจากพลาด: ' + a.learns_from);
+        lf.style.color = '#7fa8ff'; left.appendChild(lf);
+      }
+      if (a.can_improve) {
+        const ci = el('div', 'lb-sub', '🔧 พัฒนาได้: ' + a.can_improve);
+        ci.style.color = '#36d07f'; left.appendChild(ci);
+      }
+      const miss = (a.recent_mistakes || [])[0];
+      if (miss && miss.text) {
+        const mz = el('div', 'lb-sub', '⚠ ล่าสุด: ' + miss.text);
+        mz.style.color = '#ff9d5c'; left.appendChild(mz);
+      }
+      const imp = (a.recent_improvements || [])[0];
+      if (imp && imp.text) {
+        const iz = el('div', 'lb-sub', '✨ ปรับล่าสุด: ' + imp.text);
+        iz.style.color = '#36d07f'; left.appendChild(iz);
+      }
       const right = el('div', 'lb-score', sc.toFixed(0));
       right.style.color = col;
       row.appendChild(left); row.appendChild(right);

@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # Execution engine (Phase 2) — default must stay "paper"
     execution_engine: str = "paper"
     live_trading_confirm: str = ""
+    # Live order type: 'market' (default) guarantees fills for entries AND
+    # protective stops; 'limit' rests at the mark and may not fill in fast moves.
+    live_order_type: str = "market"
     # Extended risk limits (Phase 1)
     max_weekly_loss_pct: str = "10"
     max_monthly_loss_pct: str = "15"
@@ -69,6 +72,21 @@ class Settings(BaseSettings):
     supreme_window_s: float = 8.0
     supreme_buy_votes: int = 1
     supreme_sell_votes: int = 1
+    # ── Win-probability entry gate (Timeline Analyst) ───────────────────
+    # Only fire an entry when the MEASURED historical win rate of comparable
+    # setups (past 50 + recent 50) is ≥ min_p_win. Honest: this is a frequency,
+    # not a guarantee. Higher = fewer, higher-odds trades.
+    entry_gate_enabled: bool = True
+    min_p_win: str = "0.80"
+    gate_min_confidence: str = "0.50"
+    # ── Daily trade governance ──────────────────────────────────────────
+    # Capability cap on entries per day (set high for high-frequency hunting).
+    max_trades_per_day: int = 1000
+    # Daily profit target (% of initial capital). Tracked + shown on the
+    # dashboard. NOT a guarantee — the market decides. stop_at_daily_target,
+    # when true, locks the day's gains by halting new entries once reached.
+    target_daily_profit_pct: str = "5"
+    stop_at_daily_target: bool = False
     # Operator login (optional): password to obtain the control token
     dashboard_password: SecretStr = SecretStr("")
     # Alerts (Phase 1 — Telegram bot or generic webhook)

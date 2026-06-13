@@ -53,6 +53,8 @@ EXPECTED_AGENTS = {
     "dashboard_synth",
     "tax_clerk",
     "garbage_collector",
+    # Phase-3 timeline win-probability analyst
+    "timeline_analyst",
 }
 
 TEST_KEY = "test-key-1234567890"
@@ -226,4 +228,4 @@ async def test_metrics_report_real_uptime_and_agent_count(open_client) -> None: 
     _, client = open_client
     await client.get("/healthz")
     text = (await client.get("/metrics")).text
-    assert "trading_agent_count 26" in text
+    assert "trading_agent_count 27" in text
