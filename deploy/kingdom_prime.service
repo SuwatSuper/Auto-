@@ -1,0 +1,35 @@
+[Unit]
+Description=Kingdom Prime — automated crypto trading system (paper mode)
+Documentation=file:/home/ubuntu/Auto-/deploy/DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/Auto-
+
+# Python path must include src/ so domain/orchestration/infrastructure are importable
+Environment=PYTHONPATH=/home/ubuntu/Auto-/src
+EnvironmentFile=-/home/ubuntu/Auto-/.env
+
+ExecStart=/home/ubuntu/Auto-/.venv/bin/python scripts/run.py
+
+# Graceful stop: send SIGTERM, wait 30s, then SIGKILL
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Restart policy: restart on failure (not on clean exit)
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kingdom_prime
+
+[Install]
+WantedBy=multi-user.target
