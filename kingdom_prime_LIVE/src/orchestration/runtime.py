@@ -102,6 +102,7 @@ class PipelineRuntime:
         self.emergency_stopped: bool = False
         self._latest_price: Decimal | None = None
         self._latest_latency_ms: int = 0
+        self._latency_samples: deque[int] = deque(maxlen=100)
         self._msg_count_current: int = 0
         self._window_task: asyncio.Task[None] | None = None
 
@@ -394,7 +395,9 @@ class PipelineRuntime:
     def record_message(self, price: Decimal, latency_ms: int) -> None:
         """Record a processed price message for metrics."""
         self._latest_price = price
-        self._latest_latency_ms = max(0, latency_ms)
+        clamped = max(0, latency_ms)
+        self._latest_latency_ms = clamped
+        self._latency_samples.append(clamped)
 
     async def _tick_window(self) -> None:
         while True:
@@ -526,6 +529,25 @@ class PipelineRuntime:
         reconciled = bool(getattr(recon, "is_reconciled", False)) if recon is not None else False
         real_balances = dict(getattr(recon, "last_balances", {})) if recon is not None else {}
 
+        # p50/p95 latency from rolling window (real samples, never estimated)
+        samples = sorted(self._latency_samples) if self._latency_samples else []
+        p50_ms = samples[len(samples) // 2] if samples else 0
+        p95_ms = samples[max(0, int(len(samples) * 0.95) - 1)] if len(samples) > 1 else (samples[0] if samples else 0)
+
+        # Real portfolio (mark at latest price) — no fabricated values
+        portfolio: list[dict[str, object]] = (
+            self._trader.get_portfolio() if self._trader is not None else []
+        )
+
+        # Wallet value: sum bitkub_balances at real prices when available
+        wallet_thb = self._compute_wallet_value_thb(real_balances)
+
+        # State-restoration indicator (was position loaded from SQLite on this boot?)
+        state_restored = bool(
+            self._trader is not None and getattr(self._trader, "state_loaded", False)
+        )
+        state_db_path = str(getattr(self.settings, "state_db_path", ""))
+
         return {
             "mode": self.mode,
             "uptime_sec": uptime_sec,
@@ -559,6 +581,12 @@ class PipelineRuntime:
             "bitkub_account_connected": account_connected,
             "bitkub_reconciled": reconciled,
             "bitkub_balances": real_balances,
+            "portfolio": portfolio,
+            "wallet_value_thb": wallet_thb,
+            "p50_latency_ms": p50_ms,
+            "p95_latency_ms": p95_ms,
+            "state_restored": state_restored,
+            "state_db_path": state_db_path,
             "execution_warning": (
                 "Real Bitkub account connected READ-ONLY (live wallet). "
                 if account_connected
@@ -567,6 +595,41 @@ class PipelineRuntime:
             + "Order firing is still SIMULATED; enabling live orders is a "
             "separate, tested step behind the 4 safety gates.",
             "agents": [self._agent_status(n, a) for n, a in self.agents.items()],
+        }
+
+    def _compute_wallet_value_thb(self, balances: dict[str, str]) -> dict[str, object]:
+        """Compute wallet value in THB from real balances + real latest price."""
+        if not balances:
+            return {"total_thb": None, "entries": [], "price_unavailable": True}
+        mark = self._latest_price
+        entries: list[dict[str, object]] = []
+        total_thb: Decimal | None = Decimal("0") if mark is not None else None
+        for sym, amt_str in balances.items():
+            try:
+                amt = Decimal(amt_str)
+            except Exception:
+                continue
+            if sym == "THB":
+                value_thb: Decimal | None = amt
+                unavailable = False
+            elif mark is not None and sym in ("BTC", "THB_BTC"):
+                value_thb = amt * mark
+                unavailable = False
+            else:
+                value_thb = None
+                unavailable = True
+            entries.append({
+                "symbol": sym,
+                "qty": amt_str,
+                "value_thb": str(value_thb) if value_thb is not None else None,
+                "price_unavailable": unavailable,
+            })
+            if total_thb is not None and value_thb is not None:
+                total_thb += value_thb
+        return {
+            "total_thb": str(total_thb) if total_thb is not None else None,
+            "entries": entries,
+            "price_unavailable": any(e["price_unavailable"] for e in entries),
         }
 
     @property

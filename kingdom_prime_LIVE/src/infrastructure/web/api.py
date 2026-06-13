@@ -215,8 +215,12 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
         }
 
     @app.get("/api/status")
-    async def status() -> dict[str, object]:
-        return runtime.status()
+    async def status(request: Request) -> dict[str, object]:
+        # Require auth only when a real account is connected (balance data exposed).
+        s = runtime.status()
+        if s.get("bitkub_account_connected") and _configured_api_key(runtime):
+            _check_api_key(request, runtime)
+        return s
 
     @app.get("/api/health")
     async def health() -> dict[str, object]:
@@ -252,9 +256,11 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
 
     # ── CEO Executive Reporting endpoints (Production Migration) ─────────
     @app.get("/api/ceo/summary")
-    async def ceo_summary() -> dict[str, object]:
+    async def ceo_summary(request: Request) -> dict[str, object]:
         """Top-level executive view. Returns 503 with explicit reason if CEO
         agent is not yet running — NEVER fabricates data (Production rule)."""
+        if _configured_api_key(runtime):
+            _check_api_key(request, runtime)
         ceo = runtime.ceo
         if ceo is None:
             raise HTTPException(
@@ -266,12 +272,15 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
 
     @app.get("/api/ceo/audit")
     async def ceo_audit(
+        request: Request,
         limit: int = 100,
         agent: str | None = None,
         action: str | None = None,
     ) -> dict[str, object]:
         """Replayable audit trail. Answers
         'เกิดอะไรขึ้น / ใครตัดสินใจ / ตัดสินใจจากข้อมูลอะไร / ผลลัพธ์เป็นอย่างไร'."""
+        if _configured_api_key(runtime):
+            _check_api_key(request, runtime)
         ceo = runtime.ceo
         if ceo is None:
             raise HTTPException(status_code=503, detail="CEO agent not initialized")
@@ -289,8 +298,10 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
         }
 
     @app.get("/api/ceo/agents")
-    async def ceo_agents() -> dict[str, object]:
+    async def ceo_agents(request: Request) -> dict[str, object]:
         """Per-agent health + role view for the CEO dashboard tab."""
+        if _configured_api_key(runtime):
+            _check_api_key(request, runtime)
         ceo = runtime.ceo
         if ceo is None:
             raise HTTPException(status_code=503, detail="CEO agent not initialized")

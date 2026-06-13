@@ -22,15 +22,41 @@ from domain.trading.orders import Order, OrderStatus, Side
 
 
 class FeeModel(BaseModel, frozen=True):
-    """Fee model: taker_bps basis points on notional."""
+    """Taker-only fee model: taker_bps basis points on notional."""
 
     taker_bps: Decimal
+
+    def fee_bps(self, *, is_taker: bool = True) -> Decimal:  # noqa: ARG002
+        return self.taker_bps
+
+
+class MakerTakerFeeModel(BaseModel, frozen=True):
+    """Bitkub-realistic fee tiers: maker (limit) vs taker (market) fees.
+
+    Bitkub standard: maker 0.15% (15 bps), taker 0.25% (25 bps).
+    """
+
+    maker_bps: Decimal
+    taker_bps: Decimal
+
+    def fee_bps(self, *, is_taker: bool = True) -> Decimal:
+        return self.taker_bps if is_taker else self.maker_bps
 
 
 class SlippageModel(BaseModel, frozen=True):
     """Slippage model: slip_bps basis points on fill price."""
 
     slip_bps: Decimal
+
+
+class PartialFillModel(BaseModel, frozen=True):
+    """Simple partial-fill model: fill_pct of each order (0-100)."""
+
+    fill_pct: Decimal  # e.g. Decimal("70") = 70% fill
+
+    @property
+    def fraction(self) -> Decimal:
+        return self.fill_pct / Decimal("100")
 
 
 class BacktestReport(BaseModel, frozen=True):
@@ -51,10 +77,12 @@ def run_backtest(
     prices: Sequence[tuple[int, Decimal]],
     strategy: Strategy,
     limits: RiskLimits,
-    fees: FeeModel,
+    fees: FeeModel | MakerTakerFeeModel,
     slippage: SlippageModel,
     initial_cash: Money,
     order_qty: Decimal,
+    partial_fill: PartialFillModel | None = None,
+    is_taker: bool = True,
 ) -> BacktestReport:
     """Run event-driven backtest over a price series.
 
@@ -131,12 +159,23 @@ def run_backtest(
         else:
             fill_price = next_price * (Decimal(1) - slippage.slip_bps / Decimal(10000))
 
-        notional = fill_price * order_qty
-        fee_amount = notional * fees.taker_bps / Decimal(10000)
+        # Apply partial fill fraction (default: full fill)
+        actual_qty = order_qty
+        if partial_fill is not None:
+            actual_qty = (order_qty * partial_fill.fraction).quantize(Decimal("0.00000001"))
+        if actual_qty <= 0:
+            marks = {symbol: current_price}
+            eq = calc_equity(account, positions, marks)
+            equity_curve.append(eq.amount)
+            continue
+
+        fee_bps = fees.fee_bps(is_taker=is_taker)
+        notional = fill_price * actual_qty
+        fee_amount = notional * fee_bps / Decimal(10000)
         fee = Money(amount=fee_amount.quantize(Decimal("0.01")), currency=initial_cash.currency)
 
         # Slippage cost = difference from fill_price vs next_price
-        raw_slippage = abs(fill_price - next_price) * order_qty
+        raw_slippage = abs(fill_price - next_price) * actual_qty
         total_slippage_cost += raw_slippage
 
         trade = Trade(
@@ -144,7 +183,7 @@ def run_backtest(
             order_id=order.order_id,
             symbol=symbol,
             side=side,
-            qty=order_qty,
+            qty=actual_qty,
             price=fill_price,
             fee=fee,
             ts_ms=next_ts_ms,

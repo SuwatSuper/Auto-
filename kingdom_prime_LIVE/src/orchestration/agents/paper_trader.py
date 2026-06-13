@@ -91,10 +91,28 @@ class PaperTraderAgent:
         self.entries_rejected: int = 0
         self.last_trade: ClosedTrade | None = None
         self.emergency_flatten: bool = False
+        self.state_loaded: bool = False
 
     # ── runtime-facing views ─────────────────────────────────────
     def open_positions(self) -> int:
         return 1 if self.position is not None else 0
+
+    def get_portfolio(self) -> list[dict[str, object]]:
+        """Return open positions with real mark prices for the dashboard."""
+        if self.position is None:
+            return []
+        pos = self.position
+        mark = self.mark_price
+        if mark is None:
+            return [{"symbol": pos.symbol, "qty": str(pos.qty),
+                     "avg_price": str(pos.entry_price), "mark_price": None,
+                     "market_value": None, "unrealized_pnl": None,
+                     "price_unavailable": True}]
+        return [{"symbol": pos.symbol, "qty": str(pos.qty),
+                 "avg_price": str(pos.entry_price), "mark_price": str(mark),
+                 "market_value": str(pos.market_value(mark)),
+                 "unrealized_pnl": str(pos.unrealized_pnl(mark)),
+                 "price_unavailable": False}]
 
     def open_market_value(self) -> Decimal:
         if self.position is None or self.mark_price is None:
@@ -281,6 +299,7 @@ class PaperTraderAgent:
                 self.position = PaperPosition.model_validate(data["position"])
             self.trades_closed = int(data.get("trades_closed", 0))
             self.entries_opened = int(data.get("entries_opened", 0))
+            self.state_loaded = True
             self._log.info("paper_trader.state_restored", open=self.position is not None)
         except (orjson.JSONDecodeError, KeyError, ValueError):
             self._log.warning("paper_trader.state_corrupt_ignored", exc_info=True)

@@ -2,6 +2,16 @@
 depend on the (removed) production simulator gateway."""
 from __future__ import annotations
 
+import sys
+import types
+
+# Provide a minimal pandas_ta stub when the real package is not installed.
+# This lets the test suite run on Python 3.11 where pandas_ta requires 3.12.
+if "pandas_ta" not in sys.modules:
+    _stub = types.ModuleType("pandas_ta")
+    _stub.__version__ = "0.0.0-stub"  # type: ignore[attr-defined]
+    sys.modules["pandas_ta"] = _stub
+
 import structlog
 
 from infrastructure.config import Settings

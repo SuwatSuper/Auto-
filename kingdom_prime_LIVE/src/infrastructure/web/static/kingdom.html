@@ -2160,6 +2160,25 @@ html, body {
           </div>
         </div>
 
+        <!-- Portfolio (live mark) -->
+        <div class="kp-card" id="card-portfolio">
+          <div class="kp-card-title">Portfolio (live mark)</div>
+          <div id="portfolio-body" style="font-size:11px;color:var(--text-mid);padding:4px 0;">
+            <span>—</span>
+          </div>
+        </div>
+
+        <!-- Performance -->
+        <div class="kp-card" id="card-performance">
+          <div class="kp-card-title">Performance</div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;padding:4px 0;">
+            <span>p50: <b id="perf-p50" style="color:var(--accent-cyan);font-family:var(--font-mono);">—</b> ms</span>
+            <span>p95: <b id="perf-p95" style="color:var(--accent-gold);font-family:var(--font-mono);">—</b> ms</span>
+            <span>msg/s: <b id="perf-msgrate" style="color:var(--accent-green);font-family:var(--font-mono);">—</b></span>
+            <span>State: <b id="perf-state" style="font-family:var(--font-mono);">—</b></span>
+          </div>
+        </div>
+
       </div><!-- end right-panels -->
 
     </div><!-- end mid-row -->
@@ -2768,6 +2787,11 @@ const State = {
   uptimeSeconds: 0,
   mode: 'live',
   cash: null,
+  portfolio: [],
+  p50LatencyMs: null,
+  p95LatencyMs: null,
+  stateRestored: false,
+  msgRate: null,
   bitkubConnected: false,
   bitkubReconciled: false,
   bitkubBalances: {},
@@ -2913,6 +2937,11 @@ function handleStatus(data) {
   State.bitkubConnected   = data.bitkub_account_connected ?? false;
   State.bitkubReconciled  = data.bitkub_reconciled ?? false;
   State.bitkubBalances    = data.bitkub_balances ?? {};
+  State.portfolio         = data.portfolio ?? [];
+  State.p50LatencyMs      = data.p50_latency_ms ?? null;
+  State.p95LatencyMs      = data.p95_latency_ms ?? null;
+  State.stateRestored     = data.state_restored ?? false;
+  State.msgRate           = data.msg_rate ?? data.msg_per_sec ?? null;
   if (State.bitkubConnected && !State.bitkubReconciled && !State._bitkubConnectTime) {
     State._bitkubConnectTime = Date.now();
   }
@@ -2924,6 +2953,8 @@ function handleStatus(data) {
   renderModeBtn();
   renderBitkubAccount();
   renderHeaderChips();
+  renderPortfolioTable();
+  renderPerformancePanel();
   updateAgentCards();
 }
 
@@ -3100,6 +3131,59 @@ function renderHeaderChips() {
       chipAcct.style.borderColor = '#5a7ab060';
       chipAcct.style.background = 'rgba(90,122,176,0.12)';
     }
+  }
+}
+
+function renderPortfolioTable() {
+  const el = $('portfolio-body');
+  if (!el) return;
+  const portfolio = State.portfolio;
+  if (!Array.isArray(portfolio) || portfolio.length === 0) {
+    el.innerHTML = '';
+    el.appendChild(document.createTextNode('no open positions'));
+    el.style.color = 'var(--text-mid)';
+    return;
+  }
+  el.style.color = 'var(--text-hi)';
+  el.innerHTML = '';
+  const tbl = document.createElement('table');
+  tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:11px;';
+  const hdr = document.createElement('tr');
+  ['Symbol','Qty','Avg','Mark','Value','PnL'].forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    th.style.cssText = 'text-align:left;color:var(--text-mid);padding:2px 6px;border-bottom:1px solid var(--border);';
+    hdr.appendChild(th);
+  });
+  tbl.appendChild(hdr);
+  portfolio.forEach(p => {
+    const tr = document.createElement('tr');
+    const pnl = p.unrealized_pnl != null ? parseFloat(p.unrealized_pnl) : null;
+    const pnlColor = pnl == null ? 'var(--text-mid)' : (pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)');
+    [p.symbol, p.qty, fmtThb(parseFloat(p.avg_price || 0)),
+     p.mark_price != null ? fmtThb(parseFloat(p.mark_price)) : '—',
+     p.market_value != null ? fmtThb(parseFloat(p.market_value)) : '—',
+     pnl != null ? (pnl >= 0 ? '+' : '') + fmtThb(pnl) : '—'
+    ].forEach((v, i) => {
+      const td = document.createElement('td');
+      td.textContent = v;
+      td.style.cssText = 'padding:3px 6px;' + (i === 5 ? 'color:' + pnlColor + ';font-weight:700;' : '');
+      tr.appendChild(td);
+    });
+    tbl.appendChild(tr);
+  });
+  el.appendChild(tbl);
+}
+
+function renderPerformancePanel() {
+  const p50El = $('perf-p50'), p95El = $('perf-p95');
+  const mrEl = $('perf-msgrate'), stEl = $('perf-state');
+  if (p50El) p50El.textContent = State.p50LatencyMs != null ? String(State.p50LatencyMs) : '—';
+  if (p95El) p95El.textContent = State.p95LatencyMs != null ? String(State.p95LatencyMs) : '—';
+  if (mrEl) mrEl.textContent = State.msgRate != null ? State.msgRate.toFixed(1) : '—';
+  if (stEl) {
+    stEl.textContent = State.stateRestored ? 'Restored from disk' : 'Fresh start';
+    stEl.style.color = State.stateRestored ? 'var(--accent-cyan)' : 'var(--text-mid)';
   }
 }
 

@@ -54,7 +54,7 @@ packages = ["domain", "orchestration", "infrastructure"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-addopts = "--cov=src --cov-report=term-missing --cov-fail-under=60"
+addopts = "--cov=src --cov-report=term-missing --cov-fail-under=75"
 filterwarnings = [
     "error::RuntimeWarning",
     "ignore::DeprecationWarning:websockets.*",
