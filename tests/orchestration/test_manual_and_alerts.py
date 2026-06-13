@@ -1,8 +1,6 @@
 # Tests — manual trade command + alerts
 from __future__ import annotations
 
-from decimal import Decimal
-
 import httpx
 import pytest
 import structlog

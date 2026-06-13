@@ -13,7 +13,6 @@ from infrastructure.gateway.bitkub_rest_ticker import (
     extract_last_price,
 )
 
-
 # ── robust parsing across Bitkub response shapes ─────────────────────
 
 def test_extract_map_shape() -> None:

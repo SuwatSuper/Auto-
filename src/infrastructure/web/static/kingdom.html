@@ -167,6 +167,25 @@ html, body {
   border: 1px solid var(--bg-void);
 }
 
+/* Notifications dropdown */
+.notif-panel {
+  position: absolute; top: 38px; right: 0; z-index: 200;
+  width: 320px; max-height: 60vh; overflow-y: auto;
+  background: var(--bg-panel, #0e1726); border: 1px solid #243450;
+  border-radius: 10px; padding: 8px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+}
+.notif-item {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 8px; border-radius: 8px; font-size: 12px; line-height: 1.45;
+  color: var(--text-hi, #cdd9ec);
+}
+.notif-item + .notif-item { border-top: 1px solid #1a2740; }
+.notif-item.warn { color: #ffd740; }
+.notif-item.crit { color: #ff5252; }
+.notif-item.ok   { color: #36d07f; }
+.notif-empty { padding: 14px; text-align: center; color: var(--text-mid); font-size: 12px; }
+
 /* User info */
 .hdr-user { display: flex; align-items: center; gap: 8px; }
 .user-avatar {
@@ -1295,23 +1314,16 @@ html, body {
     </div>
     <button class="lang-btn" id="lang-toggle">TH</button>
     <div class="hdr-icon-group">
-      <button class="hdr-icon-btn" title="Search">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-      </button>
-      <button class="hdr-icon-btn notif-btn" title="Notifications">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-        </svg>
-        <span class="notif-badge" id="notif-badge">3</span>
-      </button>
-      <button class="hdr-icon-btn" title="Messages">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-          <polyline points="22,6 12,13 2,6"/>
-        </svg>
-      </button>
+      <!-- Notifications — real, built from live /api/status (no decoy buttons). -->
+      <div class="notif-wrap" style="position:relative;">
+        <button class="hdr-icon-btn notif-btn" id="notif-btn" title="การแจ้งเตือน / Notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+        </button>
+        <div id="notif-panel" class="notif-panel" style="display:none;"></div>
+      </div>
     </div>
     <div class="hdr-user">
       <div class="user-avatar">K</div>
@@ -1372,7 +1384,12 @@ html, body {
         </svg>
         <span data-i18n="nav_agents">Agents</span>
       </a>
-      <li class="nav-item" data-page="ceo"><span class="nav-icon">👑</span><span class="nav-label" data-i18n="nav_ceo">CEO</span></li>
+      <a class="nav-item" href="#" data-page="ceo">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7l4 4 5-6 5 6 4-4v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
+        </svg>
+        <span data-i18n="nav_ceo">CEO</span>
+      </a>
       <a class="nav-item" href="#" data-page="settings">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/>
@@ -2322,6 +2339,7 @@ html, body {
         <div class="page-title"><span class="dot"></span><span data-i18n="pg_analytics_title">Analytics</span></div>
         <div class="page-sub" data-i18n="pg_analytics_sub">Performance attribution and risk-adjusted return metrics</div>
       </div>
+      <div id="an-note" style="font-size:12px;color:var(--text-mid);margin-bottom:10px;"></div>
 
       <div class="panel-grid cols-4" style="margin-bottom:14px;">
         <div class="metric-tile"><div class="mt-label">Sharpe Ratio</div><div class="mt-value cyan" id="an-sharpe">—</div><div class="mt-sub" data-i18n="mt_annualized">Annualized</div></div>
@@ -2337,7 +2355,10 @@ html, body {
         </div>
         <div class="kp-card">
           <div class="kp-card-title" data-i18n="chart_monthly">Monthly Returns</div>
-          <div style="position:relative;height:220px;"><canvas id="an-monthly"></canvas></div>
+          <div style="position:relative;height:220px;">
+            <canvas id="an-monthly"></canvas>
+            <div id="an-monthly-note" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;padding:0 16px;font-size:12px;color:var(--text-mid);"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -2919,16 +2940,6 @@ const State = {
 // agentMetrics is no longer seeded with fabricated values; real data comes from /api/status
 
 /* ──────────────────────────────────────────────────────────────
-   PORTFOLIO ALLOCATION DATA — BTC 45%, ETH 25%, BNB 15%, Others 15%
-────────────────────────────────────────────────────────────── */
-const ALLOC_DATA = [
-  { label: 'BTC',    pct: 45, color: '#f7931a' },
-  { label: 'ETH',    pct: 25, color: '#627eea' },
-  { label: 'BNB',    pct: 15, color: '#f3ba2f' },
-  { label: 'Others', pct: 15, color: '#2979ff' },
-];
-
-/* ──────────────────────────────────────────────────────────────
    CLOCK
 ────────────────────────────────────────────────────────────── */
 function updateClock() {
@@ -3048,6 +3059,8 @@ function handleStatus(data) {
   }
   if (State.bitkubReconciled) { State._bitkubConnectTime = null; }
 
+  // Feed the REAL equity curve (drives Analytics + VaR) and refresh allocation.
+  recordEquitySample(State.equity);
   renderPortfolio();
   renderRisk();
   renderUptime();
@@ -3055,6 +3068,11 @@ function handleStatus(data) {
   renderBitkubAccount();
   renderHeaderChips();
   updateAgentCards();
+  try { renderAllocation(); } catch (_) {}
+  renderNotifications();
+  // Keep the open data-driven page fresh in place.
+  if (State.currentPage === 'analytics') { try { renderAnalyticsPage(); } catch (_) {} }
+  if (State.currentPage === 'risk')      { try { renderRiskPage(); } catch (_) {} }
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -3123,10 +3141,12 @@ function renderPortfolio() {
 }
 
 function renderRisk() {
-  const dl  = (State.dailyLossPct * 100).toFixed(1);
-  const dd  = (State.drawdownPct  * 100).toFixed(1);
-  $('risk-daily').textContent = dl + '%';
-  $('risk-dd').textContent    = dd + '%';
+  // Backend already reports daily_loss_pct / drawdown_pct in PERCENT units
+  // (e.g. 2.0 means 2%). Do NOT multiply by 100 again.
+  const dl  = Number(State.dailyLossPct) || 0;
+  const dd  = Number(State.drawdownPct)  || 0;
+  $('risk-daily').textContent = dl.toFixed(1) + '%';
+  $('risk-dd').textContent    = dd.toFixed(1) + '%';
 
   const kill = $('kill-badge');
   if (State.killSwitch) {
@@ -3137,8 +3157,10 @@ function renderRisk() {
     kill.className   = 'kill-badge safe';
   }
 
-  // Needle: max exposure is daily_loss + drawdown, range 0-100%
-  const totalRisk = clamp((State.dailyLossPct + State.drawdownPct) * 50, 0, 100);
+  // Needle: how close we are to the configured limits — each limit fills half
+  // the gauge, so hitting both the daily-loss and drawdown caps pegs it at 100%.
+  const dlLimit = State.dailyLimit || 2, ddLimit = State.ddLimit || 10;
+  const totalRisk = clamp((dl / dlLimit) * 50 + (dd / ddLimit) * 50, 0, 100);
   const angle = -90 + (totalRisk / 100) * 180;
   const needle = $('risk-needle');
   if (needle) needle.style.transform = `rotate(${angle}deg)`;
@@ -3452,50 +3474,8 @@ function updateAgentCards() {
    CHARTS
 ────────────────────────────────────────────────────────────── */
 function initDonutChart() {
-  if (typeof Chart === 'undefined') return;
-  const ctx = document.getElementById('chart-donut');
-  if (!ctx) return;
-  try {
-  State.charts.donut = new Chart(ctx.getContext('2d'), {
-    type: 'doughnut',
-    data: {
-      labels: ALLOC_DATA.map(d => d.label),
-      datasets: [{
-        data: ALLOC_DATA.map(d => d.pct),
-        backgroundColor: ALLOC_DATA.map(d => d.color + 'cc'),
-        borderColor: ALLOC_DATA.map(d => d.color),
-        borderWidth: 1.5,
-        hoverOffset: 4,
-      }],
-    },
-    options: {
-      responsive: true,
-      cutout: '70%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%` },
-        },
-      },
-      animation: { duration: 600 },
-    },
-  });
-
-  // Legend
-  const legend = $('donut-legend');
-  legend.innerHTML = '';
-  ALLOC_DATA.forEach(d => {
-    const row = el('div', 'donut-legend-item');
-    const lbl = el('div', 'donut-legend-label');
-    const dot = el('span', 'donut-legend-dot');
-    dot.style.background = d.color;
-    lbl.appendChild(dot);
-    lbl.appendChild(document.createTextNode(d.label));
-    row.appendChild(lbl);
-    row.appendChild(el('span', 'donut-legend-pct', d.pct.toFixed(1) + '%'));
-    legend.appendChild(row);
-  });
-  } catch(e) { console.warn('Donut chart init failed:', e); }
+  // Allocation donut is driven entirely by REAL status data (cash + positions).
+  renderAllocation();
 }
 
 function initPerfChart() {
@@ -3636,19 +3616,92 @@ function bindEvents() {
     flashBtn(langBtn);
   });
 
-  // ── Header icon buttons → show real info (no fake success) ──
-  document.querySelectorAll('.hdr-icon-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      flashBtn(btn);
-      const n = LAST_STATUS && LAST_STATUS.news;
-      if (n && n.label) {
-        const m = { VERY_BULLISH:'ข่าวบวกมาก', BULLISH:'ข่าวบวก', NEUTRAL:'ข่าวกลาง', BEARISH:'ข่าวลบ', VERY_BEARISH:'ข่าวลบมาก' }[n.label] || n.label;
-        showToast(`📰 ${m} (score ${n.score}) · ดูรายละเอียดที่หน้า Agents`);
-      } else {
-        showToast('ℹ️ การควบคุมทั้งหมดอยู่ที่หน้า Settings → ห้องควบคุม');
-      }
-    });
+  // ── Notifications bell → toggle a REAL notifications panel (live status) ──
+  const notifBtn = $('notif-btn');
+  if (notifBtn) notifBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flashBtn(notifBtn);
+    toggleNotifPanel();
   });
+  // Close the panel when clicking anywhere outside it.
+  document.addEventListener('click', (e) => {
+    const panel = $('notif-panel');
+    if (!panel || panel.style.display === 'none') return;
+    if (e.target.closest && e.target.closest('.notif-wrap')) return;
+    panel.style.display = 'none';
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   NOTIFICATIONS — built from REAL /api/status data, never faked.
+══════════════════════════════════════════════════════════════ */
+function buildNotifications() {
+  const s = LAST_STATUS;
+  const out = [];
+  if (!s) return out;
+  const th = State.lang === 'th';
+  if (s.emergency_stopped || s.kill_switch)
+    out.push({ sev: 'crit', text: th ? '🛑 ระบบหยุดฉุกเฉิน (EMERGENCY STOP)' : '🛑 Emergency stop engaged' });
+  if (s.treasury_halted)
+    out.push({ sev: 'crit', text: th ? '⛔ คลังถูกระงับ — แตะเพดานขาดทุนรายวัน' : '⛔ Treasury halted — daily loss limit hit' });
+  if (s.breaker && s.breaker.is_open)
+    out.push({ sev: 'warn', text: th ? `🛡️ Circuit breaker เปิด (ขาดทุนติดต่อกัน ${s.breaker.consecutive_losses}/${s.breaker.max_consecutive_losses})` : `🛡️ Circuit breaker OPEN (${s.breaker.consecutive_losses}/${s.breaker.max_consecutive_losses})` });
+  const dropped = Number(s.dropped_messages || 0);
+  if (dropped > 0)
+    out.push({ sev: 'warn', text: th ? `⚠️ ข้อความตกหล่น ${dropped} รายการ` : `⚠️ ${dropped} dropped messages` });
+  const agents = Array.isArray(s.agents) ? s.agents : [];
+  const crashed = agents.filter(a => a.crashed).map(a => a.name);
+  const stale   = agents.filter(a => a.stale && !a.crashed).map(a => a.name);
+  if (crashed.length)
+    out.push({ sev: 'crit', text: (th ? '🔴 เอเจนต์พัง: ' : '🔴 Agents crashed: ') + crashed.join(', ') });
+  if (stale.length)
+    out.push({ sev: 'warn', text: (th ? '⚠️ เอเจนต์ค้าง: ' : '⚠️ Agents stale: ') + stale.join(', ') });
+  // Price feed health — `latest_price` stays null until the first real tick.
+  if ((s.latest_price == null || s.latest_price === '') && Number(s.uptime_seconds || 0) > 30)
+    out.push({ sev: 'warn', text: th ? '📡 ฟีดราคายังไม่มีข้อมูล (รอ tick แรกจาก Bitkub)' : '📡 No price data yet (awaiting first Bitkub tick)' });
+  const n = s.news;
+  if (n && n.label) {
+    const m = th
+      ? { VERY_BULLISH:'ข่าวบวกมาก', BULLISH:'ข่าวบวก', NEUTRAL:'ข่าวกลาง', BEARISH:'ข่าวลบ', VERY_BEARISH:'ข่าวลบมาก' }[n.label] || n.label
+      : n.label;
+    out.push({ sev: 'info', text: `📰 ${m} (score ${n.score}${n.headline_count != null ? ', ' + n.headline_count + (th ? ' พาดหัว' : ' headlines') : ''})` });
+  }
+  if (s.bitkub_account_connected)
+    out.push({ sev: s.bitkub_reconciled ? 'ok' : 'warn',
+      text: th ? `🔌 บัญชี Bitkub: ${s.bitkub_reconciled ? 'เชื่อมต่อ + กระทบยอดแล้ว' : 'เชื่อมต่อ (รอกระทบยอด)'}` : `🔌 Bitkub: ${s.bitkub_reconciled ? 'connected + reconciled' : 'connected (reconciling)'}` });
+  return out;
+}
+
+/** Count of notifications that need attention (warnings + criticals). */
+function notifAlertCount() { return buildNotifications().filter(n => n.sev === 'warn' || n.sev === 'crit').length; }
+
+function renderNotifications() {
+  const badge = $('notif-badge');
+  const count = notifAlertCount();
+  if (badge) {
+    if (count > 0) { badge.textContent = String(count); badge.style.display = 'flex'; }
+    else { badge.style.display = 'none'; }
+  }
+  State.notifCount = count;
+  const panel = $('notif-panel');
+  if (panel && panel.style.display !== 'none') fillNotifPanel(panel);
+}
+
+function fillNotifPanel(panel) {
+  const items = buildNotifications();
+  panel.innerHTML = '';
+  if (!items.length) {
+    panel.appendChild(el('div', 'notif-empty', State.lang === 'th' ? '✅ ระบบปกติ — ไม่มีการแจ้งเตือน' : '✅ All clear — no notifications'));
+    return;
+  }
+  items.forEach(it => panel.appendChild(el('div', 'notif-item ' + it.sev, it.text)));
+}
+
+function toggleNotifPanel() {
+  const panel = $('notif-panel');
+  if (!panel) return;
+  if (panel.style.display === 'none') { fillNotifPanel(panel); panel.style.display = 'block'; }
+  else { panel.style.display = 'none'; }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -3692,6 +3745,10 @@ const I18N = {
     set_risk:'Risk Thresholds', set_daily_limit:'Daily Loss Limit', set_dd_limit:'Max Drawdown Limit',
     set_system:'System', set_version:'Version', set_uptime:'Uptime', set_data_source:'Data Source',
     sim:'SIM', live_btn:'LIVE',
+    nav_ceo:'CEO', pg_ceo_title:'CEO — Executive Reporting',
+    pg_ceo_sub:'Audit trail · agent health · risk · business KPIs',
+    ceo_business:'Business', ceo_risk:'Risk', ceo_health:'System Health',
+    ceo_agents:'Agents', ceo_audit:'Audit Trail (last 50)',
   },
   th: {
     nav_dashboard:'แดชบอร์ด', nav_portfolio:'พอร์ตโฟลิโอ', nav_trading:'เทรด',
@@ -3730,6 +3787,10 @@ const I18N = {
     set_risk:'ขีดจำกัดความเสี่ยง', set_daily_limit:'ขีดจำกัดขาดทุนรายวัน', set_dd_limit:'ขีดจำกัดดรอว์ดาวน์',
     set_system:'ระบบ', set_version:'เวอร์ชัน', set_uptime:'เวลาทำงาน', set_data_source:'แหล่งข้อมูล',
     sim:'จำลอง', live_btn:'สด',
+    nav_ceo:'CEO', pg_ceo_title:'CEO — รายงานผู้บริหาร',
+    pg_ceo_sub:'ร่องรอยการตัดสินใจ · สุขภาพเอเจนต์ · ความเสี่ยง · ตัวชี้วัดธุรกิจ',
+    ceo_business:'ธุรกิจ', ceo_risk:'ความเสี่ยง', ceo_health:'สุขภาพระบบ',
+    ceo_agents:'เอเจนต์', ceo_audit:'ร่องรอยการตรวจสอบ (50 ล่าสุด)',
   },
 };
 
@@ -3768,8 +3829,53 @@ function setLang(lang) {
 const SYMBOL_PRICES = {};   // populated by handlePrice() only
 const POSITIONS     = [];   // populated by /api/status only
 const TRADES        = [];   // populated by paper.events.v1 WS only
-const EQUITY_CURVE  = [];   // populated by /api/status history only
 const MONTHLY_RETURNS = []; // populated by /api/ceo/summary only
+
+/* Real equity curve — sampled live from /api/status (NO mock data).
+   Analytics, VaR and drawdown are all derived from these real samples. */
+const REAL_EQUITY_CURVE = [];
+const MAX_EQUITY_SAMPLES = 600;          // ~20 min at one sample / 2s
+function recordEquitySample(eq) {
+  const v = Number(eq);
+  if (!isFinite(v) || v <= 0) return;
+  const last = REAL_EQUITY_CURVE[REAL_EQUITY_CURVE.length - 1];
+  if (last === v && REAL_EQUITY_CURVE.length) return;  // skip exact repeats (no new info)
+  REAL_EQUITY_CURVE.push(v);
+  if (REAL_EQUITY_CURVE.length > MAX_EQUITY_SAMPLES) REAL_EQUITY_CURVE.shift();
+}
+function curveReturns() {
+  const c = REAL_EQUITY_CURVE, r = [];
+  for (let i = 1; i < c.length; i++) { if (c[i - 1] > 0) r.push((c[i] - c[i - 1]) / c[i - 1]); }
+  return r;
+}
+/** Historical 1-day VaR (95%) in THB from the real curve, or null if too few samples. */
+function historicalVar95(eq) {
+  const r = curveReturns();
+  if (r.length < 20 || !eq || eq <= 0) return null;
+  const losses = r.map(x => -x).sort((a, b) => a - b);   // ascending
+  const idx = Math.floor(0.95 * (losses.length - 1));
+  return eq * Math.max(0, losses[idx]);
+}
+
+/* Real portfolio allocation (cash + open positions) — never fabricated. */
+const SYMBOL_COLORS = { BTC: '#f7931a', THB_BTC: '#f7931a', ETH: '#627eea', BNB: '#f3ba2f', SOL: '#14f195', THB: '#2979ff' };
+function symbolColor(sym) { return SYMBOL_COLORS[sym] || '#5a7ab0'; }
+/** Build allocation slices from REAL status (cash + positions). Returns [] when no data. */
+function computeAllocation() {
+  const s = LAST_STATUS;
+  if (!s) return [];
+  const raw = [];
+  let total = 0;
+  const cash = s.cash != null ? Number(s.cash) : null;
+  if (cash != null && cash > 0) { raw.push({ label: 'Cash (THB)', value: cash, color: symbolColor('THB') }); total += cash; }
+  const positions = Array.isArray(s.portfolio) ? s.portfolio : [];
+  positions.forEach(p => {
+    const mv = Number(p.market_value || 0);
+    if (mv > 0) { raw.push({ label: p.symbol, value: mv, color: symbolColor(p.symbol) }); total += mv; }
+  });
+  if (total <= 0) return [];
+  return raw.map(r => ({ label: r.label, pct: r.value / total * 100, color: r.color }));
+}
 
 /* ══════════════════════════════════════════════════════════════
    PAGE ROUTING
@@ -4030,31 +4136,57 @@ function renderTradingPage() {
 }
 
 function renderAnalyticsPage() {
-  // Metrics derived from synthetic curve (stable)
-  const rets = EQUITY_CURVE.slice(1).map((v, i) => (v - EQUITY_CURVE[i]) / EQUITY_CURVE[i]);
+  // Metrics derived from the REAL live equity curve (no synthetic data).
+  const curve = REAL_EQUITY_CURVE;
+  const rets = curveReturns();
+  const set = (id, txt) => { const e = $(id); if (e) e.textContent = txt; };
+  const note = $('an-note');
+
+  if (rets.length < 2) {
+    ['an-sharpe', 'an-sortino', 'an-pf'].forEach(id => set(id, '—'));
+    set('an-maxdd', '—%');
+    if (note) note.textContent = State.lang === 'th'
+      ? `กำลังเก็บข้อมูลจริงแบบเรียลไทม์เพื่อคำนวณ (ทุก ~2 วินาที) — มีตัวอย่าง ${curve.length} จุด`
+      : `Collecting real-time samples to compute metrics (every ~2s) — ${curve.length} so far`;
+    initEquityChart();
+    initMonthlyChart();
+    return;
+  }
+
   const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
   const sd   = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length);
-  const dsd  = Math.sqrt(rets.filter(r => r < 0).reduce((a, b) => a + b * b, 0) / rets.length) || sd;
+  const downs = rets.filter(r => r < 0);
+  const dsd  = downs.length ? Math.sqrt(downs.reduce((a, b) => a + b * b, 0) / rets.length) : 0;
   let peak = -Infinity, maxdd = 0;
-  EQUITY_CURVE.forEach(v => { peak = Math.max(peak, v); maxdd = Math.max(maxdd, (peak - v) / peak); });
-  const gains = rets.filter(r => r > 0).reduce((a, b) => a + b, 0);
-  const losses = Math.abs(rets.filter(r => r < 0).reduce((a, b) => a + b, 0)) || 1e-9;
-  $('an-sharpe').textContent  = (mean / sd * Math.sqrt(252)).toFixed(2);
-  $('an-sortino').textContent = (mean / dsd * Math.sqrt(252)).toFixed(2);
-  $('an-pf').textContent      = (gains / losses).toFixed(2);
-  $('an-maxdd').textContent   = (maxdd * 100).toFixed(1) + '%';
+  curve.forEach(v => { peak = Math.max(peak, v); if (peak > 0) maxdd = Math.max(maxdd, (peak - v) / peak); });
+  const gains  = rets.filter(r => r > 0).reduce((a, b) => a + b, 0);
+  const losses = Math.abs(rets.filter(r => r < 0).reduce((a, b) => a + b, 0));
+  const ann = Math.sqrt(252);
+  set('an-sharpe',  sd  > 0 ? (mean / sd  * ann).toFixed(2) : '—');
+  set('an-sortino', dsd > 0 ? (mean / dsd * ann).toFixed(2) : (mean >= 0 && sd > 0 ? '∞' : '—'));
+  set('an-pf',      losses > 0 ? (gains / losses).toFixed(2) : (gains > 0 ? '∞' : '—'));
+  set('an-maxdd',   (maxdd * 100).toFixed(1) + '%');
+  if (note) note.textContent = State.lang === 'th'
+    ? `คำนวณจากข้อมูลจริง ${curve.length} จุด (เรียลไทม์)`
+    : `Computed from ${curve.length} real samples (live)`;
   initEquityChart();
   initMonthlyChart();
 }
 
 function renderRiskPage() {
-  const dl = (State.dailyLossPct * 100), dd = (State.drawdownPct * 100);
+  // daily_loss_pct / drawdown_pct arrive already in PERCENT units from backend.
+  const dl = Number(State.dailyLossPct) || 0, dd = Number(State.drawdownPct) || 0;
   $('rk-daily').textContent = dl.toFixed(1) + '%';
   $('rk-dd').textContent    = dd.toFixed(1) + '%';
-  const exposure = POSITIONS.reduce((s, p) => s + Math.abs(p.qty * markPrice(p.symbol)), 0);
-  const expPct = State.equity ? (exposure / State.equity * 100) : 0;
-  $('rk-exp').textContent = expPct.toFixed(0) + '%';
-  $('rk-var').textContent = fmtThb((State.equity || 0) * 0.0165);
+  // Net exposure from REAL open positions (market value / equity).
+  const positions = (LAST_STATUS && Array.isArray(LAST_STATUS.portfolio)) ? LAST_STATUS.portfolio : [];
+  const exposure = positions.reduce((s, p) => s + Math.abs(Number(p.market_value || 0)), 0);
+  const eq = (LAST_STATUS && LAST_STATUS.equity != null) ? Number(LAST_STATUS.equity) : State.equity;
+  const expPct = (eq && eq > 0) ? (exposure / eq * 100) : 0;
+  $('rk-exp').textContent = (eq && eq > 0) ? expPct.toFixed(0) + '%' : '—%';
+  // VaR (95%, 1-day) computed from the REAL equity curve once enough samples exist.
+  const varThb = historicalVar95(eq);
+  $('rk-var').textContent = varThb != null ? fmtThb(varThb) : '—';
 
   const limits = [
     { name: t('daily_loss'),  val: dl,      max: State.dailyLimit || 2,  color: 'var(--accent-red)' },
@@ -4137,56 +4269,108 @@ function syncSettingsActiveStates() {
 /* ══════════════════════════════════════════════════════════════
    EXTRA CHARTS  (created once, guarded)
 ══════════════════════════════════════════════════════════════ */
-function initAllocDonut(canvasId, legendId, key) {
-  if (typeof Chart === 'undefined' || State.charts[key]) return;
+/* Generic doughnut renderer driven by REAL allocation slices. Creates the chart
+   once, then updates it in place. Shows an empty state when there is no data. */
+function drawDonut(canvasId, legendId, chartKey, slices, centerPctId) {
+  if (typeof Chart === 'undefined') return;
   const ctx = document.getElementById(canvasId); if (!ctx) return;
-  State.charts[key] = new Chart(ctx.getContext('2d'), {
-    type: 'doughnut',
-    data: { labels: ALLOC_DATA.map(d => d.label),
-      datasets: [{ data: ALLOC_DATA.map(d => d.pct),
-        backgroundColor: ALLOC_DATA.map(d => d.color + 'cc'),
-        borderColor: ALLOC_DATA.map(d => d.color), borderWidth: 1.5, hoverOffset: 4 }] },
-    options: { responsive: true, cutout: '68%',
-      plugins: { legend: { display: false },
-        tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed.toFixed(1)}%` } } } },
-  });
+  const has = slices && slices.length > 0;
+  const labels = has ? slices.map(s => s.label) : ['No data'];
+  const data   = has ? slices.map(s => s.pct)   : [100];
+  const colors = has ? slices.map(s => s.color) : ['#1a2740'];
+  try {
+    if (!State.charts[chartKey]) {
+      State.charts[chartKey] = new Chart(ctx.getContext('2d'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors.map(c => c + 'cc'),
+          borderColor: colors, borderWidth: 1.5, hoverOffset: 4 }] },
+        options: { responsive: true, cutout: '68%', animation: { duration: 400 },
+          plugins: { legend: { display: false },
+            tooltip: { enabled: has, callbacks: { label: c => ` ${c.label}: ${c.parsed.toFixed(1)}%` } } } },
+      });
+    } else {
+      const ch = State.charts[chartKey];
+      ch.data.labels = labels;
+      ch.data.datasets[0].data = data;
+      ch.data.datasets[0].backgroundColor = colors.map(c => c + 'cc');
+      ch.data.datasets[0].borderColor = colors;
+      ch.options.plugins.tooltip.enabled = has;
+      ch.update('none');
+    }
+  } catch (e) { console.warn('drawDonut', canvasId, e); }
+  if (centerPctId) {
+    const c = $(centerPctId);
+    if (c) c.textContent = has ? (slices.length === 1 ? '100%' : slices[0].pct.toFixed(0) + '%') : '—';
+  }
   const legend = $(legendId);
-  if (legend) { legend.innerHTML = '';
-    ALLOC_DATA.forEach(d => {
+  if (legend) {
+    legend.innerHTML = '';
+    if (!has) {
+      legend.appendChild(el('div', 'donut-legend-label',
+        State.lang === 'th' ? 'ยังไม่มีข้อมูลพอร์ต' : 'No portfolio data'));
+      return;
+    }
+    slices.forEach(s => {
       const row = el('div', 'donut-legend-item');
       const lbl = el('div', 'donut-legend-label');
-      const dot = el('span', 'donut-legend-dot'); dot.style.background = d.color;
-      lbl.appendChild(dot); lbl.appendChild(document.createTextNode(d.label));
-      row.appendChild(lbl); row.appendChild(el('span', 'donut-legend-pct', d.pct.toFixed(1) + '%'));
+      const dot = el('span', 'donut-legend-dot'); dot.style.background = s.color;
+      lbl.appendChild(dot); lbl.appendChild(document.createTextNode(s.label));
+      row.appendChild(lbl); row.appendChild(el('span', 'donut-legend-pct', s.pct.toFixed(1) + '%'));
       legend.appendChild(row);
     });
   }
 }
 
+/** Refresh both allocation donuts (dashboard + portfolio) from REAL status. */
+function renderAllocation() {
+  const slices = computeAllocation();
+  drawDonut('chart-donut', 'donut-legend', 'donut', slices, 'donut-pct');
+  drawDonut('pf-donut', 'pf-donut-legend', 'pfDonut', slices, null);
+}
+
 function initEquityChart() {
-  if (typeof Chart === 'undefined' || State.charts.equity) return;
+  if (typeof Chart === 'undefined') return;
   const ctx = document.getElementById('an-equity'); if (!ctx) return;
-  State.charts.equity = new Chart(ctx.getContext('2d'), {
-    type: 'line',
-    data: { labels: EQUITY_CURVE.map((_, i) => i + 1),
-      datasets: [{ data: EQUITY_CURVE, borderColor: '#00e5ff',
-        backgroundColor: 'rgba(0,229,255,0.08)', borderWidth: 2, pointRadius: 0, tension: 0.35, fill: true }] },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { x: { display: false },
-        y: { ticks: { color: '#4a6080', font: { size: 9 }, maxTicksLimit: 5,
-          callback: v => '฿' + (v / 1e6).toFixed(2) + 'M' },
-          grid: { color: '#1a2740' }, border: { display: false } } } },
-  });
+  const curve = REAL_EQUITY_CURVE;
+  try {
+    if (!State.charts.equity) {
+      State.charts.equity = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: { labels: curve.map((_, i) => i + 1),
+          datasets: [{ data: curve.slice(), borderColor: '#00e5ff',
+            backgroundColor: 'rgba(0,229,255,0.08)', borderWidth: 2, pointRadius: 0, tension: 0.35, fill: true }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { display: false },
+            y: { ticks: { color: '#4a6080', font: { size: 9 }, maxTicksLimit: 5,
+              callback: v => '฿' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) },
+              grid: { color: '#1a2740' }, border: { display: false } } } },
+      });
+    } else {
+      const ch = State.charts.equity;
+      ch.data.labels = curve.map((_, i) => i + 1);
+      ch.data.datasets[0].data = curve.slice();
+      ch.update('none');
+    }
+  } catch (e) { console.warn('initEquityChart', e); }
 }
 
 function initMonthlyChart() {
-  if (typeof Chart === 'undefined' || State.charts.monthly) return;
+  const has = MONTHLY_RETURNS.length > 0;
+  const note = $('an-monthly-note');
+  if (note) {
+    note.style.display = has ? 'none' : 'flex';
+    note.textContent = State.lang === 'th'
+      ? 'ผลตอบแทนรายเดือนจะแสดงเมื่อระบบเดินครบเดือน (ยังไม่มีข้อมูลข้ามเดือน)'
+      : 'Monthly returns appear once the system has run across calendar months';
+  }
+  if (typeof Chart === 'undefined' || !has) return;
   const ctx = document.getElementById('an-monthly'); if (!ctx) return;
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if (State.charts.monthly) return;
   State.charts.monthly = new Chart(ctx.getContext('2d'), {
     type: 'bar',
-    data: { labels: months,
+    data: { labels: months.slice(0, MONTHLY_RETURNS.length),
       datasets: [{ data: MONTHLY_RETURNS,
         backgroundColor: MONTHLY_RETURNS.map(v => v >= 0 ? 'rgba(0,230,118,0.7)' : 'rgba(255,23,68,0.7)'),
         borderColor: MONTHLY_RETURNS.map(v => v >= 0 ? '#00e676' : '#ff1744'), borderWidth: 1 }] },
@@ -4645,6 +4829,12 @@ async function realStatusTick() {
   const r = await cmdGet('/api/status');
   if (!(r.ok && r.data)) return;
   LAST_STATUS = r.data;
+  // Fallback data refresh (covers the case where the WebSocket is down): keep
+  // the real equity curve, allocation donuts and notifications in sync.
+  if (r.data.equity != null) recordEquitySample(r.data.equity);
+  try { renderAllocation(); } catch (_) {}
+  renderNotifications();
+  if (State.currentPage === 'analytics') { try { renderAnalyticsPage(); } catch (_) {} }
   if (Array.isArray(r.data.agents)) agentMonitorRender(r.data.agents);
   // News sentiment (real, from the RSS news loop)
   const nv = $('agmon-news');

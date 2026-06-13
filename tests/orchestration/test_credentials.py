@@ -1,7 +1,6 @@
 # Tests — set Bitkub credentials from dashboard + live connect (no network)
 from __future__ import annotations
 
-import os
 from decimal import Decimal
 
 import pytest

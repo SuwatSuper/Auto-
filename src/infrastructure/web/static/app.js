@@ -909,7 +909,10 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (target.dataset.mode) {
-    await apiCall('POST', `/api/switch_mode?mode=${encodeURIComponent(target.dataset.mode)}`);
+    // Correct control-plane endpoint is /api/mode/{mode} (path param), and this
+    // production build only accepts 'live'.
+    const mode = target.dataset.mode;
+    await apiCall('POST', `/api/mode/${encodeURIComponent(mode)}`);
     return;
   }
 });
