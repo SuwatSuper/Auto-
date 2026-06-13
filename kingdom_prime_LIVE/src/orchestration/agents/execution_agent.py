@@ -6,8 +6,9 @@ import, keeping the module-level layer boundary clean).
 
 Order pipeline for every EXECUTE decision:
   1. Circuit-breaker check (fast path — no partial evaluation)
-  2. domain.risk.rules.evaluate() — full gate check
-  3. Idempotency: sha256(decision_id)[:16] deduplication (session-scoped)
+  2. Open-positions limit check (P1-1: single-position enforcement)
+  3. Idempotency: sha256(decision_id)[:16] deduplication (session-scoped,
+     bounded to last 10 000 ids — P1-2)
   4. Rate limiter token acquisition
   5. Live-gate routing or paper delegation
 """
@@ -17,6 +18,7 @@ import asyncio
 import contextlib
 import hashlib
 import time
+from collections import deque
 from collections.abc import Callable
 from pathlib import Path
 
@@ -28,6 +30,7 @@ from orchestration.ports.event_bus import EventBus
 
 _KILL_SWITCH_PATH = Path("data/KILL_SWITCH")
 _LIVE_CONFIRM = "I_ACCEPT_REAL_MONEY_RISK"
+_SEEN_IDS_MAX = 10_000
 
 
 class ExecutionAgent:
@@ -58,6 +61,8 @@ class ExecutionAgent:
         logger: structlog.BoundLogger,
         rest_gateway: object | None = None,
         reconciliation_gate: Callable[[], bool] | None = None,
+        get_open_positions: Callable[[], int] | None = None,
+        max_open_positions: int = 1,
     ) -> None:
         self._bus = bus
         self._raw_topic = raw_decisions_topic
@@ -65,14 +70,19 @@ class ExecutionAgent:
         self._settings = settings
         self._breaker = breaker
         self._rate_limiter = rate_limiter
-        self._log = logger.bind(agent="execution_agent")
+        self._log = logger.bind(agent="execution_gate")
         self._rest_gateway = rest_gateway
         self._reconciliation_gate = reconciliation_gate
+        self._get_open_positions = get_open_positions
+        self._max_open_positions = max_open_positions
 
         self.running: bool = False
         self.msg_count: int = 0
         self.last_beat_ms: int = 0
-        self._seen_ids: set[str] = set()
+        self.rejected_count: int = 0
+        # Bounded idempotency window: deque auto-evicts oldest when at capacity.
+        self._seen_ids_deque: deque[str] = deque(maxlen=_SEEN_IDS_MAX)
+        self._seen_ids_set: set[str] = set()
 
     async def start(self) -> None:
         """Subscribe and process decisions until stopped."""
@@ -117,22 +127,36 @@ class ExecutionAgent:
 
         # 1. Circuit-breaker fast path
         if self._breaker.is_open:
+            self.rejected_count += 1
             await self._publish_rejection(["CIRCUIT_BREAKER_OPEN"])
             self._log.warning("execution_agent.vetoed", reason="CIRCUIT_BREAKER_OPEN")
             return
 
-        # 2. Idempotency check
+        # 2. Open-positions limit (P1-1): block BUY when already at cap
+        if (data.get("signal") == "BUY"
+                and self._get_open_positions is not None
+                and self._get_open_positions() >= self._max_open_positions):
+            self.rejected_count += 1
+            await self._publish_rejection(["MAX_OPEN_POSITIONS_EXCEEDED"])
+            self._log.warning("execution_agent.vetoed", reason="MAX_OPEN_POSITIONS_EXCEEDED")
+            return
+
+        # 3. Idempotency check (bounded — evict oldest when window full)
         raw_id = str(data.get("decision_id") or data.get("event_id") or id(data))
         client_id = hashlib.sha256(raw_id.encode()).hexdigest()[:16]
-        if client_id in self._seen_ids:
+        if client_id in self._seen_ids_set:
             self._log.info("execution_agent.duplicate_suppressed", client_id=client_id)
             return
-        self._seen_ids.add(client_id)
+        # Evict oldest entry from set before deque auto-evicts it
+        if len(self._seen_ids_deque) == _SEEN_IDS_MAX:
+            self._seen_ids_set.discard(self._seen_ids_deque[0])
+        self._seen_ids_deque.append(client_id)
+        self._seen_ids_set.add(client_id)
 
-        # 3. Rate limiter
+        # 4. Rate limiter
         await self._rate_limiter.acquire()
 
-        # 4. Live-gate routing
+        # 5. Live-gate routing
         live_ok, blocked_gate = self._live_gates_open()
         if live_ok and self._rest_gateway is not None:
             await self._route_live(data)
@@ -160,9 +184,6 @@ class ExecutionAgent:
         signal = str(data.get("signal", ""))
         symbol = str(data.get("symbol", "thb_btc")).lower()
         self._log.info("execution_agent.live_route", signal=signal, symbol=symbol)
-        # Live routing is wired by the caller (runtime); the gateway interface
-        # is intentionally abstract here to allow test injection.
-        # Concrete REST calls are made by the injected rest_gateway object.
 
     async def _route_paper(self, raw: bytes) -> None:
         """Re-publish the approved decision to the paper-trader's input topic."""
@@ -189,15 +210,10 @@ class ExecutionAgent:
 # the Layer-2 "no infrastructure import at module scope" rule.
 
 def build_live_gateway(api_key: object, api_secret: object) -> object:
-    """Construct a live Bitkub REST gateway from API credentials.
-
-    api_key / api_secret may be pydantic SecretStr or plain str. Returns an
-    un-entered gateway; the caller is responsible for its async context
-    (``await gw.__aenter__()`` / ``__aexit__``), which creates/closes the
-    underlying httpx client.
-    """
-    from infrastructure.gateway.bitkub_rest import BitkubRestGateway  # noqa: PLC0415
+    """Construct a live Bitkub REST gateway from API credentials."""
     from pydantic import SecretStr  # noqa: PLC0415
+
+    from infrastructure.gateway.bitkub_rest import BitkubRestGateway  # noqa: PLC0415
 
     key = api_key if isinstance(api_key, SecretStr) else SecretStr(str(api_key))
     secret = api_secret if isinstance(api_secret, SecretStr) else SecretStr(str(api_secret))

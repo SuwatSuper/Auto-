@@ -268,7 +268,12 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
                 detail="CEO agent not initialized — runtime has not started",
             )
         es = ceo.executive_summary()
-        return _executive_summary_to_dict(es)
+        result = _executive_summary_to_dict(es)
+        # Inject observability fields from runtime (P3-4)
+        st = runtime.status()
+        result["health"]["dropped_messages"] = st.get("dropped_messages", 0)
+        result["health"]["circuit_breaker_open"] = st.get("circuit_breaker_open", False)
+        return result
 
     @app.get("/api/ceo/audit")
     async def ceo_audit(

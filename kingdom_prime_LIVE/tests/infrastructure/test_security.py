@@ -7,9 +7,6 @@ TASK 7: Acceptance criteria:
 """
 from __future__ import annotations
 
-import io
-import logging
-
 import pytest
 
 from infrastructure.config import Settings
@@ -51,12 +48,10 @@ def test_secret_not_leaked_via_structlog(capfd: pytest.CaptureFixture[str]) -> N
 async def test_status_endpoint_requires_auth_when_account_connected() -> None:
     """When bitkub_account_connected=True and a dashboard key is set, /api/status → 401
     without the correct key."""
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock
 
-    from httpx import AsyncClient
     from starlette.testclient import TestClient
 
-    from infrastructure.config import Settings
     from infrastructure.web.api import create_app
     from tests.conftest import make_test_runtime
 

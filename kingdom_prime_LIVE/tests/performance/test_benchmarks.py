@@ -6,12 +6,10 @@ Measured on a single-core sandbox; real hardware will be faster.
 from __future__ import annotations
 
 import time
-from decimal import Decimal
 
 import pytest
 
 from domain.trading.market_data import normalize_bitkub_ticker
-
 
 # ── 1. Price-normalization throughput ───────────────────────────────────────
 

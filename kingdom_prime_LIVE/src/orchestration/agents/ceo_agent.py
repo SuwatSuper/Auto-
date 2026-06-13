@@ -16,7 +16,7 @@ import asyncio
 import contextlib
 import time
 from collections import deque
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
@@ -39,7 +39,6 @@ from domain.reporting.ceo_report import (
     build_executive_summary,
 )
 from orchestration.ports.event_bus import EventBus
-
 
 # Topics the CEO listens to. These are owned by Layer 2, not infrastructure.
 _DEFAULT_TOPICS: tuple[str, ...] = (

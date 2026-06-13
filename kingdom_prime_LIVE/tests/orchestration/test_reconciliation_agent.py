@@ -8,11 +8,11 @@ from decimal import Decimal
 
 import orjson
 import pytest
+import structlog
 
 from infrastructure.eventbus.in_memory import InMemoryEventBus
 from orchestration.agents.reconciliation_agent import ReconciliationAgent
 from orchestration.ports.balance_source import NullBalanceSource
-import structlog
 
 
 class _FailingSource:

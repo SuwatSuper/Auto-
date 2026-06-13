@@ -19,6 +19,7 @@ import orjson
 import structlog
 
 from domain.portfolio.treasury import worst_case_loss
+from domain.risk.circuit_breaker import CircuitBreaker
 from domain.trading.paper import (
     ClosedTrade,
     ExitReason,
@@ -70,6 +71,7 @@ class PaperTraderAgent:
         treasury: TreasuryAgent,
         params: TradeParams,
         state_store: StateStore | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
     ) -> None:
         self._bus = bus
         self._decisions_topic = decisions_topic
@@ -79,6 +81,7 @@ class PaperTraderAgent:
         self._treasury = treasury
         self._params = params
         self._store = state_store
+        self._circuit_breaker = circuit_breaker
 
         self.running = False
         self.msg_count = 0
@@ -274,6 +277,8 @@ class PaperTraderAgent:
         self.trades_closed += 1
         self.last_trade = trade
         self._treasury.settle_close(trade)
+        if self._circuit_breaker is not None:
+            self._circuit_breaker.record_trade(trade.pnl)
         await self._publish_event(
             "CLOSE",
             {

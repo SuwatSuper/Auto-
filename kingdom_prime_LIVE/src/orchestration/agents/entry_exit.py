@@ -50,6 +50,8 @@ class EntryExitAgent:
                     price = Decimal(str(data.get("price", "0")))
                     ts_ms = int(data.get("ts_ms", 0))
                     self._prices.append(price)
+                    if len(self._prices) > 500:
+                        self._prices = self._prices[-500:]
                     ctx = StrategyContext(prices=tuple(self._prices), position_qty=Decimal(0))
                     sig = self._strategy.decide(ctx)
                     if sig.action != SignalAction.HOLD:

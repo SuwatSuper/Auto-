@@ -15,8 +15,10 @@ import orjson
 import structlog
 
 from domain.portfolio.treasury import TreasuryLimits
+from domain.risk.circuit_breaker import CircuitBreaker
 from orchestration.agents.ceo_agent import CeoAgent
 from orchestration.agents.entry_exit import EntryExitAgent
+from orchestration.agents.execution_agent import ExecutionAgent
 from orchestration.agents.historical_research import HistoricalResearchAgent
 from orchestration.agents.news_sentiment import NewsSentimentAgent
 from orchestration.agents.paper_trader import PaperTraderAgent, TradeParams
@@ -49,6 +51,7 @@ class AgentLike(Protocol):
 # Kingdom Prime dashboard chibis — no decorative/ghost agents (H5).
 _TOPIC_SIGNALS = "signals.v1"
 _TOPIC_DECISIONS = "decisions.v1"
+_TOPIC_APPROVED_DECISIONS = "decisions.approved.v1"
 _TOPIC_RISK = "risk.v1"
 _TOPIC_SENTIMENT = "sentiment.v1"
 _TOPIC_NEWS_RAW = "news.raw.v1"
@@ -122,6 +125,7 @@ class PipelineRuntime:
         # before (paper execution over the live price feed).
         self._rest_gateway: object | None = None
         self._reconciliation: object | None = None
+        self._circuit_breaker: CircuitBreaker | None = None
 
     @property
     def bus(self) -> EventBus:
@@ -175,6 +179,17 @@ class PipelineRuntime:
         bus = self._ensure_bus()
         prices: str = getattr(self.settings, "prices_topic", "prices.thb_btc.v1")
         log = self.logger
+
+        # Wire the real ExecutionAgent between SupremeAgent and PaperTrader.
+        # TokenBucket is in infrastructure — must be a function-local import
+        # to satisfy the Layer-2 architecture guard.
+        from infrastructure.gateway.rate_limiter import TokenBucket  # noqa: PLC0415
+
+        max_cl = int(getattr(self.settings, "max_consecutive_losses", 5))
+        breaker = CircuitBreaker(max_consecutive_losses=max_cl)
+        self._circuit_breaker = breaker
+        bucket = TokenBucket(capacity=10, refill_per_sec=2.0)
+
         agents: dict[str, AgentLike] = {
             "market_analyst": EntryExitAgent(bus, prices, _TOPIC_SIGNALS, log),
             "news_intelligence": NewsSentimentAgent(bus, _TOPIC_NEWS_RAW, _TOPIC_SENTIMENT, log),
@@ -184,8 +199,23 @@ class PipelineRuntime:
             "execution_agent": SimulationAgent(bus, prices, _TOPIC_SIM_RESULTS, log),
             "supreme_commander": SupremeAgent(bus, _TOPIC_SIGNALS, _TOPIC_DECISIONS, log),
         }
-        money = self._make_money_agents(bus, prices)
+        money = self._make_money_agents(bus, prices, breaker)
         agents.update(money)
+
+        # ExecutionGate: sits between decisions.v1 and decisions.approved.v1
+        max_pos = int(getattr(self.settings, "max_open_positions", 1))
+        exec_gate = ExecutionAgent(
+            bus=bus,
+            raw_decisions_topic=_TOPIC_DECISIONS,
+            approved_topic=_TOPIC_APPROVED_DECISIONS,
+            settings=self.settings,
+            breaker=breaker,
+            rate_limiter=bucket,
+            logger=log,
+            get_open_positions=lambda: self._trader.open_positions() if self._trader else 0,
+            max_open_positions=max_pos,
+        )
+        agents["execution_gate"] = exec_gate
         # CEO observer — must be added AFTER money agents so it can see them
         # in self._runtime.status(). It only observes; never executes.
         agents["ceo"] = CeoAgent(
@@ -200,6 +230,7 @@ class PipelineRuntime:
                 "supreme_commander": "Final signal arbiter",
                 "treasury":          "Sole owner of cash and PnL ledger",
                 "paper_trader":      "Bracketed paper execution engine",
+                "execution_gate":    "Risk gate: circuit-breaker + position limit",
                 "ceo":               "Executive observer / audit trail",
             },
         )
@@ -237,7 +268,9 @@ class PipelineRuntime:
             bus, balance_source, "reconciliation.v1", log, poll_interval_s=60.0
         )
 
-    def _make_money_agents(self, bus: EventBus, prices: str) -> dict[str, AgentLike]:
+    def _make_money_agents(
+        self, bus: EventBus, prices: str, breaker: CircuitBreaker | None = None
+    ) -> dict[str, AgentLike]:
         """Treasury (sole cash owner) + PaperTrader (positions). PAPER ONLY."""
         store = self._ensure_state_store()
         limits = TreasuryLimits(
@@ -253,8 +286,11 @@ class PipelineRuntime:
             fee_taker_bps=str(getattr(self.settings, "fee_taker_bps", "25")),
             slippage_bps=str(getattr(self.settings, "slippage_bps", "5")),
         )
+        # PaperTrader now subscribes to decisions.approved.v1 (post-gate) so
+        # the ExecutionAgent's circuit-breaker and risk checks actually gate trades.
         trader = PaperTraderAgent(
-            bus, _TOPIC_DECISIONS, prices, _TOPIC_PAPER_EVENTS, self.logger, treasury, params, store
+            bus, _TOPIC_APPROVED_DECISIONS, prices, _TOPIC_PAPER_EVENTS,
+            self.logger, treasury, params, store, circuit_breaker=breaker
         )
         self._treasury = treasury
         self._trader = trader
@@ -548,6 +584,9 @@ class PipelineRuntime:
         )
         state_db_path = str(getattr(self.settings, "state_db_path", ""))
 
+        dropped = getattr(self._bus_impl, "dropped_messages", 0)
+        cb_open = bool(self._circuit_breaker is not None and self._circuit_breaker.is_open)
+
         return {
             "mode": self.mode,
             "uptime_sec": uptime_sec,
@@ -587,6 +626,8 @@ class PipelineRuntime:
             "p95_latency_ms": p95_ms,
             "state_restored": state_restored,
             "state_db_path": state_db_path,
+            "circuit_breaker_open": cb_open,
+            "dropped_messages": dropped,
             "execution_warning": (
                 "Real Bitkub account connected READ-ONLY (live wallet). "
                 if account_connected

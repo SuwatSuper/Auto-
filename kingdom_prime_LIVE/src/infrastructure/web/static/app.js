@@ -297,7 +297,7 @@ function updateAgentEmotion(id, deltaEmo) {
   if (wrap) wrap.innerHTML = buildChibiSVG(def, getExpression(emo));
 }
 
-// Simulate gentle emotion drift for visual interest
+// Gentle emotion drift driven by running state (no randomness)
 function tickEmotions() {
   AGENT_DEFS.forEach(def => {
     const agent = AppState.agents[def.id];
@@ -305,17 +305,17 @@ function tickEmotions() {
     const emo = AppState.emotions[def.id];
     if (running) {
       updateAgentEmotion(def.id, {
-        fatigue:    emo.fatigue    + (Math.random() < 0.3 ? 1 : 0),
-        stress:     emo.stress     + (Math.random() < 0.2 ? 1 : -1),
-        morale:     emo.morale     + (Math.random() < 0.15 ? 1 : 0),
-        confidence: emo.confidence + (Math.random() < 0.1 ? 1 : -1),
+        fatigue:    Math.min(emo.fatigue    + 0.3, 100),
+        stress:     Math.min(emo.stress     + 0.2, 100),
+        morale:     Math.min(emo.morale     + 0.15, 100),
+        confidence: Math.min(emo.confidence + 0.1, 100),
       });
     } else {
       // recovery when stopped
       updateAgentEmotion(def.id, {
-        fatigue:    emo.fatigue    - (Math.random() < 0.4 ? 1 : 0),
-        stress:     emo.stress     - (Math.random() < 0.4 ? 1 : 0),
-        morale:     Math.max(emo.morale - 0.2, 30),
+        fatigue:    Math.max(emo.fatigue    - 0.4, 0),
+        stress:     Math.max(emo.stress     - 0.4, 0),
+        morale:     Math.max(emo.morale     - 0.2, 30),
         confidence: Math.max(emo.confidence - 0.1, 20),
       });
     }

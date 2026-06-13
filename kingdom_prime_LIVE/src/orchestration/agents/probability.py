@@ -46,6 +46,8 @@ class ProbabilityAgent:
                     data = orjson.loads(raw)
                     price = Decimal(str(data.get("price", "0")))
                     self._prices.append(price)
+                    if len(self._prices) > 500:
+                        self._prices = self._prices[-500:]
                     rsi_vals = rsi_wilder(self._prices, 14)
                     rsi = rsi_vals[-1] if rsi_vals else Decimal("50")
                     prob_bull = (Decimal("100") - rsi) / Decimal("100")

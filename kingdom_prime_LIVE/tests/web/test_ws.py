@@ -17,9 +17,9 @@ from infrastructure.config import Settings
 from infrastructure.eventbus.in_memory import InMemoryEventBus
 from infrastructure.events.in_memory_event_store import InMemoryEventStore
 from infrastructure.state.in_memory_store import InMemoryStateStore
+from infrastructure.web.api import create_app
 from orchestration.runtime import PipelineRuntime, RuntimeDeps
 from tests._fixtures import FakePriceFeed
-from infrastructure.web.api import create_app
 
 
 def _make_runtime() -> PipelineRuntime:
@@ -90,12 +90,11 @@ def test_ws_origin_matching_host_is_accepted() -> None:
     runtime = _make_runtime()
     app = create_app(runtime)
 
-    with TestClient(app) as client:
-        with client.websocket_connect(
-            "/ws", headers={"origin": "http://testserver", "host": "testserver"}
-        ) as ws:
-            data = ws.receive_json()
-            assert data.get("type") in ("status", "price")
+    with TestClient(app) as client, client.websocket_connect(
+        "/ws", headers={"origin": "http://testserver", "host": "testserver"}
+    ) as ws:
+        data = ws.receive_json()
+        assert data.get("type") in ("status", "price")
 
 
 def test_ws_bogus_origin_is_rejected() -> None:
@@ -103,9 +102,7 @@ def test_ws_bogus_origin_is_rejected() -> None:
     runtime = _make_runtime()
     app = create_app(runtime)
 
-    with TestClient(app) as client:
-        with pytest.raises(Exception):
-            with client.websocket_connect(
-                "/ws", headers={"origin": "http://evil.example", "host": "testserver"}
-            ) as ws:
-                ws.receive_json()
+    with TestClient(app) as client, pytest.raises(Exception), client.websocket_connect(
+        "/ws", headers={"origin": "http://evil.example", "host": "testserver"}
+    ) as ws:
+        ws.receive_json()

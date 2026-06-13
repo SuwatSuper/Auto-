@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import orjson
@@ -88,7 +88,7 @@ class TradeCsvLogger:
     def _append(self, event: dict[str, object]) -> None:
         """Write one row to the appropriate daily CSV file."""
         ts_ms = int(event.get("ts_ms", time.time() * 1000))  # type: ignore[arg-type]
-        dt = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
+        dt = datetime.fromtimestamp(ts_ms / 1000.0, tz=UTC)
         date_str = dt.strftime("%Y%m%d")
 
         self._dir.mkdir(parents=True, exist_ok=True)

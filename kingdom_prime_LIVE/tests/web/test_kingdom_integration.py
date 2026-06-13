@@ -34,6 +34,7 @@ EXPECTED_AGENTS = {
     "supreme_commander",
     "treasury",
     "paper_trader",
+    "execution_gate",
     "ceo",
 }
 
@@ -186,4 +187,4 @@ async def test_metrics_report_real_uptime_and_agent_count(open_client) -> None: 
     _, client = open_client
     await client.get("/healthz")
     text = (await client.get("/metrics")).text
-    assert "trading_agent_count 10" in text
+    assert "trading_agent_count 11" in text

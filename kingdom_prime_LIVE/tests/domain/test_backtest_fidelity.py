@@ -11,8 +11,6 @@ from __future__ import annotations
 import hashlib
 from decimal import Decimal
 
-import pytest
-
 from domain.backtest.engine import (
     FeeModel,
     MakerTakerFeeModel,
@@ -20,7 +18,6 @@ from domain.backtest.engine import (
     SlippageModel,
     run_backtest,
 )
-from domain.portfolio.models import Account
 from domain.risk.rules import RiskLimits
 from domain.shared.money import Money
 from domain.strategy.ema_cross import EmaCrossStrategy

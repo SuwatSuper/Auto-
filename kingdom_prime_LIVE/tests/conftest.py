@@ -14,8 +14,8 @@ if "pandas_ta" not in sys.modules:
 
 import structlog
 
-from infrastructure.config import Settings
 from infrastructure.clocks.system_clock import SystemClock
+from infrastructure.config import Settings
 from infrastructure.eventbus.in_memory import InMemoryEventBus
 from infrastructure.events.in_memory_event_store import InMemoryEventStore
 from infrastructure.state.in_memory_store import InMemoryStateStore

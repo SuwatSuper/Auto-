@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from domain.analytics.regime import MarketRegime, classify
 from tests._fixtures.ohlcv import build_ohlcv

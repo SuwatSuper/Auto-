@@ -2170,12 +2170,14 @@ html, body {
 
         <!-- Performance -->
         <div class="kp-card" id="card-performance">
-          <div class="kp-card-title">Performance</div>
+          <div class="kp-card-title">System Health</div>
           <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;padding:4px 0;">
             <span>p50: <b id="perf-p50" style="color:var(--accent-cyan);font-family:var(--font-mono);">—</b> ms</span>
             <span>p95: <b id="perf-p95" style="color:var(--accent-gold);font-family:var(--font-mono);">—</b> ms</span>
             <span>msg/s: <b id="perf-msgrate" style="color:var(--accent-green);font-family:var(--font-mono);">—</b></span>
             <span>State: <b id="perf-state" style="font-family:var(--font-mono);">—</b></span>
+            <span>Dropped: <b id="perf-dropped" style="color:var(--accent-orange);font-family:var(--font-mono);">0</b></span>
+            <span>CB: <b id="perf-cb" style="font-family:var(--font-mono);">—</b></span>
           </div>
         </div>
 
@@ -2571,7 +2573,7 @@ const AGENT_DEFS = AGENTS.map(a => ({
   bodyColor:    shadeColor(a.hairColor, -45),
   skinColor:    '#fde68a',
   accessory:    a.accessory,
-  initialMetrics: { morale: 82, stress: 16, fatigue: 18, confidence: 84 },
+  initialMetrics: { morale: 50, stress: 50, fatigue: 50, confidence: 50 },
 }));
 
 /** Darken/lighten a hex color by amt (negative = darker) */
@@ -2792,6 +2794,8 @@ const State = {
   p95LatencyMs: null,
   stateRestored: false,
   msgRate: null,
+  droppedMessages: 0,
+  circuitBreakerOpen: false,
   bitkubConnected: false,
   bitkubReconciled: false,
   bitkubBalances: {},
@@ -2940,8 +2944,10 @@ function handleStatus(data) {
   State.portfolio         = data.portfolio ?? [];
   State.p50LatencyMs      = data.p50_latency_ms ?? null;
   State.p95LatencyMs      = data.p95_latency_ms ?? null;
-  State.stateRestored     = data.state_restored ?? false;
-  State.msgRate           = data.msg_rate ?? data.msg_per_sec ?? null;
+  State.stateRestored       = data.state_restored ?? false;
+  State.msgRate             = data.msg_rate ?? data.msg_per_sec ?? null;
+  State.droppedMessages     = data.dropped_messages ?? 0;
+  State.circuitBreakerOpen  = data.circuit_breaker_open ?? false;
   if (State.bitkubConnected && !State.bitkubReconciled && !State._bitkubConnectTime) {
     State._bitkubConnectTime = Date.now();
   }
@@ -3178,12 +3184,21 @@ function renderPortfolioTable() {
 function renderPerformancePanel() {
   const p50El = $('perf-p50'), p95El = $('perf-p95');
   const mrEl = $('perf-msgrate'), stEl = $('perf-state');
+  const drEl = $('perf-dropped'), cbEl = $('perf-cb');
   if (p50El) p50El.textContent = State.p50LatencyMs != null ? String(State.p50LatencyMs) : '—';
   if (p95El) p95El.textContent = State.p95LatencyMs != null ? String(State.p95LatencyMs) : '—';
   if (mrEl) mrEl.textContent = State.msgRate != null ? State.msgRate.toFixed(1) : '—';
   if (stEl) {
     stEl.textContent = State.stateRestored ? 'Restored from disk' : 'Fresh start';
     stEl.style.color = State.stateRestored ? 'var(--accent-cyan)' : 'var(--text-mid)';
+  }
+  if (drEl) {
+    drEl.textContent = State.droppedMessages != null ? String(State.droppedMessages) : '0';
+    drEl.style.color = State.droppedMessages > 0 ? 'var(--accent-orange)' : 'var(--accent-green)';
+  }
+  if (cbEl) {
+    cbEl.textContent = State.circuitBreakerOpen ? 'OPEN ⚠' : 'Closed';
+    cbEl.style.color = State.circuitBreakerOpen ? 'var(--accent-red)' : 'var(--accent-green)';
   }
 }
 
@@ -3217,7 +3232,7 @@ function refreshCityWalkers() {
    AGENT CARDS
 ────────────────────────────────────────────────────────────── */
 function buildAgentCard(def) {
-  const metrics = State.agentMetrics[def.id] || def.initialMetrics || { morale:82, stress:16, fatigue:18, confidence:84 };
+  const metrics = State.agentMetrics[def.id] || def.initialMetrics || { morale:50, stress:50, fatigue:50, confidence:50 };
   const emoId   = getEmotion(metrics);
   const emo     = EMOTION_MAP[emoId] || EMOTION_MAP['neutral'];
   const runtime = State.agents[def.id] || {};
@@ -3294,7 +3309,7 @@ function renderAgentGrid() {
       bodyColor:    shadeColor(agent.hairColor, -45),
       skinColor:    '#fde68a',
       accessory:    agent.accessory,
-      initialMetrics: { morale: 82, stress: 16, fatigue: 18, confidence: 84 },
+      initialMetrics: { morale: 50, stress: 50, fatigue: 50, confidence: 50 },
     };
     const card = buildAgentCard(def);
     card.style.animationDelay = `${i * 0.06}s`;
@@ -3813,6 +3828,8 @@ function renderCeoHealth(h) {
     ['Agents running', h.running_agents + ' / ' + h.total_agents],
     ['Crashed', (h.crashed_agents || []).join(', ') || '—'],
     ['Stale', (h.stale_agents || []).join(', ') || '—'],
+    ['Circuit breaker', h.circuit_breaker_open ? 'OPEN ⚠' : 'closed'],
+    ['Dropped msgs', String(h.dropped_messages ?? 0)],
   ];
   const t = el.appendChild(document.createElement('table'));
   rows.forEach(([k, v]) => {
@@ -3987,7 +4004,7 @@ function renderAgentsPage() {
   const grid = $('ag-roster');
   grid.innerHTML = '';
   AGENTS.forEach(agent => {
-    const m = State.agentMetrics[agent.id] || { morale:82, stress:16, fatigue:18, confidence:84 };
+    const m = State.agentMetrics[agent.id] || { morale:50, stress:50, fatigue:50, confidence:50 };
     const emo = EMOTION_MAP[getEmotion(m)] || EMOTION_MAP.neutral;
     const running = (State.agents[agent.id] || {}).running !== false;
     const def = { hairColor:agent.hairColor, bodyColor:shadeColor(agent.hairColor,-45), skinColor:'#fde68a', accessory:agent.accessory };

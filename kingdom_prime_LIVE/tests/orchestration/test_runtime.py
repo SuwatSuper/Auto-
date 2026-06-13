@@ -35,7 +35,6 @@ def _make_runtime() -> PipelineRuntime:
 @pytest.mark.asyncio
 async def test_switch_mode_keeps_bus_subscribers() -> None:
     """B1: switching mode must NOT orphan existing bus subscribers."""
-    from infrastructure.eventbus.in_memory import InMemoryEventBus
 
     runtime = _make_runtime()
     # Start first so the bus is available
