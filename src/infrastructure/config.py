@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # Live order type: 'market' (default) guarantees fills for entries AND
     # protective stops; 'limit' rests at the mark and may not fill in fast moves.
     live_order_type: str = "market"
+    # Bitkub's minimum order notional (THB). Live orders below this are rejected
+    # by the exchange, so the runtime refuses to send (or arm live below) it.
+    bitkub_min_order_thb: str = "10"
     # Extended risk limits (Phase 1)
     max_weekly_loss_pct: str = "10"
     max_monthly_loss_pct: str = "15"

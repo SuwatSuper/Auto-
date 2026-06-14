@@ -36,6 +36,7 @@ class TimelineAnalystAgent:
         min_p_win: Decimal = Decimal("0.80"),
         max_history: int = 6000,
         analyze_every: int = 5,
+        min_samples: int = 20,
     ) -> None:
         self.name = name
         self._bus = bus
@@ -43,6 +44,7 @@ class TimelineAnalystAgent:
         self._topic_out = topic_out
         self._log = logger.bind(agent=name)
         self._min_p_win = min_p_win
+        self._min_samples = max(1, min_samples)
         self._max_history = max_history
         self._analyze_every = max(1, analyze_every)
         self.learner = Learner(name, "reliability")
@@ -133,14 +135,14 @@ class TimelineAnalystAgent:
         self.recent_win_rate = summary.get("recent_win_rate")  # type: ignore[assignment]
         self.analysis = {**summary, "regime": self.regime, "min_p_win": str(self._min_p_win)}
 
-        pass_gate = self.p_win_samples >= 20 and self.p_win >= self._min_p_win
+        pass_gate = self.p_win_samples >= self._min_samples and self.p_win >= self._min_p_win
         self.detail = (
             f"วิเคราะห์ {self.p_win_samples} setups (อดีต {summary.get('past_n')}/"
             f"ล่าสุด {summary.get('recent_n')}) · p_win {float(self.p_win) * 100:.0f}% "
             f"(เกณฑ์ {float(self._min_p_win) * 100:.0f}%) · regime {self.regime} → "
             + ("✅ ยิงได้" if pass_gate else "⛔ ยังไม่ถึงเกณฑ์")
         )
-        if self.p_win_samples >= 20:
+        if self.p_win_samples >= self._min_samples:
             self.learner.note_threshold(
                 int(self.p_win * 100),
                 f"อัตราชนะย้อนหลังขยับเป็น {float(self.p_win) * 100:.0f}% "

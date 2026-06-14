@@ -251,7 +251,11 @@ class PaperTraderAgent:
             price_val = data.get("price")
             if price_val is None:
                 return
-            self.mark_price = Decimal(str(price_val))
+            mark = Decimal(str(price_val))
+            # NaN/Infinity parse OK but raise on the check_exit comparison below.
+            if not mark.is_finite() or mark <= 0:
+                return
+            self.mark_price = mark
         except (orjson.JSONDecodeError, InvalidOperation, ValueError):
             self._log.warning("paper_trader.price_parse_error", exc_info=True)
             return

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Protocol
 import orjson
 import structlog
 
-from domain.portfolio.treasury import TreasuryLimits
+from domain.portfolio.treasury import TreasuryLimits, worst_case_loss
 from domain.risk.circuit_breaker import CircuitBreaker
 from orchestration.agents.ceo_agent import CeoAgent
 from orchestration.agents.entry_exit import EntryExitAgent
@@ -138,6 +138,9 @@ class PipelineRuntime:
         # Operator control plane (live, dashboard-driven)
         self._trade_params: object | None = None  # TradeParams (mutated live)
         self._control_audit: list[dict[str, object]] = []
+        # Strong refs to in-flight alert tasks so the GC can't kill a critical
+        # alert (e.g. "real close failed") mid-send.
+        self._alert_tasks: set[asyncio.Task[bool]] = set()
         self._max_deployable_thb: Decimal = Decimal("0")   # 0 = unlimited
         self._max_single_order_thb: Decimal = Decimal("0")  # 0 = unlimited
         self._notifier: object | None = None  # AlertNotifier (lazy, infra)
@@ -310,6 +313,7 @@ class PipelineRuntime:
         self._timeline = TimelineAnalystAgent(
             "timeline_analyst", bus, prices, _TOPIC_TIMELINE, log,
             min_p_win=self._dec_setting("min_p_win", "0.55"),
+            min_samples=int(getattr(self.settings, "gate_min_samples", 8)),
         )
         agents["timeline_analyst"] = self._timeline
         money = self._make_money_agents(bus, prices)
@@ -1045,7 +1049,9 @@ class PipelineRuntime:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        loop.create_task(self.send_alert(message, level))
+        task = loop.create_task(self.send_alert(message, level))
+        self._alert_tasks.add(task)
+        task.add_done_callback(self._alert_tasks.discard)
 
     # ── Manual trade command (operator override) ──────────────────────
     async def manual_order(
@@ -1062,6 +1068,9 @@ class PipelineRuntime:
             try:
                 px = Decimal(str(price))
             except (InvalidOperation, ValueError):
+                return False, {"error": f"bad price {price!r}"}
+            # Decimal("NaN")/Decimal("Infinity") parse OK but crash comparisons.
+            if not px.is_finite() or px <= 0:
                 return False, {"error": f"bad price {price!r}"}
         side_u = str(side).upper()
         if side_u == "BUY":
@@ -1251,18 +1260,41 @@ class PipelineRuntime:
         if gw is None or not hasattr(gw, "place_ask"):
             return
         symbol = str(getattr(self._trade_params, "symbol", "THB_BTC")).lower()
+        # C2: never ask for more coin than is REALLY held. A market BUY fills a
+        # slightly different qty than the paper mirror (slippage), so cap the
+        # closing ask to the real wallet BTC balance — otherwise Bitkub rejects
+        # the over-sized ask and the position is left unhedged.
+        sell_qty = Decimal(str(qty))
+        real_btc = self._real_btc_balance()
+        if real_btc is not None and 0 < real_btc < sell_qty:
+            sell_qty = real_btc
+        if sell_qty <= 0:
+            return
         try:
             # market order: a protective stop must FILL even as price falls through.
-            result = await gw.place_ask(symbol, str(qty), str(rate), "market")  # type: ignore[attr-defined]
-            self.logger.info("runtime.live_exit_order", qty=str(qty), rate=str(rate),
+            result = await gw.place_ask(symbol, str(sell_qty), str(rate), "market")  # type: ignore[attr-defined]
+            self.logger.info("runtime.live_exit_order", qty=str(sell_qty), rate=str(rate),
                              order_id=(result.get("result", {}) or {}).get("id")
                              if isinstance(result, dict) else None)
         except Exception:
             self.logger.error("runtime.live_exit_failed", exc_info=True)
             self._schedule_alert(
-                f"⚠️ ปิด position จริงไม่สำเร็จ (qty {qty}) — ตรวจสอบบัญชี Bitkub ด่วน",
+                f"⚠️ ปิด position จริงไม่สำเร็จ (qty {sell_qty}) — ตรวจสอบบัญชี Bitkub ด่วน",
                 "critical",
             )
+
+    def _real_btc_balance(self) -> Decimal | None:
+        """Real BTC available in the connected Bitkub wallet (from the last
+        reconciliation poll), or None when unknown."""
+        recon = self._reconciliation
+        balances = dict(getattr(recon, "last_balances", {})) if recon is not None else {}
+        for sym in ("BTC", "THB_BTC"):
+            if sym in balances:
+                try:
+                    return Decimal(str(balances[sym]))
+                except (InvalidOperation, ValueError):
+                    return None
+        return None
 
     def _build_live_order(self, data: dict[str, object]) -> dict[str, str] | None:
         """Turn an approved decision into a sized, capped live order spec.
@@ -1308,6 +1340,25 @@ class PipelineRuntime:
             if qty <= 0:
                 return None
             notional = qty * mark
+            # Bitkub rejects orders below its minimum notional — never send a
+            # doomed order (it would silently fail on the exchange).
+            min_thb = self._dec_setting("bitkub_min_order_thb", "10")
+            if notional < min_thb:
+                self.logger.warning(
+                    "runtime.live_order_below_min", notional=str(notional), min_thb=str(min_thb)
+                )
+                return None
+            # C1: gate the REAL order behind the treasury BEFORE placing it, so a
+            # halted / underfunded / floor-breaching account never spends real
+            # money and is never left with an untracked, unhedged live position.
+            from domain.trading.paper import fee_for  # noqa: PLC0415
+            entry_fee = fee_for(qty * entry, tp.fee_taker_bps)  # type: ignore[attr-defined]
+            order_cost = qty * entry + entry_fee
+            exit_fee_est = fee_for(qty * stop, tp.fee_taker_bps)  # type: ignore[attr-defined]
+            worst = worst_case_loss(qty, entry, stop, entry_fee, exit_fee_est)
+            if not self._treasury.would_approve(order_cost, worst, trader.open_market_value()):
+                self.logger.warning("runtime.live_order_treasury_veto")
+                return None
             return {
                 "action": "bid",
                 "symbol": symbol,
@@ -1536,6 +1587,16 @@ class PipelineRuntime:
                 "error": (
                     "set a per-order cap first: max_single_order_thb must be > 0 "
                     "before going live (protects against an unbounded first order)"
+                ),
+                "field": "max_single_order_thb",
+            }
+        # A cap below the exchange minimum would make every live order bounce.
+        min_thb = self._dec_setting("bitkub_min_order_thb", "10")
+        if 0 < self._max_single_order_thb < min_thb:
+            return False, {
+                "error": (
+                    f"per-order cap {self._max_single_order_thb} is below Bitkub's "
+                    f"minimum order ({min_thb} THB) — raise it or orders will bounce"
                 ),
                 "field": "max_single_order_thb",
             }
@@ -1776,6 +1837,12 @@ class PipelineRuntime:
         all four gates open + a signed gateway wired into the execution gate."""
         engine = str(getattr(self.settings, "execution_engine", "paper"))
         if engine != "live" or not all(self._live_gate_checklist().values()):
+            return False
+        # M2: a connected account must be RECONCILED (verified by a real wallet
+        # read) before live orders fire. If the verify failed, degrade to paper
+        # rather than trade against an unverified/zero-balance account.
+        recon = self._reconciliation
+        if recon is not None and not bool(getattr(recon, "is_reconciled", False)):
             return False
         gate = self.agents.get("risk_gate")
         gw = getattr(gate, "_rest_gateway", None) if gate is not None else None

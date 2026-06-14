@@ -115,6 +115,25 @@ class TreasuryAgent:
             self.rejected_count += 1
         return decision
 
+    def would_approve(
+        self, order_cost: Decimal, worst_case: Decimal, open_market_value: Decimal
+    ) -> bool:
+        """Non-mutating pre-check: would request_open() approve this entry right
+        now? Used to gate a REAL live order BEFORE it is placed, so a halted /
+        underfunded / floor-breaching account never spends real money."""
+        self._rollover_if_new_day()
+        equity = self.cash + open_market_value
+        decision = review_open(
+            cash=self.cash,
+            equity=equity,
+            realized_today=self.realized_today,
+            order_cost=order_cost,
+            worst_case_loss=worst_case,
+            limits=self._limits,
+            halted=self.halted,
+        )
+        return decision.approved
+
     def settle_close(self, trade: ClosedTrade) -> None:
         """Return sale proceeds to cash and book the realized result."""
         self._rollover_if_new_day()

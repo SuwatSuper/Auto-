@@ -28,9 +28,13 @@ class TokenBucket:
         self._lock: asyncio.Lock = asyncio.Lock()
 
     async def acquire(self) -> None:
-        """Wait until a token is available, then consume it."""
-        async with self._lock:
-            while True:
+        """Wait until a token is available, then consume it.
+
+        The sleep happens OUTSIDE the lock so waiters don't serialize the whole
+        pipeline behind one holder (and a zero refill rate can't divide-by-zero).
+        """
+        while True:
+            async with self._lock:
                 now = self._clock()
                 elapsed = now - self._last_refill
                 self._tokens = min(
@@ -41,5 +45,8 @@ class TokenBucket:
                 if self._tokens >= 1.0:
                     self._tokens -= 1.0
                     return
-                wait_time = (1.0 - self._tokens) / self._refill_per_sec
-                await asyncio.sleep(wait_time)
+                if self._refill_per_sec > 0:
+                    wait_time = (1.0 - self._tokens) / self._refill_per_sec
+                else:
+                    wait_time = 0.05
+            await asyncio.sleep(wait_time)
