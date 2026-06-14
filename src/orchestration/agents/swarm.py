@@ -131,7 +131,11 @@ class MarketDataHubAgent(PriceListenerAgent):
 
 # ── analyst worker (historical OR live) ──────────────────────────────
 class ChartAnalystAgent(PeriodicAgent):
-    """Runs one method on one timeframe and grades its own calls (real memory)."""
+    """One method on one timeframe over a specific LOOKBACK WINDOW — its assigned
+    slice of the chart (division of labour). Both modes read up to the CURRENT
+    forming candle so a 'historical' analyst still catches the present trick; the
+    difference is the window: 'historical' = deep context, 'live' = recent/fast.
+    Grades its own calls against the real price that follows (its own memory)."""
 
     interval = 4.0
 
@@ -141,14 +145,16 @@ class ChartAnalystAgent(PeriodicAgent):
         hub: MarketDataHub,
         timeframe: str,
         method: str,
-        mode: str,  # "historical" (past candles) | "live" (incl. current candle)
+        mode: str,  # "historical" (deep window) | "live" (short recent window)
         logger: structlog.BoundLogger,
+        window: int | None = None,
     ) -> None:
         super().__init__(name, logger, kind="strategy")
         self._hub = hub
         self._tf = timeframe
         self._method = method
         self._mode = mode
+        self._window = window
         self.read: AnalysisRead = AnalysisRead.neutral("เริ่มต้น")
         self.signal_count = 0
 
@@ -160,12 +166,17 @@ class ChartAnalystAgent(PeriodicAgent):
         price, ts_ms = self._hub.latest()
         if price is not None:
             self.learner.resolve(price, ts_ms)
-        candles = self._hub.series(self._tf, include_current=(self._mode == "live"))
+        # Always include the current candle (catch the present); the window
+        # decides how much past context this analyst weighs (its assigned slice).
+        candles = self._hub.series(self._tf, include_current=True)
+        if self._window is not None and len(candles) > self._window:
+            candles = candles[-self._window:]
         read = run_method(self._method, candles)
         self.read = read
-        scope = "อดีต" if self._mode == "historical" else "ปัจจุบัน"
+        scope = "อดีต-ลึก" if self._mode == "historical" else "ปัจจุบัน-เร็ว"
+        win = f"·{self._window}แท่ง" if self._window is not None else ""
         self.detail = (
-            f"[{self._tf}·{self._method}·{scope}] {read.label} → {read.direction} "
+            f"[{self._tf}·{self._method}·{scope}{win}] {read.label} → {read.direction} "
             f"({float(read.strength) * 100:.0f}%) · แม่น {self._hr_txt()}"
         )
         if price is not None and read.direction in (BULL, BEAR) and read.strength >= _ACT_STRENGTH:
@@ -174,10 +185,12 @@ class ChartAnalystAgent(PeriodicAgent):
             self.signal_count += 1
 
 
-# ── entry hunter (emits BUY signals through the existing pipeline) ────
+# ── entry hunter (advisory scout — the Entry Chief consolidates) ─────
 class EntryHunterAgent(PeriodicAgent):
-    """Looks for buy entry points; emits BUY to the signal bus when its method
-    is bullish AND the divisions' consensus bias agrees (coordination)."""
+    """Scouts a buy entry on its slice and raises a ``ready`` flag when its
+    method is bullish enough AND the division bias agrees. It does NOT emit to
+    the signal bus itself — the Entry Chief consolidates all 50 scouts into ONE
+    coordinated BUY, which keeps the pipeline smooth (no 50-way signal flood)."""
 
     interval = 3.0
 
@@ -188,8 +201,6 @@ class EntryHunterAgent(PeriodicAgent):
         timeframe: str,
         method: str,
         threshold: Decimal,
-        bus: EventBus,
-        signals_topic: str,
         bias_provider: Callable[[], float],
         logger: structlog.BoundLogger,
     ) -> None:
@@ -198,22 +209,16 @@ class EntryHunterAgent(PeriodicAgent):
         self._tf = timeframe
         self._method = method
         self._threshold = threshold
-        self._bus = bus
-        self._signals_topic = signals_topic
         self._bias_provider = bias_provider
         self.read: AnalysisRead = AnalysisRead.neutral("เริ่มต้น")
+        self.ready = False
+        self._was_ready = False
         self.signal_count = 0
         self.entries_found = 0
 
     def _hr_txt(self) -> str:
         hr = self.learner.hit_rate()
         return f"{hr * 100:.0f}% ({self.learner.resolved} ครั้ง)" if hr is not None else "—"
-
-    async def _emit_buy(self, price: Decimal, ts_ms: int) -> None:
-        out = orjson.dumps(
-            {"signal": "BUY", "price": str(price), "ts_ms": ts_ms, "source": self.name}
-        )
-        await self._bus.publish(self._signals_topic, b"signal", out)
 
     async def tick(self) -> None:
         price, ts_ms = self._hub.latest()
@@ -223,21 +228,18 @@ class EntryHunterAgent(PeriodicAgent):
         read = run_method(self._method, candles)
         self.read = read
         bias = self._bias_provider()
-        ready = read.direction == BULL and read.strength >= self._threshold and bias >= 0.0
+        self.ready = read.direction == BULL and read.strength >= self._threshold and bias >= 0.0
         self.detail = (
             f"[{self._tf}·{self._method}] {read.label} · ฉันทามติ {bias:+.2f} "
-            f"· แม่น {self._hr_txt()}" + (" · 🎯 เข้าซื้อ!" if ready else " · เฝ้ารอจังหวะ")
+            f"· แม่น {self._hr_txt()}" + (" · 🎯 พร้อมเข้า" if self.ready else " · เฝ้ารอจังหวะ")
         )
-        if ready and price is not None:
-            await self._emit_buy(price, ts_ms)
+        # Edge-triggered self-learning: record a prediction only on a NEW ready
+        # episode so the scout grades itself without spamming.
+        if self.ready and not self._was_ready and price is not None:
             self.learner.predict("BUY", price, ts_ms)
             self.signal_count += 1
             self.entries_found += 1
-            self.learner.log(
-                f"พบจุดเข้าซื้อ @{price:.0f} ({self._method}/{self._tf}, "
-                f"strength {float(read.strength) * 100:.0f}%, bias {bias:+.2f})",
-                "event",
-            )
+        self._was_ready = self.ready
 
 
 # ── division chief (aggregates 50 workers → consensus bias) ──────────
@@ -295,20 +297,87 @@ class DivisionChiefAgent(PeriodicAgent):
         return self.bias
 
 
+# ── entry chief (consolidates 50 scouts → one coordinated BUY) ───────
+class EntryChiefAgent(DivisionChiefAgent):
+    """Aggregates the entry scouts and emits ONE coordinated BUY to the signal
+    bus when a quorum of scouts are ready AND the division is net-bullish.
+    Edge-triggered (re-arms only after the consensus clears) so the pipeline
+    receives at most one BUY per bullish episode — smooth, not a 50-way flood."""
+
+    def __init__(
+        self,
+        name: str,
+        scouts: list[ChartAnalystAgent | EntryHunterAgent],
+        hub: MarketDataHub,
+        bus: EventBus,
+        analysis_topic: str,
+        signals_topic: str,
+        label: str,
+        logger: structlog.BoundLogger,
+        quorum_frac: float = 0.25,
+    ) -> None:
+        super().__init__(name, scouts, bus, analysis_topic, label, logger)
+        self._hub = hub
+        self._signals_topic = signals_topic
+        self._quorum = max(1, int(len(scouts) * quorum_frac))
+        self._armed = True
+        self.buys_emitted = 0
+
+    async def tick(self) -> None:
+        await super().tick()  # refresh consensus bias + publish analysis
+        ready = sum(1 for w in self._workers if getattr(w, "ready", False))
+        price, ts_ms = self._hub.latest()
+        fire = ready >= self._quorum and self.bias > 0.0
+        if fire and self._armed and price is not None:
+            out = orjson.dumps(
+                {"signal": "BUY", "price": str(price), "ts_ms": ts_ms, "source": self.name}
+            )
+            await self._bus.publish(self._signals_topic, b"signal", out)
+            self._armed = False
+            self.buys_emitted += 1
+            self.learner.log(
+                f"สั่งซื้อรวม: {ready}/{len(self._workers)} พรานพร้อม (bias {self.bias:+.2f})", "event"
+            )
+        elif not fire:
+            self._armed = True  # re-arm once the consensus clears
+        self.detail = (
+            f"{self._label}: พร้อมเข้า {ready}/{len(self._workers)} (เกณฑ์ {self._quorum}) "
+            f"· bias {self.bias:+.2f} · ยิงซื้อไปแล้ว {self.buys_emitted} ครั้ง"
+        )
+
+
 # ── deterministic spec generation ───────────────────────────────────
 def make_specs(n: int) -> list[tuple[str, str]]:
-    """Spread methods across timeframes, deterministically, to exactly ``n``."""
+    """Divide the chart-watching evenly: round-robin the timeframes while
+    cycling methods, so every timeframe gets a balanced share and no two
+    analysts watch the same (timeframe, method) slice until all are used.
+    Deterministic, exactly ``n`` specs."""
     from domain.analytics.swarm_methods import METHOD_NAMES  # local: keep import graph flat
 
     out: list[tuple[str, str]] = []
-    for tf in TIMEFRAMES:
-        for method in METHOD_NAMES:
-            out.append((tf, method))
-            if len(out) >= n:
-                return out
-    while len(out) < n:  # only if methods×timeframes < n (not with the default set)
-        out.append((TIMEFRAMES[len(out) % len(TIMEFRAMES)], METHOD_NAMES[len(out) % len(METHOD_NAMES)]))
+    seen: set[tuple[str, str]] = set()
+    method_idx = 0
+    while len(out) < n:
+        tf = TIMEFRAMES[len(out) % len(TIMEFRAMES)]
+        # advance the method every full sweep of the timeframes
+        method = METHOD_NAMES[method_idx % len(METHOD_NAMES)]
+        if len(out) % len(TIMEFRAMES) == len(TIMEFRAMES) - 1:
+            method_idx += 1
+        spec = (tf, method)
+        # keep slices distinct where possible (fall back to allow once exhausted)
+        if spec in seen and len(seen) < len(TIMEFRAMES) * len(METHOD_NAMES):
+            method_idx += 1
+            continue
+        seen.add(spec)
+        out.append(spec)
     return out
+
+
+# Lookback windows (in candles) — the historical division weighs DEEP context,
+# the live division reacts to a SHORT recent window. Cycled across the 50 so
+# each analyst owns a distinct depth as well as a distinct (timeframe, method).
+_HIST_WINDOWS: list[int] = [300, 240, 180, 120]
+_LIVE_WINDOWS: list[int] = [60, 45, 30, 20]
 
 
 def _entry_threshold(i: int) -> Decimal:
@@ -332,11 +401,14 @@ def build_swarm_agents(
         "market_data_hub", bus, prices_topic, hub, logger
     )}
 
-    # Historical Chart Lab — completed candles (the past).
+    # Historical Chart Lab — each analyst owns a distinct (timeframe, method)
+    # slice with a DEEP lookback window (past context) but still reads up to the
+    # present candle so it also catches the current trick.
     hist_workers: list[ChartAnalystAgent | EntryHunterAgent] = []
     for i, (tf, method) in enumerate(make_specs(per_division), start=1):
         name = f"hist_{i:02d}_{tf}_{method}"
-        a = ChartAnalystAgent(name, hub, tf, method, "historical", logger)
+        window = _HIST_WINDOWS[(i - 1) % len(_HIST_WINDOWS)]
+        a = ChartAnalystAgent(name, hub, tf, method, "historical", logger, window=window)
         agents[name] = a
         hist_workers.append(a)
     hist_chief = DivisionChiefAgent(
@@ -344,11 +416,12 @@ def build_swarm_agents(
     )
     agents["historical_chief"] = hist_chief
 
-    # Live Price Lab — includes the currently forming candle (the present).
+    # Live Price Lab — same slices but a SHORT recent window: fast present read.
     live_workers: list[ChartAnalystAgent | EntryHunterAgent] = []
     for i, (tf, method) in enumerate(make_specs(per_division), start=1):
         name = f"live_{i:02d}_{tf}_{method}"
-        a = ChartAnalystAgent(name, hub, tf, method, "live", logger)
+        window = _LIVE_WINDOWS[(i - 1) % len(_LIVE_WINDOWS)]
+        a = ChartAnalystAgent(name, hub, tf, method, "live", logger, window=window)
         agents[name] = a
         live_workers.append(a)
     live_chief = DivisionChiefAgent(
@@ -364,12 +437,15 @@ def build_swarm_agents(
     for i, (tf, method) in enumerate(make_specs(per_division), start=1):
         name = f"entry_{i:02d}_{tf}_{method}"
         a2 = EntryHunterAgent(
-            name, hub, tf, method, _entry_threshold(i), bus, signals_topic, _entry_bias, logger
+            name, hub, tf, method, _entry_threshold(i), _entry_bias, logger
         )
         agents[name] = a2
         entry_workers.append(a2)
-    entry_chief = DivisionChiefAgent(
-        "entry_chief", entry_workers, bus, analysis_topic, "หาจุดเข้าซื้อ", logger
+    # The Entry Chief is the SINGLE emitter for the whole entry division: it
+    # consolidates its 50 scouts into one coordinated, edge-triggered BUY.
+    entry_chief = EntryChiefAgent(
+        "entry_chief", entry_workers, hub, bus, analysis_topic, signals_topic,
+        "หาจุดเข้าซื้อ", logger,
     )
     agents["entry_chief"] = entry_chief
 

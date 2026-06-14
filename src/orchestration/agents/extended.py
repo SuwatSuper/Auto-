@@ -110,6 +110,10 @@ class PriceListenerAgent(_AgentBase):
         self._topic_out: str | None = None
         self._prices: list[Decimal] = []
         self.signal_count = 0
+        # Smoothing: don't re-publish the SAME action more than once per this
+        # many seconds, so a fast tick stream can't flood the decision pipeline.
+        self._emit_throttle_s = 1.0
+        self._last_emit_at: dict[str, float] = {}
 
     async def start(self) -> None:
         self.running = True
@@ -146,6 +150,11 @@ class PriceListenerAgent(_AgentBase):
     async def _emit(self, action: str, price: Decimal, ts_ms: int) -> None:
         if self._topic_out is None:
             return
+        # Throttle repeats of the same action to keep the pipeline smooth.
+        now = time.monotonic()
+        if now - self._last_emit_at.get(action, 0.0) < self._emit_throttle_s:
+            return
+        self._last_emit_at[action] = now
         self.signal_count += 1
         # Record the prediction so the REAL outcome can be graded later.
         self.learner.predict(action, price, ts_ms)

@@ -43,6 +43,10 @@ class GateParams(BaseModel, frozen=True):
     block_high_vol: bool = True
     require_trend_agree: bool = False
     sentiment_veto: bool = True
+    # Block a long in a down-trend / short in an up-trend. Default ON (selective)
+    # but the runtime can turn it OFF for an active profile that also dip-buys
+    # (mean-reversion entries legitimately fire in mild down-trends).
+    block_regime_mismatch: bool = True
 
 
 class EntryInputs(BaseModel, frozen=True):
@@ -78,11 +82,13 @@ def evaluate_entry(inputs: EntryInputs, params: GateParams) -> EntryDecision:
     if params.block_high_vol and inputs.regime == "HIGH_VOL":
         reasons.append(EntryReason.REGIME_VOLATILE_BLOCKED)
 
-    # Long against a down-trend / short against an up-trend is a regime mismatch.
-    if inputs.signal_action == SignalAction.BUY and inputs.regime == "TREND_DOWN":
-        reasons.append(EntryReason.STRATEGY_REGIME_MISMATCH)
-    if inputs.signal_action == SignalAction.SELL and inputs.regime == "TREND_UP":
-        reasons.append(EntryReason.STRATEGY_REGIME_MISMATCH)
+    # Long against a down-trend / short against an up-trend is a regime mismatch
+    # (only enforced when block_regime_mismatch is on).
+    if params.block_regime_mismatch:
+        if inputs.signal_action == SignalAction.BUY and inputs.regime == "TREND_DOWN":
+            reasons.append(EntryReason.STRATEGY_REGIME_MISMATCH)
+        if inputs.signal_action == SignalAction.SELL and inputs.regime == "TREND_UP":
+            reasons.append(EntryReason.STRATEGY_REGIME_MISMATCH)
 
     if params.sentiment_veto:
         if inputs.signal_action == SignalAction.BUY and inputs.sentiment_score <= Decimal("-0.5"):

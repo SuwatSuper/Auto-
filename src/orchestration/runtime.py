@@ -309,7 +309,7 @@ class PipelineRuntime:
         from orchestration.agents.timeline_analyst import TimelineAnalystAgent  # noqa: PLC0415
         self._timeline = TimelineAnalystAgent(
             "timeline_analyst", bus, prices, _TOPIC_TIMELINE, log,
-            min_p_win=self._dec_setting("min_p_win", "0.80"),
+            min_p_win=self._dec_setting("min_p_win", "0.55"),
         )
         agents["timeline_analyst"] = self._timeline
         money = self._make_money_agents(bus, prices)
@@ -321,7 +321,7 @@ class PipelineRuntime:
             agent_roles={
                 "market_analyst":    "Generates EMA-cross entry/exit signals",
                 "news_intelligence": "Aggregates news sentiment",
-                "risk_management":   "Vetoes orders breaching risk limits",
+                "risk_management":   "Advisory risk monitor (real veto = treasury + risk gate)",
                 "probability_lab":   "RSI-based probability scoring",
                 "research_dept":     "Rolling historical statistics",
                 "execution_agent":   "Rolling paper backtest with fees+slippage",
@@ -917,6 +917,7 @@ class PipelineRuntime:
             max_open_positions=int(getattr(gate, "_max_open_positions", 1)),
             max_deployable_thb=self._max_deployable_thb,
             max_single_order_thb=self._max_single_order_thb,
+            min_p_win=self._dec_setting("min_p_win", "0.55"),
         )
 
     def get_risk_settings(self) -> dict[str, str]:
@@ -957,6 +958,11 @@ class PipelineRuntime:
             )
         if self._circuit_breaker is not None:
             self._circuit_breaker.update_threshold(new.max_consecutive_losses)
+        # Win-probability gate is operator-tunable live: update the setting the
+        # entry gate reads AND the Timeline Analyst's own threshold/display.
+        self.settings.min_p_win = str(new.min_p_win)  # type: ignore[attr-defined]
+        if self._timeline is not None and hasattr(self._timeline, "set_min_p_win"):
+            self._timeline.set_min_p_win(new.min_p_win)  # type: ignore[attr-defined]
         gate = self._risk_gate()
         if gate is not None and hasattr(gate, "set_max_open_positions"):
             gate.set_max_open_positions(new.max_open_positions)  # type: ignore[attr-defined]
@@ -1222,8 +1228,10 @@ class PipelineRuntime:
             trend_agree=(regime != "TREND_DOWN"),
         )
         params = GateParams(
-            min_p_win=self._dec_setting("min_p_win", "0.80"),
+            min_p_win=self._dec_setting("min_p_win", "0.55"),
             min_confidence=self._dec_setting("gate_min_confidence", "0.50"),
+            min_samples=int(getattr(self.settings, "gate_min_samples", 8)),
+            block_regime_mismatch=bool(getattr(self.settings, "gate_block_regime_mismatch", False)),
         )
         decision = evaluate_entry(inputs, params)
         reasons = [r.value for r in decision.reasons]
@@ -1804,10 +1812,10 @@ class PipelineRuntime:
             "regime": str(getattr(tl, "regime", "RANGE")),
             "past_win_rate": getattr(tl, "past_win_rate", None),
             "recent_win_rate": getattr(tl, "recent_win_rate", None),
-            "min_p_win": str(self._dec_setting("min_p_win", "0.80")),
+            "min_p_win": str(self._dec_setting("min_p_win", "0.55")),
             "passes_gate": (
-                int(getattr(tl, "p_win_samples", 0)) >= 20
-                and Decimal(str(getattr(tl, "p_win", "0"))) >= self._dec_setting("min_p_win", "0.80")
+                int(getattr(tl, "p_win_samples", 0)) >= int(getattr(self.settings, "gate_min_samples", 8))
+                and Decimal(str(getattr(tl, "p_win", "0"))) >= self._dec_setting("min_p_win", "0.55")
             ),
             "analysis": dict(getattr(tl, "analysis", {})),
         }
@@ -1815,7 +1823,7 @@ class PipelineRuntime:
     def _entry_gate_status(self) -> dict[str, object]:
         return {
             "enabled": self._entry_gate_enabled,
-            "min_p_win": str(self._dec_setting("min_p_win", "0.80")),
+            "min_p_win": str(self._dec_setting("min_p_win", "0.55")),
             "blocked_by_reason": dict(self._gate_block_reasons),
             "blocked_total": sum(self._gate_block_reasons.values()),
         }

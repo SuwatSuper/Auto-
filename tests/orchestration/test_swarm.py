@@ -14,6 +14,7 @@ from infrastructure.eventbus.in_memory import InMemoryEventBus
 from orchestration.agents.swarm import (
     ChartAnalystAgent,
     DivisionChiefAgent,
+    EntryChiefAgent,
     EntryHunterAgent,
     MarketDataHub,
     MarketDataHubAgent,
@@ -110,35 +111,50 @@ async def test_chart_analyst_warms_up_quietly() -> None:
     assert a.signal_count == 0
 
 
-# ── EntryHunterAgent ─────────────────────────────────────────────────
-async def test_entry_hunter_emits_buy_when_bullish_and_bias_agrees() -> None:
-    bus = InMemoryEventBus()
-    q = bus.subscribe("signals.v1")
+# ── EntryHunterAgent (advisory scout — sets a ready flag) ────────────
+async def test_entry_hunter_is_ready_when_bullish_and_bias_agrees() -> None:
     hub = MarketDataHub()
     _feed_rising(hub, n=60)
-    hunter = EntryHunterAgent(
-        "entry_x", hub, "1s", "ema_cross", Decimal("0.5"),
-        bus, "signals.v1", lambda: 1.0, _log(),
-    )
+    hunter = EntryHunterAgent("entry_x", hub, "1s", "ema_cross", Decimal("0.5"), lambda: 1.0, _log())
     await hunter.tick()
-    assert hunter.entries_found == 1
-    data = orjson.loads(q.get_nowait())
-    assert data["signal"] == "BUY"
-    assert data["source"] == "entry_x"
+    assert hunter.ready is True
+    assert hunter.entries_found == 1  # edge-triggered self-prediction recorded
 
 
 async def test_entry_hunter_holds_when_bias_disagrees() -> None:
-    bus = InMemoryEventBus()
-    q = bus.subscribe("signals.v1")
     hub = MarketDataHub()
     _feed_rising(hub, n=60)
-    hunter = EntryHunterAgent(
-        "entry_y", hub, "1s", "ema_cross", Decimal("0.5"),
-        bus, "signals.v1", lambda: -1.0, _log(),  # division consensus says down
-    )
+    hunter = EntryHunterAgent("entry_y", hub, "1s", "ema_cross", Decimal("0.5"), lambda: -1.0, _log())
     await hunter.tick()
+    assert hunter.ready is False
     assert hunter.entries_found == 0
-    assert q.empty()
+
+
+async def test_entry_chief_emits_one_consolidated_buy_on_quorum() -> None:
+    bus = InMemoryEventBus()
+    sig = bus.subscribe("signals.v1")
+    hub = MarketDataHub()
+    _feed_rising(hub, n=60)
+    scouts: list[ChartAnalystAgent | EntryHunterAgent] = [
+        EntryHunterAgent(f"entry_{i}", hub, "1s", "ema_cross", Decimal("0.5"), lambda: 1.0, _log())
+        for i in range(8)
+    ]
+    for s in scouts:
+        await s.tick()  # all become ready on the strong uptrend
+    chief = EntryChiefAgent(
+        "entry_chief", scouts, hub, bus, "analysis.v1", "signals.v1", "entries", _log(),
+    )
+    chief.read = AnalysisRead(BULL, Decimal("0.8"), "x")  # nudge chief bias > 0
+    # force a bullish division bias by setting the scouts' reads bullish
+    for s in scouts:
+        s.read = AnalysisRead(BULL, Decimal("0.8"), "x")
+    await chief.tick()
+    assert chief.buys_emitted == 1            # ONE coordinated BUY, not 8
+    data = orjson.loads(sig.get_nowait())
+    assert data["signal"] == "BUY" and data["source"] == "entry_chief"
+    # edge-triggered: a second tick with the same consensus does NOT re-fire
+    await chief.tick()
+    assert chief.buys_emitted == 1
 
 
 # ── DivisionChiefAgent ───────────────────────────────────────────────

@@ -30,6 +30,11 @@ _THB_FIELDS: dict[str, Decimal] = {
     "max_deployable_thb": Decimal("0"),
     "max_single_order_thb": Decimal("0"),
 }
+# Fraction fields (0..1). min_p_win is the win-probability gate the operator can
+# relax/tighten live — lower → more trades, higher → fewer/stronger entries.
+_FRAC_FIELDS: dict[str, tuple[Decimal, Decimal]] = {
+    "min_p_win": (Decimal("0"), Decimal("1")),
+}
 
 
 @dataclass(frozen=True)
@@ -44,6 +49,9 @@ class RiskSettings:
     max_open_positions: int
     max_deployable_thb: Decimal
     max_single_order_thb: Decimal
+    # Win-probability entry gate (0..1). Default at the end so existing callers
+    # that build RiskSettings with the first 8 fields keep working.
+    min_p_win: Decimal = Decimal("0.55")
 
     def as_str_dict(self) -> dict[str, str]:
         return {
@@ -55,6 +63,7 @@ class RiskSettings:
             "max_open_positions": str(self.max_open_positions),
             "max_deployable_thb": str(self.max_deployable_thb),
             "max_single_order_thb": str(self.max_single_order_thb),
+            "min_p_win": str(self.min_p_win),
         }
 
 
@@ -70,7 +79,10 @@ def validate_risk_settings(
     values: dict[str, object] = {**current.as_str_dict()}
 
     for key, raw in patch.items():
-        if key not in _PCT_FIELDS and key not in _INT_FIELDS and key not in _THB_FIELDS:
+        if (
+            key not in _PCT_FIELDS and key not in _INT_FIELDS
+            and key not in _THB_FIELDS and key not in _FRAC_FIELDS
+        ):
             errors.append(f"unknown field: {key}")
             continue
         values[key] = raw
@@ -113,6 +125,15 @@ def validate_risk_settings(
         else:
             out[name] = d
 
+    for name, (lo, hi) in _FRAC_FIELDS.items():
+        d = _dec(name)
+        if d is None:
+            continue
+        if d < lo or d > hi:
+            errors.append(f"{name}: must be between {lo} and {hi} (got {d})")
+        else:
+            out[name] = d
+
     if errors:
         return None, errors
 
@@ -126,6 +147,7 @@ def validate_risk_settings(
             max_open_positions=out["max_open_positions"],  # type: ignore[arg-type]
             max_deployable_thb=out["max_deployable_thb"],  # type: ignore[arg-type]
             max_single_order_thb=out["max_single_order_thb"],  # type: ignore[arg-type]
+            min_p_win=out["min_p_win"],  # type: ignore[arg-type]
         ),
         [],
     )

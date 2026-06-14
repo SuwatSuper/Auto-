@@ -33,7 +33,10 @@ class Settings(BaseSettings):
     # Per-trade risk %. Adjustable live in Settings up to 100% (ความเสี่ยงสูงสุด
     # 100%). Default kept conservative; crank it in the dashboard when desired.
     risk_per_trade_pct: str = "1.0"
-    stop_pct: str = "1.0"
+    # Fee-aware exits. Bitkub taker fee 0.25%/side = 0.50% round-trip, so the
+    # take-profit MUST clear that to net positive. Default SL 0.5% / TP 1.5%
+    # (net ≈ 1:1 after fees). Tiny-TP scalping would be eaten by fees — honest.
+    stop_pct: str = "0.5"
     take_profit_pct: str = "1.5"
     fee_taker_bps: str = "25"
     fee_maker_bps: str = "25"
@@ -86,16 +89,26 @@ class Settings(BaseSettings):
     # setups (past 50 + recent 50) is ≥ min_p_win. Honest: this is a frequency,
     # not a guarantee. Higher = fewer, higher-odds trades.
     entry_gate_enabled: bool = True
-    min_p_win: str = "0.80"
+    # Win-probability floor. 0.55 = fire when comparable historical setups won
+    # ≥55% of the time (better than a coin flip). Lower = more trades / lower
+    # odds; raise for fewer, stronger entries. Honest frequency, not a promise.
+    min_p_win: str = "0.55"
     gate_min_confidence: str = "0.50"
+    # Graded historical setups required before p_win is trusted (was 20; lowered
+    # so the system starts trading after a short warm-up instead of never).
+    gate_min_samples: int = 8
+    # Block longs in a down-trend? OFF by default so mean-reversion can dip-buy
+    # (turning this ON makes the system trend-only and trade much less).
+    gate_block_regime_mismatch: bool = False
     # ── Daily trade governance ──────────────────────────────────────────
-    # Capability cap on entries per day (set high for high-frequency hunting).
-    max_trades_per_day: int = 1000
-    # Daily profit target (% of initial capital). Tracked + shown on the
-    # dashboard. NOT a guarantee — the market decides. stop_at_daily_target,
-    # when true, locks the day's gains by halting new entries once reached.
+    # Capability cap on entries per day. ~200 supports active intraday hunting;
+    # actual count depends on how many real setups the market offers.
+    max_trades_per_day: int = 200
+    # Daily profit target (% of initial capital). Pursue 5–10%/day; tracked on
+    # the dashboard. NOT a guarantee — Bitkub fees + the market decide the real
+    # result. stop_at_daily_target locks the day's gains once the target is hit.
     target_daily_profit_pct: str = "5"
-    stop_at_daily_target: bool = False
+    stop_at_daily_target: bool = True
     # Operator login (optional): password to obtain the control token
     dashboard_password: SecretStr = SecretStr("")
     # Alerts (Phase 1 — Telegram bot or generic webhook)

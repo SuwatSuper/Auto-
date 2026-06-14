@@ -2510,7 +2510,9 @@ html, body {
               <label class="cmd-lab">max consec. losses (0=ไม่จำกัด)<input id="cmd-max_consecutive_losses" class="cmd-input sm" /></label>
               <label class="cmd-lab">max open positions<input id="cmd-max_open_positions" class="cmd-input sm" /></label>
               <label class="cmd-lab">cap/order (THB)<input id="cmd-max_single_order_thb" class="cmd-input sm" /></label>
+              <label class="cmd-lab">เกตชนะขั้นต่ำ p_win (0-1)<input id="cmd-min_p_win" class="cmd-input sm" /></label>
             </div>
+            <div class="sr-desc" style="margin:2px 0 6px;">p_win ต่ำ = ยิงบ่อยขึ้น (เช่น 0.55) · สูง = ยิงน้อยแต่คัดแม่น</div>
             <button id="cmd-risk-apply" class="cmd-btn cmd-btn-blue">บันทึกความเสี่ยง / Apply</button>
             <div id="cmd-risk-status" class="cmd-status">—</div>
           </div>
@@ -2645,7 +2647,7 @@ const el = (tag, cls, txt) => {
   return e;
 };
 const fmtNum = new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtThb = n => '฿ ' + fmtNum.format(Number(n));
+const fmtThb = n => { const v = Number(n); return Number.isFinite(v) ? '฿ ' + fmtNum.format(v) : '฿ —'; };
 const clamp  = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 /* ──────────────────────────────────────────────────────────────
@@ -2999,7 +3001,10 @@ function connectWS() {
     State.wsRetryDelay = 1500;
   };
 
-  ws.onclose = ws.onerror = () => {
+  // Reconnect ONLY on close (a single path). onerror just closes the socket,
+  // which fires onclose — avoids two parallel reconnect loops / timer leaks.
+  ws.onerror = () => { try { ws.close(); } catch (_) {} };
+  ws.onclose = () => {
     setConnState(false);
     scheduleReconnect();
   };
@@ -3039,9 +3044,15 @@ function scheduleReconnect() {
 ────────────────────────────────────────────────────────────── */
 function handlePrice(data) {
   const price = Number(data.price ?? data.close ?? data.value ?? 0);
-  if (!price) return;
+  if (!Number.isFinite(price) || price <= 0) return;
   State.prevPrice    = State.latestPrice;
   State.latestPrice  = price;
+  // Populate the real mark price so the order-ticket limit prefill and any
+  // mark-based display use the live price instead of a hardcoded 0.
+  const sym = String(data.symbol || 'THB_BTC').toUpperCase();
+  SYMBOL_PRICES[sym] = price;
+  SYMBOL_PRICES['THB_BTC'] = price;
+  SYMBOL_PRICES['BTC'] = price;
   State.prices.push({ t: Date.now(), v: price });
   if (State.prices.length > 200) State.prices.shift();
   renderPrice();
@@ -4168,19 +4179,22 @@ function renderPortfolioPage() {
     } else {
       positions.forEach(p => {
         const qty = Number(p.qty || 0);
-        const mv = Number(p.market_value || 0);
-        const pnl = Number(p.unrealized_pnl || 0);
-        const mark = qty ? mv / qty : 0;
-        const entry = qty ? (mv - pnl) / qty : 0;
+        // Use the backend's REAL avg/mark; show "—" when the price is
+        // unavailable instead of rendering a fabricated ฿0.00.
+        const entry = p.avg_price != null ? Number(p.avg_price) : null;
+        const mark = p.mark_price != null ? Number(p.mark_price) : null;
+        const pnl = p.unrealized_pnl != null ? Number(p.unrealized_pnl) : null;
+        const cell = v => (v != null && Number.isFinite(v)) ? fmtThb(v) : '—';
+        const pnlCol = (pnl != null && pnl < 0) ? 'var(--accent-red)' : 'var(--accent-green)';
+        const pnlTxt = (pnl != null) ? ((pnl >= 0 ? '+' : '') + fmtThb(pnl)) : '—';
         const tr = document.createElement('tr');
         tr.innerHTML =
-          `<td>${p.symbol}</td>` +
+          `<td>${_esc(p.symbol)}</td>` +
           `<td><span class="pill buy">LONG</span></td>` +
           `<td class="num">${qty.toFixed(8)}</td>` +
-          `<td class="num">${fmtThb(entry)}</td>` +
-          `<td class="num">${fmtThb(mark)}</td>` +
-          `<td class="num" style="color:${pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">` +
-            `${pnl >= 0 ? '+' : ''}${fmtThb(pnl)}</td>`;
+          `<td class="num">${cell(entry)}</td>` +
+          `<td class="num">${cell(mark)}</td>` +
+          `<td class="num" style="color:${pnlCol}">${pnlTxt}</td>`;
         tb.appendChild(tr);
       });
     }
@@ -4723,7 +4737,7 @@ function cmdErr(res) {
 }
 
 const CMD_RISK_FIELDS = ['risk_per_trade_pct','stop_pct','take_profit_pct','max_daily_loss_pct',
-  'max_consecutive_losses','max_open_positions','max_single_order_thb'];
+  'max_consecutive_losses','max_open_positions','max_single_order_thb','min_p_win'];
 
 async function cmdLoadState() {
   const rs = await cmdGet('/api/risk/settings');
@@ -4893,7 +4907,7 @@ const AGENT_INFO = {
   mean_reversion:    { dept: 'strat',  th: 'บอทสวนเทรนด์',          role: 'ดักตีกลับเมื่อ RSI oversold/overbought' },
   breakout_specialist:{ dept: 'strat', th: 'ผู้ชำนาญเบรกเอาต์',     role: 'เกาะรถเมื่อราคาทะลุกรอบ (Donchian)' },
   // 🛡️ Risk & Treasury
-  risk_management:   { dept: 'risk',   th: 'จัดการความเสี่ยง',       role: 'veto ออเดอร์ที่ละเมิดกฎ' },
+  risk_management:   { dept: 'risk',   th: 'จัดการความเสี่ยง',       role: 'เฝ้าระวังความเสี่ยง (veto จริง = คลัง+เกต)' },
   treasury:          { dept: 'risk',   th: 'คลัง (เงินสด+PnL)',      role: 'เจ้าของเงินสดและบัญชีกำไรขาดทุน' },
   risk_gate:         { dept: 'risk',   th: 'ด่านความเสี่ยง (gate)',  role: 'อนุมัติ/บล็อกออเดอร์ก่อนส่ง' },
   black_swan_detector:{ dept: 'risk',  th: 'จับสัญญาณหงส์ดำ',        role: 'ตรวจราคาตกแรง → สั่งหยุดฉุกเฉิน' },
@@ -5030,8 +5044,8 @@ async function realStatusTick() {
     const n = r.data.news;
     if (n.label) {
       const labelTh = { VERY_BULLISH: 'บวกมาก 🟢🟢', BULLISH: 'บวก 🟢', NEUTRAL: 'กลาง ⚪', BEARISH: 'ลบ 🔴', VERY_BEARISH: 'ลบมาก 🔴🔴' }[n.label] || n.label;
-      const sample = (n.sample && n.sample[0]) ? ' — "' + n.sample[0] + '"' : '';
-      nv.innerHTML = `📰 ข่าวล่าสุด: <b>${labelTh}</b> (score ${n.score}, ${n.headline_count} พาดหัว)${sample}`;
+      const sample = (n.sample && n.sample[0]) ? ' — "' + _esc(n.sample[0]) + '"' : '';
+      nv.innerHTML = `📰 ข่าวล่าสุด: <b>${_esc(labelTh)}</b> (score ${_esc(n.score)}, ${_esc(n.headline_count)} พาดหัว)${sample}`;
     } else {
       nv.textContent = '📰 ข่าว: ยังไม่มีรอบแรก (ดึงทุก ~2 นาที — รอสักครู่)';
     }

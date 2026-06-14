@@ -99,9 +99,13 @@ class SupremeAgent:
         buys = sum(1 for v, _ in self._votes.values() if v == "BUY")
         sells = sum(1 for v, _ in self._votes.values() if v == "SELL")
         net = buys - sells
-        if net >= self._buy_votes:
+        # Long-only: a BUY opens, a SELL only closes. So a BUY entry fires on a
+        # bullish MAJORITY meeting the vote floor (it is NOT cancelled vote-for-
+        # vote by sells, which previously stalled entries in mixed markets); a
+        # SELL (close) fires only when bears clearly outnumber bulls.
+        if buys >= self._buy_votes and buys >= sells:
             decision, consensus = "EXECUTE", "BUY"
-        elif -net >= self._sell_votes:
+        elif sells >= self._sell_votes and sells > buys:
             decision, consensus = "EXECUTE", "SELL"
         else:
             decision, consensus = "OBSERVE", signal if signal in ("BUY", "SELL") else "HOLD"
