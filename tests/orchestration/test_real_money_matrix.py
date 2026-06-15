@@ -18,6 +18,7 @@ from orchestration.control import (
     HARD_CAP_DEPLOYABLE_THB,
     HARD_CAP_SINGLE_ORDER_THB,
     RiskSettings,
+    order_over_hard_cap,
     validate_risk_settings,
 )
 from orchestration.runtime import PipelineRuntime
@@ -47,7 +48,7 @@ class _Recon:
 
 
 def _armed_runtime(
-    *, cap: str = "5000", reconciled: bool = True, balances: dict[str, str] | None = None
+    *, cap: str = "1000", reconciled: bool = True, balances: dict[str, str] | None = None
 ) -> tuple[PipelineRuntime, _MockGateway]:
     gw = _MockGateway()
     # Capital large enough that order sizing is bounded by the per-order / hard
@@ -85,7 +86,7 @@ def _baseline_settings() -> RiskSettings:
 @pytest.mark.parametrize(
     "field,value,ok",
     [
-        ("max_single_order_thb", "5000", True),
+        ("max_single_order_thb", "500", True),
         ("max_single_order_thb", str(HARD_CAP_SINGLE_ORDER_THB), True),          # == ceiling allowed
         ("max_single_order_thb", str(HARD_CAP_SINGLE_ORDER_THB + 1), False),     # over ceiling rejected
         ("max_single_order_thb", "999999999", False),
@@ -115,7 +116,7 @@ def test_hard_cap_clamps_live_order_notional() -> None:
 
 
 # ── 3. Operator per-order cap clamps the notional ────────────────────
-@pytest.mark.parametrize("cap", ["5000", "10000", "250000"])
+@pytest.mark.parametrize("cap", ["200", "500", "800"])
 def test_per_order_cap_clamps_notional(cap: str) -> None:
     rt, _ = _armed_runtime(cap=cap)
     spec = rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"})
@@ -153,7 +154,7 @@ def test_arm_rejects_cap_above_hard_ceiling() -> None:
 
 def test_arm_succeeds_with_valid_cap_and_token() -> None:
     rt = _fresh_runtime()
-    rt._max_single_order_thb = Decimal("5000")
+    rt._max_single_order_thb = Decimal("500")
     ok, payload = rt.set_execution_mode("live", confirm=_LIVE)
     assert ok is True
     assert payload["mode"] == "live"
@@ -207,6 +208,29 @@ async def test_manual_buy_blocked_when_unreconciled() -> None:
     assert rt._live_orders_armed() is False
     await rt.manual_order("BUY")
     assert gw.bids == []  # no real money spent against an unverified account
+
+
+# ── 5b. Hard cap REJECTS (never silently trims) an oversized real BUY ─
+def test_order_over_hard_cap_helper() -> None:
+    assert order_over_hard_cap(str(HARD_CAP_SINGLE_ORDER_THB)) is None        # == ceiling ok
+    assert order_over_hard_cap(str(HARD_CAP_SINGLE_ORDER_THB + 1)) is not None
+    assert order_over_hard_cap("not-a-number") is not None
+
+
+@pytest.mark.asyncio
+async def test_oversized_bid_rejected_at_placement_boundary(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Even if a spec with notional above the hard cap reaches the gateway
+    (config tamper / bug), it is REJECTED — no real bid is placed."""
+    rt, gw = _armed_runtime(cap="1000")
+    oversized = {
+        "action": "bid", "symbol": "thb_btc",
+        "amount": str(HARD_CAP_SINGLE_ORDER_THB * 5),  # 5,000 THB >> 1,000 cap
+        "rate": "1500000", "typ": "market",
+    }
+    monkeypatch.setattr(rt, "_build_live_order", lambda _data: oversized)
+    placed = await rt._place_manual_live_bid(None)
+    assert placed is False
+    assert gw.bids == []  # the hard cap stopped the real order
 
 
 # ── 6. Protective close never over-sells the real wallet (C2) ────────

@@ -269,6 +269,13 @@ class ExecutionAgent:
         typ = spec.get("typ", "limit")
         try:
             if action == "bid":
+                # T5: hard ceiling enforced at the money-spending boundary —
+                # reject (never silently trim) a BUY above the absolute cap.
+                from orchestration.control import order_over_hard_cap  # noqa: PLC0415
+                over = order_over_hard_cap(amount)
+                if over is not None:
+                    self._log.critical("execution_agent.hard_cap_reject", reason=over)
+                    return
                 result = await gw.place_bid(sym, amount, rate, typ)  # type: ignore[attr-defined]
             elif action == "ask":
                 result = await gw.place_ask(sym, amount, rate, typ)  # type: ignore[attr-defined]

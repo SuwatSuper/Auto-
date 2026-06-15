@@ -74,7 +74,7 @@ async def test_execution_mode_switch_gated(client) -> None:  # type: ignore[no-u
         "/api/execution/mode", json={"mode": "live", "confirm": "I_ACCEPT_REAL_MONEY_RISK"}
     )).status_code == 400
     # set a per-order cap first, then arming live succeeds
-    assert (await c.post("/api/risk/settings", json={"max_single_order_thb": "10000"})).status_code == 200
+    assert (await c.post("/api/risk/settings", json={"max_single_order_thb": "500"})).status_code == 200
     ok = await c.post(
         "/api/execution/mode", json={"mode": "live", "confirm": "I_ACCEPT_REAL_MONEY_RISK"}
     )

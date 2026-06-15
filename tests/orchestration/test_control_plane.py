@@ -133,7 +133,7 @@ def test_switch_to_live_requires_order_cap() -> None:
 def test_switch_to_live_succeeds_when_gates_open() -> None:
     from decimal import Decimal  # noqa: PLC0415
     rt = _rt()
-    rt._max_single_order_thb = Decimal("10000")  # per-order cap set → live allowed
+    rt._max_single_order_thb = Decimal("500")  # per-order cap set (≤ hard cap) → live allowed
     ok, payload = rt.set_execution_mode("live", confirm="I_ACCEPT_REAL_MONEY_RISK")
     assert ok, payload
     assert rt.get_execution_mode()["mode"] == "live"

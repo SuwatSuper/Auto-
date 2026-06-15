@@ -98,7 +98,7 @@ async def test_paper_live_toggle_is_token_gated() -> None:
         assert "max_single_order_thb" in r.text
 
         # set a per-order cap, then arming live succeeds
-        await c.post("/api/risk/settings", json={"max_single_order_thb": "5000"})
+        await c.post("/api/risk/settings", json={"max_single_order_thb": "500"})
         r = await c.post("/api/execution/mode", json={"mode": "live", "confirm": _LIVE})
         assert r.status_code == 200 and r.json()["mode"] == "live"
 
@@ -114,7 +114,7 @@ async def test_live_order_fires_real_bid_and_ask_when_armed() -> None:
     # arm all four gates + wire the signed gateway
     rt.settings.execution_engine = "live"            # type: ignore[attr-defined]
     rt.settings.live_trading_confirm = _LIVE          # type: ignore[attr-defined]
-    rt._max_single_order_thb = Decimal("5000")        # per-order cap set
+    rt._max_single_order_thb = Decimal("500")         # per-order cap set (≤ hard cap)
     rt._rest_gateway = gw
     rt.agents["risk_gate"].set_rest_gateway(gw)        # type: ignore[attr-defined]
     assert rt._live_orders_armed() is True

@@ -13,7 +13,7 @@ that protect you, and what to do when something goes wrong.
 
 | Layer | Control | Where |
 |---|---|---|
-| **Hard cap (in code)** | No single live order may exceed **1,000,000 THB**; total deployable ≤ **5,000,000 THB**. Config *cannot* exceed these — enforced at validation **and** clamped again when the order is built. | `orchestration/control.py` (`HARD_CAP_SINGLE_ORDER_THB`, `HARD_CAP_DEPLOYABLE_THB`), `runtime_live._build_live_order` |
+| **Hard cap (in code)** | No single live order may exceed **1,000 THB**; total deployable ≤ **10,000 THB**. Config *cannot* exceed these — enforced at validation **and REJECTED + logged CRITICAL** at the order-placement boundary (never silently trimmed). | `orchestration/control.py` (`HARD_CAP_SINGLE_ORDER_THB`, `order_over_hard_cap`), `execution_agent._route_live`, `runtime._place_manual_live_bid` |
 | Operator per-order cap | `max_single_order_thb` — your own (lower) ceiling. Required `> 0` to arm live. | `/api/risk/settings` |
 | 4 live gates | `engine_live`, `confirm_token`, `kill_switch_clear`, `breaker_closed` — **all** must be open to place a real order. | `/api/execution/mode` |
 | Treasury veto (C1) | A real BUY never fires if the account is halted / underfunded / would breach the survival floor. | `treasury.would_approve` |
@@ -36,9 +36,9 @@ and `test_live_safety.py` suites — do not weaken them without a replacement te
    Confirm `GET /api/credentials/status` shows the account connected and that a first reconciliation has happened.
 3. **Set a per-order cap** (your ceiling, below the hard cap):
    ```
-   POST /api/risk/settings  { "max_single_order_thb": "5000" }
+   POST /api/risk/settings  { "max_single_order_thb": "500" }
    ```
-   Must be `> bitkub_min_order_thb` and `<= 1,000,000`. Start small.
+   Must be `> bitkub_min_order_thb` and `<= 1,000` (the hard cap). Start small.
 4. **Check the gates are ready:**
    ```
    GET /api/execution/mode
@@ -59,7 +59,7 @@ The request is **rejected** (and stays paper) unless ALL of:
 - the confirmation token matches exactly,
 - `data/KILL_SWITCH` does not exist,
 - the circuit breaker is closed,
-- `max_single_order_thb` is `> 0`, `>= bitkub_min_order_thb`, and `<= 1,000,000` (hard cap).
+- `max_single_order_thb` is `> 0`, `>= bitkub_min_order_thb`, and `<= 1,000` (hard cap).
 
 On success the response shows `"mode": "live"` and `"all_gates_open": true`.
 
@@ -134,7 +134,7 @@ to paper automatically.
 | "treasury veto" in logs | halted / underfunded / floor breach | check daily loss; reset breaker if appropriate |
 | Orders bounce on exchange | per-order cap below `bitkub_min_order_thb` | raise `max_single_order_thb` |
 | Account shows unverified | reconciliation hasn't succeeded | check API keys + connectivity; live stays disarmed (safe) |
-| Cannot arm: "exceeds the hard ceiling" | cap > 1,000,000 THB | lower `max_single_order_thb` (the code ceiling cannot be raised at runtime) |
+| Cannot arm: "exceeds the hard ceiling" | cap > 1,000 THB | lower `max_single_order_thb` (the code ceiling cannot be raised at runtime) |
 
 ---
 

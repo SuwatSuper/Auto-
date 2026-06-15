@@ -71,6 +71,12 @@ class _LiveTradingMixin(_RuntimeBase):
         gw = getattr(gate, "_rest_gateway", None) if gate is not None else None
         if gw is None or not hasattr(gw, "place_bid"):
             return False
+        # T5: hard ceiling at the manual money-spending boundary — reject, never trim.
+        from orchestration.control import order_over_hard_cap  # noqa: PLC0415
+        over = order_over_hard_cap(spec["amount"])
+        if over is not None:
+            self.logger.critical("runtime.manual_live_bid_hard_cap_reject", reason=over)
+            return False
         try:
             await gw.place_bid(
                 spec["symbol"], spec["amount"], spec["rate"], spec.get("typ", "market")

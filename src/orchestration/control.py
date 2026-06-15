@@ -25,14 +25,35 @@ _INT_FIELDS: dict[str, tuple[int, int]] = {
     "max_consecutive_losses": (0, 1_000_000),
     "max_open_positions": (1, 50),
 }
-# ── Hard-coded real-money ceilings (defense-in-depth, B1) ──────────────────
+# ── Hard-coded real-money ceilings (defense-in-depth, B1/T5) ───────────────
 # Absolute caps enforced IN CODE. No operator setting may exceed them, so a
 # fat-finger on the dashboard or a config bug can never authorise an unbounded
 # real order. Operators set their own (lower) caps within these ceilings; the
-# live order builder also clamps to HARD_CAP_SINGLE_ORDER_THB at the point of
-# spending real money (see runtime_live._build_live_order).
-HARD_CAP_SINGLE_ORDER_THB = Decimal("1000000")   # 1,000,000 THB per single order
-HARD_CAP_DEPLOYABLE_THB = Decimal("5000000")     # 5,000,000 THB total deployable
+# live order placement boundary (execution_agent._route_live /
+# runtime._place_manual_live_bid) REJECTS + logs CRITICAL any BUY notional above
+# HARD_CAP_SINGLE_ORDER_THB — it is never silently trimmed.
+# Owner-set value (D2): 1,000 THB per order.
+HARD_CAP_SINGLE_ORDER_THB = Decimal("1000")     # 1,000 THB per single order
+HARD_CAP_DEPLOYABLE_THB = Decimal("10000")      # 10,000 THB total deployable
+
+
+def order_over_hard_cap(notional_thb: object) -> str | None:
+    """Return a CRITICAL rejection reason when a live BUY notional (THB) exceeds
+    the hard per-order ceiling, else None.
+
+    Enforced at the order-placement boundary so a real order can never exceed the
+    ceiling — even if config/sizing somehow produced one. Protective EXITS are
+    never gated here (you must always be able to close a position)."""
+    try:
+        value = Decimal(str(notional_thb))
+    except (InvalidOperation, ValueError):
+        return f"unparseable order notional {notional_thb!r} — rejected"
+    if value > HARD_CAP_SINGLE_ORDER_THB:
+        return (
+            f"order notional {value} THB exceeds hard cap "
+            f"{HARD_CAP_SINGLE_ORDER_THB} THB — rejected"
+        )
+    return None
 
 _THB_FIELDS: dict[str, tuple[Decimal, Decimal]] = {
     # field -> (minimum >=, maximum <= hard cap)
