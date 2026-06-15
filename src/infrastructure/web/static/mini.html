@@ -189,6 +189,14 @@ const baht = (v) => '฿' + num(v).toLocaleString('en-US',{minimumFractionDigits
 const signed = (v) => (num(v)>=0?'+':'') + baht(v);
 function setCls(el,v){ if(!el)return; el.classList.remove('pos','neg'); el.classList.add(num(v)>=0?'pos':'neg'); }
 function errOf(r){ const d=r&&r.data; if(d&&d.detail) return typeof d.detail==='string'?d.detail:JSON.stringify(d.detail); if(d&&d.error)return d.error; return 'HTTP '+(r?r.status:'?'); }
+/* Translate the strict-auth errors into something actionable (the #1 confusion:
+   the dashboard control key is NOT the Bitkub key). */
+function authMsg(r){
+  const e=(errOf(r)||'').toLowerCase();
+  if(e.includes('x-api-key')||e.includes('locked')||e.includes('login not configured')||(r&&r.status===401))
+    return '🔑 ต้องมี “สิทธิ์ควบคุม” ก่อน: ตั้ง DASHBOARD_API_KEY=อะไรก็ได้ ใน .env แล้วรีสตาร์ทเซิร์ฟเวอร์ + รีเฟรชหน้า (Ctrl+F5) · นี่คนละตัวกับ Bitkub key — ถ้าใส่ BITKUB key ใน .env แล้ว บัญชีจะต่อให้เองโดยไม่ต้องกดปุ่มนี้';
+  return 'ล้มเหลว: '+errOf(r);
+}
 
 /* ── chart state ── */
 let PRICES = [];          // {t, p}
@@ -329,20 +337,21 @@ function connectWS(){
 function st(id,msg,kind){ const el=$(id); if(el){ el.textContent=msg; el.className='st '+(kind||''); } }
 function wire(){
   $('c-connect').onclick=async()=>{
+    if(!apiKey()){ st('c-acct','⚠️ ปุ่มนี้ต้องมี “สิทธิ์ควบคุม” ก่อน — ตั้ง DASHBOARD_API_KEY ใน .env แล้วรีเฟรช (Ctrl+F5) · ถ้าใส่ BITKUB_API_KEY/SECRET ใน .env แล้ว ระบบต่อบัญชีให้อัตโนมัติ ไม่ต้องกดปุ่มนี้','err'); return; }
     const api_key=($('c-key').value||'').trim(), api_secret=($('c-secret').value||'').trim();
     if(!api_key||!api_secret){ st('c-acct','กรอกทั้ง key และ secret','err'); return; }
     st('c-acct','กำลังเชื่อมต่อ…');
     const r=await apiPost('/api/credentials',{api_key,api_secret});
     if(r.ok){ const d=r.data||{};
-      st('c-acct', d.verified?('เชื่อม + อ่าน wallet สำเร็จ ✅'):('บันทึก key แล้วแต่อ่าน wallet ไม่ได้: '+(d.error||'?')), d.verified?'ok':'err');
+      st('c-acct', d.verified?('เชื่อม + อ่าน wallet สำเร็จ ✅'):('บันทึก key แล้วแต่อ่าน wallet ไม่ได้: '+(d.error||'?')+' — เช็กสิทธิ์อ่าน wallet + IP whitelist ที่ Bitkub'), d.verified?'ok':'err');
       $('c-secret').value=''; loadStatus();
-    } else st('c-acct','ล้มเหลว: '+errOf(r),'err');
+    } else st('c-acct', authMsg(r), 'err');
   };
   $('c-login').onclick=async()=>{
     const r=await apiPost('/api/login',{password:$('c-pass').value||''});
     if(r.ok&&r.data&&r.data.token){ const m=document.querySelector('meta[name="api-key"]'); if(m)m.content=r.data.token;
       st('c-login-st','เข้าสู่ระบบสำเร็จ ✅ ได้สิทธิ์ควบคุมแล้ว','ok'); $('c-pass').value=''; }
-    else st('c-login-st',errOf(r),'err');
+    else st('c-login-st', authMsg(r), 'err');
   };
   $('c-start').onclick=async()=>{ const r=await apiPost('/api/agents/start_all'); st('c-ctl-st',r.ok?'เริ่มแล้ว ✅':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
   $('c-stop').onclick=async()=>{ const r=await apiPost('/api/agents/stop_all'); st('c-ctl-st',r.ok?'หยุดแล้ว':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
@@ -353,6 +362,9 @@ function wire(){
 /* ── boot ── */
 async function boot(){
   wire();
+  if(!apiKey()){
+    st('c-acct','ℹ️ ยังไม่ได้ตั้ง DASHBOARD_API_KEY ใน .env → ปุ่มเชื่อม/ควบคุมจะใช้ไม่ได้ (ตั้งแล้วรีสตาร์ท+รีเฟรช) · ถ้าใส่ BITKUB key ใน .env แล้ว บัญชีจริงจะต่อให้อัตโนมัติ ดูสถานะที่การ์ด “บัญชีจริง” ด้านบน');
+  }
   const h=await apiGet('/api/prices/history');
   if(h.ok&&h.data&&Array.isArray(h.data.prices)) h.data.prices.forEach(d=>pushPrice(num(d.ts_ms),d.price));
   await loadStatus(); await loadTrades(); drawChart(); connectWS();
