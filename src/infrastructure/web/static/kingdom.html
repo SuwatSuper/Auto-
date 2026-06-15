@@ -2509,6 +2509,20 @@ html, body {
             <div id="cmd-capital-status" class="cmd-status">—</div>
           </div>
 
+          <!-- 2c) Daily profit target (5%/day engine) -->
+          <div class="settings-group" style="padding:12px;">
+            <div class="sr-label" style="margin-bottom:8px;">🎯 เป้ากำไรวันนี้: <span id="cmd-daily-headline" style="font-weight:800;">—</span></div>
+            <div style="background:rgba(255,255,255,.08);border-radius:6px;height:12px;overflow:hidden;margin:6px 0;">
+              <div id="cmd-daily-bar" style="height:100%;width:0%;background:#36d07f;transition:width .4s;"></div>
+            </div>
+            <div id="cmd-daily-state" class="cmd-status" style="margin-bottom:8px;">—</div>
+            <div class="cmd-grid2">
+              <label class="cmd-lab">เป้า %/วัน<input id="cmd-daily-target" class="cmd-input sm" /></label>
+            </div>
+            <button id="cmd-daily-apply" class="cmd-btn cmd-btn-blue">บันทึกเป้า / Apply</button>
+            <div class="sr-desc" style="margin-top:4px;">ถึงเป้า = ล็อกกำไร หยุดเปิดไม้ใหม่ของวัน (เลขจริงจาก ledger สุทธิหลังค่าธรรมเนียม)</div>
+          </div>
+
           <!-- 3) Risk settings -->
           <div class="settings-group" style="padding:12px;">
             <div class="sr-label" style="margin-bottom:8px;">⚖️ ตั้งค่าความเสี่ยง (มีผลกับเทรดถัดไป)</div>
@@ -4850,6 +4864,18 @@ async function cmdLoadState() {
     }
     const cap = $('cmd-initial-capital');
     if (cap && d.initial_capital != null && document.activeElement !== cap) cap.value = d.initial_capital;
+    if (d.daily) {
+      const dy = d.daily;
+      const pct = Number(dy.profit_pct_today ?? 0), tgt = Number(dy.target_profit_pct ?? 5);
+      const hl = $('cmd-daily-headline');
+      if (hl) { hl.textContent = `${pct.toFixed(2)}% / เป้า ${tgt.toFixed(1)}%`; hl.style.color = pct < 0 ? 'var(--accent-red)' : (dy.target_reached ? '#36d07f' : 'var(--accent-blue)'); }
+      const bar = $('cmd-daily-bar');
+      if (bar) { const frac = tgt > 0 ? Math.max(0, Math.min(100, pct / tgt * 100)) : 0; bar.style.width = frac + '%'; bar.style.background = pct < 0 ? 'var(--accent-red)' : '#36d07f'; }
+      const ste = $('cmd-daily-state');
+      if (ste) ste.textContent = dy.target_reached ? '✅ ถึงเป้าแล้ว — ล็อกกำไร หยุดเปิดไม้ใหม่' : (pct < 0 ? '🔻 วันนี้ติดลบ — กำลังไล่เป้า' : '🎯 กำลังไล่เป้า') + ` · ไม้วันนี้ ${dy.trades_today ?? 0}`;
+      const dt = $('cmd-daily-target');
+      if (dt && dy.target_profit_pct != null && document.activeElement !== dt) dt.value = dy.target_profit_pct;
+    }
     const banner = $('cmd-banner');
     if (banner) banner.textContent = `โหมด: ${(d.execution_mode && d.execution_mode.mode || 'paper').toUpperCase()} · พอร์ต: single pair (THB_BTC)`;
   } else {
@@ -4933,6 +4959,15 @@ function initCommandRoom() {
     const res = await cmdSend('/api/kill_switch', 'POST', { on: false });
     cmdSetStatus('cmd-kill-status', res.ok ? 'KILL ปิดแล้ว' : ('ล้มเหลว: ' + cmdErr(res)), res.ok ? 'ok' : 'err');
     cmdLoadState();
+  });
+
+  on('cmd-daily-apply', async () => {
+    const v = ($('cmd-daily-target')?.value || '').trim();
+    const res = await cmdSend('/api/settings/daily_target', 'POST', { target_pct: v });
+    cmdSetStatus('cmd-daily-state',
+      res.ok ? ('ตั้งเป้า ' + (res.data.target_profit_pct || v) + '%/วัน แล้ว ✅') : ('ล้มเหลว: ' + cmdErr(res)),
+      res.ok ? 'ok' : 'err');
+    if (res.ok) cmdLoadState();
   });
 
   on('cmd-capital-apply', async () => {

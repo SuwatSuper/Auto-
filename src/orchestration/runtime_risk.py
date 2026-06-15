@@ -284,6 +284,10 @@ class _RiskControlMixin(_RuntimeBase):
 
     def _persist_capital(self, value: Decimal) -> None:
         """Write INITIAL_CAPITAL into .env, preserving other lines."""
+        self._persist_env_setting("INITIAL_CAPITAL", str(value))
+
+    def _persist_env_setting(self, field: str, value: str) -> None:
+        """Upsert ``FIELD=value`` into .env, preserving other lines."""
         import contextlib  # noqa: PLC0415
         from pathlib import Path  # noqa: PLC0415
 
@@ -291,16 +295,30 @@ class _RiskControlMixin(_RuntimeBase):
         lines = env.read_text(encoding="utf-8").splitlines() if env.exists() else []
         out: list[str] = []
         found = False
+        prefix = field + "="
         for ln in lines:
-            if ln.strip().startswith("INITIAL_CAPITAL="):
-                out.append(f"INITIAL_CAPITAL={value}")
+            if ln.strip().startswith(prefix):
+                out.append(f"{field}={value}")
                 found = True
             else:
                 out.append(ln)
         if not found:
-            out.append(f"INITIAL_CAPITAL={value}")
+            out.append(f"{field}={value}")
         with contextlib.suppress(Exception):
             env.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+    def set_daily_target(self, raw: object) -> tuple[bool, dict[str, object]]:
+        """Phase 3: set the daily profit target % live (0..100), persisted."""
+        try:
+            value = Decimal(str(raw))
+        except (InvalidOperation, ValueError):
+            return False, {"error": f"daily target: not a number ({raw!r})"}
+        if value < 0 or value > 100:
+            return False, {"error": "daily_profit_target_pct must be 0..100"}
+        self._target_daily_profit_pct = value
+        self._persist_env_setting("TARGET_DAILY_PROFIT_PCT", str(value))
+        self._record_control("daily_target", {"target_pct": str(value)})
+        return True, {"target_profit_pct": str(value)}
 
     def kill_switch_on(self) -> bool:
         """T4: True when the data/KILL_SWITCH file is present (blocks live)."""

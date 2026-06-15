@@ -158,6 +158,21 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
             raise HTTPException(status_code=400, detail="body needs {on: bool}")
         return {"ok": True, **runtime.set_kill_switch(bool(body["on"]))}
 
+    @app.post("/api/settings/daily_target")
+    async def post_daily_target(request: Request) -> dict[str, object]:
+        """Phase 3: set the daily profit target % (e.g. 5.0) live."""
+        check_api_key(request, runtime)
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid JSON body") from None
+        if not isinstance(body, dict) or "target_pct" not in body:
+            raise HTTPException(status_code=400, detail="body needs {target_pct}")
+        ok, payload = runtime.set_daily_target(body["target_pct"])
+        if not ok:
+            raise HTTPException(status_code=400, detail=payload.get("error", "invalid"))
+        return {"ok": True, **payload}
+
     @app.post("/api/breaker/trip")
     async def post_breaker_trip(request: Request) -> dict[str, object]:
         check_api_key(request, runtime)
