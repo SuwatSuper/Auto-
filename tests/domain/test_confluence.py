@@ -60,6 +60,34 @@ def test_low_confidence_blocked() -> None:
     assert EntryReason.LOW_CONFIDENCE in d.reasons
 
 
+def test_book_imbalance_veto_off_by_default() -> None:
+    # Even an extremely offered book does not block when the veto is off.
+    d = evaluate_entry(_inp(book_imbalance=D("-0.9")), P)
+    assert d.approved and EntryReason.BOOK_IMBALANCE_OPPOSED not in d.reasons
+
+
+def test_book_imbalance_vetoes_buy_into_offered_book() -> None:
+    params = GateParams(min_p_win=D("0.80"), min_confidence=D("0.50"), min_samples=20,
+                        book_imbalance_veto=True, min_book_imbalance=D("0.40"))
+    d = evaluate_entry(_inp(book_imbalance=D("-0.5")), params)
+    assert not d.approved and EntryReason.BOOK_IMBALANCE_OPPOSED in d.reasons
+
+
+def test_book_imbalance_allows_buy_into_bid_pressure() -> None:
+    params = GateParams(min_p_win=D("0.80"), min_confidence=D("0.50"), min_samples=20,
+                        book_imbalance_veto=True, min_book_imbalance=D("0.40"))
+    d = evaluate_entry(_inp(book_imbalance=D("0.5")), params)
+    assert d.approved and EntryReason.BOOK_IMBALANCE_OPPOSED not in d.reasons
+
+
+def test_book_imbalance_vetoes_sell_into_bid_book() -> None:
+    params = GateParams(min_p_win=D("0.80"), min_confidence=D("0.50"), min_samples=20,
+                        book_imbalance_veto=True, min_book_imbalance=D("0.40"))
+    d = evaluate_entry(
+        _inp(signal_action=SignalAction.SELL, regime="TREND_DOWN", book_imbalance=D("0.6")), params)
+    assert EntryReason.BOOK_IMBALANCE_OPPOSED in d.reasons
+
+
 def test_all_reasons_reported_together() -> None:
     d = evaluate_entry(
         _inp(signal_action=SignalAction.HOLD, signal_confidence=D("0.1"),

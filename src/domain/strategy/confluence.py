@@ -29,6 +29,7 @@ class EntryReason(StrEnum):
     TREND_DISAGREE = "TREND_DISAGREE"
     P_WIN_BELOW_MIN = "P_WIN_BELOW_MIN"
     SAMPLE_TOO_SMALL = "SAMPLE_TOO_SMALL"
+    BOOK_IMBALANCE_OPPOSED = "BOOK_IMBALANCE_OPPOSED"
 
 
 class GateParams(BaseModel, frozen=True):
@@ -47,6 +48,13 @@ class GateParams(BaseModel, frozen=True):
     # but the runtime can turn it OFF for an active profile that also dip-buys
     # (mean-reversion entries legitimately fire in mild down-trends).
     block_regime_mismatch: bool = True
+    # U1 microstructure: veto a BUY into a heavily-offered book (or a SELL into a
+    # heavily-bid book). OFF by default — a soft confirm the runtime opts into
+    # only when a live depth feed is wired, so price-only setups are unaffected.
+    book_imbalance_veto: bool = False
+    # How lopsided the book must be (against the side) to veto, in [0, 1].
+    # 0.40 = the opposing side holds ≥70% of the top-of-book size.
+    min_book_imbalance: Decimal = Decimal("0.40")
 
 
 class EntryInputs(BaseModel, frozen=True):
@@ -59,6 +67,9 @@ class EntryInputs(BaseModel, frozen=True):
     p_win: Decimal = Decimal("0")    # estimated win probability 0..1
     p_win_samples: int = 0           # how many setups p_win was measured over
     trend_agree: bool = True         # does the broader trend agree with the side?
+    # U1: order-book imbalance in [-1, +1] (+ = resting bid pressure). 0 = no
+    # book read available (one-sided/empty/warming-up) → never vetoes.
+    book_imbalance: Decimal = Decimal("0")
 
 
 class EntryDecision(BaseModel, frozen=True):
@@ -98,6 +109,16 @@ def evaluate_entry(inputs: EntryInputs, params: GateParams) -> EntryDecision:
 
     if params.require_trend_agree and not inputs.trend_agree:
         reasons.append(EntryReason.TREND_DISAGREE)
+
+    # U1 microstructure veto — a BUY into a book dominated by offers (negative
+    # imbalance) or a SELL into a book dominated by bids is fighting the resting
+    # order flow. Only enforced when the runtime has a live depth feed wired.
+    if params.book_imbalance_veto and params.min_book_imbalance > 0:
+        threshold = params.min_book_imbalance
+        if inputs.signal_action == SignalAction.BUY and inputs.book_imbalance <= -threshold:
+            reasons.append(EntryReason.BOOK_IMBALANCE_OPPOSED)
+        if inputs.signal_action == SignalAction.SELL and inputs.book_imbalance >= threshold:
+            reasons.append(EntryReason.BOOK_IMBALANCE_OPPOSED)
 
     # Win-probability floor — the headline "only fire at ≥X%" rule. Requires a
     # trustworthy sample first (never fire on a number measured from too little).
