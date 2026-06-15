@@ -60,15 +60,16 @@ exclude = ["src/pandas_ta/"]
 module = "pandas_ta.*"
 ignore_errors = true
 
+# Single source of truth for pytest (pytest.ini was removed).
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-addopts = "--cov=src --cov-report=term-missing --cov-fail-under=60"
+addopts = "--cov=src --cov-report=term-missing --cov-fail-under=90"
 filterwarnings = [
     "error::RuntimeWarning",
+    "error::DeprecationWarning",
     "ignore::DeprecationWarning:websockets.*",
-    "ignore::DeprecationWarning",
     "ignore::pandas.errors.Pandas4Warning",
     "ignore::FutureWarning:pandas_ta.*",
 ]
