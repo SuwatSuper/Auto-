@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Anime Bitcoin Operations Center</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="market-unknown">
+
+<!-- ═══════════════════════════════════════════════════════════
+     5.1  HEADER BAR
+═══════════════════════════════════════════════════════════ -->
+<header id="main-header">
+  <div class="header-left">
+    <div class="logo-block">
+      <span class="logo-icon">⚡</span>
+      <div>
+        <div class="logo-title" data-i18n="title">Anime Bitcoin Ops Center</div>
+        <div class="logo-sub" data-i18n="subtitle">BTC/THB Trading System</div>
+      </div>
+    </div>
+    <div class="header-meta-row">
+      <div class="header-meta-item">Mode: <span class="header-meta-val" id="sys-mode">—</span></div>
+      <div class="header-meta-item">Up: <span class="header-meta-val" id="sys-uptime">—</span></div>
+    </div>
+  </div>
+
+  <div class="header-center">
+    <div class="price-mega">
+      <span class="price-arrow" id="price-arrow">—</span>
+      <span class="price-value" id="price-display">—</span>
+      <span class="price-unit">THB</span>
+    </div>
+    <div class="price-meta" id="price-meta">Awaiting data…</div>
+  </div>
+
+  <div class="header-right">
+    <div class="conn-badge">
+      <span class="led led-red" id="conn-led"></span>
+      <span class="conn-text" id="conn-text" data-i18n="disconnected">Disconnected</span>
+    </div>
+    <div class="market-mode-badge" id="market-mode-badge">UNKNOWN</div>
+    <button class="lang-btn" id="lang-toggle">TH</button>
+    <button class="mode-btn-sm live-btn active" data-mode="live" data-i18n="live">LIVE</button>
+    <button class="btn-stop" id="emergency-stop" data-i18n="emergency_stop">🛑 EMERGENCY STOP</button>
+    <button class="btn-reset hidden" id="emergency-reset" data-i18n="emergency_reset">↩ RESET</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     5.1  MAIN GRID LAYOUT
+═══════════════════════════════════════════════════════════ -->
+<main id="ops-grid">
+
+  <!-- ══════════════════════════════════════════════════════
+       LEFT COLUMN — FACTORY FLOOR (5.2 Chibi Agents)
+  ══════════════════════════════════════════════════════ -->
+  <section id="factory-floor">
+    <div class="section-header">
+      <span class="section-icon">🏭</span>
+      <span data-i18n="factory_floor">Operations Factory Floor</span>
+      <div class="floor-controls">
+        <button id="start-all" class="btn-xs btn-green" data-i18n="start_all">▶ Start All</button>
+        <button id="stop-all"  class="btn-xs btn-yellow" data-i18n="stop_all">■ Stop All</button>
+      </div>
+    </div>
+
+    <!-- Chibi zones injected by app.js -->
+    <div id="agent-grid"></div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       RIGHT COLUMN — SIDE PANELS
+  ══════════════════════════════════════════════════════ -->
+  <aside id="side-panels">
+
+    <!-- 5.6 Price Chart -->
+    <div class="panel" id="panel-chart">
+      <div class="panel-title" data-i18n="price_chart">📈 Price Chart (Last 100)</div>
+      <div style="position:relative;height:110px;width:100%">
+        <canvas id="price-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- 5.7 Portfolio -->
+    <div class="panel" id="panel-portfolio">
+      <div class="panel-title" data-i18n="portfolio">💼 Portfolio</div>
+      <div class="portfolio-grid">
+        <div class="port-item">
+          <div class="port-label" data-i18n="equity">Equity</div>
+          <div class="port-value equity-value" id="port-equity">฿ —</div>
+        </div>
+        <div class="port-item">
+          <div class="port-label" data-i18n="pnl_today">PnL Today</div>
+          <div class="port-value" id="port-pnl">—</div>
+        </div>
+        <div class="port-item">
+          <div class="port-label" data-i18n="open_positions">Positions</div>
+          <div class="port-value" id="port-positions">0</div>
+        </div>
+        <div class="port-item">
+          <div class="port-label" data-i18n="win_rate">Win Rate</div>
+          <div class="port-value" id="port-winrate">—%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5.8 Risk Gauges -->
+    <div class="panel" id="panel-risk">
+      <div class="panel-title" data-i18n="risk_gauges">🛡️ Risk Gauges</div>
+      <div class="gauge-row">
+        <div class="gauge-item">
+          <div class="gauge-label" data-i18n="daily_loss">Daily Loss</div>
+          <div class="gauge-track">
+            <div class="gauge-fill gauge-loss" id="gauge-daily-loss" style="width:0%"></div>
+          </div>
+          <div class="gauge-pct" id="gauge-daily-loss-pct">0%</div>
+        </div>
+        <div class="gauge-item">
+          <div class="gauge-label" data-i18n="drawdown">Drawdown</div>
+          <div class="gauge-track">
+            <div class="gauge-fill gauge-draw" id="gauge-drawdown" style="width:0%"></div>
+          </div>
+          <div class="gauge-pct" id="gauge-drawdown-pct">0%</div>
+        </div>
+        <div class="gauge-item">
+          <div class="gauge-label" data-i18n="kill_switch">Kill Switch</div>
+          <div class="kill-indicator" id="kill-indicator">
+            <span id="kill-text">SAFE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5.5 Gamification -->
+    <div class="panel" id="panel-gamification">
+      <div class="panel-title" data-i18n="commander_rank">👑 Commander Rank</div>
+      <div class="game-layout">
+        <div class="level-block">
+          <div class="level-label" data-i18n="level">LVL</div>
+          <div class="level-num" id="game-level">1</div>
+        </div>
+        <div class="xp-block">
+          <div class="xp-label">XP <span id="game-xp">0</span> / <span id="game-xp-max">100</span></div>
+          <div class="xp-track">
+            <div class="xp-fill" id="xp-fill" style="width:0%"></div>
+          </div>
+          <div class="streak-row">
+            <span data-i18n="streak">Streak:</span>
+            <span id="game-streak" class="streak-val">0</span>
+            <span id="streak-fire"></span>
+          </div>
+          <div class="trade-count">
+            <span data-i18n="trades">Trades:</span>
+            <span id="game-trades">0</span>
+          </div>
+        </div>
+      </div>
+      <div class="achievements-row" id="achievements-row">
+        <!-- badges injected by app.js -->
+      </div>
+    </div>
+
+    <!-- 5.9 Live Event Feed -->
+    <div class="panel panel-events" id="panel-events">
+      <div class="panel-title">
+        <span data-i18n="event_feed">📡 Live Event Feed</span>
+        <button id="clear-log" class="btn-xs" data-i18n="clear">Clear</button>
+      </div>
+      <div id="event-feed" class="event-console"></div>
+    </div>
+
+  </aside>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
