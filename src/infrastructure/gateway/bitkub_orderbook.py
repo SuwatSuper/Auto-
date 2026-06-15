@@ -13,12 +13,13 @@ can never starve the price feed or trip Bitkub's limits.
 """
 from __future__ import annotations
 
+import contextlib
 import time
 from decimal import Decimal
 
 import httpx
 
-from domain.analytics.microstructure import OrderBook, parse_depth
+from domain.analytics.microstructure import OrderBook, order_book_imbalance, parse_depth
 from infrastructure.gateway.rate_limiter import TokenBucket
 
 
@@ -60,8 +61,6 @@ class BitkubOrderBookFeed:
 
     def imbalance(self, levels: int = 10) -> Decimal:
         """Convenience: top-of-book imbalance of the cached snapshot."""
-        from domain.analytics.microstructure import order_book_imbalance  # noqa: PLC0415
-
         return order_book_imbalance(self._book, levels)
 
     async def snapshot(self) -> OrderBook:
@@ -92,7 +91,5 @@ class BitkubOrderBookFeed:
             self.last_error = f"{type(exc).__name__}: {exc}"
         finally:
             if owns:
-                import contextlib  # noqa: PLC0415
-
                 with contextlib.suppress(Exception):
                     await client.aclose()

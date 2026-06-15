@@ -27,6 +27,7 @@ from orchestration.ports.price_feed import PriceFeed
 from orchestration.ports.state_store import StateStore
 from orchestration.runtime_agents import _AgentsMixin
 from orchestration.runtime_base import (
+    _TOPIC_PAPER_EVENTS,
     AgentLike,
     NewsSource,
     Notifier,
@@ -99,6 +100,10 @@ class PipelineRuntime(
         self._coach_task: asyncio.Task[None] | None = None
         self._news_task: asyncio.Task[None] | None = None
         self._memory_task: asyncio.Task[None] | None = None
+        # Trade-recording background task (writes data/trades_*.csv — the owner's
+        # ground-truth ledger and the ML win-prob loop's training source).
+        self._trade_csv: object | None = None
+        self._trade_csv_task: asyncio.Task[None] | None = None
         self._news_source: NewsSource | None = None  # NewsRssFeed (injectable for tests)
         self.last_news: dict[str, object] = {}
         self.restart_counts: dict[str, int] = {}
@@ -249,6 +254,18 @@ class PipelineRuntime(
         self._memory_task = asyncio.create_task(self._memory_loop())
         if bool(getattr(self.settings, "news_enabled", True)):
             self._news_task = asyncio.create_task(self._news_loop())
+        # Record every closed paper trade to data/trades_*.csv (provenance ledger
+        # + ML training source). Gated on persist_state so ephemeral test runtimes
+        # don't litter the working tree; on by default in production.
+        if bool(getattr(self.settings, "persist_state", True)):
+            from pathlib import Path  # noqa: PLC0415
+
+            from infrastructure.logging.trade_csv import TradeCsvLogger  # noqa: PLC0415
+
+            data_dir = Path(str(getattr(self.settings, "state_db_path", "data/state.db"))).parent
+            recorder = TradeCsvLogger(self._ensure_bus(), _TOPIC_PAPER_EVENTS, log_dir=data_dir)
+            self._trade_csv = recorder
+            self._trade_csv_task = asyncio.create_task(recorder.start())
 
     async def stop(self) -> None:
         """Stop all agents, supervisor, and background tasks."""
@@ -268,6 +285,12 @@ class PipelineRuntime(
             self._memory_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._memory_task
+        if self._trade_csv is not None and hasattr(self._trade_csv, "stop"):
+            await self._trade_csv.stop()
+        if self._trade_csv_task and not self._trade_csv_task.done():
+            self._trade_csv_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._trade_csv_task
         # Final memory flush on shutdown / closing the app (กดกากบาทออก) so every
         # agent remembers tomorrow what it got wrong and what it changed.
         await self._persist_memories()
