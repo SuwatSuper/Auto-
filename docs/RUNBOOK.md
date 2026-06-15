@@ -31,3 +31,8 @@ GET /api/status — returns current mode, uptime, latency, agents.
   Rotate by editing .env and restarting. Empty key = guard off (dev only).
 - EMERGENCY STOP halts feed+agents; RESET clears the flag only — press Start All
   or switch mode to resume (by design, B2).
+
+## Going live with real money
+See **[LIVE_TRADING_RUNBOOK.md](LIVE_TRADING_RUNBOOK.md)** for the full operator
+runbook: pre-flight checklist, the hard-coded real-money caps, arming the 4 live
+gates, monitoring, and emergency / rollback procedures.

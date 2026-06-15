@@ -247,10 +247,16 @@ class _LiveTradingMixin(_RuntimeBase):
             # Apply the per-order THB cap on QTY (not notional) so the real
             # order and its paper mirror — which caps qty identically — end up
             # the same size. No divergence when the cap is active.
+            # B1: the effective cap can NEVER exceed the hard-coded ceiling, even
+            # if _max_single_order_thb was set higher by a bug or direct mutation
+            # — the real order is clamped at the point of spending real money.
+            from orchestration.control import HARD_CAP_SINGLE_ORDER_THB  # noqa: PLC0415
             cap = self._max_single_order_thb
-            if cap > 0 and entry > 0 and qty * entry > cap:
-                from decimal import ROUND_DOWN  # noqa: PLC0415
-                qty = (cap / entry).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+            if cap > 0:
+                cap = min(cap, HARD_CAP_SINGLE_ORDER_THB)
+                if entry > 0 and qty * entry > cap:
+                    from decimal import ROUND_DOWN  # noqa: PLC0415
+                    qty = (cap / entry).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
             if qty <= 0:
                 return None
             notional = qty * mark

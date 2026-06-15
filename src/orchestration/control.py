@@ -25,10 +25,19 @@ _INT_FIELDS: dict[str, tuple[int, int]] = {
     "max_consecutive_losses": (0, 1_000_000),
     "max_open_positions": (1, 50),
 }
-_THB_FIELDS: dict[str, Decimal] = {
-    # field -> minimum (>=); unbounded above
-    "max_deployable_thb": Decimal("0"),
-    "max_single_order_thb": Decimal("0"),
+# ── Hard-coded real-money ceilings (defense-in-depth, B1) ──────────────────
+# Absolute caps enforced IN CODE. No operator setting may exceed them, so a
+# fat-finger on the dashboard or a config bug can never authorise an unbounded
+# real order. Operators set their own (lower) caps within these ceilings; the
+# live order builder also clamps to HARD_CAP_SINGLE_ORDER_THB at the point of
+# spending real money (see runtime_live._build_live_order).
+HARD_CAP_SINGLE_ORDER_THB = Decimal("1000000")   # 1,000,000 THB per single order
+HARD_CAP_DEPLOYABLE_THB = Decimal("5000000")     # 5,000,000 THB total deployable
+
+_THB_FIELDS: dict[str, tuple[Decimal, Decimal]] = {
+    # field -> (minimum >=, maximum <= hard cap)
+    "max_deployable_thb": (Decimal("0"), HARD_CAP_DEPLOYABLE_THB),
+    "max_single_order_thb": (Decimal("0"), HARD_CAP_SINGLE_ORDER_THB),
 }
 # Fraction fields (0..1). min_p_win is the win-probability gate the operator can
 # relax/tighten live — lower → more trades, higher → fewer/stronger entries.
@@ -116,12 +125,17 @@ def validate_risk_settings(
         else:
             out[name] = iv
 
-    for name, tmin in _THB_FIELDS.items():
+    for name, (tmin, tmax) in _THB_FIELDS.items():
         d = _dec(name)
         if d is None:
             continue
         if d < tmin:
             errors.append(f"{name}: must be >= {tmin} (got {d})")
+        elif d > tmax:
+            errors.append(
+                f"{name}: exceeds the hard cap {tmax} (got {d}) — "
+                "real-money ceiling enforced in code"
+            )
         else:
             out[name] = d
 

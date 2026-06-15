@@ -249,6 +249,17 @@ class _RiskControlMixin(_RuntimeBase):
                 ),
                 "field": "max_single_order_thb",
             }
+        # B1: never arm live above the hard-coded real-money ceiling.
+        from orchestration.control import HARD_CAP_SINGLE_ORDER_THB  # noqa: PLC0415
+        if self._max_single_order_thb > HARD_CAP_SINGLE_ORDER_THB:
+            return False, {
+                "error": (
+                    f"per-order cap {self._max_single_order_thb} exceeds the hard "
+                    f"ceiling {HARD_CAP_SINGLE_ORDER_THB} THB enforced in code — "
+                    "lower it before going live"
+                ),
+                "field": "max_single_order_thb",
+            }
         self.settings.execution_engine = "live"  # type: ignore[attr-defined]
         self.settings.live_trading_confirm = self._LIVE_TOKEN  # type: ignore[attr-defined]
         self._record_control("execution_mode", {"mode": "live"})
