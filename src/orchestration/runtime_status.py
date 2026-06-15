@@ -411,6 +411,33 @@ class _StatusMixin(_RuntimeBase):
             "blocked_total": sum(self._gate_block_reasons.values()),
         }
 
+    def write_daily_summary(self) -> dict[str, object]:
+        """Phase 5: upsert today's row in data/daily_summary.csv — every field
+        derived from the real treasury ledger (net of fees)."""
+        from pathlib import Path  # noqa: PLC0415
+
+        from infrastructure.logging.daily_summary import (  # noqa: PLC0415
+            build_summary_row,
+            upsert_daily_summary,
+        )
+
+        tr = self._treasury
+        if tr is None:
+            return {}
+        open_value = self._trader.open_market_value() if self._trader is not None else Decimal("0")
+        row = build_summary_row(
+            date=tr.day_key,
+            start_equity=self._initial_capital,
+            end_equity=tr.cash + open_value,
+            pnl_net=tr.realized_today,
+            fees_total=tr.fees_today,
+            wins=tr.wins,
+            losses=tr.losses,
+            target_pct=self._target_daily_profit_pct,
+        )
+        upsert_daily_summary(Path("data/daily_summary.csv"), row)
+        return row
+
     def _daily_status(self) -> dict[str, object]:
         """Daily trade-budget + profit-target progress (honest: a target, not a
         promise — the market decides whether it is reached)."""

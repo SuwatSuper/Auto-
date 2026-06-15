@@ -408,6 +408,9 @@ class PipelineRuntime(
                 await asyncio.sleep(60.0)
             except asyncio.CancelledError:
                 break
+            # Phase 5: keep today's daily_summary.csv row fresh (never crashes).
+            with contextlib.suppress(Exception):
+                self.write_daily_summary()
             strat: list[tuple[str, AgentLike, float]] = []
             for name, agent in self.agents.items():
                 learner = self._learner_for(name, agent)

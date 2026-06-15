@@ -61,6 +61,7 @@ class TreasuryAgent:
         self.cash: Decimal = limits.initial_capital
         self.realized_pnl: Decimal = Decimal("0")
         self.realized_today: Decimal = Decimal("0")
+        self.fees_today: Decimal = Decimal("0")  # Phase 5: real fees booked today
         self.day_key: str = self._local_day()
         self.wins: int = 0
         self.losses: int = 0
@@ -151,6 +152,7 @@ class TreasuryAgent:
         self.cash += proceeds
         self.realized_pnl += trade.pnl
         self.realized_today += trade.pnl
+        self.fees_today += trade.entry_fee + trade.exit_fee
         if trade.pnl > 0:
             self.wins += 1
         elif trade.pnl < 0:
@@ -249,6 +251,7 @@ class TreasuryAgent:
         if today != self.day_key:
             self.day_key = today
             self.realized_today = Decimal("0")
+            self.fees_today = Decimal("0")
             if self.cash >= self._limits.floor_equity():
                 self.halted = False  # daily halt clears at UTC midnight; floor halt stays
 

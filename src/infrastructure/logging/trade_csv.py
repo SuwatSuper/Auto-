@@ -11,6 +11,7 @@ import asyncio
 import csv
 import time
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import orjson
@@ -27,7 +28,22 @@ _FIELDS = (
     "reason",
     "pnl",
     "cash",
+    # Phase 5 — fee/slippage breakdown + provenance (all from the real trade).
+    "fee_paid",
+    "slippage_cost",
+    "pnl_gross",
+    "pnl_net",
+    "strategy_id",
+    "regime",
+    "win_prob_est",
 )
+
+
+def _dec(value: object, default: str = "0") -> Decimal:
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal(default)
 
 
 class TradeCsvLogger:
@@ -75,6 +91,9 @@ class TradeCsvLogger:
                         "qty": str(event.get("qty", "")),
                         "entry_price": str(event.get("entry", "")),
                         "symbol": str(event.get("symbol", "THB_BTC")),
+                        "strategy_id": str(event.get("strategy_id", "")),
+                        "regime": str(event.get("regime", "")),
+                        "win_prob_est": str(event.get("win_prob_est", "")),
                     }
                 elif kind == "CLOSE":
                     self._append(event)
@@ -96,6 +115,13 @@ class TradeCsvLogger:
         path = self._dir / f"trades_{date_str}.csv"
         write_header = not path.exists()
 
+        # Modeled slippage cost actually applied (both legs), from the real bps.
+        qty = _dec(self._last_fill.get("qty", "0"))
+        entry_p = _dec(self._last_fill.get("entry_price", "0"))
+        exit_p = _dec(event.get("exit", "0"))
+        sbps = _dec(event.get("slippage_bps", "0")) / Decimal("10000")
+        slippage_cost = (qty * entry_p + qty * exit_p) * sbps
+
         with path.open("a", newline="", encoding="utf-8") as fh:
             writer = csv.DictWriter(fh, fieldnames=_FIELDS)
             if write_header:
@@ -111,6 +137,13 @@ class TradeCsvLogger:
                     "reason": str(event.get("reason", "")),
                     "pnl": str(event.get("pnl", "")),
                     "cash": str(event.get("cash", "")),
+                    "fee_paid": str(event.get("fee_paid", "")),
+                    "slippage_cost": str(slippage_cost),
+                    "pnl_gross": str(event.get("pnl_gross", "")),
+                    "pnl_net": str(event.get("pnl_net", event.get("pnl", ""))),
+                    "strategy_id": self._last_fill.get("strategy_id", ""),
+                    "regime": self._last_fill.get("regime", ""),
+                    "win_prob_est": self._last_fill.get("win_prob_est", ""),
                 }
             )
         self.trades_written += 1

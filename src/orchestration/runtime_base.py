@@ -234,6 +234,9 @@ class _RuntimeBase:
     async def _news_loop(self) -> None:
         raise NotImplementedError
 
+    def write_daily_summary(self) -> dict[str, object]:
+        raise NotImplementedError
+
     async def load_controls(self) -> None:
         raise NotImplementedError
 

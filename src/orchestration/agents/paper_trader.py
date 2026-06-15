@@ -291,10 +291,19 @@ class PaperTraderAgent:
             await self._close(self.mark_price, ExitReason.OPPOSITE_SIGNAL)
             return
         if signal == "BUY" and self.position is None and self.mark_price is not None:
-            await self._open(self.mark_price, is_live=bool(data.get("live_mirror")))
+            # Phase 5 provenance: carry which strategy/regime/win-prob opened it.
+            meta = {
+                "strategy_id": str(data.get("source", "")),
+                "regime": str(data.get("regime", "")),
+                "win_prob_est": str(data.get("win_prob", data.get("p_win", ""))),
+            }
+            await self._open(self.mark_price, is_live=bool(data.get("live_mirror")), meta=meta)
 
     # ── open / close ─────────────────────────────────────────────
-    async def _open(self, signal_price: Decimal, is_live: bool = False) -> None:
+    async def _open(
+        self, signal_price: Decimal, is_live: bool = False,
+        meta: dict[str, str] | None = None,
+    ) -> None:
         p = self._params
         entry = slip_buy(signal_price, p.slippage_bps)
         stop = entry * (Decimal("1") - p.stop_pct / Decimal("100"))
@@ -352,6 +361,9 @@ class PaperTraderAgent:
                 "entry": str(self.position.entry_price),
                 "stop": str(self.position.stop_price),
                 "take_profit": str(self.position.take_profit_price),
+                "strategy_id": (meta or {}).get("strategy_id", ""),
+                "regime": (meta or {}).get("regime", ""),
+                "win_prob_est": (meta or {}).get("win_prob_est", ""),
             },
         )
         await self._save()
@@ -390,13 +402,20 @@ class PaperTraderAgent:
                 self._log.error("paper_trader.live_close_failed", exc_info=True)
         if self._circuit_breaker is not None:
             self._circuit_breaker.record_trade(trade.pnl)
+        fee_paid = trade.entry_fee + trade.exit_fee
         await self._publish_event(
             "CLOSE",
             {
                 "reason": trade.reason.value,
-                "pnl": str(trade.pnl),
+                "pnl": str(trade.pnl),                       # net (after both fees)
                 "exit": str(trade.exit_price),
                 "cash": str(self._treasury.cash),
+                "entry_fee": str(trade.entry_fee),
+                "exit_fee": str(trade.exit_fee),
+                "fee_paid": str(fee_paid),                   # real, both legs
+                "pnl_gross": str(trade.pnl + fee_paid),      # before fees
+                "pnl_net": str(trade.pnl),                   # == target metric
+                "slippage_bps": str(self._params.slippage_bps),
             },
         )
         await self._save()
