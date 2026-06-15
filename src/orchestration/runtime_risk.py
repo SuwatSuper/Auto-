@@ -302,6 +302,26 @@ class _RiskControlMixin(_RuntimeBase):
         with contextlib.suppress(Exception):
             env.write_text("\n".join(out) + "\n", encoding="utf-8")
 
+    def kill_switch_on(self) -> bool:
+        """T4: True when the data/KILL_SWITCH file is present (blocks live)."""
+        from pathlib import Path  # noqa: PLC0415
+
+        return Path("data/KILL_SWITCH").exists()
+
+    def set_kill_switch(self, on: bool) -> dict[str, object]:
+        """T4: create/remove data/KILL_SWITCH — the hardest stop, which blocks
+        arming live across restarts (checked in the live-gate checklist)."""
+        from pathlib import Path  # noqa: PLC0415
+
+        p = Path("data/KILL_SWITCH")
+        if on:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("KILL_SWITCH active — live trading blocked\n", encoding="utf-8")
+        else:
+            p.unlink(missing_ok=True)
+        self._record_control("kill_switch", {"on": on})
+        return {"on": self.kill_switch_on()}
+
     def control_audit(self, limit: int = 100) -> list[dict[str, object]]:
         """Recent operator control actions (who/what/when)."""
         return self._control_audit[-max(1, min(limit, 1000)):]

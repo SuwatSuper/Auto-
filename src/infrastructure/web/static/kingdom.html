@@ -2539,6 +2539,17 @@ html, body {
             <div style="font-size:11px;color:var(--accent-red);margin-top:6px;">⚠ LIVE = ส่งออเดอร์เงินจริง ตั้ง cap/order ต่ำ ๆ ก่อน</div>
           </div>
 
+          <!-- 4b) Kill switch (hardest stop, persists across restart) -->
+          <div class="settings-group" style="padding:12px;">
+            <div class="sr-label" style="margin-bottom:8px;">🔴 KILL SWITCH: <span id="cmd-kill-state" style="font-weight:800;">—</span></div>
+            <div class="sr-desc" style="margin:2px 0 6px;">เปิด = บล็อกการเทรดจริงถาวร (ข้าม restart) จนกว่าจะปิด</div>
+            <div style="display:flex;gap:8px;">
+              <button id="cmd-kill-on" class="cmd-btn cmd-btn-red" style="flex:1;">เปิด KILL (บล็อก live)</button>
+              <button id="cmd-kill-off" class="cmd-btn cmd-btn-gray" style="flex:1;">ปิด KILL</button>
+            </div>
+            <div id="cmd-kill-status" class="cmd-status">—</div>
+          </div>
+
           <!-- 5) Circuit breaker -->
           <div class="settings-group" style="padding:12px;">
             <div class="sr-label" style="margin-bottom:8px;">🛡️ Circuit Breaker: <span id="cmd-breaker-state" style="font-weight:800;">—</span></div>
@@ -4762,6 +4773,11 @@ async function cmdLoadState() {
     cmdSetStatus('cmd-mode-gates',
       `engine ${tick(g.engine_live)} · token ${tick(g.confirm_token)} · kill-switch ${tick(g.kill_switch_clear)} · breaker ${tick(g.breaker_closed)}`);
   }
+  const ks = await cmdGet('/api/kill_switch');
+  if (ks.ok && ks.data) {
+    const el = $('cmd-kill-state');
+    if (el) { el.textContent = ks.data.on ? 'เปิด (บล็อก live)' : 'ปิด (ปกติ)'; el.style.color = ks.data.on ? 'var(--accent-red)' : '#36d07f'; }
+  }
   const st = await cmdGet('/api/status');
   if (st.ok && st.data) {
     const d = st.data;
@@ -4824,6 +4840,17 @@ function initCommandRoom() {
       showToast('Login สำเร็จ');
       cmdLoadState();
     } else { cmdSetStatus('cmd-login-status', cmdErr(res), 'err'); }
+  });
+
+  on('cmd-kill-on', async () => {
+    const res = await cmdSend('/api/kill_switch', 'POST', { on: true });
+    cmdSetStatus('cmd-kill-status', res.ok ? 'KILL เปิดแล้ว — live ถูกบล็อก' : ('ล้มเหลว: ' + cmdErr(res)), res.ok ? 'ok' : 'err');
+    cmdLoadState();
+  });
+  on('cmd-kill-off', async () => {
+    const res = await cmdSend('/api/kill_switch', 'POST', { on: false });
+    cmdSetStatus('cmd-kill-status', res.ok ? 'KILL ปิดแล้ว' : ('ล้มเหลว: ' + cmdErr(res)), res.ok ? 'ok' : 'err');
+    cmdLoadState();
   });
 
   on('cmd-capital-apply', async () => {

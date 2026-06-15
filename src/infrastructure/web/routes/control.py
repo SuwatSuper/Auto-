@@ -106,6 +106,22 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
             raise HTTPException(status_code=400, detail=payload.get("error", "invalid"))
         return {"ok": True, **payload}
 
+    @app.get("/api/kill_switch")
+    async def get_kill_switch(request: Request) -> dict[str, object]:
+        check_api_key(request, runtime)
+        return {"ok": True, "on": runtime.kill_switch_on()}
+
+    @app.post("/api/kill_switch")
+    async def post_kill_switch(request: Request) -> dict[str, object]:
+        check_api_key_strict(request, runtime)  # dangerous: blocks/unblocks live
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid JSON body") from None
+        if not isinstance(body, dict) or "on" not in body:
+            raise HTTPException(status_code=400, detail="body needs {on: bool}")
+        return {"ok": True, **runtime.set_kill_switch(bool(body["on"]))}
+
     @app.post("/api/breaker/trip")
     async def post_breaker_trip(request: Request) -> dict[str, object]:
         check_api_key(request, runtime)
