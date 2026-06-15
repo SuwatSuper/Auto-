@@ -73,3 +73,17 @@ filterwarnings = [
     "ignore::pandas.errors.Pandas4Warning",
     "ignore::FutureWarning:pandas_ta.*",
 ]
+
+[tool.coverage.run]
+# main.py is the uvicorn ASGI entrypoint (production wiring glue, no logic).
+omit = ["src/main.py"]
+
+[tool.coverage.report]
+# Exclude defensively-unreachable / non-runtime lines from the coverage gate.
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "^\\s*\\.\\.\\.\\s*$",
+    "@(typing\\.)?overload",
+]
