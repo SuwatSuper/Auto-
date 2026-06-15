@@ -2,6 +2,7 @@
 """Market regime classification from OHLCV data."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import StrEnum
 
 import pandas as pd
@@ -54,3 +55,50 @@ def classify(
         return MarketRegime.TREND_DOWN
 
     return MarketRegime.RANGE
+
+
+@dataclass(frozen=True)
+class RegimeRead:
+    """A regime call with a [0, 1] confidence and the raw drivers behind it.
+
+    Confidence lets the runtime size its conviction in the regime itself — a
+    barely-trending tape (ADX just over threshold) should switch the playbook
+    less aggressively than an unmistakable one."""
+
+    regime: MarketRegime
+    confidence: float
+    adx: float
+    atr_pct: float
+
+
+def classify_with_confidence(
+    df: pd.DataFrame,
+    adx_trend_threshold: float = 25.0,
+    atr_pct_highvol_threshold: float = 3.0,
+) -> RegimeRead:
+    """Same decision as :func:`classify`, plus a confidence and the drivers.
+
+    Confidence scales with how decisively the deciding metric clears its
+    threshold (ATR/ADX), capped at 1.0. Insufficient history → RANGE at 0.0.
+    """
+    if len(df) < 51:
+        return RegimeRead(MarketRegime.RANGE, 0.0, 0.0, 0.0)
+
+    close = float(df["close"].iloc[-1])
+    atr_val = float(ta.atr(df, length=14).iloc[-1, 0])
+    atr_pct = (atr_val / close * 100) if close > 0 else 0.0
+    adx_val = float(ta.adx(df, length=14).iloc[-1, 0])
+    ema50_val = float(ta.ema(df, length=50).iloc[-1, 0])
+
+    if atr_pct > atr_pct_highvol_threshold:
+        conf = min(1.0, atr_pct / (atr_pct_highvol_threshold * 2))
+        return RegimeRead(MarketRegime.HIGH_VOL, conf, adx_val, atr_pct)
+
+    if adx_val > adx_trend_threshold:
+        conf = min(1.0, (adx_val - adx_trend_threshold) / adx_trend_threshold)
+        regime = MarketRegime.TREND_UP if close > ema50_val else MarketRegime.TREND_DOWN
+        return RegimeRead(regime, conf, adx_val, atr_pct)
+
+    # Ranging: most confident when ADX is far BELOW the trend threshold.
+    conf = min(1.0, (adx_trend_threshold - adx_val) / adx_trend_threshold)
+    return RegimeRead(MarketRegime.RANGE, max(0.0, conf), adx_val, atr_pct)
