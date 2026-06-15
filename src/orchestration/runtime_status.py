@@ -413,9 +413,17 @@ class _StatusMixin(_RuntimeBase):
         }
 
     def _entry_gate_status(self) -> dict[str, object]:
+        tl = self._timeline
+        samples = int(getattr(tl, "p_win_samples", 0)) if tl is not None else 0
+        min_samples = int(getattr(self.settings, "gate_min_samples", 8))
         return {
             "enabled": self._entry_gate_enabled,
             "min_p_win": str(self._dec_setting("min_p_win", "0.55")),
+            # Warmup progress: the gate refuses entries until the Timeline Analyst
+            # has graded this many comparable historical setups.
+            "samples": samples,
+            "min_samples": min_samples,
+            "warming_up": samples < min_samples,
             "blocked_by_reason": dict(self._gate_block_reasons),
             "blocked_total": sum(self._gate_block_reasons.values()),
         }

@@ -108,6 +108,17 @@ async def test_trades_endpoint_reflects_paper_events(local_client) -> None:  # t
 
 
 @pytest.mark.asyncio
+async def test_status_exposes_entry_gate_warmup(local_client) -> None:  # type: ignore[no-untyped-def]
+    """The mini page explains WHY there are no trades yet — status must carry the
+    entry-gate warmup progress + block reasons it reads."""
+    _, client = local_client
+    eg = (await client.get("/api/status")).json()["entry_gate"]
+    assert {"enabled", "samples", "min_samples", "warming_up", "blocked_by_reason"} <= set(eg)
+    assert isinstance(eg["min_samples"], int) and eg["min_samples"] >= 1
+    assert isinstance(eg["warming_up"], bool)
+
+
+@pytest.mark.asyncio
 async def test_loopback_is_not_rate_limited(local_client) -> None:  # type: ignore[no-untyped-def]
     """Regression: the local dashboard polls heavily; loopback must NOT hit 429
     (this previously blocked the operator's own login/connect)."""

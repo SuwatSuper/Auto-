@@ -109,6 +109,11 @@
       <div class="val" id="k-real">ยังไม่เชื่อม</div>
       <div class="sub" id="k-realsub">เทรดจริงต้องปลดล็อกโหมด LIVE เองที่หน้า /full</div>
     </div>
+    <div class="card" style="grid-column:1/-1">
+      <div class="lbl">สถานะการเข้าไม้ (ทำไมยังไม่เข้า/เข้าได้)</div>
+      <div class="val" id="k-gate" style="font-size:15px">—</div>
+      <div class="sub" id="k-gatesub">—</div>
+    </div>
   </div>
 
   <!-- chart + trades -->
@@ -185,6 +190,12 @@ function headers(body){ const h={}; const k=apiKey(); if(k)h['X-API-Key']=k; if(
 async function apiGet(u){ try{ const r=await fetch(u,{headers:headers(false)}); return {ok:r.ok,status:r.status,data:await r.json().catch(()=>null)}; }catch(e){ return {ok:false,status:0,data:null}; } }
 async function apiPost(u,b){ try{ const r=await fetch(u,{method:'POST',headers:headers(b!=null),body:b!=null?JSON.stringify(b):undefined}); return {ok:r.ok,status:r.status,data:await r.json().catch(()=>null)}; }catch(e){ return {ok:false,status:0,data:{detail:String(e)}}; } }
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+const REASON_TH = {
+  SAMPLE_TOO_SMALL:'ยังเก็บสถิติไม่พอ (อุ่นเครื่อง)', P_WIN_BELOW_MIN:'โอกาสชนะต่ำกว่าเกณฑ์',
+  LOW_CONFIDENCE:'สัญญาณไม่มั่นใจพอ', STRATEGY_REGIME_MISMATCH:'สวนเทรนด์',
+  SENTIMENT_OPPOSED:'ข่าวสวนทาง', TREND_DISAGREE:'เทรนด์ไม่เห็นด้วย', NO_SIGNAL:'ยังไม่มีสัญญาณ',
+  REGIME_VOLATILE_BLOCKED:'ตลาดผันผวนสูง', BOOK_IMBALANCE_OPPOSED:'ออเดอร์บุ๊คสวนทาง',
+};
 const baht = (v) => '฿' + num(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const signed = (v) => (num(v)>=0?'+':'') + baht(v);
 function setCls(el,v){ if(!el)return; el.classList.remove('pos','neg'); el.classList.add(num(v)>=0?'pos':'neg'); }
@@ -294,6 +305,28 @@ async function loadStatus(){
   } else {
     $('k-real').textContent='ยังไม่เชื่อม';
     $('k-realsub').textContent='ใส่ API key ด้านล่างเพื่ออ่านยอดจริง · เทรดจริงต้องปลดล็อก LIVE ที่ /full';
+  }
+  // Entry gate — explain WHY no trades yet (or that it's ready).
+  const eg=s.entry_gate||{}; const tl=s.timeline||{};
+  if(eg.enabled===false){
+    $('k-gate').textContent='ด่านปิดอยู่ — เข้าไม้ได้ทันทีเมื่อมีสัญญาณ';
+    $('k-gate').className='val pos'; $('k-gatesub').textContent='(entry_gate_enabled=false)';
+  } else {
+    const samp=num(eg.samples), need=num(eg.min_samples)||8;
+    const reasons=eg.blocked_by_reason||{};
+    const top=Object.entries(reasons).sort((a,b)=>b[1]-a[1])[0];
+    if(eg.warming_up){
+      $('k-gate').textContent='⏳ กำลังอุ่นเครื่อง — เก็บสถิติ '+samp+'/'+need+' ไม้ก่อนเริ่มเข้า';
+      $('k-gate').className='val warn'; $('k-gate').style.color='var(--gold)';
+    } else if(tl.passes_gate){
+      $('k-gate').textContent='✅ พร้อมเข้าไม้ (โอกาสชนะ '+(tl.p_win_pct??0)+'% ≥ เกณฑ์)';
+      $('k-gate').className='val pos'; $('k-gate').style.color='var(--green)';
+    } else {
+      $('k-gate').textContent='เฝ้าหาจังหวะ — ยังไม่ผ่านเกณฑ์ (โอกาสชนะ '+(tl.p_win_pct??0)+'% / ขั้นต่ำ '+(num(eg.min_p_win)*100).toFixed(0)+'%)';
+      $('k-gate').className='val'; $('k-gate').style.color='var(--txt)';
+    }
+    const topTxt = top ? ('เหตุที่บล็อกบ่อยสุด: '+(REASON_TH[top[0]]||top[0])+' ×'+top[1]) : 'ยังไม่มีสัญญาณให้กรอง';
+    $('k-gatesub').textContent = topTxt + ' · บล็อกรวม '+num(eg.blocked_total)+' ครั้ง · ปรับเกณฑ์ที่ /full → Settings (ลด min_p_win / gate_min_samples ให้เข้าถี่ขึ้น)';
   }
 }
 
