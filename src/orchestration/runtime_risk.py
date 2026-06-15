@@ -267,8 +267,37 @@ class _RiskControlMixin(_RuntimeBase):
         # The kill-switch, per-order cap and breaker are still re-checked on every
         # live decision, so persisting the armed state does not bypass them.
         self._persist_execution_mode("live", self._LIVE_TOKEN)
+        # Honesty: base the money figures + order sizing on the REAL THB wallet
+        # so equity/cash/% reflect real money, not the paper ฿1,000 sandbox.
+        self._seed_capital_from_real_balance()
         self._record_control("execution_mode", {"mode": "live"})
         return True, self.get_execution_mode()
+
+    def _seed_capital_from_real_balance(self) -> None:
+        """When arming live with a connected account, set the trading capital to
+        the real available THB so equity/cash/sizing track real money. No-op if
+        the wallet hasn't been read, or a position is open (avoids resetting cash
+        mid-trade)."""
+        recon = self._reconciliation
+        if recon is None or self._treasury is None or self._trader is None:
+            return
+        if self._trader.position is not None:
+            return
+        balances = dict(getattr(recon, "last_balances", {}))
+        if "THB" not in balances:  # wallet not read yet — keep current base
+            return
+        try:
+            thb = Decimal(str(balances["THB"]))
+        except (InvalidOperation, ValueError):
+            return
+        if not thb.is_finite() or thb < 0:
+            return
+        self._initial_capital = thb
+        self._peak_equity = thb
+        self._treasury.set_capital(thb)
+        if bool(getattr(self.settings, "persist_state", True)):
+            self._persist_capital(thb)
+        self._record_control("capital_synced_from_wallet", {"thb": str(thb)})
 
     def set_initial_capital(self, raw: object) -> tuple[bool, dict[str, object]]:
         """T2: set the paper starting capital (money base) live, re-fund the
@@ -301,7 +330,6 @@ class _RiskControlMixin(_RuntimeBase):
 
     def _persist_env_setting(self, field: str, value: str) -> None:
         """Upsert ``FIELD=value`` into .env, preserving other lines."""
-        import contextlib  # noqa: PLC0415
         from pathlib import Path  # noqa: PLC0415
 
         env = Path(".env")
@@ -317,8 +345,12 @@ class _RiskControlMixin(_RuntimeBase):
                 out.append(ln)
         if not found:
             out.append(f"{field}={value}")
-        with contextlib.suppress(Exception):
+        try:
             env.write_text("\n".join(out) + "\n", encoding="utf-8")
+        except OSError:
+            # A failed write means the choice won't survive restart — surface it
+            # instead of silently swallowing (the in-memory state is still set).
+            self.logger.warning("runtime.env_persist_failed", field=field, exc_info=True)
 
     def set_daily_target(self, raw: object) -> tuple[bool, dict[str, object]]:
         """Phase 3: set the daily profit target % live (0..100), persisted."""

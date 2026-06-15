@@ -79,12 +79,12 @@
   <!-- KPI cards -->
   <div class="grid cards">
     <div class="card">
-      <div class="lbl">มูลค่าพอร์ต (เทรดลม)</div>
+      <div class="lbl" id="lbl-equity">มูลค่าพอร์ต (เทรดลม)</div>
       <div class="val" id="k-equity">—</div>
       <div class="sub">เงินสด <span id="k-cash">—</span></div>
     </div>
     <div class="card">
-      <div class="lbl">กำไรวันนี้ (เทรดลม)</div>
+      <div class="lbl" id="lbl-pnl">กำไรวันนี้ (เทรดลม)</div>
       <div class="val" id="k-pnl">—</div>
       <div class="sub">รับรู้แล้ว <span id="k-realized">—</span></div>
     </div>
@@ -208,6 +208,7 @@ const REASON_TH = {
 };
 const baht = (v) => '฿' + num(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const signed = (v) => (num(v)>=0?'+':'') + baht(v);
+const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function setCls(el,v){ if(!el)return; el.classList.remove('pos','neg'); el.classList.add(num(v)>=0?'pos':'neg'); }
 function errOf(r){ const d=r&&r.data; if(d&&d.detail) return typeof d.detail==='string'?d.detail:JSON.stringify(d.detail); if(d&&d.error)return d.error; return 'HTTP '+(r?r.status:'?'); }
 /* Translate the strict-auth errors into something actionable (the #1 confusion:
@@ -278,6 +279,9 @@ async function loadStatus(){
   const exec=(s.execution_engine||'paper').toUpperCase();
   const be=$('b-exec'); be.textContent='EXEC '+exec; be.className='badge '+(exec==='LIVE'?'off':'on');
   if($('c-mode')) $('c-mode').textContent = exec==='LIVE' ? '🔴 เทรดจริง (LIVE)' : '🟢 เทรดลม (PAPER)';
+  const moneyTag = exec==='LIVE' ? '(เงินจริง)' : '(เทรดลม)';
+  if($('lbl-equity')) $('lbl-equity').textContent = 'มูลค่าพอร์ต '+moneyTag;
+  if($('lbl-pnl')) $('lbl-pnl').textContent = 'กำไรวันนี้ '+moneyTag;
   const pf=s.price_feed||{}; const bd=$('b-data');
   bd.textContent='DATA '+(pf.connected?'LIVE':'รอราคา'); bd.className='badge '+(pf.connected?'on':'warn');
   const ba=$('b-acct'); ba.textContent='ACCOUNT '+(s.bitkub_account_connected?'ONLINE':'OFFLINE');
@@ -355,10 +359,10 @@ async function loadTrades(){
   const rows=list.slice(-40).reverse().map(ev=>{
     const tm=new Date(num(ev.ts_ms)).toLocaleTimeString('th-TH');
     if(ev.type==='FILL'){
-      return `<tr><td>${tm}</td><td class="pos">เปิด</td><td>${ev.qty??'—'}</td><td>${baht(ev.entry)}</td><td class="mut">—</td></tr>`;
+      return `<tr><td>${tm}</td><td class="pos">เปิด</td><td>${esc(ev.qty??'—')}</td><td>${baht(ev.entry)}</td><td class="mut">—</td></tr>`;
     }
     const pnl=num(ev.pnl_net ?? ev.pnl); const c=pnl>=0?'pos':'neg';
-    const reason=({TAKE_PROFIT:'TP',STOP_LOSS:'SL',TRAILING_STOP:'trail',OPPOSITE_SIGNAL:'กลับสัญญาณ',MANUAL:'มือ'}[ev.reason]||ev.reason||'');
+    const reason=esc({TAKE_PROFIT:'TP',STOP_LOSS:'SL',TRAILING_STOP:'trail',OPPOSITE_SIGNAL:'กลับสัญญาณ',MANUAL:'มือ'}[ev.reason]||ev.reason||'');
     return `<tr><td>${tm}</td><td class="neg">ปิด·${reason}</td><td>—</td><td>${baht(ev.exit)}</td><td class="${c}">${signed(pnl)}</td></tr>`;
   });
   $('trades').innerHTML = rows.length?rows.join(''):'<tr><td colspan="5" class="mut">ยังไม่มีไม้ที่ปิด…</td></tr>';

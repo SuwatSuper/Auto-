@@ -119,6 +119,43 @@ async def test_status_exposes_entry_gate_warmup(local_client) -> None:  # type: 
 
 
 @pytest.mark.asyncio
+async def test_recent_trades_loop_survives_bad_frame(local_client) -> None:  # type: ignore[no-untyped-def]
+    """A non-dict frame on the paper-events topic must not kill the (un-watched)
+    recorder loop — the trades feed must keep working."""
+    runtime, client = local_client
+    await runtime.bus.publish(_TOPIC_PAPER_EVENTS, b"x", orjson.dumps([1, 2, 3]))  # bad frame
+    await runtime.bus.publish(
+        _TOPIC_PAPER_EVENTS, b"x",
+        orjson.dumps({"type": "FILL", "ts_ms": 1, "qty": "0.001", "entry": "100"}),
+    )
+    trades: list[dict] = []
+    for _ in range(50):
+        await asyncio.sleep(0.02)
+        trades = (await client.get("/api/trades")).json()["trades"]
+        if trades:
+            break
+    assert any(t.get("type") == "FILL" for t in trades)
+
+
+@pytest.mark.asyncio
+async def test_trade_endpoints_require_key_for_remote() -> None:
+    """The new read endpoints carry account state — a remote client needs the key
+    when one is configured (loopback stays trusted)."""
+    runtime = _runtime("SECRET")
+    app = create_app(runtime)
+    await runtime.start("live")
+    transport = ASGITransport(app=app, client=("203.0.113.9", 5555))  # type: ignore[arg-type]
+    try:
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            assert (await c.get("/api/trades")).status_code == 401
+            assert (await c.get("/api/prices/history")).status_code == 401
+            ok = await c.get("/api/trades", headers={"X-API-Key": "SECRET"})
+            assert ok.status_code == 200
+    finally:
+        await runtime.stop()
+
+
+@pytest.mark.asyncio
 async def test_loopback_is_not_rate_limited(local_client) -> None:  # type: ignore[no-untyped-def]
     """Regression: the local dashboard polls heavily; loopback must NOT hit 429
     (this previously blocked the operator's own login/connect)."""

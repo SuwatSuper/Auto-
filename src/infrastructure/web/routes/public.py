@@ -40,13 +40,18 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
         return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
     @app.get("/api/prices/history")
-    async def prices_history() -> dict[str, object]:
-        """Recent price ticks so the chart can backfill on load (WS streams live)."""
+    async def prices_history(request: Request) -> dict[str, object]:
+        """Recent price ticks so the chart can backfill on load (WS streams live).
+        Loopback is trusted; a remote client needs the key when one is set."""
+        check_api_key(request, runtime)
         return {"prices": runtime.price_history()}
 
     @app.get("/api/trades")
-    async def trades() -> dict[str, object]:
-        """Recent paper FILL/CLOSE events (per-trade entry/exit/qty/P&L)."""
+    async def trades(request: Request) -> dict[str, object]:
+        """Recent paper FILL/CLOSE events (per-trade entry/exit/qty/P&L). Carries
+        account state, so gate it like /api/status (loopback trusted; remote needs
+        the key when configured)."""
+        check_api_key(request, runtime)
         return {"trades": runtime.recent_trades()}
 
     # P4: /healthz — liveness probe

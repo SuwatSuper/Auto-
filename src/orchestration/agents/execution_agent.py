@@ -346,19 +346,28 @@ class ExecutionAgent:
         # paper mirror so its qty can track the REAL fill (avoids the
         # paper-vs-live divergence when an order partially fills).
         filled = res.get("rec") if isinstance(res, dict) else None  # coin received (bid)
-        spent = res.get("amt") if isinstance(res, dict) else None
+        spent = res.get("amt") if isinstance(res, dict) else None    # THB really spent (bid)
+        real_rate = res.get("rat") if isinstance(res, dict) else None  # real fill rate
         self._log.info(
             "execution_agent.live_order_placed",
             action=action, symbol=sym, amount=amount, rate=rate,
-            order_id=order_id, filled_rec=filled, spent_amt=spent,
+            order_id=order_id, filled_rec=filled, spent_amt=spent, fill_rate=real_rate,
         )
-        # Mirror to the paper trader so the dashboard position view tracks it.
-        # Carry the exchange's actual rate/fill so the paper position mirrors
-        # the live order rather than re-deriving its own (single source of truth).
+        # Mirror to the paper trader so the dashboard position view tracks the
+        # REAL fill (qty, rate, THB spent) the exchange reported — not a
+        # re-derived estimate. When the gateway ack omits these (e.g. a limit
+        # order still resting, or a test mock), the mirror falls back to sizing
+        # off the mark so behaviour is unchanged.
         mirror = dict(data)
         mirror["live_mirror"] = True
-        if rate:
+        if real_rate not in (None, ""):
+            mirror["price"] = str(real_rate)
+        elif rate:
             mirror["price"] = str(rate)
+        if action == "bid" and filled not in (None, ""):
+            mirror["fill_qty"] = str(filled)
+            if spent not in (None, ""):
+                mirror["fill_thb"] = str(spent)
         await self._route_paper(orjson.dumps(mirror))
 
     async def _route_paper(self, raw: bytes) -> None:

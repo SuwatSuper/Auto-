@@ -217,6 +217,60 @@ def test_order_over_hard_cap_helper() -> None:
     assert order_over_hard_cap("not-a-number") is not None
 
 
+def test_hard_cap_always_clamps_even_when_operator_cap_zero() -> None:
+    """Regression: a 0 (unlimited) operator cap must STILL be bounded by the hard
+    ceiling on the REAL order. Was skipped when cap==0 (e.g. .env=live with a
+    reset state.db), letting the order exceed ฿1,000."""
+    rt, _ = _armed_runtime(cap="0")
+    spec = rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"})
+    assert spec is not None
+    assert Decimal(spec["amount"]) <= HARD_CAP_SINGLE_ORDER_THB
+
+
+def test_sell_ask_capped_to_real_wallet_balance() -> None:
+    """S1-D: an opposite-signal SELL must not ask for more coin than is really
+    held, or Bitkub rejects it and the real position is left open."""
+    from domain.trading.paper import PaperPosition  # noqa: PLC0415
+    rt, _ = _armed_runtime(balances={"BTC": "0.00001"})
+    rt._trader.position = PaperPosition(  # type: ignore[union-attr]
+        symbol="THB_BTC", qty=Decimal("0.001"), entry_price=Decimal("1500000"),
+        stop_price=Decimal("1485000"), take_profit_price=Decimal("1522500"),
+        entry_fee=Decimal("3.75"), opened_ms=1,
+    )
+    spec = rt._build_live_order({"signal": "SELL", "symbol": "thb_btc"})
+    assert spec is not None and spec["action"] == "ask"
+    assert Decimal(spec["amount"]) == Decimal("0.00001")  # capped to real BTC
+
+
+@pytest.mark.asyncio
+async def test_live_fill_mirrors_real_qty_and_rate() -> None:
+    """S1-C: the paper mirror must open at the EXACT qty + rate the exchange
+    reported, not a re-derived estimate (so displayed holdings/PnL are real)."""
+    import orjson  # noqa: PLC0415
+    rt, _ = _armed_runtime()
+    trader = rt._trader
+    assert trader is not None
+    raw = orjson.dumps({
+        "decision": "EXECUTE", "signal": "BUY", "live_mirror": True,
+        "price": "1515000", "fill_qty": "0.00032", "fill_thb": "485.0",
+    })
+    await trader._on_decision(raw)
+    assert trader.position is not None
+    assert trader.position.qty == Decimal("0.00032")
+    assert trader.position.entry_price == Decimal("1515000")  # real rate, not slipped mark
+
+
+def test_arm_live_seeds_capital_from_real_thb() -> None:
+    """S1-A/B: arming live bases the money figures on the REAL THB wallet so
+    equity/cash/% reflect real money, not the paper ฿1,000 sandbox."""
+    rt, _ = _armed_runtime(balances={"THB": "50000", "BTC": "0"})
+    rt._trader.position = None  # type: ignore[union-attr]
+    ok, _ = rt.set_execution_mode("live", _LIVE)
+    assert ok
+    assert rt._treasury.cash == Decimal("50000")  # type: ignore[union-attr]
+    assert rt._initial_capital == Decimal("50000")
+
+
 def test_arm_live_persists_engine_to_env(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     """The operator's 'arm once' choice survives a restart: the live engine +
     confirm token are written to .env (persist_state on). Disarm flips it back."""

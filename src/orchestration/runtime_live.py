@@ -257,12 +257,15 @@ class _LiveTradingMixin(_RuntimeBase):
             # if _max_single_order_thb was set higher by a bug or direct mutation
             # — the real order is clamped at the point of spending real money.
             from orchestration.control import HARD_CAP_SINGLE_ORDER_THB  # noqa: PLC0415
-            cap = self._max_single_order_thb
-            if cap > 0:
-                cap = min(cap, HARD_CAP_SINGLE_ORDER_THB)
-                if entry > 0 and qty * entry > cap:
-                    from decimal import ROUND_DOWN  # noqa: PLC0415
-                    qty = (cap / entry).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+            # ALWAYS bound the real order by the hard ceiling; the operator cap
+            # only tightens it. (Bug: when _max_single_order_thb was 0 — e.g. a
+            # .env=live / state.db-reset desync — the clamp was skipped and the
+            # order was bounded only by treasury, able to exceed the hard cap.)
+            op_cap = self._max_single_order_thb
+            cap = min(op_cap, HARD_CAP_SINGLE_ORDER_THB) if op_cap > 0 else HARD_CAP_SINGLE_ORDER_THB
+            if entry > 0 and qty * entry > cap:
+                from decimal import ROUND_DOWN  # noqa: PLC0415
+                qty = (cap / entry).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
             if qty <= 0:
                 return None
             notional = qty * mark
@@ -297,10 +300,20 @@ class _LiveTradingMixin(_RuntimeBase):
             pos = trader.position
             if pos is None:
                 return None  # nothing to sell/close
+            # S1-D: never ask for more coin than is REALLY held. The paper qty can
+            # drift from the real fill, so cap the ask to the real wallet balance
+            # — otherwise Bitkub rejects the oversized ask and the real position
+            # is left open (mirrors the protective-exit cap in _live_close).
+            sell_qty = pos.qty
+            real_btc = self._real_btc_balance()
+            if real_btc is not None and 0 < real_btc < sell_qty:
+                sell_qty = real_btc
+            if sell_qty <= 0:
+                return None
             return {
                 "action": "ask",
                 "symbol": symbol,
-                "amount": str(pos.qty),
+                "amount": str(sell_qty),
                 "rate": str(mark),
                 "typ": str(getattr(self.settings, "live_order_type", "market")),
             }

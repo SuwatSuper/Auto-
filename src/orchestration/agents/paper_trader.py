@@ -303,35 +303,63 @@ class PaperTraderAgent:
                 "regime": str(data.get("regime", "")),
                 "win_prob_est": str(data.get("win_prob", data.get("p_win", ""))),
             }
-            await self._open(self.mark_price, is_live=bool(data.get("live_mirror")), meta=meta)
+            await self._open(
+                self.mark_price, is_live=bool(data.get("live_mirror")),
+                meta=meta, fill=self._live_fill(data),
+            )
+
+    def _live_fill(self, data: dict[str, object]) -> dict[str, Decimal] | None:
+        """Parse the exchange's real fill (qty + THB spent) from a live-mirror
+        decision. Returns None for paper decisions or when the ack omitted it
+        (the open then falls back to risk-based sizing)."""
+        if not data.get("live_mirror") or data.get("fill_qty") in (None, ""):
+            return None
+        try:
+            qty = Decimal(str(data.get("fill_qty")))
+            thb = Decimal(str(data.get("fill_thb", "0")))
+        except (InvalidOperation, ValueError):
+            return None
+        if not qty.is_finite() or qty <= 0:
+            return None
+        return {"qty": qty, "thb": thb if (thb.is_finite() and thb > 0) else Decimal("0")}
 
     # ── open / close ─────────────────────────────────────────────
     async def _open(
         self, signal_price: Decimal, is_live: bool = False,
         meta: dict[str, str] | None = None,
+        fill: dict[str, Decimal] | None = None,
     ) -> None:
         p = self._params
-        entry = slip_buy(signal_price, p.slippage_bps)
+        use_fill = fill is not None
+        if fill is not None:
+            # Real LIVE fill: open at the EXACT qty + rate the exchange reported,
+            # so the dashboard position/PnL tracks real money (no re-derivation).
+            entry = signal_price  # already the real fill rate (no extra slippage)
+            qty = fill["qty"]
+        else:
+            entry = slip_buy(signal_price, p.slippage_bps)
         stop = entry * (Decimal("1") - p.stop_pct / Decimal("100"))
-        qty = size_order(
-            cash=self._treasury.cash,
-            entry_price=entry,
-            stop_price=stop,
-            risk_per_trade_pct=p.risk_per_trade_pct,
-            fee_bps=p.fee_taker_bps,
-            slippage_bps=Decimal("0"),  # entry already slipped above
-        )
-        # Hard per-order notional cap (THB). Keeps the paper position in lockstep
-        # with the live order builder, which applies the same cap.
-        cap = getattr(p, "max_order_thb", Decimal("0"))
-        if cap > 0 and entry > 0 and qty * entry > cap:
-            from decimal import ROUND_DOWN  # noqa: PLC0415
-            qty = (cap / entry).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+        if not use_fill:
+            qty = size_order(
+                cash=self._treasury.cash,
+                entry_price=entry,
+                stop_price=stop,
+                risk_per_trade_pct=p.risk_per_trade_pct,
+                fee_bps=p.fee_taker_bps,
+                slippage_bps=Decimal("0"),  # entry already slipped above
+            )
+            # Hard per-order notional cap (THB). Keeps the paper position in lockstep
+            # with the live order builder, which applies the same cap.
+            cap = getattr(p, "max_order_thb", Decimal("0"))
+            if cap > 0 and entry > 0 and qty * entry > cap:
+                from decimal import ROUND_DOWN  # noqa: PLC0415
+                qty = (cap / entry).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
         if qty <= 0:
             self.entries_rejected += 1
             return
         entry_fee = fee_for(qty * entry, p.fee_taker_bps)
-        order_cost = qty * entry + entry_fee
+        # On a real fill, debit the treasury by the exact THB the exchange spent.
+        order_cost = fill["thb"] if (fill is not None and fill["thb"] > 0) else (qty * entry + entry_fee)
         exit_fee_est = fee_for(qty * stop, p.fee_taker_bps)
         worst = worst_case_loss(qty, entry, stop, entry_fee, exit_fee_est)
 
@@ -346,11 +374,13 @@ class PaperTraderAgent:
             self.position = open_position(
                 symbol=p.symbol,
                 qty=qty,
-                signal_price=signal_price,
+                # Real fill: pass the exact rate with no extra slippage. Paper:
+                # pass the raw signal so the engine applies its slippage model.
+                signal_price=entry if use_fill else signal_price,
                 stop_pct=p.stop_pct,
                 take_profit_pct=p.take_profit_pct,
                 fee_bps=p.fee_taker_bps,
-                slippage_bps=p.slippage_bps,
+                slippage_bps=Decimal("0") if use_fill else p.slippage_bps,
                 now_ms=int(time.time() * 1000),
             )
         except ValueError:

@@ -424,11 +424,16 @@ class PipelineRuntime(
             while True:
                 raw = await queue.get()
                 try:
-                    ev: dict[str, object] = orjson.loads(raw)
-                except (orjson.JSONDecodeError, ValueError):
-                    continue
-                if ev.get("type") in ("FILL", "CLOSE"):
-                    self._recent_trades.append(ev)
+                    ev = orjson.loads(raw)
+                    # Guard non-dict payloads: a JSON array/scalar would raise on
+                    # .get and kill this (un-watched) loop, freezing the trades
+                    # feed permanently. Never let one bad frame stop the loop.
+                    if isinstance(ev, dict) and ev.get("type") in ("FILL", "CLOSE"):
+                        self._recent_trades.append(ev)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self.logger.warning("runtime.recent_trades_frame_error", exc_info=True)
         except asyncio.CancelledError:
             raise
         finally:
