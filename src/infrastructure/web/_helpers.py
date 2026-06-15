@@ -36,14 +36,44 @@ def check_rate_limit(ip: str) -> bool:
     return True
 
 
-def configured_api_key(runtime: PipelineRuntime) -> str:
-    """Read the control-plane key from settings ('' = guard disabled)."""
-    raw = getattr(runtime.settings, "dashboard_api_key", None)
+def _secret_value(raw: object) -> str:
+    """Extract a plain string from a pydantic SecretStr (or str / None)."""
     if raw is None:
         return ""
     secret = getattr(raw, "get_secret_value", None)
     value = secret() if callable(secret) else raw
     return str(value)
+
+
+def configured_api_key(runtime: PipelineRuntime) -> str:
+    """Read the control-plane key from settings ('' = guard disabled)."""
+    return _secret_value(getattr(runtime.settings, "dashboard_api_key", None))
+
+
+def configured_password(runtime: PipelineRuntime) -> str:
+    """Read the operator password from settings ('' = login not configured)."""
+    return _secret_value(getattr(runtime.settings, "dashboard_password", None))
+
+
+def assert_safe_bind(settings: object) -> None:
+    """Fail-closed startup guard (T1): refuse to bind a non-loopback host
+    (e.g. 0.0.0.0 for phone/LAN access) unless a control credential is set.
+
+    Without this, exposing the dashboard to the network would leave the whole
+    control plane (live switch / credentials / orders) open with no auth.
+    """
+    host = str(getattr(settings, "web_host", "127.0.0.1"))
+    if host in _LOOPBACK_HOSTS:
+        return
+    has_credential = bool(
+        _secret_value(getattr(settings, "dashboard_api_key", None))
+        or _secret_value(getattr(settings, "dashboard_password", None))
+    )
+    if not has_credential:
+        raise RuntimeError(
+            f"refusing to bind non-loopback host {host!r} without "
+            "DASHBOARD_PASSWORD/DASHBOARD_API_KEY (fail-closed)"
+        )
 
 
 def is_local_request(request: Request) -> bool:
@@ -53,7 +83,7 @@ def is_local_request(request: Request) -> bool:
 
 
 def check_api_key(request: Request, runtime: PipelineRuntime) -> None:
-    """Auth gate for control endpoints.
+    """Auth gate for ordinary control endpoints.
 
     The dashboard is a single-user local control room: requests from the same
     machine (localhost) are always trusted and need no key. A key is only
@@ -65,6 +95,28 @@ def check_api_key(request: Request, runtime: PipelineRuntime) -> None:
     expected = configured_api_key(runtime)
     if not expected:
         return
+    provided = request.headers.get("x-api-key", "")
+    if not hmac.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="invalid or missing X-API-Key")
+
+
+def check_api_key_strict(request: Request, runtime: PipelineRuntime) -> None:
+    """Auth gate for DANGEROUS endpoints (D3 strict): live switch, credentials,
+    manual orders, position closes, kill switch.
+
+    Requires a valid ``X-API-Key`` even from localhost — there is no loopback
+    bypass. If no control key is configured the endpoint is locked (fail-closed):
+    you must set DASHBOARD_API_KEY (or log in to obtain the token) first.
+    """
+    expected = configured_api_key(runtime)
+    if not expected:
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "control endpoint locked — set DASHBOARD_API_KEY (or log in) "
+                "to authorize live/credential/order actions"
+            ),
+        )
     provided = request.headers.get("x-api-key", "")
     if not hmac.compare_digest(provided, expected):
         raise HTTPException(status_code=401, detail="invalid or missing X-API-Key")

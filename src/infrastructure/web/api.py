@@ -13,12 +13,16 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
-from infrastructure.web._helpers import STATIC_DIR, check_rate_limit
+from infrastructure.web._helpers import STATIC_DIR, assert_safe_bind, check_rate_limit
 from infrastructure.web.routes import ceo, control, public
 from orchestration.runtime import PipelineRuntime
 
 
 def create_app(runtime: PipelineRuntime) -> FastAPI:
+    # T1: fail-closed — never expose the control plane on a non-loopback host
+    # without a control credential set.
+    assert_safe_bind(runtime.settings)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Production migration: only 'live' is supported. The Bitkub WS gateway

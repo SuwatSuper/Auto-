@@ -46,7 +46,7 @@ class _MockGateway:
 def _runtime() -> PipelineRuntime:
     settings = Settings(
         persist_state=False, news_enabled=False, initial_capital="1000000",
-        prices_topic="prices.thb_btc.v1",
+        prices_topic="prices.thb_btc.v1", dashboard_api_key="k",
     )
     deps = RuntimeDeps(
         bus=InMemoryEventBus(), clock=SystemClock(), state_store=InMemoryStateStore(),
@@ -62,7 +62,8 @@ def _runtime() -> PipelineRuntime:
 
 def _client(rt: PipelineRuntime) -> AsyncClient:
     transport = ASGITransport(app=create_app(rt))  # lifespan not run by ASGITransport
-    return AsyncClient(transport=transport, base_url="http://test")
+    # Default the control token (strict-auth endpoints: order / close / live switch).
+    return AsyncClient(transport=transport, base_url="http://test", headers={"X-API-Key": "k"})
 
 
 # ── 1. Buy & sell coins (paper) through the real API ─────────────────

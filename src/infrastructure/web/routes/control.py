@@ -8,7 +8,11 @@ import hmac
 
 from fastapi import FastAPI, HTTPException, Request
 
-from infrastructure.web._helpers import check_api_key, configured_api_key
+from infrastructure.web._helpers import (
+    check_api_key,
+    check_api_key_strict,
+    configured_api_key,
+)
 from orchestration.runtime import PipelineRuntime
 
 
@@ -119,7 +123,7 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
 
     @app.post("/api/execution/mode")
     async def post_execution_mode(request: Request) -> dict[str, object]:
-        check_api_key(request, runtime)
+        check_api_key_strict(request, runtime)  # dangerous: arms live trading
         try:
             body = await request.json()
         except Exception:
@@ -140,7 +144,7 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
 
     @app.post("/api/order")
     async def post_order(request: Request) -> dict[str, object]:
-        check_api_key(request, runtime)
+        check_api_key_strict(request, runtime)  # dangerous: places a real order
         try:
             body = await request.json()
         except Exception:
@@ -154,7 +158,7 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
 
     @app.post("/api/positions/close")
     async def post_close(request: Request) -> dict[str, object]:
-        check_api_key(request, runtime)
+        check_api_key_strict(request, runtime)  # dangerous: closes a real position
         price = None
         try:
             body = await request.json()
@@ -169,7 +173,7 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
 
     @app.post("/api/positions/close_all")
     async def post_close_all(request: Request) -> dict[str, object]:
-        check_api_key(request, runtime)
+        check_api_key_strict(request, runtime)  # dangerous: flattens real positions
         return await runtime.close_all()
 
     @app.post("/api/alerts/test")
@@ -204,7 +208,7 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
     async def post_credentials(request: Request) -> dict[str, object]:
         """Set the Bitkub API key/secret from the dashboard and connect the real
         account live (no restart). The key is stored in .env and never returned."""
-        check_api_key(request, runtime)
+        check_api_key_strict(request, runtime)  # dangerous: sets real API keys
         try:
             body = await request.json()
         except Exception:

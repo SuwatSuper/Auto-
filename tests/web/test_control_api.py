@@ -14,14 +14,17 @@ from orchestration.runtime import PipelineRuntime
 @pytest.fixture
 async def client():
     runtime = PipelineRuntime(
-        settings=Settings(persist_state=False, dashboard_api_key=""),
+        settings=Settings(persist_state=False, dashboard_api_key="k"),
         logger=structlog.get_logger("test"),
     )
     # Build agents (trader/treasury/breaker/risk gate) without starting the live feed.
     runtime.agents = runtime._make_agents()
     app = create_app(runtime)
     transport = ASGITransport(app=app)  # type: ignore[arg-type]
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    # Default the control token so dangerous (strict-auth) endpoints are authorized.
+    async with AsyncClient(
+        transport=transport, base_url="http://test", headers={"X-API-Key": "k"}
+    ) as c:
         yield runtime, c
 
 

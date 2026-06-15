@@ -16,12 +16,14 @@ from orchestration.runtime import PipelineRuntime
 @pytest.fixture
 async def client():
     rt = PipelineRuntime(
-        settings=Settings(persist_state=False, dashboard_api_key=""),
+        settings=Settings(persist_state=False, dashboard_api_key="k"),
         logger=structlog.get_logger("test"),
     )
     rt.agents = rt._make_agents()
     transport = ASGITransport(app=create_app(rt))  # type: ignore[arg-type]
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    async with AsyncClient(
+        transport=transport, base_url="http://test", headers={"X-API-Key": "k"}
+    ) as c:
         yield rt, c
 
 
