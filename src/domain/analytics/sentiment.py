@@ -13,6 +13,30 @@ class SentimentLabel(StrEnum):
     VERY_BEARISH = "VERY_BEARISH"
 
 
+def sentiment_size_factor(
+    score: Decimal,
+    *,
+    min_factor: Decimal = Decimal("0.5"),
+    max_factor: Decimal = Decimal("1.25"),
+) -> Decimal:
+    """Soft position-size multiplier from news sentiment — a FILTER, not a trigger.
+
+    Strong-negative news shrinks the next entry toward ``min_factor`` (de-risk
+    into a hostile tape); strong-positive news modestly confirms it up to
+    ``max_factor``; neutral leaves size unchanged (1.0). Bounded by construction
+    so sentiment can only nudge sizing, never dominate it, and the result still
+    flows through the immutable risk caps downstream.
+
+    ``score`` is clamped to [-1, +1]:
+        score = -1 → min_factor      score = 0 → 1.0      score = +1 → max_factor
+    """
+    s = max(Decimal("-1"), min(Decimal("1"), score))
+    one = Decimal("1")
+    if s >= 0:
+        return one + (max_factor - one) * s
+    return one + (one - min_factor) * s
+
+
 def classify_sentiment(score: Decimal) -> SentimentLabel:
     if score >= Decimal("0.6"):
         return SentimentLabel.VERY_BULLISH
