@@ -2582,6 +2582,13 @@ html, body {
             <div id="cmd-alert-status" class="cmd-status">—</div>
           </div>
 
+          <!-- 8) Control audit (who/what/when) -->
+          <div class="settings-group" style="padding:12px;">
+            <div class="sr-label" style="margin-bottom:8px;">🧾 บันทึกการสั่งงาน (Control audit)</div>
+            <div class="sr-desc" style="margin-bottom:6px;">ใคร/บอท ทำอะไร เมื่อไหร่ (รีเฟรชอัตโนมัติทุก 5 วิ)</div>
+            <div id="cmd-audit-list" style="max-height:220px;overflow:auto;font-size:12px;line-height:1.5;">—</div>
+          </div>
+
         </div>
       </div>
 
@@ -4760,7 +4767,24 @@ function cmdErr(res) {
 const CMD_RISK_FIELDS = ['risk_per_trade_pct','stop_pct','take_profit_pct','max_daily_loss_pct',
   'max_consecutive_losses','max_open_positions','max_single_order_thb','min_p_win'];
 
+async function cmdLoadAudit() {
+  const box = $('cmd-audit-list');
+  if (!box) return;
+  const r = await cmdGet('/api/control/audit?limit=30');
+  if (!r.ok || !r.data || !Array.isArray(r.data.records)) { box.textContent = '—'; return; }
+  const recs = r.data.records.slice().reverse();
+  if (!recs.length) { box.textContent = '(ยังไม่มีการสั่งงาน)'; return; }
+  box.innerHTML = recs.map(rec => {
+    const t = new Date(rec.ts_ms || 0).toLocaleTimeString();
+    const det = rec.detail ? JSON.stringify(rec.detail) : '';
+    return `<div style="border-bottom:1px solid rgba(255,255,255,.06);padding:3px 0;">`
+      + `<span style="color:var(--accent-blue);">${t}</span> · <b>${rec.action || '?'}</b> `
+      + `<span style="color:#9aa;">${det}</span></div>`;
+  }).join('');
+}
+
 async function cmdLoadState() {
+  cmdLoadAudit();
   const rs = await cmdGet('/api/risk/settings');
   if (rs.ok && rs.data && rs.data.settings) {
     CMD_RISK_FIELDS.forEach(f => { const el = $('cmd-' + f); if (el && rs.data.settings[f] != null) el.value = rs.data.settings[f]; });
@@ -4806,6 +4830,9 @@ async function cmdLoadState() {
 
 function initCommandRoom() {
   const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
+
+  // Auto-refresh the control-audit panel (who/what/when) every 5s.
+  setInterval(cmdLoadAudit, 5000);
 
   on('cmd-connect', async () => {
     const api_key = ($('cmd-key')?.value || '').trim();
