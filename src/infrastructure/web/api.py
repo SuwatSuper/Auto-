@@ -13,7 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
-from infrastructure.web._helpers import STATIC_DIR, assert_safe_bind, check_rate_limit
+from infrastructure.web._helpers import (
+    STATIC_DIR,
+    assert_safe_bind,
+    check_rate_limit,
+    is_local_request,
+)
 from infrastructure.web.routes import ceo, control, public
 from orchestration.runtime import PipelineRuntime
 
@@ -39,10 +44,15 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
     async def security_headers(
         request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        # Rate limiting
-        ip = request.client.host if request.client else "unknown"
-        if not check_rate_limit(ip):
-            return JSONResponse({"error": "rate_limit_exceeded"}, status_code=429)
+        # Rate limiting — skip for loopback. The single-user LOCAL dashboard
+        # polls heavily (status/trades/prices) and is not a network-abuse vector;
+        # rate-limiting it only broke the operator's own login/connect. Network
+        # exposure already requires a credential (assert_safe_bind), so the
+        # limiter still protects every non-loopback client.
+        if not is_local_request(request):
+            ip = request.client.host if request.client else "unknown"
+            if not check_rate_limit(ip):
+                return JSONResponse({"error": "rate_limit_exceeded"}, status_code=429)
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"

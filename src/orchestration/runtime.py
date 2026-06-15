@@ -84,6 +84,10 @@ class PipelineRuntime(
         self.agent_tasks: dict[str, asyncio.Task[None]] = {}
         self.start_time_ms: int = 0
         self.msg_count_window: deque[int] = deque(maxlen=60)
+        # Bounded buffers powering the minimal dashboard chart + trades table.
+        self._price_history: deque[tuple[int, str]] = deque(maxlen=900)
+        self._recent_trades: deque[dict[str, object]] = deque(maxlen=200)
+        self._trade_rec_task: asyncio.Task[None] | None = None
         self.emergency_stopped: bool = False
         self._latest_price: Decimal | None = None
         self._latest_latency_ms: int = 0
@@ -255,6 +259,9 @@ class PipelineRuntime(
         self.agent_tasks = {}
         for name in list(self.agents):
             await self.start_agent(name)
+        # Record paper FILL/CLOSE events for the dashboard (subscribe BEFORE the
+        # price feed starts so no trade is missed).
+        self._trade_rec_task = asyncio.create_task(self._recent_trades_loop())
         # Producers start LAST: every consumer above has already run its
         # synchronous bus.subscribe() before the first price tick can be
         # published, closing the publish-before-subscribe startup race (the
@@ -298,6 +305,10 @@ class PipelineRuntime(
             self._memory_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._memory_task
+        if self._trade_rec_task and not self._trade_rec_task.done():
+            self._trade_rec_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._trade_rec_task
         if self._trade_csv is not None and hasattr(self._trade_csv, "stop"):
             await self._trade_csv.stop()
         if self._trade_csv_task and not self._trade_csv_task.done():
@@ -392,6 +403,32 @@ class PipelineRuntime(
         clamped = max(0, latency_ms)
         self._latest_latency_ms = clamped
         self._latency_samples.append(clamped)
+
+    def price_history(self) -> list[dict[str, object]]:
+        """Recent (ts_ms, price) ticks for the dashboard chart backfill."""
+        return [{"ts_ms": ts, "price": px} for ts, px in list(self._price_history)]
+
+    def recent_trades(self) -> list[dict[str, object]]:
+        """Recent paper FILL/CLOSE events (oldest first) for the trades table."""
+        return list(self._recent_trades)
+
+    async def _recent_trades_loop(self) -> None:
+        """Mirror paper FILL/CLOSE events into a bounded buffer for the dashboard."""
+        bus = self._ensure_bus()
+        queue = bus.subscribe(_TOPIC_PAPER_EVENTS)
+        try:
+            while True:
+                raw = await queue.get()
+                try:
+                    ev: dict[str, object] = orjson.loads(raw)
+                except (orjson.JSONDecodeError, ValueError):
+                    continue
+                if ev.get("type") in ("FILL", "CLOSE"):
+                    self._recent_trades.append(ev)
+        except asyncio.CancelledError:
+            raise
+        finally:
+            bus.unsubscribe(_TOPIC_PAPER_EVENTS, queue)
 
     async def _tick_window(self) -> None:
         while True:
@@ -500,6 +537,7 @@ class _CountingBusProxy:
                 raw_latency = int(time.time() * 1000) - ts_ms_val
                 self._runtime.record_message(price, max(0, raw_latency))
                 self._runtime._msg_count_current += 1
+                self._runtime._price_history.append((ts_ms_val, str(price)))
         except (asyncio.CancelledError, TimeoutError):
             raise
         except (orjson.JSONDecodeError, InvalidOperation, KeyError, ValueError, TypeError):

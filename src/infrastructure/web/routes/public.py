@@ -14,20 +14,40 @@ from orchestration.runtime import PipelineRuntime
 
 
 def register(app: FastAPI, runtime: PipelineRuntime) -> None:
-    @app.get("/", response_class=HTMLResponse)
-    async def index() -> HTMLResponse:
-        """Kingdom Prime dashboard. Served with no-store so the browser never
-        shows a stale cached page. Local (same-machine) use needs no key."""
-        html = (STATIC_DIR / "kingdom.html").read_text(encoding="utf-8")
+    def _render_dashboard(filename: str) -> HTMLResponse:
+        """Serve a dashboard HTML with the control key injected, no-store."""
+        html = (STATIC_DIR / filename).read_text(encoding="utf-8")
         html = html.replace("__DASHBOARD_API_KEY__", configured_api_key(runtime))
         return HTMLResponse(
             content=html,
             headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
         )
 
+    @app.get("/", response_class=HTMLResponse)
+    async def index() -> HTMLResponse:
+        """Minimal Kingdom Prime dashboard: a real live price chart with the
+        agent's entry/exit markers + the paper/real numbers (win rate, P&L,
+        per-trade). The full control room remains at /full."""
+        return _render_dashboard("mini.html")
+
+    @app.get("/full", response_class=HTMLResponse)
+    async def full() -> HTMLResponse:
+        """The full-featured control room (former default dashboard)."""
+        return _render_dashboard("kingdom.html")
+
     @app.get("/classic", response_class=HTMLResponse)
     async def classic() -> str:
         return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+
+    @app.get("/api/prices/history")
+    async def prices_history() -> dict[str, object]:
+        """Recent price ticks so the chart can backfill on load (WS streams live)."""
+        return {"prices": runtime.price_history()}
+
+    @app.get("/api/trades")
+    async def trades() -> dict[str, object]:
+        """Recent paper FILL/CLOSE events (per-trade entry/exit/qty/P&L)."""
+        return {"trades": runtime.recent_trades()}
 
     # P4: /healthz — liveness probe
     @app.get("/healthz")
