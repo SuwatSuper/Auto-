@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: ["**"]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,21 +19,18 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt || true
-          # pandas-ta has no Python 3.11 wheel; use local stub instead
-          true
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Lint (ruff)
         run: ruff check src tests
 
-      - name: Type check (mypy)
+      - name: Type check (mypy --strict)
         run: mypy src/
 
-      - name: Test with coverage
-        run: |
-          PYTHONPATH=src pytest -q --cov=src --cov-report=term-missing --cov-fail-under=85
+      - name: Test with coverage (gate enforced via pyproject)
+        run: PYTHONPATH=src pytest
