@@ -20,6 +20,7 @@ import hashlib
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 import orjson
 import structlog
@@ -29,6 +30,12 @@ from orchestration.ports.event_bus import EventBus
 
 _KILL_SWITCH_PATH = Path("data/KILL_SWITCH")
 _LIVE_CONFIRM = "I_ACCEPT_REAL_MONEY_RISK"
+
+
+class _RateLimiter(Protocol):
+    """Token-bucket port (infrastructure.gateway.TokenBucket satisfies it)."""
+
+    async def acquire(self) -> None: ...
 
 
 class ExecutionAgent:
@@ -57,7 +64,7 @@ class ExecutionAgent:
         approved_topic: str,
         settings: object,
         breaker: CircuitBreaker,
-        rate_limiter: object,  # TokenBucket — local import avoids circular deps
+        rate_limiter: _RateLimiter,
         logger: structlog.BoundLogger,
         rest_gateway: object | None = None,
         reconciliation_gate: Callable[[], bool] | None = None,
@@ -217,7 +224,7 @@ class ExecutionAgent:
         self._seen_ids.add(client_id)
 
         # 4. Rate limiter
-        await self._rate_limiter.acquire()  # type: ignore[attr-defined]
+        await self._rate_limiter.acquire()
 
         # 5. Live-gate routing
         live_ok, blocked_gate = self._live_gates_open()
@@ -276,6 +283,8 @@ class ExecutionAgent:
                 if over is not None:
                     self._log.critical("execution_agent.hard_cap_reject", reason=over)
                     return
+                # gw is the polymorphic _rest_gateway (a real SIGNED gateway here,
+                # gated by _live_gates_open); its order methods are not on `object`.
                 result = await gw.place_bid(sym, amount, rate, typ)  # type: ignore[attr-defined]
             elif action == "ask":
                 result = await gw.place_ask(sym, amount, rate, typ)  # type: ignore[attr-defined]

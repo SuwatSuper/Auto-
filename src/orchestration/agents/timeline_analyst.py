@@ -131,8 +131,10 @@ class TimelineAnalystAgent:
         self.p_win = Decimal(str(p)) if p is not None else Decimal("0")
         sample = summary.get("sample", 0)
         self.p_win_samples = sample if isinstance(sample, int) else 0
-        self.past_win_rate = summary.get("past_win_rate")  # type: ignore[assignment]
-        self.recent_win_rate = summary.get("recent_win_rate")  # type: ignore[assignment]
+        past = summary.get("past_win_rate")
+        recent = summary.get("recent_win_rate")
+        self.past_win_rate = str(past) if past is not None else None
+        self.recent_win_rate = str(recent) if recent is not None else None
         self.analysis = {**summary, "regime": self.regime, "min_p_win": str(self._min_p_win)}
 
         pass_gate = self.p_win_samples >= self._min_samples and self.p_win >= self._min_p_win

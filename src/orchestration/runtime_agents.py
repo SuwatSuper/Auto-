@@ -194,7 +194,7 @@ class _AgentsMixin(_RuntimeBase):
         self._rest_gateway = None
         self._maybe_build_reconciliation(bus, log)
         if self._reconciliation is not None:
-            agents["reconciliation"] = self._reconciliation  # type: ignore[assignment,unused-ignore]
+            agents["reconciliation"] = self._reconciliation
         # Hand the (possibly None) live gateway to the execution gate. Without
         # this the gate's _rest_gateway stays None and real orders never fire,
         # even with all four live gates open.

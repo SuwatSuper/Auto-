@@ -124,7 +124,9 @@ def validate_risk_settings(
             errors.append(f"{name}: not a number ({values[name]!r})")
             return None
 
-    out: dict[str, object] = {}
+    # Typed accumulators so the RiskSettings construction is checked without casts.
+    dec_out: dict[str, Decimal] = {}
+    int_out: dict[str, int] = {}
 
     for name, (lo, hi) in _PCT_FIELDS.items():
         d = _dec(name)
@@ -133,7 +135,7 @@ def validate_risk_settings(
         if d < lo or d > hi:
             errors.append(f"{name}: must be between {lo} and {hi} (got {d})")
         else:
-            out[name] = d
+            dec_out[name] = d
 
     for name, (ilo, ihi) in _INT_FIELDS.items():
         try:
@@ -144,7 +146,7 @@ def validate_risk_settings(
         if iv < ilo or iv > ihi:
             errors.append(f"{name}: must be between {ilo} and {ihi} (got {iv})")
         else:
-            out[name] = iv
+            int_out[name] = iv
 
     for name, (tmin, tmax) in _THB_FIELDS.items():
         d = _dec(name)
@@ -158,7 +160,7 @@ def validate_risk_settings(
                 "real-money ceiling enforced in code"
             )
         else:
-            out[name] = d
+            dec_out[name] = d
 
     for name, (lo, hi) in _FRAC_FIELDS.items():
         d = _dec(name)
@@ -167,22 +169,22 @@ def validate_risk_settings(
         if d < lo or d > hi:
             errors.append(f"{name}: must be between {lo} and {hi} (got {d})")
         else:
-            out[name] = d
+            dec_out[name] = d
 
     if errors:
         return None, errors
 
     return (
         RiskSettings(
-            risk_per_trade_pct=out["risk_per_trade_pct"],  # type: ignore[arg-type]
-            stop_pct=out["stop_pct"],  # type: ignore[arg-type]
-            take_profit_pct=out["take_profit_pct"],  # type: ignore[arg-type]
-            max_daily_loss_pct=out["max_daily_loss_pct"],  # type: ignore[arg-type]
-            max_consecutive_losses=out["max_consecutive_losses"],  # type: ignore[arg-type]
-            max_open_positions=out["max_open_positions"],  # type: ignore[arg-type]
-            max_deployable_thb=out["max_deployable_thb"],  # type: ignore[arg-type]
-            max_single_order_thb=out["max_single_order_thb"],  # type: ignore[arg-type]
-            min_p_win=out["min_p_win"],  # type: ignore[arg-type]
+            risk_per_trade_pct=dec_out["risk_per_trade_pct"],
+            stop_pct=dec_out["stop_pct"],
+            take_profit_pct=dec_out["take_profit_pct"],
+            max_daily_loss_pct=dec_out["max_daily_loss_pct"],
+            max_consecutive_losses=int_out["max_consecutive_losses"],
+            max_open_positions=int_out["max_open_positions"],
+            max_deployable_thb=dec_out["max_deployable_thb"],
+            max_single_order_thb=dec_out["max_single_order_thb"],
+            min_p_win=dec_out["min_p_win"],
         ),
         [],
     )

@@ -33,6 +33,7 @@ def _f(value: object, default: float = 0.0) -> float:
     try:
         if value is None:
             return default
+        # value is an arbitrary object from a dict; the try/except makes float() safe.
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return default

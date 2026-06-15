@@ -238,14 +238,14 @@ class _LiveTradingMixin(_RuntimeBase):
         if signal == "BUY":
             if trader.position is not None:
                 return None  # single-position rule
-            entry = slip_buy(mark, tp.slippage_bps)  # type: ignore[attr-defined]
-            stop = entry * (Decimal("1") - tp.stop_pct / Decimal("100"))  # type: ignore[attr-defined]
+            entry = slip_buy(mark, tp.slippage_bps)
+            stop = entry * (Decimal("1") - tp.stop_pct / Decimal("100"))
             qty = size_order(
                 cash=self._treasury.cash,
                 entry_price=entry,
                 stop_price=stop,
-                risk_per_trade_pct=tp.risk_per_trade_pct,  # type: ignore[attr-defined]
-                fee_bps=tp.fee_taker_bps,  # type: ignore[attr-defined]
+                risk_per_trade_pct=tp.risk_per_trade_pct,
+                fee_bps=tp.fee_taker_bps,
                 slippage_bps=Decimal("0"),
             )
             if qty <= 0:
@@ -278,9 +278,9 @@ class _LiveTradingMixin(_RuntimeBase):
             # halted / underfunded / floor-breaching account never spends real
             # money and is never left with an untracked, unhedged live position.
             from domain.trading.paper import fee_for  # noqa: PLC0415
-            entry_fee = fee_for(qty * entry, tp.fee_taker_bps)  # type: ignore[attr-defined]
+            entry_fee = fee_for(qty * entry, tp.fee_taker_bps)
             order_cost = qty * entry + entry_fee
-            exit_fee_est = fee_for(qty * stop, tp.fee_taker_bps)  # type: ignore[attr-defined]
+            exit_fee_est = fee_for(qty * stop, tp.fee_taker_bps)
             worst = worst_case_loss(qty, entry, stop, entry_fee, exit_fee_est)
             if not self._treasury.would_approve(order_cost, worst, trader.open_market_value()):
                 self.logger.warning("runtime.live_order_treasury_veto")
@@ -312,7 +312,7 @@ class _LiveTradingMixin(_RuntimeBase):
         try:
             has_key = bool(
                 getattr(self.settings, "bitkub_api_key", None)
-                and self.settings.bitkub_api_key.get_secret_value()  # type: ignore[attr-defined]
+                and self.settings.bitkub_api_key.get_secret_value()
             )
         except AttributeError:
             has_key = bool(getattr(self.settings, "bitkub_api_key", None))
@@ -339,8 +339,8 @@ class _LiveTradingMixin(_RuntimeBase):
             return {"ok": False, "error": "api_key and api_secret are required"}
         from pydantic import SecretStr  # noqa: PLC0415
 
-        self.settings.bitkub_api_key = SecretStr(api_key)  # type: ignore[attr-defined]
-        self.settings.bitkub_api_secret = SecretStr(api_secret)  # type: ignore[attr-defined]
+        self.settings.bitkub_api_key = SecretStr(api_key)
+        self.settings.bitkub_api_secret = SecretStr(api_secret)
 
         await self._disconnect_account()
 
@@ -353,6 +353,8 @@ class _LiveTradingMixin(_RuntimeBase):
                 getattr(self.settings, "bitkub_api_secret", None),
             )
             with contextlib.suppress(Exception):
+                # build_live_gateway() returns `object` by design; only the real
+                # gateway implements the async-context surface.
                 await gateway.__aenter__()  # type: ignore[attr-defined]
             self._rest_gateway = gateway
             balance_source = BitkubBalanceSource(gateway)
@@ -381,7 +383,7 @@ class _LiveTradingMixin(_RuntimeBase):
         verify_error: str | None = None
         balances: dict[str, str] = {}
         try:
-            raw = await balance_source.get_balance()  # type: ignore[attr-defined]
+            raw = await cast(BalanceSource, balance_source).get_balance()
             balances = {k: str(v) for k, v in raw.items()}
             verified = True
         except Exception as exc:

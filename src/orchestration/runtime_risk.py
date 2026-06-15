@@ -96,9 +96,9 @@ class _RiskControlMixin(_RuntimeBase):
         # Apply to the live objects.
         tp = self._trade_params
         if tp is not None:
-            tp.risk_per_trade_pct = new.risk_per_trade_pct  # type: ignore[attr-defined]
-            tp.stop_pct = new.stop_pct  # type: ignore[attr-defined]
-            tp.take_profit_pct = new.take_profit_pct  # type: ignore[attr-defined]
+            tp.risk_per_trade_pct = new.risk_per_trade_pct
+            tp.stop_pct = new.stop_pct
+            tp.take_profit_pct = new.take_profit_pct
         if self._treasury is not None:
             from domain.portfolio.treasury import TreasuryLimits  # noqa: PLC0415
 
@@ -113,7 +113,7 @@ class _RiskControlMixin(_RuntimeBase):
             self._circuit_breaker.update_threshold(new.max_consecutive_losses)
         # Win-probability gate is operator-tunable live: update the setting the
         # entry gate reads AND the Timeline Analyst's own threshold/display.
-        self.settings.min_p_win = str(new.min_p_win)  # type: ignore[attr-defined]
+        self.settings.min_p_win = str(new.min_p_win)
         if self._timeline is not None and hasattr(self._timeline, "set_min_p_win"):
             self._timeline.set_min_p_win(new.min_p_win)
         gate = self._risk_gate()
@@ -124,7 +124,7 @@ class _RiskControlMixin(_RuntimeBase):
         # Keep the paper sizing cap in lockstep with the live order cap so a
         # real order and its paper mirror size identically.
         if tp is not None:
-            tp.max_order_thb = new.max_single_order_thb  # type: ignore[attr-defined]
+            tp.max_order_thb = new.max_single_order_thb
 
         await self._persist_controls(new.as_str_dict())
         self._record_control("risk_settings_updated", dict(patch))
@@ -160,7 +160,7 @@ class _RiskControlMixin(_RuntimeBase):
         if hi < lo:
             hi = lo
         clamped = max(lo, min(hi, val))
-        tp.risk_per_trade_pct = clamped  # type: ignore[attr-defined]
+        tp.risk_per_trade_pct = clamped
         return True
 
     def trip_breaker(self, reason: str = "MANUAL") -> dict[str, object]:
@@ -211,8 +211,8 @@ class _RiskControlMixin(_RuntimeBase):
         """Switch paper<->live. Live requires the confirm token AND the other
         gates (no kill switch, breaker closed). Paper always allowed."""
         if mode == "paper":
-            self.settings.execution_engine = "paper"  # type: ignore[attr-defined]
-            self.settings.live_trading_confirm = ""  # type: ignore[attr-defined]
+            self.settings.execution_engine = "paper"
+            self.settings.live_trading_confirm = ""
             self._record_control("execution_mode", {"mode": "paper"})
             return True, self.get_execution_mode()
         if mode != "live":
@@ -260,8 +260,8 @@ class _RiskControlMixin(_RuntimeBase):
                 ),
                 "field": "max_single_order_thb",
             }
-        self.settings.execution_engine = "live"  # type: ignore[attr-defined]
-        self.settings.live_trading_confirm = self._LIVE_TOKEN  # type: ignore[attr-defined]
+        self.settings.execution_engine = "live"
+        self.settings.live_trading_confirm = self._LIVE_TOKEN
         self._record_control("execution_mode", {"mode": "live"})
         return True, self.get_execution_mode()
 

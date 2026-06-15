@@ -19,13 +19,22 @@ import structlog
 from domain.risk.circuit_breaker import CircuitBreaker
 from orchestration.agents.ceo_agent import CeoAgent
 from orchestration.agents.learning import Learner
-from orchestration.agents.paper_trader import PaperTraderAgent
+from orchestration.agents.paper_trader import PaperTraderAgent, TradeParams
+from orchestration.agents.reconciliation_agent import ReconciliationAgent
 from orchestration.agents.treasury_agent import TreasuryAgent
 from orchestration.ports.event_bus import EventBus
 from orchestration.ports.price_feed import PriceFeed
 from orchestration.ports.state_store import StateStore
 from orchestration.runtime_agents import _AgentsMixin
-from orchestration.runtime_base import _TOPIC_NEWS_RAW, AgentLike, RuntimeDeps, _RuntimeBase
+from orchestration.runtime_base import (
+    _TOPIC_NEWS_RAW,
+    AgentLike,
+    NewsSource,
+    Notifier,
+    RuntimeDeps,
+    SettingsView,
+    _RuntimeBase,
+)
 from orchestration.runtime_live import _LiveTradingMixin
 from orchestration.runtime_memory import _MemoryMixin
 from orchestration.runtime_risk import _RiskControlMixin
@@ -47,7 +56,7 @@ class PipelineRuntime(
 
     def __init__(
         self,
-        settings: object,
+        settings: SettingsView,
         logger: structlog.BoundLogger,
         deps: RuntimeDeps | None = None,
     ) -> None:
@@ -89,7 +98,7 @@ class PipelineRuntime(
         self._coach_task: asyncio.Task[None] | None = None
         self._news_task: asyncio.Task[None] | None = None
         self._memory_task: asyncio.Task[None] | None = None
-        self._news_source: object | None = None  # NewsRssFeed (injectable for tests)
+        self._news_source: NewsSource | None = None  # NewsRssFeed (injectable for tests)
         self.last_news: dict[str, object] = {}
         self.restart_counts: dict[str, int] = {}
         self.crashed_agents: dict[str, str] = {}
@@ -97,19 +106,19 @@ class PipelineRuntime(
         # Circuit breaker — shared between ExecutionAgent and paper trader close
         self._circuit_breaker: CircuitBreaker | None = None
         # Operator control plane (live, dashboard-driven)
-        self._trade_params: object | None = None  # TradeParams (mutated live)
+        self._trade_params: TradeParams | None = None  # mutated live
         self._control_audit: list[dict[str, object]] = []
         # Strong refs to in-flight alert tasks so the GC can't kill a critical
         # alert (e.g. "real close failed") mid-send.
         self._alert_tasks: set[asyncio.Task[bool]] = set()
         self._max_deployable_thb: Decimal = Decimal("0")   # 0 = unlimited
         self._max_single_order_thb: Decimal = Decimal("0")  # 0 = unlimited
-        self._notifier: object | None = None  # AlertNotifier (lazy, infra)
+        self._notifier: Notifier | None = None  # AlertNotifier (lazy, infra)
         # Live Bitkub account connection (read-only reconciliation). Built only
         # when BITKUB_API_KEY is present; otherwise the system runs exactly as
         # before (paper execution over the live price feed).
         self._rest_gateway: object | None = None
-        self._reconciliation: object | None = None
+        self._reconciliation: ReconciliationAgent | None = None
         # Timeline Analyst (win-probability gate source) + daily trade governance
         self._timeline: object | None = None
         self._entry_gate_enabled: bool = bool(getattr(settings, "entry_gate_enabled", True))
@@ -223,6 +232,8 @@ class PipelineRuntime(
         # reconciliation agent starts polling the real wallet.
         if self._rest_gateway is not None:
             try:
+                # _rest_gateway is polymorphic (signed gateway | None | connection
+                # marker); the async-context surface only exists on the real gateway.
                 await self._rest_gateway.__aenter__()  # type: ignore[attr-defined]
                 self.logger.info("runtime.bitkub_gateway_connected")
             except Exception:
@@ -414,7 +425,7 @@ class PipelineRuntime(
                 if hr < 0.45 and hasattr(agent, "coach_tighten"):
                     agent.coach_tighten(best_name)
 
-    def _ensure_notifier(self) -> object | None:
+    def _ensure_notifier(self) -> Notifier | None:
         if self._notifier is None:
             from infrastructure.alerts.notifier import AlertNotifier  # noqa: PLC0415
 
@@ -431,7 +442,7 @@ class PipelineRuntime(
         notifier = self._ensure_notifier()
         if notifier is None:
             return False
-        return await notifier.send(message, level)  # type: ignore[attr-defined,no-any-return]
+        return await notifier.send(message, level)
 
     def _schedule_alert(self, message: str, level: str = "warning") -> None:
         """Fire an alert without blocking, if an event loop is running."""
@@ -459,7 +470,7 @@ class PipelineRuntime(
         bus = self._ensure_bus()
         while True:
             try:
-                headlines: list[str] = await self._news_source.fetch_headlines()  # type: ignore[attr-defined]
+                headlines: list[str] = await self._news_source.fetch_headlines()
                 if headlines:
                     score = score_headlines(headlines)
                     label = str(classify_sentiment(score))

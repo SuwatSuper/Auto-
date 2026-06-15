@@ -16,11 +16,13 @@ from decimal import Decimal
 from typing import Protocol
 
 import structlog
+from pydantic import SecretStr
 
 from domain.risk.circuit_breaker import CircuitBreaker
 from orchestration.agents.ceo_agent import CeoAgent
 from orchestration.agents.learning import Learner
-from orchestration.agents.paper_trader import PaperTraderAgent
+from orchestration.agents.paper_trader import PaperTraderAgent, TradeParams
+from orchestration.agents.reconciliation_agent import ReconciliationAgent
 from orchestration.agents.treasury_agent import TreasuryAgent
 from orchestration.ports.clock import Clock
 from orchestration.ports.event_bus import EventBus
@@ -43,6 +45,32 @@ _TOPIC_TREASURY = "treasury.v1"
 _TOPIC_PAPER_EVENTS = "paper.events.v1"
 _TOPIC_TIMELINE = "timeline.v1"
 _TOPIC_ANALYSIS = "analysis.v1"
+
+
+class SettingsView(Protocol):
+    """The mutable settings surface the runtime writes to directly (live wiring).
+
+    Everything else is read defensively via ``getattr``; this protocol exists so
+    the few real attribute *assignments* type-check without suppressions. The
+    concrete ``infrastructure.config.Settings`` satisfies it structurally."""
+
+    bitkub_api_key: SecretStr
+    bitkub_api_secret: SecretStr
+    execution_engine: str
+    live_trading_confirm: str
+    min_p_win: str
+
+
+class Notifier(Protocol):
+    """Layer-2 alert port (infrastructure.alerts.AlertNotifier satisfies it)."""
+
+    async def send(self, message: str, level: str = ...) -> bool: ...
+
+
+class NewsSource(Protocol):
+    """Layer-2 news port (infrastructure.gateway.NewsRssFeed satisfies it)."""
+
+    async def fetch_headlines(self) -> list[str]: ...
 
 
 class AgentLike(Protocol):
@@ -72,7 +100,7 @@ class RuntimeDeps:
 class _RuntimeBase:
     """Attribute + cross-mixin method contract (see module docstring)."""
 
-    settings: object
+    settings: SettingsView
     logger: structlog.BoundLogger
     _deps: RuntimeDeps | None
     _bus_impl: EventBus | None
@@ -100,20 +128,20 @@ class _RuntimeBase:
     _coach_task: asyncio.Task[None] | None
     _news_task: asyncio.Task[None] | None
     _memory_task: asyncio.Task[None] | None
-    _news_source: object | None
+    _news_source: NewsSource | None
     last_news: dict[str, object]
     restart_counts: dict[str, int]
     crashed_agents: dict[str, str]
     _learners: dict[str, Learner]
     _circuit_breaker: CircuitBreaker | None
-    _trade_params: object | None
+    _trade_params: TradeParams | None
     _control_audit: list[dict[str, object]]
     _alert_tasks: set[asyncio.Task[bool]]
     _max_deployable_thb: Decimal
     _max_single_order_thb: Decimal
-    _notifier: object | None
+    _notifier: Notifier | None
     _rest_gateway: object | None
-    _reconciliation: object | None
+    _reconciliation: ReconciliationAgent | None
     _timeline: object | None
     _entry_gate_enabled: bool
     _max_trades_per_day: int

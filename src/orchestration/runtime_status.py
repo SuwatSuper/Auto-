@@ -15,7 +15,8 @@ from orchestration.runtime_base import AgentLike, _RuntimeBase
 class _StatusMixin(_RuntimeBase):
     _EXP_CAP = 5000  # max agent skill (EXP) — agents level up from real work
 
-    # these; the rest get an honest, specific description here.
+    # Per-agent "learns from mistakes / can improve" cards for the dashboard
+    # learning board (honest, specific descriptions per agent).
     _LEARNING_CARDS: dict[str, tuple[str, str]] = {
         "market_analyst": ("สัญญาณ EMA-cross ที่ทายผิดทิศ (เกรดกับราคาจริง)",
                            "เพิ่มเงื่อนไขยืนยัน gap EMA เมื่อแพ้บ่อย / ผ่อนเมื่อแม่น"),
@@ -204,7 +205,7 @@ class _StatusMixin(_RuntimeBase):
                 e["agent"] = name
                 feed.append(e)
         rows.sort(key=lambda r: (r["score"] if isinstance(r["score"], int | float) else 0), reverse=True)
-        feed.sort(key=lambda e: e.get("ts_ms", 0), reverse=True)  # type: ignore[arg-type,return-value]
+        feed.sort(key=lambda e: v if isinstance(v := e.get("ts_ms", 0), int) else 0, reverse=True)
         return {
             "ts_ms": int(time.time() * 1000),
             "llm_critic": "disabled (no API key) — scores are statistical, not LLM",

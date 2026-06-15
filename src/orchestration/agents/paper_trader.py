@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+from collections.abc import Awaitable, Callable
 from decimal import Decimal, InvalidOperation
 
 import orjson
@@ -78,7 +79,7 @@ class PaperTraderAgent:
         params: TradeParams,
         state_store: StateStore | None = None,
         circuit_breaker: CircuitBreaker | None = None,
-        live_close_fn: object | None = None,
+        live_close_fn: Callable[[Decimal, Decimal], Awaitable[None]] | None = None,
     ) -> None:
         self._bus = bus
         self._decisions_topic = decisions_topic
@@ -384,7 +385,7 @@ class PaperTraderAgent:
             and self._live_close_fn is not None
         ):
             try:
-                await self._live_close_fn(closing_qty, mark)  # type: ignore[operator]
+                await self._live_close_fn(closing_qty, mark)
             except Exception:  # never let a live-close error corrupt paper state
                 self._log.error("paper_trader.live_close_failed", exc_info=True)
         if self._circuit_breaker is not None:
