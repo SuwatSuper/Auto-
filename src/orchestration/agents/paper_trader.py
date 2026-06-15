@@ -32,12 +32,18 @@ from domain.trading.paper import (
     size_order,
     slip_buy,
 )
+from orchestration.agents.paper_persistence import (
+    _POSITION_KEY,
+    _SESSION_KEY,
+    load_state,
+    save_state,
+    treasury_snapshot,
+)
 from orchestration.agents.treasury_agent import TreasuryAgent
 from orchestration.ports.event_bus import EventBus
 from orchestration.ports.state_store import StateStore
 
-_POSITION_KEY = "paper.position.v1"
-_SESSION_KEY = "paper.session.v1"
+__all__ = ["PaperTraderAgent", "TradeParams", "_POSITION_KEY", "_SESSION_KEY"]
 
 
 class TradeParams:
@@ -423,96 +429,14 @@ class PaperTraderAgent:
 
     # ── persistence ──────────────────────────────────────────────
     def _treasury_snapshot(self) -> dict[str, object]:
-        t = self._treasury
-        return {
-            "cash": str(t.cash),
-            "realized_pnl": str(t.realized_pnl),
-            "realized_today": str(t.realized_today),
-            "day_key": t.day_key,
-            "wins": t.wins,
-            "losses": t.losses,
-            "halted": t.halted,
-        }
+        return treasury_snapshot(self)
 
     async def _load(self) -> None:
-        if self._store is None:
-            return
-        # Try combined atomic key first (crash-safe)
-        raw = await self._store.get(_SESSION_KEY)
-        if raw is not None:
-            try:
-                data = orjson.loads(raw)
-                self._session_seq = int(data.get("seq", 0))
-                pos_data = data.get("position")
-                if pos_data is not None:
-                    self.position = PaperPosition.model_validate(pos_data)
-                self.trades_closed = int(data.get("trades_closed", 0))
-                self.entries_opened = int(data.get("entries_opened", 0))
-                self._position_is_live = bool(data.get("position_is_live", False))
-                # Restore treasury from the same snapshot
-                t_data = data.get("treasury")
-                if t_data:
-                    self._treasury.cash = Decimal(str(t_data["cash"]))
-                    self._treasury.realized_pnl = Decimal(str(t_data["realized_pnl"]))
-                    self._treasury.realized_today = Decimal(str(t_data["realized_today"]))
-                    self._treasury.day_key = str(t_data["day_key"])
-                    self._treasury.wins = int(t_data["wins"])
-                    self._treasury.losses = int(t_data["losses"])
-                    self._treasury.halted = bool(t_data["halted"])
-                # Validate consistency: position must be reflected in reserved cash
-                if self.position is not None and t_data:
-                    # If a position exists but cash is above initial_capital, something is off
-                    # We trust cash (never invent money) and keep position if plausible
-                    pass
-                self.state_loaded = True
-                self._treasury._session_loaded = True
-                self._log.info("paper_trader.session_restored", open=self.position is not None)
-                return
-            except (orjson.JSONDecodeError, KeyError, ValueError, Exception):
-                self._log.warning("paper_trader.session_corrupt_ignored", exc_info=True)
-
-        # Backward-compat: fall back to legacy split keys
-        raw = await self._store.get(_POSITION_KEY)
-        if raw is None:
-            return
-        try:
-            data = orjson.loads(raw)
-            pos_data = data.get("position")
-            if pos_data is not None:
-                self.position = PaperPosition.model_validate(pos_data)
-            self.trades_closed = int(data.get("trades_closed", 0))
-            self.entries_opened = int(data.get("entries_opened", 0))
-            # Consistency check: if position exists, verify cash doesn't exceed initial capital
-            # (legacy state may be inconsistent — drop phantom position, keep cash)
-            if self.position is not None and self._treasury.cash >= self._treasury._limits.initial_capital:
-                self._log.warning(
-                    "state.inconsistent_repaired",
-                    reason="position_with_full_cash",
-                )
-                self.position = None
-            self.state_loaded = True
-            self._log.info("paper_trader.state_restored", open=self.position is not None)
-        except (orjson.JSONDecodeError, KeyError, ValueError):
-            self._log.warning("paper_trader.state_corrupt_ignored", exc_info=True)
+        await load_state(self)
 
     async def _save(self) -> None:
-        if self._store is None:
-            return
-        self._session_seq += 1
-        pos = None
-        if self.position is not None:
-            pos = orjson.loads(self.position.model_dump_json())
-        payload = orjson.dumps(
-            {
-                "seq": self._session_seq,
-                "treasury": self._treasury_snapshot(),
-                "position": pos,
-                "position_is_live": self._position_is_live,
-                "trades_closed": self.trades_closed,
-                "entries_opened": self.entries_opened,
-            }
-        )
-        await self._store.set(_SESSION_KEY, payload)
+        await save_state(self)
+
 
     async def _publish_event(self, kind: str, body: dict[str, object]) -> None:
         out = orjson.dumps({"type": kind, "ts_ms": int(time.time() * 1000), **body})
