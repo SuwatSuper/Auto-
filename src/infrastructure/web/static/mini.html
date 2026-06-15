@@ -169,6 +169,16 @@
         </div>
         <div class="st" id="c-ctl-st"></div>
       </div>
+      <div class="panel">
+        <h3>โหมดการเทรด (เงินจริง)</h3>
+        <div class="sub" style="margin-bottom:6px">ตอนนี้: <b id="c-mode">—</b></div>
+        <div class="row">
+          <button class="b-red" id="c-arm">🔴 เปิดเทรดจริง (LIVE)</button>
+          <button class="b-gray" id="c-disarm">↩ กลับเป็นเทรดลม</button>
+        </div>
+        <div class="st" id="c-mode-st"></div>
+        <div class="note">⚠️ เงินจริง! กดแล้วต้องพิมพ์ <b>ENABLE</b> ยืนยัน 1 ครั้ง · วงเงิน ฿500/ไม้ (กันบั๊ก) · บอท<b>ซื้อ/ขายเท่านั้น ไม่ถอนเงิน</b> · กด KILL หยุดได้ทุกเมื่อ · ต้องมี THB ในบัญชี Bitkub จริง (ขั้นต่ำ ~฿10/ไม้)</div>
+      </div>
     </div>
   </details>
 
@@ -267,6 +277,7 @@ async function loadStatus(){
   // badges
   const exec=(s.execution_engine||'paper').toUpperCase();
   const be=$('b-exec'); be.textContent='EXEC '+exec; be.className='badge '+(exec==='LIVE'?'off':'on');
+  if($('c-mode')) $('c-mode').textContent = exec==='LIVE' ? '🔴 เทรดจริง (LIVE)' : '🟢 เทรดลม (PAPER)';
   const pf=s.price_feed||{}; const bd=$('b-data');
   bd.textContent='DATA '+(pf.connected?'LIVE':'รอราคา'); bd.className='badge '+(pf.connected?'on':'warn');
   const ba=$('b-acct'); ba.textContent='ACCOUNT '+(s.bitkub_account_connected?'ONLINE':'OFFLINE');
@@ -385,6 +396,21 @@ function wire(){
     if(r.ok&&r.data&&r.data.token){ const m=document.querySelector('meta[name="api-key"]'); if(m)m.content=r.data.token;
       st('c-login-st','เข้าสู่ระบบสำเร็จ ✅ ได้สิทธิ์ควบคุมแล้ว','ok'); $('c-pass').value=''; }
     else st('c-login-st', authMsg(r), 'err');
+  };
+  $('c-arm').onclick=async()=>{
+    if(!apiKey()){ st('c-mode-st', authMsg({status:401,data:{}}), 'err'); return; }
+    const c=prompt('⚠️ เปิดเทรดด้วยเงินจริงบน Bitkub (ซื้อ/ขายจริง ย้อนกลับไม่ได้)\n\nพิมพ์  ENABLE  เพื่อยืนยัน:');
+    if((c||'').trim().toUpperCase()!=='ENABLE'){ st('c-mode-st','ยกเลิก — ต้องพิมพ์ ENABLE เพื่อยืนยัน','err'); return; }
+    st('c-mode-st','กำลังเปิดเทรดจริง…');
+    const r1=await apiPost('/api/risk/settings',{max_single_order_thb:'500'});  // วงเงินกันบั๊ก
+    if(!r1.ok){ st('c-mode-st','ตั้งวงเงินไม่สำเร็จ: '+authMsg(r1),'err'); return; }
+    const r2=await apiPost('/api/execution/mode',{mode:'live',confirm:'I_ACCEPT_REAL_MONEY_RISK'});
+    if(r2.ok){ st('c-mode-st','✅ เปิดเทรดจริงแล้ว · วงเงิน ฿500/ไม้ · กด KILL เพื่อหยุดทันที','ok'); loadStatus(); }
+    else st('c-mode-st','เปิดไม่สำเร็จ: '+errOf(r2),'err');
+  };
+  $('c-disarm').onclick=async()=>{
+    const r=await apiPost('/api/execution/mode',{mode:'paper'});
+    st('c-mode-st', r.ok?'↩ กลับเป็นเทรดลม (paper) แล้ว':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
   };
   $('c-start').onclick=async()=>{ const r=await apiPost('/api/agents/start_all'); st('c-ctl-st',r.ok?'เริ่มแล้ว ✅':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
   $('c-stop').onclick=async()=>{ const r=await apiPost('/api/agents/stop_all'); st('c-ctl-st',r.ok?'หยุดแล้ว':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };

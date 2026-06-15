@@ -89,6 +89,10 @@ class PipelineRuntime(
         self._recent_trades: deque[dict[str, object]] = deque(maxlen=200)
         self._trade_rec_task: asyncio.Task[None] | None = None
         self.emergency_stopped: bool = False
+        # Per-process control key auto-provisioned for a LOCAL dashboard so the
+        # operator never hand-edits .env (network binds still require an explicit
+        # key via assert_safe_bind). Injected into the served page each load.
+        self._ephemeral_control_key: str = ""
         self._latest_price: Decimal | None = None
         self._latest_latency_ms: int = 0
         self._latency_samples: deque[int] = deque(maxlen=100)
@@ -502,6 +506,36 @@ class PipelineRuntime(
                 if hr < 0.45 and hasattr(agent, "coach_tighten"):
                     agent.coach_tighten(best_name)
 
+
+    def control_key(self) -> str:
+        """Effective dashboard control key used by the strict auth gate + page
+        injection.
+
+        If DASHBOARD_API_KEY is configured, use it. Otherwise, when bound to a
+        LOOPBACK host (single-user local dashboard), mint a per-process key once
+        and reuse it — so the operator's own machine works with zero key handling
+        ('ใส่รอบเดียวจบ'). It is injected into the served page each load, so it is
+        never typed. For a NON-loopback bind we return '' (no auto-key): the
+        startup bind-guard already forces an explicit credential there, so the
+        network control plane is never opened by this convenience.
+        """
+        raw = getattr(self.settings, "dashboard_api_key", None)
+        if raw is None:
+            cur = ""
+        elif hasattr(raw, "get_secret_value"):
+            cur = str(raw.get_secret_value())
+        else:
+            cur = str(raw)
+        if cur:
+            return cur
+        host = str(getattr(self.settings, "web_host", "127.0.0.1"))
+        if host not in ("127.0.0.1", "::1", "localhost"):
+            return ""
+        if not self._ephemeral_control_key:
+            import secrets as _secrets  # noqa: PLC0415
+
+            self._ephemeral_control_key = _secrets.token_urlsafe(24)
+        return self._ephemeral_control_key
 
     @property
     def ceo(self) -> CeoAgent | None:

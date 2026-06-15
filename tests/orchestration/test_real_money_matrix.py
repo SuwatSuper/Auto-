@@ -217,6 +217,23 @@ def test_order_over_hard_cap_helper() -> None:
     assert order_over_hard_cap("not-a-number") is not None
 
 
+def test_arm_live_persists_engine_to_env(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The operator's 'arm once' choice survives a restart: the live engine +
+    confirm token are written to .env (persist_state on). Disarm flips it back."""
+    monkeypatch.chdir(tmp_path)
+    rt = PipelineRuntime(
+        settings=Settings(persist_state=True, initial_capital="5000"),
+        logger=structlog.get_logger("t"),
+    )
+    rt._max_single_order_thb = Decimal("500")  # within the hard ceiling
+    ok, _ = rt.set_execution_mode("live", _LIVE)
+    assert ok
+    env = (tmp_path / ".env").read_text(encoding="utf-8")
+    assert "EXECUTION_ENGINE=live" in env and f"LIVE_TRADING_CONFIRM={_LIVE}" in env
+    rt.set_execution_mode("paper")
+    assert "EXECUTION_ENGINE=paper" in (tmp_path / ".env").read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("bad", ["nan", "NaN", "Infinity", "-Infinity", "inf", "-inf"])
 def test_order_over_hard_cap_rejects_non_finite(bad: str) -> None:
     """Regression: a non-finite notional must be REJECTED, never crash and never

@@ -213,6 +213,7 @@ class _RiskControlMixin(_RuntimeBase):
         if mode == "paper":
             self.settings.execution_engine = "paper"
             self.settings.live_trading_confirm = ""
+            self._persist_execution_mode("paper", "")
             self._record_control("execution_mode", {"mode": "paper"})
             return True, self.get_execution_mode()
         if mode != "live":
@@ -262,6 +263,10 @@ class _RiskControlMixin(_RuntimeBase):
             }
         self.settings.execution_engine = "live"
         self.settings.live_trading_confirm = self._LIVE_TOKEN
+        # Persist so the operator's choice survives a restart ('ตั้งครั้งเดียวจบ').
+        # The kill-switch, per-order cap and breaker are still re-checked on every
+        # live decision, so persisting the armed state does not bypass them.
+        self._persist_execution_mode("live", self._LIVE_TOKEN)
         self._record_control("execution_mode", {"mode": "live"})
         return True, self.get_execution_mode()
 
@@ -285,6 +290,14 @@ class _RiskControlMixin(_RuntimeBase):
     def _persist_capital(self, value: Decimal) -> None:
         """Write INITIAL_CAPITAL into .env, preserving other lines."""
         self._persist_env_setting("INITIAL_CAPITAL", str(value))
+
+    def _persist_execution_mode(self, engine: str, confirm: str) -> None:
+        """Persist EXECUTION_ENGINE + LIVE_TRADING_CONFIRM to .env (production
+        only). Gated on persist_state so ephemeral test runtimes never write .env."""
+        if not bool(getattr(self.settings, "persist_state", True)):
+            return
+        self._persist_env_setting("EXECUTION_ENGINE", engine)
+        self._persist_env_setting("LIVE_TRADING_CONFIRM", confirm)
 
     def _persist_env_setting(self, field: str, value: str) -> None:
         """Upsert ``FIELD=value`` into .env, preserving other lines."""

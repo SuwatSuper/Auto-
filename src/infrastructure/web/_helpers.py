@@ -46,7 +46,15 @@ def _secret_value(raw: object) -> str:
 
 
 def configured_api_key(runtime: PipelineRuntime) -> str:
-    """Read the control-plane key from settings ('' = guard disabled)."""
+    """Effective control-plane key ('' = guard disabled).
+
+    Delegates to ``runtime.control_key()`` which returns the configured
+    DASHBOARD_API_KEY, or a per-process auto key for a loopback (local) bind so
+    the local dashboard works without manual key handling. Non-loopback binds
+    still require an explicit key (enforced at startup by assert_safe_bind)."""
+    fn = getattr(runtime, "control_key", None)
+    if callable(fn):
+        return str(fn())
     return _secret_value(getattr(runtime.settings, "dashboard_api_key", None))
 
 

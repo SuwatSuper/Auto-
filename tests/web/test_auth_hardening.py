@@ -43,18 +43,35 @@ def test_create_app_refuses_unsafe_bind() -> None:
         create_app(rt)
 
 
+# ── control key: loopback auto-provision, non-loopback fail-closed ───
+def test_control_key_uses_explicit_when_set() -> None:
+    assert _runtime(dashboard_api_key="explicit").control_key() == "explicit"
+
+
+def test_control_key_not_autoprovisioned_for_non_loopback() -> None:
+    # A network bind must NEVER auto-open the control plane — only an explicit
+    # key (enforced separately by assert_safe_bind) is accepted.
+    assert _runtime(web_host="0.0.0.0", dashboard_api_key="").control_key() == ""
+
+
 # ── strict auth for dangerous endpoints (even on localhost) ──────────
 @pytest.mark.asyncio
-async def test_dangerous_endpoint_locked_when_no_key_configured() -> None:
-    rt = _runtime(dashboard_api_key="")  # loopback bind ok, but no control key
+async def test_local_dashboard_autoprovisions_key_but_still_requires_it() -> None:
+    """Loopback with no explicit key auto-provisions a per-process control key so
+    the LOCAL dashboard works without hand-editing .env — but a request WITHOUT
+    that key is still rejected (the strict guard is preserved, just not manual)."""
+    rt = _runtime(dashboard_api_key="")  # loopback bind, no explicit key
     rt.agents = rt._make_agents()
     transport = ASGITransport(app=create_app(rt))  # localhost client
     async with AsyncClient(transport=transport, base_url="http://test") as c:
-        # No token configured at all → dangerous endpoint is locked (fail-closed),
-        # even from localhost.
-        r = await c.post("/api/execution/mode", json={"mode": "paper"})
-        assert r.status_code == 401
-        assert "locked" in r.text
+        # No header → still 401 (the auto key is required, not bypassed).
+        assert (await c.post("/api/execution/mode", json={"mode": "paper"})).status_code == 401
+        key = rt.control_key()
+        assert key  # a real per-process key was minted for the loopback dashboard
+        ok = await c.post(
+            "/api/execution/mode", json={"mode": "paper"}, headers={"X-API-Key": key}
+        )
+        assert ok.status_code != 401
 
 
 @pytest.mark.asyncio
