@@ -91,6 +91,42 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
             raise HTTPException(status_code=400, detail=payload.get("errors", "invalid"))
         return {"ok": True, **payload}
 
+    # ── Strategy control (T3): enable/disable + live param tuning ───────
+    @app.get("/api/strategies")
+    async def get_strategies(request: Request) -> dict[str, object]:
+        check_api_key(request, runtime)
+        return {"ok": True, "strategies": runtime.strategy_overview()}
+
+    @app.post("/api/strategies/{sid}/enable")
+    async def enable_strategy(sid: str, request: Request) -> dict[str, object]:
+        check_api_key(request, runtime)
+        ok, payload = runtime.set_strategy_enabled(sid, True)
+        if not ok:
+            raise HTTPException(status_code=404, detail=payload.get("error", "unknown"))
+        return {"ok": True, **payload}
+
+    @app.post("/api/strategies/{sid}/disable")
+    async def disable_strategy(sid: str, request: Request) -> dict[str, object]:
+        check_api_key(request, runtime)
+        ok, payload = runtime.set_strategy_enabled(sid, False)
+        if not ok:
+            raise HTTPException(status_code=404, detail=payload.get("error", "unknown"))
+        return {"ok": True, **payload}
+
+    @app.post("/api/strategies/{sid}/params")
+    async def set_strategy_params(sid: str, request: Request) -> dict[str, object]:
+        check_api_key(request, runtime)
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid JSON body") from None
+        ok, payload = runtime.set_strategy_params(sid, body)
+        if not ok:
+            detail = payload.get("error") or payload.get("errors") or "invalid"
+            code = 404 if "unknown strategy" in str(payload.get("error", "")) else 400
+            raise HTTPException(status_code=code, detail=detail)
+        return {"ok": True, **payload}
+
     @app.post("/api/settings/capital")
     async def post_capital(request: Request) -> dict[str, object]:
         """T2: set the paper starting capital (THB) live (persisted to .env)."""

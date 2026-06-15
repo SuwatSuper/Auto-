@@ -45,6 +45,7 @@ class EntryExitAgent:
         # Self-improvement: graded on real signal outcomes (kind="strategy").
         self.learner = Learner("market_analyst", "strategy")
         self.detail = ""
+        self.enabled: bool = True    # T3: gate signal emission into the pipeline
         self._min_gap_pct = 0.0      # adaptive |EMA gap| % required to act
         self._last_adapt_at = 0
 
@@ -87,7 +88,7 @@ class EntryExitAgent:
             f"EMA-cross · ยืนยัน≥{self._min_gap_pct:.2f}% (gap {gap_pct:.2f}%)"
             f" · แม่น {self._hr_txt()}"
         )
-        if sig.action != SignalAction.HOLD and gap_pct >= self._min_gap_pct:
+        if sig.action != SignalAction.HOLD and gap_pct >= self._min_gap_pct and self.enabled:
             self.signal_count += 1
             self.learner.predict(sig.action.value, price, ts_ms)  # record for grading
             out = orjson.dumps({

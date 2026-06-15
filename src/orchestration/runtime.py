@@ -30,6 +30,7 @@ from orchestration.runtime_live import _LiveTradingMixin
 from orchestration.runtime_memory import _MemoryMixin
 from orchestration.runtime_risk import _RiskControlMixin
 from orchestration.runtime_status import _StatusMixin
+from orchestration.runtime_strategy import _StrategyMixin
 from orchestration.supervisors.price_supervisor import PriceSupervisor
 
 
@@ -39,6 +40,7 @@ class PipelineRuntime(
     _RiskControlMixin,
     _LiveTradingMixin,
     _MemoryMixin,
+    _StrategyMixin,
     _RuntimeBase,
 ):
     """Orchestrates feed, supervisor, and agents around a single shared bus."""

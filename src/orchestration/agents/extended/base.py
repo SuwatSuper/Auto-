@@ -51,6 +51,9 @@ class _AgentBase:
         self.msg_count = 0
         self.last_beat_ms: int = 0
         self.detail: str = ""
+        # T3: a disabled strategy keeps running (heartbeat/metrics) but emits no
+        # signals into the decision pipeline.
+        self.enabled: bool = True
         self.learner = Learner(name, kind)
 
     async def stop(self) -> None:
@@ -140,7 +143,7 @@ class PriceListenerAgent(_AgentBase):
         ...
 
     async def _emit(self, action: str, price: Decimal, ts_ms: int) -> None:
-        if self._topic_out is None:
+        if self._topic_out is None or not self.enabled:
             return
         # Throttle repeats of the same action to keep the pipeline smooth.
         now = time.monotonic()

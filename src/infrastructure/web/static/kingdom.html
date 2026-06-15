@@ -2582,6 +2582,14 @@ html, body {
             <div id="cmd-alert-status" class="cmd-status">—</div>
           </div>
 
+          <!-- 7b) Strategy control (enable/disable + live params) -->
+          <div class="settings-group" style="padding:12px;">
+            <div class="sr-label" style="margin-bottom:8px;">🎛️ กลยุทธ์ (เปิด/ปิด + จูนพารามิเตอร์สด)</div>
+            <div class="sr-desc" style="margin-bottom:6px;">ปิด = หยุดส่งสัญญาณเข้าระบบ · แก้ param มีผลกับสัญญาณถัดไป</div>
+            <div id="cmd-strategies" style="font-size:12px;">—</div>
+            <div id="cmd-strategy-status" class="cmd-status">—</div>
+          </div>
+
           <!-- 8) Control audit (who/what/when) -->
           <div class="settings-group" style="padding:12px;">
             <div class="sr-label" style="margin-bottom:8px;">🧾 บันทึกการสั่งงาน (Control audit)</div>
@@ -4767,6 +4775,29 @@ function cmdErr(res) {
 const CMD_RISK_FIELDS = ['risk_per_trade_pct','stop_pct','take_profit_pct','max_daily_loss_pct',
   'max_consecutive_losses','max_open_positions','max_single_order_thb','min_p_win'];
 
+async function cmdLoadStrategies() {
+  const box = $('cmd-strategies');
+  if (!box) return;
+  const r = await cmdGet('/api/strategies');
+  if (!r.ok || !r.data || !Array.isArray(r.data.strategies)) { box.textContent = '—'; return; }
+  box.innerHTML = r.data.strategies.map(s => {
+    const params = Object.entries(s.params || {}).map(([k, v]) =>
+      `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;">${k}`
+      + `<input class="cmd-input sm" style="width:84px;" data-sparam="${s.id}:${k}" value="${v}" /></label>`
+    ).join('');
+    const toggle = s.enabled
+      ? `<button class="cmd-btn cmd-btn-gray" data-saction="disable" data-sid="${s.id}" style="padding:2px 8px;">ปิด</button>`
+      : `<button class="cmd-btn cmd-btn-green" data-saction="enable" data-sid="${s.id}" style="padding:2px 8px;">เปิด</button>`;
+    return `<div style="border-bottom:1px solid rgba(255,255,255,.06);padding:6px 0;">`
+      + `<div style="display:flex;align-items:center;gap:8px;">`
+      + `<b style="color:${s.enabled ? '#36d07f' : 'var(--accent-red)'};">${s.enabled ? 'ON' : 'OFF'}</b>`
+      + `<span style="flex:1;">${s.label || s.id}</span> ${toggle}</div>`
+      + `<div style="margin-top:4px;">${params}`
+      + (params ? ` <button class="cmd-btn cmd-btn-blue" data-saction="params" data-sid="${s.id}" style="padding:2px 8px;">บันทึก param</button>` : '')
+      + `</div></div>`;
+  }).join('');
+}
+
 async function cmdLoadAudit() {
   const box = $('cmd-audit-list');
   if (!box) return;
@@ -4785,6 +4816,7 @@ async function cmdLoadAudit() {
 
 async function cmdLoadState() {
   cmdLoadAudit();
+  cmdLoadStrategies();
   const rs = await cmdGet('/api/risk/settings');
   if (rs.ok && rs.data && rs.data.settings) {
     CMD_RISK_FIELDS.forEach(f => { const el = $('cmd-' + f); if (el && rs.data.settings[f] != null) el.value = rs.data.settings[f]; });
@@ -4833,6 +4865,29 @@ function initCommandRoom() {
 
   // Auto-refresh the control-audit panel (who/what/when) every 5s.
   setInterval(cmdLoadAudit, 5000);
+
+  // Strategy panel: delegated handler for the dynamically-rendered buttons.
+  const stratBox = $('cmd-strategies');
+  if (stratBox) stratBox.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-saction]');
+    if (!btn) return;
+    const sid = btn.getAttribute('data-sid');
+    const action = btn.getAttribute('data-saction');
+    let res;
+    if (action === 'enable' || action === 'disable') {
+      res = await cmdSend('/api/strategies/' + sid + '/' + action, 'POST');
+    } else if (action === 'params') {
+      const patch = {};
+      stratBox.querySelectorAll('input[data-sparam^="' + sid + ':"]').forEach(inp => {
+        patch[inp.getAttribute('data-sparam').split(':')[1]] = inp.value;
+      });
+      res = await cmdSend('/api/strategies/' + sid + '/params', 'POST', patch);
+    }
+    cmdSetStatus('cmd-strategy-status',
+      res && res.ok ? 'อัปเดตกลยุทธ์แล้ว ✅' : ('ล้มเหลว: ' + cmdErr(res)),
+      res && res.ok ? 'ok' : 'err');
+    cmdLoadStrategies();
+  });
 
   on('cmd-connect', async () => {
     const api_key = ($('cmd-key')?.value || '').trim();
