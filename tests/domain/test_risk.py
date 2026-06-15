@@ -10,7 +10,7 @@ from domain.risk.rules import (
     RiskReasonCode,
     evaluate,
 )
-from domain.risk.sizing import fixed_fractional, kelly_fraction
+from domain.risk.sizing import adaptive_kelly_size, fixed_fractional, kelly_fraction
 from domain.shared.money import THB, Money
 from domain.trading.orders import Order, OrderStatus, Side
 
@@ -185,6 +185,66 @@ def test_kelly_negative_clamped_to_zero() -> None:
 def test_kelly_zero_win_loss_ratio() -> None:
     result = kelly_fraction(win_rate=Decimal("0.6"), win_loss_ratio=Decimal("0"))
     assert result == Decimal(0)
+
+
+# --- Adaptive Kelly sizing (U7) — always under the hard fence ---
+
+def test_adaptive_kelly_basic_half_kelly() -> None:
+    # kelly_fraction(0.6, 2) = 0.25; half-Kelly → 0.125 of equity at risk.
+    # risk = 1,000,000 * 0.125 = 125,000; stop_distance 50,000 → qty 2.5
+    qty = adaptive_kelly_size(
+        _money("1000000"), entry_price=Decimal("1000000"),
+        stop_price=Decimal("950000"), win_rate=Decimal("0.6"),
+        win_loss_ratio=Decimal("2"),
+    )
+    assert qty == Decimal("2.50000000")
+
+
+def test_adaptive_kelly_never_exceeds_cap_even_when_kelly_wants_more() -> None:
+    # Strong edge would size 2.5 BTC (≈2.5M THB notional) but the cap is 100k THB.
+    cap = Decimal("100000")
+    qty = adaptive_kelly_size(
+        _money("1000000"), entry_price=Decimal("1000000"),
+        stop_price=Decimal("950000"), win_rate=Decimal("0.6"),
+        win_loss_ratio=Decimal("2"), max_notional=cap,
+    )
+    assert qty * Decimal("1000000") <= cap        # notional never breaches the cap
+    assert qty == Decimal("0.10000000")           # exactly cap / entry
+
+
+def test_adaptive_kelly_negative_edge_sizes_nothing() -> None:
+    qty = adaptive_kelly_size(
+        _money("1000000"), entry_price=Decimal("1000000"),
+        stop_price=Decimal("950000"), win_rate=Decimal("0.3"),
+        win_loss_ratio=Decimal("0.5"),
+    )
+    assert qty == Decimal(0)
+
+
+def test_adaptive_kelly_fraction_clamped_to_unit_interval() -> None:
+    # fraction > 1 is clamped to 1 (full Kelly), not amplified beyond it.
+    full = adaptive_kelly_size(
+        _money("1000000"), entry_price=Decimal("1000000"),
+        stop_price=Decimal("950000"), win_rate=Decimal("0.6"),
+        win_loss_ratio=Decimal("2"), fraction=Decimal("5"),
+    )
+    # full Kelly 0.25 → risk 250,000 / 50,000 = 5.0
+    assert full == Decimal("5.00000000")
+    none = adaptive_kelly_size(
+        _money("1000000"), entry_price=Decimal("1000000"),
+        stop_price=Decimal("950000"), win_rate=Decimal("0.6"),
+        win_loss_ratio=Decimal("2"), fraction=Decimal("-1"),
+    )
+    assert none == Decimal(0)
+
+
+def test_adaptive_kelly_guards_bad_inputs() -> None:
+    eq = _money("1000000")
+    base = dict(win_rate=Decimal("0.6"), win_loss_ratio=Decimal("2"))
+    assert adaptive_kelly_size(eq, Decimal("0"), Decimal("950000"), **base) == Decimal(0)
+    assert adaptive_kelly_size(eq, Decimal("1000000"), Decimal("0"), **base) == Decimal(0)
+    assert adaptive_kelly_size(eq, Decimal("1000000"), Decimal("1000000"), **base) == Decimal(0)
+    assert adaptive_kelly_size(_money("0"), Decimal("1000000"), Decimal("950000"), **base) == Decimal(0)
 
 
 # --- Extended evaluate() tests (Phase 1) ---
