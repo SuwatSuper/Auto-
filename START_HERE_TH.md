@@ -1,9 +1,15 @@
 # 🏰 KINGDOM PRIME — เริ่มใช้งาน (ฉบับสมบูรณ์)
 
 ระบบเทรด paper-first + เกตนิรภัยเงินจริง + เรียนรู้จากผลจริง + เก็บ track record ครบ.
-**สถานะ:** `pytest 733 ผ่าน / 1 skip` · `ruff` ✅ · `mypy --strict` ✅ (126 ไฟล์) · cov 90.5% ·
-boot จริง `GET /`=200. เป้า **กำไรสุทธิ 5%/วัน (หลังหักค่าธรรมเนียม)** — เป็น "เป้าที่ไล่ตาม"
-ไม่ใช่การการันตี (ดูหัวข้อ "ความจริง" ท้ายไฟล์).
+**สถานะ (หลัง Phase 10 + Release Gate):** `pytest 823 ผ่าน / 1 skip` · `ruff` ✅ ·
+`mypy --strict` ✅ (132 ไฟล์) · cov 91.2% · boot จริง `GET /`=200 · soak 60s ไม่ crash/leak ·
+เลขจอ = ledger = `trades_*.csv` reconcile เป๊ะ (ระดับสตางค์). เป้า **กำไรสุทธิ 5%/วัน (หลังหัก
+ค่าธรรมเนียม)** — เป็น "เป้าที่ไล่ตาม" ไม่ใช่การการันตี (ดูหัวข้อ "ความจริง" ท้ายไฟล์).
+
+**Phase 10 (ความฉลาดเพิ่ม — ใต้รั้วความเสี่ยงเดิม):** order-book microstructure (READ-ONLY),
+ML win-probability (numpy ล้วน + walk-forward/OOS), swarm meta-learner ตาม regime,
+multi-timeframe, adaptive regime weights, news-sentiment sizing, Kelly ใต้ hard-cap.
+ดูรายละเอียด `PHASE10_AGENT_POWER_REPORT_TH.md` และผลตรวจ `RELEASE_AUDIT_REPORT_TH.md`.
 
 ---
 
@@ -51,8 +57,12 @@ pytest -q                                # เช็คสุขภาพระ�
 
 ## 6) ข้อมูล / track record
 - `data/trades_YYYYMMDD.csv` — ทุกไม้: fee_paid, pnl_gross, pnl_net, strategy_id, regime, win_prob
+  (บันทึกอัตโนมัติทุกครั้งที่ปิดไม้ — เป็นทั้งหลักฐานเลขจอและข้อมูลฝึกโมเดล ML)
 - `data/daily_summary.csv` — รายวัน: pnl_net, fees_total, win_rate, pct_return_net, target_reached
 - `data/state.db` — สถานะ (SQLite WAL) ปิด-เปิดใหม่ไม่หาย
+- **ตรวจ edge ของโมเดล ML (out-of-sample):** `PYTHONPATH=src python scripts/validate_winprob.py`
+  — อ่าน `data/trades_*.csv` จริงถ้ามี (≥30 ไม้) แล้วรายงาน walk-forward expectancy เทียบ rule;
+  ยังไม่มีไม้จริงจะโชว์เดโม synthetic ที่ติดป้ายชัดว่าไม่ใช่ผลเทรดจริง
 
 ## 7) Deploy 24/7 (Linux)
 ดู `deploy/DEPLOY.md` (systemd + logrotate).
