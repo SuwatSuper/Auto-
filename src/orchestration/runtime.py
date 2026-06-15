@@ -9,7 +9,7 @@ import time
 from collections import deque
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 
 import orjson
 import structlog
@@ -27,6 +27,7 @@ from orchestration.agents.risk_agent import RiskAgent
 from orchestration.agents.simulation import SimulationAgent
 from orchestration.agents.supreme import SupremeAgent
 from orchestration.agents.treasury_agent import TreasuryAgent
+from orchestration.ports.balance_source import BalanceSource
 from orchestration.ports.clock import Clock
 from orchestration.ports.event_bus import EventBus
 from orchestration.ports.event_store import EventStore
@@ -320,7 +321,7 @@ class PipelineRuntime:
         agents.update(money)
         # CEO observer — must be added AFTER money agents so it can see them
         # in self._runtime.status(). It only observes; never executes.
-        agents["ceo"] = CeoAgent(
+        ceo = CeoAgent(
             bus=bus, logger=log, runtime=self,
             agent_roles={
                 "market_analyst":    "Generates EMA-cross entry/exit signals",
@@ -351,7 +352,8 @@ class PipelineRuntime:
                 "timeline_analyst":  "Replays full history; win-probability entry gate",
             },
         )
-        self._ceo = agents["ceo"]
+        agents["ceo"] = ceo
+        self._ceo = ceo
         # Connect the REAL Bitkub account (read-only) when credentials exist.
         self._reconciliation = None
         self._rest_gateway = None
@@ -363,7 +365,7 @@ class PipelineRuntime:
         # even with all four live gates open.
         gate = agents.get("risk_gate")
         if gate is not None and hasattr(gate, "set_rest_gateway"):
-            gate.set_rest_gateway(self._rest_gateway)  # type: ignore[attr-defined]
+            gate.set_rest_gateway(self._rest_gateway)
         return agents
 
     def _maybe_build_reconciliation(self, bus: EventBus, log: structlog.BoundLogger) -> None:
@@ -665,7 +667,7 @@ class PipelineRuntime:
             )
             for _name, agent, hr in strat[1:]:
                 if hr < 0.45 and hasattr(agent, "coach_tighten"):
-                    agent.coach_tighten(best_name)  # type: ignore[attr-defined]
+                    agent.coach_tighten(best_name)
 
     def _task_alive(self, name: str) -> bool:
         task = self.agent_tasks.get(name)
@@ -940,7 +942,7 @@ class PipelineRuntime:
         from orchestration.control import validate_risk_settings  # noqa: PLC0415
 
         current = self._current_risk_settings()
-        new, errors = validate_risk_settings(current, patch)  # type: ignore[arg-type]
+        new, errors = validate_risk_settings(current, patch)
         if new is None:
             return False, {"errors": errors}
 
@@ -966,10 +968,10 @@ class PipelineRuntime:
         # entry gate reads AND the Timeline Analyst's own threshold/display.
         self.settings.min_p_win = str(new.min_p_win)  # type: ignore[attr-defined]
         if self._timeline is not None and hasattr(self._timeline, "set_min_p_win"):
-            self._timeline.set_min_p_win(new.min_p_win)  # type: ignore[attr-defined]
+            self._timeline.set_min_p_win(new.min_p_win)
         gate = self._risk_gate()
         if gate is not None and hasattr(gate, "set_max_open_positions"):
-            gate.set_max_open_positions(new.max_open_positions)  # type: ignore[attr-defined]
+            gate.set_max_open_positions(new.max_open_positions)
         self._max_deployable_thb = new.max_deployable_thb
         self._max_single_order_thb = new.max_single_order_thb
         # Keep the paper sizing cap in lockstep with the live order cap so a
@@ -1110,7 +1112,7 @@ class PipelineRuntime:
         if gw is None or not hasattr(gw, "place_bid"):
             return False
         try:
-            await gw.place_bid(  # type: ignore[attr-defined]
+            await gw.place_bid(
                 spec["symbol"], spec["amount"], spec["rate"], spec.get("typ", "market")
             )
             self.logger.info("runtime.manual_live_bid", amount=spec["amount"])
@@ -1272,7 +1274,7 @@ class PipelineRuntime:
             return
         try:
             # market order: a protective stop must FILL even as price falls through.
-            result = await gw.place_ask(symbol, str(sell_qty), str(rate), "market")  # type: ignore[attr-defined]
+            result = await gw.place_ask(symbol, str(sell_qty), str(rate), "market")
             self.logger.info("runtime.live_exit_order", qty=str(sell_qty), rate=str(rate),
                              order_id=(result.get("result", {}) or {}).get("id")
                              if isinstance(result, dict) else None)
@@ -1424,7 +1426,8 @@ class PipelineRuntime:
             from orchestration.agents.execution_agent import build_live_gateway  # noqa: PLC0415
 
             gateway = build_live_gateway(
-                self.settings.bitkub_api_key, self.settings.bitkub_api_secret
+                getattr(self.settings, "bitkub_api_key", None),
+                getattr(self.settings, "bitkub_api_secret", None),
             )
             with contextlib.suppress(Exception):
                 await gateway.__aenter__()  # type: ignore[attr-defined]
@@ -1436,17 +1439,17 @@ class PipelineRuntime:
         from orchestration.agents.reconciliation_agent import ReconciliationAgent  # noqa: PLC0415
 
         recon = ReconciliationAgent(
-            self._ensure_bus(), balance_source, "reconciliation.v1", self.logger,
-            poll_interval_s=60.0,
+            self._ensure_bus(), cast(BalanceSource, balance_source), "reconciliation.v1",
+            self.logger, poll_interval_s=60.0,
         )
         self._reconciliation = recon
-        self.agents["reconciliation"] = recon  # type: ignore[assignment]
+        self.agents["reconciliation"] = recon
         # Keep the execution gate's live gateway in sync with the freshly
         # connected account (None-safe; only a real signed gateway can order).
         gate = self.agents.get("risk_gate")
         if gate is not None and hasattr(gate, "set_rest_gateway"):
             gw = self._rest_gateway if hasattr(self._rest_gateway, "place_bid") else None
-            gate.set_rest_gateway(gw)  # type: ignore[attr-defined]
+            gate.set_rest_gateway(gw)
 
         # Immediately VERIFY by reading the real wallet once, so the Connect
         # response tells the truth: real balances on success, or the real
@@ -1484,7 +1487,7 @@ class PipelineRuntime:
         # gateway that is about to be closed.
         gate = self.agents.get("risk_gate")
         if gate is not None and hasattr(gate, "set_rest_gateway"):
-            gate.set_rest_gateway(None)  # type: ignore[attr-defined]
+            gate.set_rest_gateway(None)
         if "reconciliation" in self.agents:
             with contextlib.suppress(Exception):
                 await self.stop_agent("reconciliation")

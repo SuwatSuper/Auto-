@@ -16,7 +16,7 @@ import asyncio
 import contextlib
 import time
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
@@ -53,8 +53,12 @@ _DEFAULT_TOPICS: tuple[str, ...] = (
 class _RuntimeView(Protocol):
     """The minimum surface the CEO needs from PipelineRuntime."""
 
-    agents: dict[str, object]
     emergency_stopped: bool
+
+    # Read-only property → covariant in the value type, so a concrete
+    # ``dict[str, AgentLike]`` attribute satisfies this protocol member.
+    @property
+    def agents(self) -> Mapping[str, object]: ...
 
     def status(self) -> dict[str, object]: ...
 
@@ -309,7 +313,9 @@ class CeoAgent:
         positions: tuple[PositionSnapshot, ...] = ()
 
         agent_snaps: list[AgentSnapshot] = []
-        for entry in status.get("agents", []):
+        agents_raw = status.get("agents", [])
+        agents_list = agents_raw if isinstance(agents_raw, list) else []
+        for entry in agents_list:
             if not isinstance(entry, dict):
                 continue
             name = str(entry.get("name", ""))

@@ -87,7 +87,8 @@ class TradeCsvLogger:
 
     def _append(self, event: dict[str, object]) -> None:
         """Write one row to the appropriate daily CSV file."""
-        ts_ms = int(event.get("ts_ms", time.time() * 1000))  # type: ignore[arg-type]
+        ts_raw = event.get("ts_ms")
+        ts_ms = int(ts_raw) if isinstance(ts_raw, int | float) else int(time.time() * 1000)
         dt = datetime.fromtimestamp(ts_ms / 1000.0, tz=UTC)
         date_str = dt.strftime("%Y%m%d")
 

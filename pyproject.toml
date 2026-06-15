@@ -45,10 +45,20 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
 
 [tool.mypy]
+# Single source of truth for type checking (mypy.ini was removed). Strict mode
+# is enforced for the whole codebase with NO per-module error suppressions —
+# every module under src/ (except the vendored pandas_ta stub) type-checks clean.
 strict = true
 python_version = "3.12"
 mypy_path = "src"
-packages = ["domain", "orchestration", "infrastructure"]
+explicit_package_bases = true
+ignore_missing_imports = true
+exclude = ["src/pandas_ta/"]
+
+# Vendored numpy/pandas TA stub (not our code) — excluded from strict checking.
+[[tool.mypy.overrides]]
+module = "pandas_ta.*"
+ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

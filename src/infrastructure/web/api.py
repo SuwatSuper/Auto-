@@ -13,7 +13,11 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import RequestResponseEndpoint
+from starlette.responses import Response
 
+from domain.audit.decision_log import DecisionRecord
+from domain.reporting.ceo_report import AgentReport, ExecutiveSummary
 from orchestration.runtime import PipelineRuntime
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -75,7 +79,7 @@ def _check_api_key(request: Request, runtime: PipelineRuntime) -> None:
 
 
 # ── CEO serializers (Layer-3 adapters — no logic, pure mapping) ────────
-def _agent_report_to_dict(report: object) -> dict[str, object]:
+def _agent_report_to_dict(report: AgentReport) -> dict[str, object]:
     return {
         "name": report.name,
         "role": report.role,
@@ -86,7 +90,7 @@ def _agent_report_to_dict(report: object) -> dict[str, object]:
     }
 
 
-def _executive_summary_to_dict(es: object) -> dict[str, object]:
+def _executive_summary_to_dict(es: ExecutiveSummary) -> dict[str, object]:
     business = es.business
     risk = es.risk
     health = es.health
@@ -123,7 +127,7 @@ def _executive_summary_to_dict(es: object) -> dict[str, object]:
     }
 
 
-def _decision_record_to_dict(r: object) -> dict[str, object]:
+def _decision_record_to_dict(r: DecisionRecord) -> dict[str, object]:
     return {
         "ts_ms": r.ts_ms,
         "seq": r.seq,
@@ -153,12 +157,14 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
 
     # P4: security headers middleware
     @app.middleware("http")
-    async def security_headers(request: Request, call_next: object) -> object:
+    async def security_headers(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         # Rate limiting
         ip = request.client.host if request.client else "unknown"
         if not _check_rate_limit(ip):
             return JSONResponse({"error": "rate_limit_exceeded"}, status_code=429)
-        response = await call_next(request)  # type: ignore[operator]
+        response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
@@ -270,7 +276,11 @@ def create_app(runtime: PipelineRuntime) -> FastAPI:
                 [a for a in agent_list if a.get("running", False)]
             ),
             "stale_agents": stale,
-            "feed_connected": s.get("health", {}).get("feed_connected", False),  # type: ignore[union-attr]
+            "feed_connected": (
+                health_info.get("feed_connected", False)
+                if isinstance(health_info := s.get("health", {}), dict)
+                else False
+            ),
             "emergency_stopped": s.get("emergency_stopped", False),
         }
 
