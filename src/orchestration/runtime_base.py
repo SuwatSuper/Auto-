@@ -231,6 +231,9 @@ class _RuntimeBase:
     async def _memory_loop(self) -> None:
         raise NotImplementedError
 
+    async def _news_loop(self) -> None:
+        raise NotImplementedError
+
     async def load_controls(self) -> None:
         raise NotImplementedError
 
