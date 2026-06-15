@@ -265,6 +265,43 @@ class _RiskControlMixin(_RuntimeBase):
         self._record_control("execution_mode", {"mode": "live"})
         return True, self.get_execution_mode()
 
+    def set_initial_capital(self, raw: object) -> tuple[bool, dict[str, object]]:
+        """T2: set the paper starting capital (money base) live, re-fund the
+        treasury, and persist to .env so it survives a restart."""
+        try:
+            value = Decimal(str(raw))
+        except (InvalidOperation, ValueError):
+            return False, {"error": f"initial_capital: not a number ({raw!r})"}
+        if value <= 0:
+            return False, {"error": "initial_capital must be > 0"}
+        self._initial_capital = value
+        self._peak_equity = value
+        if self._treasury is not None:
+            self._treasury.set_capital(value)
+        self._persist_capital(value)
+        self._record_control("initial_capital", {"value": str(value)})
+        return True, {"initial_capital": str(value)}
+
+    def _persist_capital(self, value: Decimal) -> None:
+        """Write INITIAL_CAPITAL into .env, preserving other lines."""
+        import contextlib  # noqa: PLC0415
+        from pathlib import Path  # noqa: PLC0415
+
+        env = Path(".env")
+        lines = env.read_text(encoding="utf-8").splitlines() if env.exists() else []
+        out: list[str] = []
+        found = False
+        for ln in lines:
+            if ln.strip().startswith("INITIAL_CAPITAL="):
+                out.append(f"INITIAL_CAPITAL={value}")
+                found = True
+            else:
+                out.append(ln)
+        if not found:
+            out.append(f"INITIAL_CAPITAL={value}")
+        with contextlib.suppress(Exception):
+            env.write_text("\n".join(out) + "\n", encoding="utf-8")
+
     def control_audit(self, limit: int = 100) -> list[dict[str, object]]:
         """Recent operator control actions (who/what/when)."""
         return self._control_audit[-max(1, min(limit, 1000)):]

@@ -69,6 +69,16 @@ class TreasuryAgent:
         self.rejected_count: int = 0
         self._session_loaded: bool = False  # set by paper_trader when session key wins
 
+    def set_capital(self, new_capital: Decimal) -> None:
+        """Operator reset of the starting capital / money base (PAPER only).
+
+        Rebuilds the survival-floor and daily-loss limits off the new base and
+        re-funds cash to it. Intended for use before trading begins.
+        """
+        self._limits = self._limits.model_copy(update={"initial_capital": new_capital})
+        self.cash = new_capital
+        self.halted = should_halt(self.realized_today, self.cash, self._limits)
+
     # ── lifecycle ────────────────────────────────────────────────
     async def start(self) -> None:
         self.running = True

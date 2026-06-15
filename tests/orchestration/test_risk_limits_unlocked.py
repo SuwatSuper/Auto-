@@ -88,7 +88,7 @@ async def test_unlocked_settings_apply_live() -> None:
 
 
 # ── shipped defaults ─────────────────────────────────────────────────
-def test_defaults_ship_ten_million_and_unlimited_breaker() -> None:
+def test_defaults_ship_mandate_capital_and_unlimited_breaker() -> None:
     s = Settings()
-    assert s.initial_capital == "10000000"   # สิบล้าน
+    assert s.initial_capital == "1000"       # mandate default = 1,000 THB (D1)
     assert s.max_consecutive_losses == "0"   # unlimited breaker

@@ -91,6 +91,21 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
             raise HTTPException(status_code=400, detail=payload.get("errors", "invalid"))
         return {"ok": True, **payload}
 
+    @app.post("/api/settings/capital")
+    async def post_capital(request: Request) -> dict[str, object]:
+        """T2: set the paper starting capital (THB) live (persisted to .env)."""
+        check_api_key(request, runtime)
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid JSON body") from None
+        if not isinstance(body, dict) or "capital" not in body:
+            raise HTTPException(status_code=400, detail="body needs {capital}")
+        ok, payload = runtime.set_initial_capital(body["capital"])
+        if not ok:
+            raise HTTPException(status_code=400, detail=payload.get("error", "invalid"))
+        return {"ok": True, **payload}
+
     @app.post("/api/breaker/trip")
     async def post_breaker_trip(request: Request) -> dict[str, object]:
         check_api_key(request, runtime)

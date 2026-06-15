@@ -2499,6 +2499,16 @@ html, body {
             <div id="cmd-login-status" class="cmd-status">—</div>
           </div>
 
+          <!-- 2b) Starting capital (money base) -->
+          <div class="settings-group" style="padding:12px;">
+            <div class="sr-label" style="margin-bottom:8px;">💰 ทุนตั้งต้น (ฐานคำนวณขนาดไม้)</div>
+            <div class="cmd-grid2">
+              <label class="cmd-lab">ทุนตั้งต้น (THB)<input id="cmd-initial-capital" class="cmd-input sm" /></label>
+            </div>
+            <button id="cmd-capital-apply" class="cmd-btn cmd-btn-blue">บันทึกทุน / Apply</button>
+            <div id="cmd-capital-status" class="cmd-status">—</div>
+          </div>
+
           <!-- 3) Risk settings -->
           <div class="settings-group" style="padding:12px;">
             <div class="sr-label" style="margin-bottom:8px;">⚖️ ตั้งค่าความเสี่ยง (มีผลกับเทรดถัดไป)</div>
@@ -4766,6 +4776,8 @@ async function cmdLoadState() {
       if (acct.last_error) msg += ` · ⚠ ${acct.last_error}`;
       cmdSetStatus('cmd-acct', msg, acct.reconciled ? 'ok' : (acct.last_error ? 'err' : ''));
     }
+    const cap = $('cmd-initial-capital');
+    if (cap && d.initial_capital != null && document.activeElement !== cap) cap.value = d.initial_capital;
     const banner = $('cmd-banner');
     if (banner) banner.textContent = `โหมด: ${(d.execution_mode && d.execution_mode.mode || 'paper').toUpperCase()} · พอร์ต: single pair (THB_BTC)`;
   } else {
@@ -4812,6 +4824,15 @@ function initCommandRoom() {
       showToast('Login สำเร็จ');
       cmdLoadState();
     } else { cmdSetStatus('cmd-login-status', cmdErr(res), 'err'); }
+  });
+
+  on('cmd-capital-apply', async () => {
+    const v = ($('cmd-initial-capital')?.value || '').trim();
+    const res = await cmdSend('/api/settings/capital', 'POST', { capital: v });
+    cmdSetStatus('cmd-capital-status',
+      res.ok ? ('บันทึกแล้ว: ฿' + (res.data.initial_capital || v)) : ('ล้มเหลว: ' + cmdErr(res)),
+      res.ok ? 'ok' : 'err');
+    if (res.ok) cmdLoadState();
   });
 
   on('cmd-risk-apply', async () => {

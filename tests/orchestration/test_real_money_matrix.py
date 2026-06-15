@@ -50,7 +50,12 @@ def _armed_runtime(
     *, cap: str = "5000", reconciled: bool = True, balances: dict[str, str] | None = None
 ) -> tuple[PipelineRuntime, _MockGateway]:
     gw = _MockGateway()
-    rt = PipelineRuntime(settings=Settings(persist_state=False), logger=structlog.get_logger("t"))
+    # Capital large enough that order sizing is bounded by the per-order / hard
+    # caps under test, not by available cash (mandate default is only 1,000 THB).
+    rt = PipelineRuntime(
+        settings=Settings(persist_state=False, initial_capital="5000000"),
+        logger=structlog.get_logger("t"),
+    )
     rt.agents = rt._make_agents()
     assert rt._trader is not None
     rt._trader.mark_price = _MARK

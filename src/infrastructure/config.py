@@ -27,9 +27,10 @@ class Settings(BaseSettings):
     bitkub_api_secret: SecretStr = SecretStr("")
     # Control-plane key: when set, all POST /api/* endpoints require X-API-Key.
     dashboard_api_key: SecretStr = SecretStr("")
-    # Paper-trading starting equity (THB). Experiment default: 10,000,000 THB
-    # (สิบล้าน) — fully adjustable; the treasury sizes everything off this.
-    initial_capital: str = "10000000"
+    # Paper-trading starting equity (THB). Mandate default: 1,000 THB — fully
+    # adjustable live from the dashboard (POST /api/settings/capital); the
+    # treasury sizes everything off this.
+    initial_capital: str = "1000"
     # Per-trade risk %. Adjustable live in Settings up to 100% (ความเสี่ยงสูงสุด
     # 100%). Default kept conservative; crank it in the dashboard when desired.
     risk_per_trade_pct: str = "1.0"
