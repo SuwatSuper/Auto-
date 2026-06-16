@@ -10,9 +10,10 @@ from pathlib import Path
 
 _EXCLUDE_NAMES = {".env", ".git", ".venv", "venv", "__pycache__",
                   ".pytest_cache", ".mypy_cache", ".ruff_cache", ".coverage",
+                  ".hypothesis", "htmlcov", "dist", "build", "node_modules",
                   "data", "logs", "wheels"}
 
-_EXCLUDE_SUFFIXES = {".zip"}
+_EXCLUDE_SUFFIXES = {".zip", ".pyc"}
 
 
 def _should_exclude(rel: Path) -> bool:
