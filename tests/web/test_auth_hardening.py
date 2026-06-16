@@ -119,3 +119,41 @@ async def test_dangerous_endpoint_remote_with_token_ok() -> None:
         # remote + correct token → reaches handler
         r = await c.post("/api/positions/close_all", headers={"X-API-Key": "secret"})
         assert r.status_code != 401
+
+
+@pytest.mark.asyncio
+async def test_connect_account_is_localhost_trusted(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Connecting the Bitkub account is localhost-trusted: on the operator's own
+    machine you paste key/secret and connect with NO DASHBOARD_API_KEY — the
+    'ใส่หน้าเว็บทีเดียว กรอก เชื่อม' flow. Setting credentials never moves money."""
+    monkeypatch.chdir(tmp_path)  # connect_account persists to ./.env — isolate it
+    rt = _runtime(dashboard_api_key="")  # loopback, no explicit key
+    rt.agents = rt._make_agents()
+    transport = ASGITransport(app=create_app(rt))  # localhost client
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.post("/api/credentials", json={"api_key": "pk", "api_secret": "sk"})
+        assert r.status_code == 200, "localhost connect must work without a control key"
+        assert r.json()["has_key"] is True
+        assert "pk" not in r.text  # the key is never echoed back
+    await rt._disconnect_account()
+
+
+@pytest.mark.asyncio
+async def test_connect_account_remote_still_requires_key(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """A network bind must NOT open the credential endpoint: a remote client with
+    no/invalid token is rejected, so the control plane stays closed over the LAN."""
+    monkeypatch.chdir(tmp_path)
+    rt = _runtime(dashboard_api_key="secret")
+    rt.agents = rt._make_agents()
+    transport = ASGITransport(app=create_app(rt), client=("203.0.113.7", 5555))  # type: ignore[arg-type]
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        assert (
+            await c.post("/api/credentials", json={"api_key": "pk", "api_secret": "sk"})
+        ).status_code == 401
+        ok = await c.post(
+            "/api/credentials",
+            json={"api_key": "pk", "api_secret": "sk"},
+            headers={"X-API-Key": "secret"},
+        )
+        assert ok.status_code != 401
+    await rt._disconnect_account()

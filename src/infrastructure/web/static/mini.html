@@ -409,7 +409,9 @@ function connectWS(){
 function st(id,msg,kind){ const el=$(id); if(el){ el.textContent=msg; el.className='st '+(kind||''); } }
 function wire(){
   $('c-connect').onclick=async()=>{
-    if(!apiKey()){ st('c-acct','⚠️ ปุ่มนี้ต้องมี “สิทธิ์ควบคุม” ก่อน — ตั้ง DASHBOARD_API_KEY ใน .env แล้วรีเฟรช (Ctrl+F5) · ถ้าใส่ BITKUB_API_KEY/SECRET ใน .env แล้ว ระบบต่อบัญชีให้อัตโนมัติ ไม่ต้องกดปุ่มนี้','err'); return; }
+    // Localhost is trusted: just paste the Bitkub key/secret and connect — the
+    // server's soft auth allows it from this machine (no DASHBOARD_API_KEY). If a
+    // remote bind rejects it, authMsg() below explains the key requirement.
     const api_key=($('c-key').value||'').trim(), api_secret=($('c-secret').value||'').trim();
     if(!api_key||!api_secret){ st('c-acct','กรอกทั้ง key และ secret','err'); return; }
     st('c-acct','กำลังเชื่อมต่อ…');
@@ -419,6 +421,8 @@ function wire(){
       $('c-secret').value=''; loadStatus();
     } else st('c-acct', authMsg(r), 'err');
   };
+  // Press Enter in either field to connect (กรอก → เอ็นเตอร์ → เชื่อม).
+  ['c-key','c-secret'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('c-connect').click(); } }); });
   $('c-login').onclick=async()=>{
     const r=await apiPost('/api/login',{password:$('c-pass').value||''});
     if(r.ok&&r.data&&r.data.token){ const m=document.querySelector('meta[name="api-key"]'); if(m)m.content=r.data.token;
@@ -471,7 +475,7 @@ function wire(){
 async function boot(){
   wire();
   if(!apiKey()){
-    st('c-acct','ℹ️ ยังไม่ได้ตั้ง DASHBOARD_API_KEY ใน .env → ปุ่มเชื่อม/ควบคุมจะใช้ไม่ได้ (ตั้งแล้วรีสตาร์ท+รีเฟรช) · ถ้าใส่ BITKUB key ใน .env แล้ว บัญชีจริงจะต่อให้อัตโนมัติ ดูสถานะที่การ์ด “บัญชีจริง” ด้านบน');
+    st('c-acct','ℹ️ เปิดจากเครื่องนี้ (localhost): กรอก Bitkub key/secret แล้วกด “เชื่อม” (หรือ Enter) ได้เลย · เปิดจากมือถือ/เครื่องอื่นผ่าน LAN ต้องตั้ง DASHBOARD_API_KEY ใน .env ก่อน (เพื่อความปลอดภัย)');
   }
   const h=await apiGet('/api/prices/history');
   if(h.ok&&h.data&&Array.isArray(h.data.prices)) h.data.prices.forEach(d=>pushPrice(num(d.ts_ms),d.price));

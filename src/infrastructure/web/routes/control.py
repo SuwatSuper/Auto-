@@ -289,8 +289,16 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
     @app.post("/api/credentials")
     async def post_credentials(request: Request) -> dict[str, object]:
         """Set the Bitkub API key/secret from the dashboard and connect the real
-        account live (no restart). The key is stored in .env and never returned."""
-        check_api_key_strict(request, runtime)  # dangerous: sets real API keys
+        account live (no restart). The key is stored in .env and never returned.
+
+        Localhost-trusted (like start/stop and risk settings): on the operator's
+        own machine you can paste the key/secret and connect in one shot — no
+        DASHBOARD_API_KEY handling needed. A network bind still requires the
+        control key (the fail-closed bind guard forces one to exist). Connecting
+        credentials never moves money on its own — arming live trading
+        (/api/execution/mode) and placing orders (/api/order) stay strict below.
+        """
+        check_api_key(request, runtime)  # localhost-trusted; remote needs the key
         try:
             body = await request.json()
         except Exception:
