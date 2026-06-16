@@ -519,6 +519,10 @@ def keltner_channels(
 ) -> Channel:
     """Keltner Channels — EMA middle line ± ``multiplier`` × ATR."""
     n = _aligned(high, low, close)
+    if ema_period <= 0 or n == 0:
+        # ``ema`` returns an empty list for a non-positive period; keep all three
+        # lines the same length (all-NaN) so the caller never hits an IndexError.
+        return Channel(upper=[NAN] * n, middle=[NAN] * n, lower=[NAN] * n)
     middle = ema(list(close), ema_period)
     band = atr(high, low, close, atr_period)
     upper = [NAN] * n

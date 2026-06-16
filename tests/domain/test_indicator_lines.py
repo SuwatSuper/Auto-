@@ -233,6 +233,14 @@ def test_keltner_band_ordering() -> None:
     assert kc.upper[-1] > kc.middle[-1] > kc.lower[-1]
 
 
+def test_keltner_non_positive_ema_period_is_all_nan() -> None:
+    # A non-positive EMA period makes the middle line empty in ``ema``; the channel
+    # must stay length-n (all NaN) rather than raising IndexError.
+    kc = il.keltner_channels(_H, _L, _C, ema_period=0, atr_period=10)
+    assert len(kc.upper) == len(kc.middle) == len(kc.lower) == len(_C)
+    assert all(not v.is_finite() for v in kc.middle)
+
+
 def test_donchian_extremes() -> None:
     dc = il.donchian_channels(_H, _L, period=20)
     i = len(_H) - 1

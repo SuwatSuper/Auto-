@@ -291,6 +291,21 @@ class ExecutionAgent:
             return False, "circuit_breaker"
         return True, None
 
+    def _release_inflight(self, signal: str) -> None:
+        """Release the in-flight slot reserved for a BUY that placed NO order.
+
+        Step 5 reserves a slot for every BUY *before* routing (to win the
+        double-entry race). When routing then produces no real order — vetoed
+        (no spec), over the hard cap, a bad spec, or a placement exception — the
+        reservation would otherwise linger for ``_INFLIGHT_GRACE_S`` and could
+        briefly block the next legitimate entry with POSITION_CAP_REACHED.
+        Releasing keeps the count equal to the entries that will actually become
+        positions. Only a BUY reserves, and the count never drops below zero, so
+        this can't disturb an unrelated decision's still-pending reservation.
+        """
+        if signal == "BUY" and self._inflight_entries > 0:
+            self._inflight_entries -= 1
+
     async def _route_live(self, data: dict[str, object]) -> None:
         """Place a REAL order via the signed gateway, then mirror to paper for
         position/dashboard tracking. Sizing + caps come from live_order_fn."""
@@ -309,6 +324,7 @@ class ExecutionAgent:
         spec = self._live_order_fn(data)
         if not spec:
             self._log.info("execution_agent.live_skip", reason="no_spec")
+            self._release_inflight(signal)
             return
 
         action = spec.get("action")
@@ -324,6 +340,7 @@ class ExecutionAgent:
                 over = order_over_hard_cap(amount)
                 if over is not None:
                     self._log.critical("execution_agent.hard_cap_reject", reason=over)
+                    self._release_inflight(signal)
                     return
                 # gw is the polymorphic _rest_gateway (a real SIGNED gateway here,
                 # gated by _live_gates_open); its order methods are not on `object`.
@@ -332,9 +349,11 @@ class ExecutionAgent:
                 result = await gw.place_ask(sym, amount, rate, typ)  # type: ignore[attr-defined]
             else:
                 self._log.warning("execution_agent.live_bad_action", action=str(action))
+                self._release_inflight(signal)
                 return
         except Exception as exc:  # no auto-retry on a signed order
             self._log.error("execution_agent.live_order_failed", error=str(exc))
+            self._release_inflight(signal)
             return
 
         self.live_orders_placed += 1

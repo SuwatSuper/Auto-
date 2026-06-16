@@ -164,7 +164,11 @@ def expanded_confluence_signal(
     no vote, so ``confidence = agreeing_votes / total`` stays honest.
     """
     total = 9
-    need = max(slow, trend, rsi_period + 1, sma_slow, bb_period) + 10
+    # HMA(slow) finishes warming up ~sqrt(slow) bars after a plain MA of the same
+    # length, and the slope vote reads [-2]; fold that tail into the buffer so a
+    # large ``slow`` still lets every line participate (defaults → need == 60).
+    hma_tail = int(Decimal(slow).sqrt()) + 5 if slow > 0 else 5
+    need = max(slow, trend, rsi_period + 1, sma_slow, bb_period) + hma_tail
     n = len(prices)
     if n < need:
         return ConfluenceResult(

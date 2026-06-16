@@ -153,3 +153,55 @@ async def test_inflight_reservation_releases_after_position_closes() -> None:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+
+
+@pytest.mark.asyncio
+async def test_vetoed_buy_releases_inflight_reservation() -> None:
+    """A BUY that places NO real order (e.g. treasury veto → live_order_fn returns
+    None) must release its in-flight slot, so the very next legitimate entry is not
+    blocked by a phantom reservation (fail-safe lingering-reservation fix)."""
+    bus = InMemoryEventBus()
+    gw = _FakeGateway()
+    veto = True
+
+    def _live_order(_data: dict[str, object]) -> dict[str, str] | None:
+        if veto:
+            return None  # no order placed (vetoed / below-min / over-cap)
+        return {"action": "bid", "symbol": "thb_btc", "amount": "50",
+                "rate": "2880000", "typ": "limit"}
+
+    agent = ExecutionAgent(
+        bus=bus,
+        raw_decisions_topic="decisions.v1",
+        approved_topic="decisions.approved.v1",
+        settings=_LiveSettings(),
+        breaker=CircuitBreaker(),
+        rate_limiter=TokenBucket(capacity=100, refill_per_sec=1000.0),
+        logger=structlog.get_logger("test"),
+        rest_gateway=gw,
+        open_positions_fn=lambda: 0,
+        max_open_positions=1,
+        live_order_fn=_live_order,
+    )
+
+    task = asyncio.create_task(agent.start())
+    await asyncio.sleep(0.05)
+    try:
+        # 1) Vetoed BUY → no bid, reservation must be released back to zero.
+        await bus.publish("decisions.v1", b"k",
+                          orjson.dumps({"decision": "EXECUTE", "signal": "BUY", "decision_id": "v"}))
+        await asyncio.sleep(0.1)
+        assert gw.bids == 0
+        assert agent._inflight_entries == 0, "phantom reservation lingered after a vetoed BUY"
+
+        # 2) A real BUY right after must NOT be blocked by a stale reservation.
+        veto = False
+        await bus.publish("decisions.v1", b"k",
+                          orjson.dumps({"decision": "EXECUTE", "signal": "BUY", "decision_id": "r"}))
+        await asyncio.sleep(0.1)
+        assert gw.bids == 1, "next legitimate entry was blocked by a phantom reservation"
+    finally:
+        await agent.stop()
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
