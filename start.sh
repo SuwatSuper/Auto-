@@ -15,7 +15,7 @@ fi
 
 echo "[2/3] Starting Kingdom Prime server on http://localhost:8000 ..."
 export PYTHONPATH="$PWD/src"
-echo "[setup] API key setup..."
+echo "[setup] Preparing config (.env)..."
 "$PY" scripts/setup_env.py
 "$PY" -m uvicorn main:app --host 127.0.0.1 --port 8000 &
 SERVER_PID=$!

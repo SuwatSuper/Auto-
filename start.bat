@@ -30,9 +30,9 @@ if not exist "%PY%" (
     echo       Done.
 )
 
-echo [2/4] API key setup...
-REM Creates .env and prompts for Bitkub API key/secret if not set yet.
-REM Press ENTER on both prompts to skip and run paper-only.
+echo [2/4] Preparing config (.env)...
+REM Non-interactive: creates .env + a private control key. Connect your Bitkub
+REM account in ONE place — the dashboard "Connect" form. No prompt here.
 "%PY%" scripts\setup_env.py
 
 echo [3/4] Starting Kingdom Prime server on http://localhost:8000 ...

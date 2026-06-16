@@ -1,17 +1,19 @@
 # Layer 3 — Infrastructure (scripts/setup_env)
-"""Interactive .env bootstrap for one-click launch.
+"""Non-interactive .env bootstrap for one-click launch.
 
-Run before the server starts (called by start.bat / start.sh). It:
+Run before the server starts (called by start.bat / start.sh / start.ps1). It:
   1. Creates .env from .env.example if it does not exist.
-  2. If BITKUB_API_KEY is empty, prompts the operator to paste the key + secret
-     and writes them into .env (the secret is read without echoing to screen).
-  3. Leaves everything untouched if a key is already configured.
+  2. Ensures a private DASHBOARD_API_KEY exists (auto-generated) so the
+     dashboard's control buttons work on localhost with ZERO setup.
+
+It does NOT prompt for anything. The Bitkub API key/secret is entered in exactly
+ONE place — the dashboard "Connect" form — so startup never blocks on a prompt
+and there is only a single point to connect the account.
 
 No third-party imports — stdlib only, so it runs before/after deps are installed.
 """
 from __future__ import annotations
 
-import getpass
 import secrets
 from pathlib import Path
 
@@ -75,50 +77,23 @@ def _ensure_dashboard_key(lines: list[str]) -> tuple[list[str], bool]:
 
 
 def main() -> None:
+    """Non-interactive: ensure .env exists with a private control key. The Bitkub
+    key/secret is entered ONCE on the dashboard form — never here — so startup
+    never blocks on a prompt and there is a single point to connect."""
     lines = _read_lines()
-
-    # One door, entered once: auto-provision the control key so the only thing
-    # the operator ever types is the Bitkub key/secret below.
     lines, generated_dash = _ensure_dashboard_key(lines)
 
-    # Always make sure .env exists on disk (with the control key persisted).
     if not _ENV.exists():
         _ENV.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print("[setup] Created .env")
     elif generated_dash:
         _ENV.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    if generated_dash:
-        print("[setup] Generated a private DASHBOARD_API_KEY in .env — the "
-              "dashboard uses it automatically (you never type it).")
-
-    existing_key = _value_of(lines, _KEY_FIELD)
-    if existing_key:
-        print("[setup] Bitkub API key already configured — using the real account.")
-        return
-
-    print("")
-    print("=================================================================")
-    print(" Bitkub API key setup (to see your REAL wallet & portfolio)")
-    print(" Create a key at Bitkub > API Management. Read-only is enough.")
-    print(" Press ENTER on both to skip and run in paper-only mode.")
-    print("=================================================================")
-    try:
-        key = input(" BITKUB_API_KEY    : ").strip()
-        # getpass hides the secret as you type (falls back to visible if no TTY).
-        secret = getpass.getpass(" BITKUB_API_SECRET : ").strip()
-    except (EOFError, KeyboardInterrupt):
-        print("\n[setup] Skipped — running paper-only.")
-        return
-
-    if not key or not secret:
-        print("[setup] No key entered — running paper-only (no real wallet shown).")
-        return
-
-    lines = _set_value(lines, _KEY_FIELD, key)
-    lines = _set_value(lines, _SECRET_FIELD, secret)
-    _ENV.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print("[setup] Saved to .env — the real account will be connected on start.")
+    if _value_of(lines, _KEY_FIELD):
+        print("[setup] Ready. Bitkub account already connected.")
+    else:
+        print("[setup] Ready. Connect your Bitkub account ONCE on the dashboard "
+              "(the 'Connect' form) — no key needed here.")
 
 
 if __name__ == "__main__":

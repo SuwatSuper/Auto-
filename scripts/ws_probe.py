@@ -10,10 +10,9 @@ from pathlib import Path
 # Make src importable when run as a standalone script
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from infrastructure.config import get_settings
 from domain.trading.market_data import PriceUpdate, normalize_bitkub_ticker
+from infrastructure.config import get_settings
 from infrastructure.gateway.bitkub_ws import iter_json_objects
-
 
 _PROBE_SECS = 30
 _MAX_FRAME_DISPLAY = 300
@@ -45,7 +44,7 @@ async def _probe() -> bool:
                 try:
                     remaining = deadline - asyncio.get_event_loop().time()
                     raw_message = await asyncio.wait_for(ws.recv(), timeout=min(remaining, 5.0))
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 frame_str = (

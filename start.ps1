@@ -22,7 +22,7 @@ if (-not (Test-Path $Python)) {
     Write-Host "      Done." -ForegroundColor Green
 }
 
-Write-Host "[setup] API key setup..." -ForegroundColor Cyan
+Write-Host "[setup] Preparing config (.env)..." -ForegroundColor Cyan
 & $Python (Join-Path $Root "scripts\setup_env.py")
 
 Write-Host "[2/3] Starting Kingdom Prime server..." -ForegroundColor Cyan

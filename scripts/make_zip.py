@@ -20,9 +20,7 @@ def _should_exclude(rel: Path) -> bool:
     parts = rel.parts
     if any(p in _EXCLUDE_NAMES for p in parts):
         return True
-    if rel.suffix in _EXCLUDE_SUFFIXES:
-        return True
-    return False
+    return rel.suffix in _EXCLUDE_SUFFIXES
 
 
 def main() -> None:
