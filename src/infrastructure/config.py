@@ -106,6 +106,11 @@ class Settings(BaseSettings):
     # Block longs in a down-trend? OFF by default so mean-reversion can dip-buy
     # (turning this ON makes the system trend-only and trade much less).
     gate_block_regime_mismatch: bool = False
+    # Multi-indicator entries: when ON, the Market Analyst decides from a CONFLUENCE
+    # of indicator lines (EMA momentum + trend EMA + MACD + RSI) over the price
+    # history, not just a single EMA cross — more confirmation per entry. Set OFF
+    # to fall back to the plain EMA-cross signal.
+    multi_indicator_entry: bool = True
     # ── Daily trade governance ──────────────────────────────────────────
     # Capability cap on entries per day. ~200 supports active intraday hunting;
     # actual count depends on how many real setups the market offers.

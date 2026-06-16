@@ -54,6 +54,15 @@ def test_control_key_not_autoprovisioned_for_non_loopback() -> None:
     assert _runtime(web_host="0.0.0.0", dashboard_api_key="").control_key() == ""
 
 
+def test_password_only_network_bind_mints_key_but_does_not_expose_it() -> None:
+    # A password-protected network bind must mint a usable control key (so
+    # /api/login can return a token and the gates have a real secret), but it must
+    # NOT be injected into the served page — the operator logs in to obtain it.
+    rt = _runtime(web_host="0.0.0.0", dashboard_api_key="", dashboard_password="pw")
+    assert rt.control_key()                 # a real key is minted
+    assert rt.page_control_key() == ""      # but never pre-exposed in the page
+
+
 # ── strict auth for dangerous endpoints (even on localhost) ──────────
 @pytest.mark.asyncio
 async def test_local_dashboard_autoprovisions_key_but_still_requires_it() -> None:

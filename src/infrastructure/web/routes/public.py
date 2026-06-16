@@ -17,7 +17,9 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
     def _render_dashboard(filename: str) -> HTMLResponse:
         """Serve a dashboard HTML with the control key injected, no-store."""
         html = (STATIC_DIR / filename).read_text(encoding="utf-8")
-        html = html.replace("__DASHBOARD_API_KEY__", configured_api_key(runtime))
+        # page_control_key (not configured_api_key) so a password-protected NETWORK
+        # bind does not leak the control key into the page — there you must log in.
+        html = html.replace("__DASHBOARD_API_KEY__", runtime.page_control_key())
         return HTMLResponse(
             content=html,
             headers={"Cache-Control": "no-store, no-cache, must-revalidate"},

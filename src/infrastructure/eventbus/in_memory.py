@@ -13,7 +13,9 @@ class InMemoryEventBus:
         self.dropped_messages: int = 0
 
     async def publish(self, topic: str, key: bytes, value: bytes) -> None:
-        queues = self._subs.get(topic, [])
+        # Iterate a snapshot: a concurrent (un)subscribe during an awaited put must
+        # not mutate the list mid-loop.
+        queues = list(self._subs.get(topic, []))
         for queue in queues:
             if queue.full():
                 with contextlib.suppress(asyncio.QueueEmpty):

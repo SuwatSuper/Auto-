@@ -57,7 +57,10 @@ class _AgentsMixin(_RuntimeBase):
         token_bucket = TokenBucket(capacity=10, refill_per_sec=2.0)
 
         agents: dict[str, AgentLike] = {
-            "market_analyst": EntryExitAgent(bus, prices, _TOPIC_SIGNALS, log),
+            "market_analyst": EntryExitAgent(
+                bus, prices, _TOPIC_SIGNALS, log,
+                multi_indicator=bool(getattr(self.settings, "multi_indicator_entry", True)),
+            ),
             "news_intelligence": NewsSentimentAgent(bus, _TOPIC_NEWS_RAW, _TOPIC_SENTIMENT, log),
             "risk_management": RiskAgent(
                 bus, _TOPIC_DECISIONS, _TOPIC_RISK, log,
@@ -184,8 +187,8 @@ class _AgentsMixin(_RuntimeBase):
                 "position_sizer":    "Kelly position sizing",
                 "trailing_stop":     "Trailing stop to lock profit",
                 "profit_sweeper":    "Advisory profit-sweep vault (paper)",
-                "fee_optimizer":     "Maker/taker fee minimiser",
-                "latency_pinger":    "Exchange latency watchdog",
+                "fee_optimizer":     "Maker/taker fee gap (advisory)",
+                "latency_pinger":    "Exchange latency monitor (advisory)",
                 "api_monitor":       "Feed/account health monitor",
                 "dashboard_synth":   "Daily KPI synthesizer",
                 "tax_clerk":         "Realized-PnL tax ledger",

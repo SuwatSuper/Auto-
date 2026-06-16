@@ -159,7 +159,7 @@ class ProfitSweeperAgent(PeriodicAgent):
 
 # ── 10. Execution: Fee Optimizer (real maker/taker calc) ─────────────
 class FeeOptimizerAgent(PeriodicAgent):
-    role = "Chooses maker vs taker to minimise fees"
+    role = "Reports the maker/taker fee gap (advisory — does not change order type)"
 
     interval = 5.0
 
@@ -176,7 +176,7 @@ class FeeOptimizerAgent(PeriodicAgent):
 
 # ── 11. Execution: Latency Pinger (real, from measured samples) ──────
 class LatencyPingerAgent(PeriodicAgent):
-    role = "Watches exchange latency; throttles when laggy"
+    role = "Monitors exchange latency (advisory — does not throttle orders)"
 
     def __init__(self, name: str, runtime: RuntimeView, log: structlog.BoundLogger) -> None:
         super().__init__(name, log)

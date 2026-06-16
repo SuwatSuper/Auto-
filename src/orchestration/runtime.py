@@ -397,11 +397,35 @@ class PipelineRuntime(
                 self.logger.error("runtime.emergency_flatten_error", exc_info=True)
         for name in list(self.agents):
             await self.stop_agent(name)
+        # Emergency stop must be a CLEAN halt — cancel the background loops too
+        # (coach/news/memory/trade-rec/window/csv), not just agents + watchdog,
+        # so nothing keeps running side-effects after the panic button.
+        await self._cancel_background_loops()
         if self.supervisor_task and not self.supervisor_task.done():
             self.supervisor_task.cancel()
             with contextlib.suppress(asyncio.CancelledError, TimeoutError):
                 await asyncio.wait_for(self.supervisor_task, timeout=2.0)
         self.emergency_stopped = True
+
+    async def _cancel_background_loops(self) -> None:
+        """Cancel the periodic background-loop tasks (coach / news / memory /
+        trade-recorder / tick-window / trade-csv). Shared by emergency_stop() so a
+        panic halt leaves nothing running (stop() cancels them explicitly too)."""
+        for task in (
+            self._coach_task, self._news_task, self._memory_task,
+            self._trade_rec_task, self._window_task,
+        ):
+            if task and not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+        if self._trade_csv is not None and hasattr(self._trade_csv, "stop"):
+            with contextlib.suppress(Exception):
+                await self._trade_csv.stop()
+        if self._trade_csv_task and not self._trade_csv_task.done():
+            self._trade_csv_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._trade_csv_task
 
     async def emergency_reset(self) -> None:
         """B2 fix: clear emergency_stopped without auto-starting (distinct from start)."""
@@ -499,31 +523,50 @@ class PipelineRuntime(
                 await asyncio.sleep(interval)
             except asyncio.CancelledError:
                 break
-            for name in list(self.agent_tasks):
-                task = self.agent_tasks.get(name)
-                agent = self.agents.get(name)
-                if task is None or agent is None:
-                    continue
-                if not task.done() or not agent.running:
-                    continue  # alive, or intentionally stopped
-                reason = "crashed"
-                try:
-                    exc = task.exception()
-                    if exc is not None:
-                        reason = f"{type(exc).__name__}: {exc}"
-                except asyncio.CancelledError:
-                    continue  # cancelled tasks are not crashes
-                self.crashed_agents[name] = reason
-                self.restart_counts[name] = self.restart_counts.get(name, 0) + 1
-                self.logger.error(
-                    "watchdog.agent_crashed_restarting", agent=name, reason=reason
-                )
-                self._learner_for(name, agent).log(
-                    f"พัง ({reason}) → ระบบรีสตาร์ทอัตโนมัติ (self-healing)", "event"
-                )
-                self.agent_tasks.pop(name, None)
-                agent.running = False
-                await self.start_agent(name)
+            try:
+                for name in list(self.agent_tasks):
+                    task = self.agent_tasks.get(name)
+                    agent = self.agents.get(name)
+                    if task is None or agent is None:
+                        continue
+                    if not task.done() or not agent.running:
+                        continue  # alive, or intentionally stopped
+                    reason = "crashed"
+                    try:
+                        exc = task.exception()
+                        if exc is not None:
+                            reason = f"{type(exc).__name__}: {exc}"
+                    except asyncio.CancelledError:
+                        continue  # cancelled tasks are not crashes
+                    self.crashed_agents[name] = reason
+                    self.restart_counts[name] = self.restart_counts.get(name, 0) + 1
+                    self.logger.error(
+                        "watchdog.agent_crashed_restarting", agent=name, reason=reason
+                    )
+                    self._learner_for(name, agent).log(
+                        f"พัง ({reason}) → ระบบรีสตาร์ทอัตโนมัติ (self-healing)", "event"
+                    )
+                    self.agent_tasks.pop(name, None)
+                    agent.running = False
+                    await self.start_agent(name)
+                # The price-feed bridge is the single most critical task — if it
+                # dies (e.g. the restart Supervisor exhausts its budget) the whole
+                # pipeline goes silent. Cover it here too: recreate it if it died
+                # while the system is still meant to be running.
+                sup = self.supervisor_task
+                if (
+                    sup is not None and sup.done() and not sup.cancelled()
+                    and not self.emergency_stopped and self._price_guardian is not None
+                ):
+                    why = "completed"
+                    with contextlib.suppress(Exception):
+                        e = sup.exception()
+                        why = f"{type(e).__name__}: {e}" if e is not None else "completed"
+                    self.logger.error("watchdog.price_feed_restarting", reason=why)
+                    self.supervisor_task = asyncio.create_task(self._price_guardian.run())
+            except Exception:
+                # A bug in the watchdog body must never kill self-healing.
+                self.logger.error("watchdog.loop_error", exc_info=True)
 
     async def _coach_loop(self) -> None:
         """Peer-coaching: the best strategy agent of the round coaches the
@@ -533,26 +576,30 @@ class PipelineRuntime(
                 await asyncio.sleep(60.0)
             except asyncio.CancelledError:
                 break
-            # Phase 5: keep today's daily_summary.csv row fresh (never crashes).
-            with contextlib.suppress(Exception):
-                self.write_daily_summary()
-            strat: list[tuple[str, AgentLike, float]] = []
-            for name, agent in self.agents.items():
-                learner = self._learner_for(name, agent)
-                if learner.kind != "strategy" or learner.today_resolved < 8:
+            try:
+                # Phase 5: keep today's daily_summary.csv row fresh (never crashes).
+                with contextlib.suppress(Exception):
+                    self.write_daily_summary()
+                strat: list[tuple[str, AgentLike, float]] = []
+                for name, agent in self.agents.items():
+                    learner = self._learner_for(name, agent)
+                    if learner.kind != "strategy" or learner.today_resolved < 8:
+                        continue
+                    hr = learner.today_hit_rate() or 0.0
+                    strat.append((name, agent, hr))
+                if len(strat) < 2:
                     continue
-                hr = learner.today_hit_rate() or 0.0
-                strat.append((name, agent, hr))
-            if len(strat) < 2:
-                continue
-            strat.sort(key=lambda t: t[2], reverse=True)
-            best_name, _, best_hr = strat[0]
-            self._learner_for(best_name, self.agents[best_name]).log(
-                f"เป็นโค้ชรอบนี้ (แม่นวันนี้ {best_hr * 100:.0f}%)", "coach"
-            )
-            for _name, agent, hr in strat[1:]:
-                if hr < 0.45 and hasattr(agent, "coach_tighten"):
-                    agent.coach_tighten(best_name)
+                strat.sort(key=lambda t: t[2], reverse=True)
+                best_name, _, best_hr = strat[0]
+                self._learner_for(best_name, self.agents[best_name]).log(
+                    f"เป็นโค้ชรอบนี้ (แม่นวันนี้ {best_hr * 100:.0f}%)", "coach"
+                )
+                for _name, agent, hr in strat[1:]:
+                    if hr < 0.45 and hasattr(agent, "coach_tighten"):
+                        agent.coach_tighten(best_name)
+            except Exception:
+                # One bad coaching round must not kill the loop (self-healing).
+                self.logger.warning("coach.loop_error", exc_info=True)
 
 
     def control_key(self) -> str:
@@ -577,13 +624,45 @@ class PipelineRuntime(
         if cur:
             return cur
         host = str(getattr(self.settings, "web_host", "127.0.0.1"))
-        if host not in ("127.0.0.1", "::1", "localhost"):
+        # A network bind never auto-opens the control plane on its own. The one
+        # exception: a DASHBOARD_PASSWORD is set — then mint a per-process key so
+        # /api/login can return a usable token AND both auth gates have a real
+        # secret to compare against. (Without this, a password-only LAN bind
+        # bricked the strict endpoints and left the non-strict ones open.) The key
+        # is NOT injected into the page for this case (see page_control_key), so a
+        # remote client must log in to obtain it.
+        if host not in ("127.0.0.1", "::1", "localhost") and not self._password_value():
             return ""
         if not self._ephemeral_control_key:
             import secrets as _secrets  # noqa: PLC0415
 
             self._ephemeral_control_key = _secrets.token_urlsafe(24)
         return self._ephemeral_control_key
+
+    def _password_value(self) -> str:
+        raw = getattr(self.settings, "dashboard_password", None)
+        if raw is None:
+            return ""
+        return str(raw.get_secret_value()) if hasattr(raw, "get_secret_value") else str(raw)
+
+    def page_control_key(self) -> str:
+        """Control key to INJECT into the served dashboard page.
+
+        Equals ``control_key()`` for a loopback bind or an explicit
+        DASHBOARD_API_KEY (the operator's own choice), but EMPTY for a
+        password-protected NETWORK bind — there the key must be obtained via
+        ``POST /api/login``, never pre-exposed in the page to anyone who can
+        reach it."""
+        raw = getattr(self.settings, "dashboard_api_key", None)
+        if raw is None:
+            api_key = ""
+        elif hasattr(raw, "get_secret_value"):
+            api_key = str(raw.get_secret_value())
+        else:
+            api_key = str(raw)
+        host = str(getattr(self.settings, "web_host", "127.0.0.1"))
+        is_loopback = host in ("127.0.0.1", "::1", "localhost")
+        return self.control_key() if (api_key or is_loopback) else ""
 
     @property
     def ceo(self) -> CeoAgent | None:

@@ -11,6 +11,7 @@ import structlog
 from domain.analytics.indicators import ema
 from domain.strategy.base import SignalAction, StrategyContext
 from domain.strategy.ema_cross import EmaCrossStrategy
+from domain.strategy.multi_indicator import multi_indicator_signal
 from orchestration.agents.learning import Learner
 from orchestration.ports.event_bus import EventBus
 
@@ -31,12 +32,17 @@ class EntryExitAgent:
         topic_in: str,
         topic_out: str,
         logger: structlog.BoundLogger,
+        multi_indicator: bool = True,
     ) -> None:
         self._bus = bus
         self._topic_in = topic_in
         self._topic_out = topic_out
         self._log = logger
         self._strategy = EmaCrossStrategy()
+        # When True, entries lean on a multi-indicator confluence (EMA momentum +
+        # trend + MACD + RSI) over the price history, not just a single EMA cross.
+        self._multi_indicator = multi_indicator
+        self._last_action: SignalAction = SignalAction.HOLD
         self._prices: list[Decimal] = []
         self.running = False
         self.msg_count = 0
@@ -81,21 +87,35 @@ class EntryExitAgent:
             self._log.info("entry_exit_agent.stopped")
 
     async def _evaluate(self, price: Decimal, ts_ms: int) -> None:
-        ctx = StrategyContext(prices=tuple(self._prices), position_qty=Decimal(0))
-        sig = self._strategy.decide(ctx)
-        gap_pct = self._ema_gap_pct()
-        self.detail = (
-            f"EMA-cross · ยืนยัน≥{self._min_gap_pct:.2f}% (gap {gap_pct:.2f}%)"
-            f" · แม่น {self._hr_txt()}"
-        )
-        if sig.action != SignalAction.HOLD and gap_pct >= self._min_gap_pct and self.enabled:
+        if self._multi_indicator:
+            res = multi_indicator_signal(self._prices)
+            action = res.action
+            confidence = res.confidence
+            self.detail = f"Confluence {res.detail} · แม่น {self._hr_txt()}"
+        else:
+            ctx = StrategyContext(prices=tuple(self._prices), position_qty=Decimal(0))
+            sig = self._strategy.decide(ctx)
+            gap_pct = self._ema_gap_pct()
+            action = sig.action if gap_pct >= self._min_gap_pct else SignalAction.HOLD
+            confidence = sig.confidence
+            self.detail = (
+                f"EMA-cross · ยืนยัน≥{self._min_gap_pct:.2f}% (gap {gap_pct:.2f}%)"
+                f" · แม่น {self._hr_txt()}"
+            )
+        # Emit only on a CHANGE of side: a persisting confluence must not spam the
+        # bus every tick (the single-position rule + Supreme window also dedup). A
+        # HOLD resets the latch so the next BUY/SELL re-arms.
+        if action == SignalAction.HOLD:
+            self._last_action = SignalAction.HOLD
+        elif action != self._last_action and self.enabled:
             self.signal_count += 1
-            self.learner.predict(sig.action.value, price, ts_ms)  # record for grading
+            self.learner.predict(action.value, price, ts_ms)  # record for grading
             out = orjson.dumps({
-                "signal": sig.action.value, "price": str(price),
-                "ts_ms": ts_ms, "source": "market_analyst",
+                "signal": action.value, "price": str(price),
+                "ts_ms": ts_ms, "source": "market_analyst", "confidence": str(confidence),
             })
             await self._bus.publish(self._topic_out, b"signal", out)
+            self._last_action = action
         self._maybe_adapt()
 
     def _ema_gap_pct(self) -> float:
