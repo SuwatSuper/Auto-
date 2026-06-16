@@ -120,6 +120,9 @@ class PaperTraderAgent:
         self.trades_closed: int = 0
         self.entries_opened: int = 0
         self.entries_rejected: int = 0
+        # Anti-churn: opposite signals ignored because the move had not yet
+        # cleared the round-trip fee band (noise). Surfaced for observability.
+        self.opposite_signals_held: int = 0
         self.last_trade: ClosedTrade | None = None
         self.emergency_flatten: bool = False
         self.state_loaded: bool = False
@@ -278,6 +281,24 @@ class PaperTraderAgent:
             if reason is not None:
                 await self._close(self.mark_price, reason)
 
+    def _opposite_exit_clears_fees(self) -> bool:
+        """Anti-churn gate for opposite-signal exits (pure-paper positions).
+
+        Closing a position pays the exit fee + slippage, and re-entering pays
+        them again — a full round trip costs ``2×(fee + slippage)`` of notional.
+        If price has not yet moved that far from entry, acting on a reversal
+        guarantees a fee-only loss (the churn that bleeds the account). We only
+        honour the exit once the move clears that band; otherwise the H1 SL/TP
+        bracket still protects the position.
+        """
+        pos = self.position
+        if pos is None or self.mark_price is None:
+            return False
+        p = self._params
+        round_trip_frac = (p.fee_taker_bps + p.slippage_bps) * Decimal("2") / Decimal("10000")
+        move_frac = abs(self.mark_price - pos.entry_price) / pos.entry_price
+        return move_frac >= round_trip_frac
+
     async def _on_decision(self, raw: bytes) -> None:
         self.msg_count += 1
         try:
@@ -294,7 +315,16 @@ class PaperTraderAgent:
             with contextlib.suppress(InvalidOperation, ValueError):
                 self.mark_price = Decimal(str(data.get("price")))
         if signal == "SELL" and self.position is not None and self.mark_price is not None:
-            await self._close(self.mark_price, ExitReason.OPPOSITE_SIGNAL)
+            # A live-mirror SELL means the real order ALREADY sold on the
+            # exchange — the paper book MUST follow to stay in sync. For a
+            # pure-paper position, apply the anti-churn guard: a reversal that
+            # has not yet moved price beyond the round-trip fee band is noise
+            # that would close the trade for a pure-fee loss, so we hold and
+            # let the mandatory SL/TP bracket govern the exit instead.
+            if bool(data.get("live_mirror")) or self._opposite_exit_clears_fees():
+                await self._close(self.mark_price, ExitReason.OPPOSITE_SIGNAL)
+            else:
+                self.opposite_signals_held += 1
             return
         if signal == "BUY" and self.position is None and self.mark_price is not None:
             # Phase 5 provenance: carry which strategy/regime/win-prob opened it.

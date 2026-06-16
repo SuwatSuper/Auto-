@@ -151,6 +151,19 @@ async def test_opposite_signal_closes_and_emergency_flatten() -> None:
     try:
         await _drive_price(bus, trader, "1500000")
         await _send_decision(bus, "BUY", lambda: trader.position is not None)
+
+        # Anti-churn: a reversal that has NOT cleared the round-trip fee band
+        # (fee + slippage, both legs) is noise — acting on it would close the
+        # trade for a pure-fee loss, so it must be held. The mandatory SL/TP
+        # bracket still protects the position.
+        held_before = trader.opposite_signals_held
+        await _send_decision(
+            bus, "SELL", lambda: trader.opposite_signals_held > held_before
+        )
+        assert trader.position is not None  # reversal ignored, position rides on
+
+        # Once price moves beyond the fee band, the opposite signal closes it.
+        await _drive_price(bus, trader, "1520000")  # +1.3% > 0.6% round-trip band
         await _send_decision(bus, "SELL", lambda: trader.position is None)
         assert trader.last_trade is not None
         assert trader.last_trade.reason == ExitReason.OPPOSITE_SIGNAL
