@@ -225,8 +225,13 @@ class CeoAgent:
     def _record_risk(
         self, data: dict[str, object], ts_ms: int, topic: str,
     ) -> DecisionRecord:
-        verdict = str(data.get("verdict", "PASS"))
-        outcome = DecisionOutcome.APPROVED if verdict == "PASS" else DecisionOutcome.REJECTED
+        # The RiskAgent publishes {"approved": bool, "reasons": [...]} on risk.v1.
+        # Reading a non-existent "verdict" field defaulted EVERY decision to
+        # PASS/APPROVED — the audit trail silently mislabelled every rejection as
+        # an approval. Read the real field.
+        approved = bool(data.get("approved", True))
+        verdict = "PASS" if approved else "REJECT"
+        outcome = DecisionOutcome.APPROVED if approved else DecisionOutcome.REJECTED
         return DecisionRecord(
             ts_ms=ts_ms, seq=self._seq + 1,
             agent="risk_management", topic=topic,
@@ -235,8 +240,8 @@ class CeoAgent:
             confidence=_safe_confidence(data.get("confidence")),
             reason=str(data.get("reason", ""))[:500],
             inputs=canonicalize({k: v for k, v in data.items()
-                                 if k not in {"verdict", "ts_ms", "confidence"}}),
-            result=canonicalize({"verdict": verdict}),
+                                 if k not in {"approved", "ts_ms", "confidence"}}),
+            result=canonicalize({"verdict": verdict, "approved": approved}),
         )
 
     def _record_paper(
@@ -302,8 +307,19 @@ class CeoAgent:
         latest_price_raw = status.get("latest_price")
         latest_price = _safe_decimal(latest_price_raw)
 
-        peak_equity = max(equity, _safe_decimal(status.get("initial_capital")) or Decimal("0")) \
-            if equity is not None else (_safe_decimal(status.get("initial_capital")) or Decimal("0"))
+        # Use the runtime's REAL running peak (via its measured drawdown_pct) so
+        # the executive drawdown matches reality. The old max(equity, initial)
+        # could never be below current equity, so it understated every drawdown
+        # after a pullback from a profit peak. dd = (peak-equity)/peak  ⇒
+        # peak = equity / (1 - dd/100) — exact reconstruction of the true peak.
+        _initial_cap = _safe_decimal(status.get("initial_capital")) or Decimal("0")
+        _dd_pct = _safe_decimal(status.get("drawdown_pct")) or Decimal("0")
+        if equity is None:
+            peak_equity = _initial_cap
+        elif _dd_pct > 0:
+            peak_equity = equity / (Decimal("1") - _dd_pct / Decimal("100"))
+        else:
+            peak_equity = equity  # drawdown 0 ⇒ currently at the peak
 
         pnl_today_raw = status.get("pnl_today")
         pnl_today = _safe_decimal(pnl_today_raw)

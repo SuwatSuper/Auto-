@@ -74,7 +74,15 @@ async def test_real_time_fast_refill_no_long_sleep() -> None:
 async def test_concurrent_acquires_serialized() -> None:
     """Multiple concurrent acquire() calls each get exactly one token."""
     clock = _FakeClock()
-    bucket = TokenBucket(capacity=5, refill_per_sec=0.0, clock=clock)
-    # 5 tokens, no refill
+    bucket = TokenBucket(capacity=5, refill_per_sec=1.0, clock=clock)
+    # 5 tokens; the fake clock never advances, so no refill happens in this test
     results = await asyncio.gather(*(bucket.acquire() for _ in range(5)))
     assert len(results) == 5
+
+
+def test_nonpositive_refill_rejected() -> None:
+    """A non-refilling bucket deadlocks once drained — reject it at construction."""
+    with pytest.raises(ValueError):
+        TokenBucket(capacity=5, refill_per_sec=0.0)
+    with pytest.raises(ValueError):
+        TokenBucket(capacity=5, refill_per_sec=-1.0)

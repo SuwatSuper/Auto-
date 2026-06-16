@@ -20,6 +20,11 @@ class TokenBucket:
         refill_per_sec: float,
         clock: Callable[[], float] | None = None,
     ) -> None:
+        # A non-positive refill rate is a deadlock trap: once the initial capacity
+        # is drained, tokens never come back and acquire() would block forever.
+        # Reject it at construction instead of hanging a caller silently later.
+        if refill_per_sec <= 0:
+            raise ValueError("refill_per_sec must be > 0 (a non-refilling bucket deadlocks once drained)")
         self._capacity = capacity
         self._refill_per_sec = refill_per_sec
         self._clock: Callable[[], float] = clock if clock is not None else time.monotonic

@@ -42,32 +42,41 @@ class BitkubWebSocketGateway:
     async def run(self, on_raw: Callable[[dict[str, object]], Awaitable[None]]) -> None:
         attempt = 0
         while True:
+            got_data = False
             try:
-                await self._connect_and_consume(on_raw)
-                attempt = 0
+                got_data = await self._connect_and_consume(on_raw)
             except asyncio.CancelledError:
                 self._log.info("bitkub_ws.cancelled")
                 raise
             except Exception as exc:
-                delay = self._backoff(attempt)
-                self._log.warning(
-                    "bitkub_ws.reconnecting",
-                    attempt=attempt,
-                    delay_s=round(delay, 2),
-                    exc_info=exc,
-                )
-                await asyncio.sleep(delay)
-                attempt += 1
+                self._log.warning("bitkub_ws.reconnecting", attempt=attempt, exc_info=exc)
+            # A CLEAN return (server accepted then closed the socket) must back off
+            # too — otherwise an accept-then-close peer makes this re-dial with no
+            # delay, spinning at 100% CPU and earning a rate-limit ban on the real
+            # account. Reset the backoff only when the connection was actually
+            # healthy (delivered ≥1 frame); a never-healthy peer keeps backing off.
+            if got_data:
+                attempt = 0
+            delay = self._backoff(attempt)
+            await asyncio.sleep(delay)
+            attempt += 1
 
     async def _connect_and_consume(
         self, on_raw: Callable[[dict[str, object]], Awaitable[None]]
-    ) -> None:
-        # B6 fix: use websockets.asyncio.client.connect (new API, not legacy)
+    ) -> bool:
+        """Connect and stream frames. Returns True if ≥1 frame was received, so the
+        caller resets its backoff only on a connection that actually worked."""
+        # B6 fix: use websockets.asyncio.client.connect (new API, not legacy).
+        # ping_interval/ping_timeout: active keepalive so a half-open (silently
+        # dead) connection raises ConnectionClosed and reconnects, instead of
+        # blocking forever on a stale last price.
         self._log.info("bitkub_ws.connecting", url=self._url)
-        async with connect(self._url) as ws:
+        got_data = False
+        async with connect(self._url, ping_interval=20, ping_timeout=20) as ws:
             self._log.info("bitkub_ws.connected", url=self._url)
             last_heartbeat = asyncio.get_event_loop().time()
             async for message in ws:
+                got_data = True
                 now = asyncio.get_event_loop().time()
                 if now - last_heartbeat >= self._HEARTBEAT_INTERVAL:
                     self._log.info("bitkub_ws.heartbeat", url=self._url)
@@ -79,6 +88,7 @@ class BitkubWebSocketGateway:
                 except Exception as exc:
                     self._log.warning("bitkub_ws.bad_frame", error=str(exc))
                     continue
+        return got_data
 
     def _backoff(self, attempt: int) -> float:
         base: float = min(self._BACKOFF_BASE * float(2**attempt), self._BACKOFF_CAP)
