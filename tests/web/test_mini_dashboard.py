@@ -63,6 +63,20 @@ async def test_root_serves_minimal_chart_dashboard(local_client) -> None:  # typ
     assert "กราฟราคา" in r.text                # the real price chart heading
     assert 'id="chart"' in r.text             # the canvas
     assert "__DASHBOARD_API_KEY__" not in r.text
+    assert 'href="/full"' in r.text           # link to the full multi-page view
+
+
+@pytest.mark.asyncio
+async def test_full_dashboard_route_serves_and_injects_key(local_client) -> None:  # type: ignore[no-untyped-def]
+    """The richer multi-page dashboard is reachable at /full (with the key
+    injected, no leftover placeholder), and links back to the mini view."""
+    _, client = local_client
+    r = await client.get("/full")
+    assert r.status_code == 200
+    assert "KINGDOM PRIME" in r.text
+    assert 'id="kp-sidebar"' in r.text        # the left-nav multi-page shell
+    assert "__DASHBOARD_API_KEY__" not in r.text
+    assert 'href="/"' in r.text               # link back to the mini view
 
 
 @pytest.mark.asyncio
