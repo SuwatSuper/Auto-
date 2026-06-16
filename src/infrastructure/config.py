@@ -89,10 +89,12 @@ class Settings(BaseSettings):
     supreme_buy_votes: int = 1
     supreme_sell_votes: int = 1
     # ── Win-probability entry gate (Timeline Analyst) ───────────────────
-    # Only fire an entry when the MEASURED historical win rate of comparable
-    # setups (past 50 + recent 50) is ≥ min_p_win. Honest: this is a frequency,
-    # not a guarantee. Higher = fewer, higher-odds trades.
-    entry_gate_enabled: bool = True
+    # When ON, only fire an entry when the MEASURED historical win rate of
+    # comparable setups (past 50 + recent 50) is ≥ min_p_win — fewer, higher-odds
+    # trades. Ships OFF so the bot trades on every strategy signal out of the box
+    # (in a calm market the gate can measure 0% win and block everything). Set
+    # ENTRY_GATE_ENABLED=true once you want the system to be selective.
+    entry_gate_enabled: bool = False
     # Win-probability floor. 0.55 = fire when comparable historical setups won
     # ≥55% of the time (better than a coin flip). Lower = more trades / lower
     # odds; raise for fewer, stronger entries. Honest frequency, not a promise.

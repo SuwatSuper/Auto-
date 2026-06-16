@@ -32,7 +32,7 @@ async def _inject_timeline(rt: object, p_win: str, samples: int, regime: str) ->
 
 
 async def test_pipeline_opens_a_position_when_gate_passes() -> None:
-    rt = make_test_runtime()
+    rt = make_test_runtime(entry_gate_enabled=True)
     await rt.start("live")
     try:
         await _wait_mark(rt)
@@ -54,7 +54,7 @@ async def test_pipeline_opens_a_position_when_gate_passes() -> None:
 
 
 async def test_low_win_probability_still_blocks_entries() -> None:
-    rt = make_test_runtime()
+    rt = make_test_runtime(entry_gate_enabled=True)
     await rt.start("live")
     try:
         await _wait_mark(rt)
