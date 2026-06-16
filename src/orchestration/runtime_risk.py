@@ -72,6 +72,9 @@ class _RiskControlMixin(_RuntimeBase):
             max_single_order_thb=self._max_single_order_thb,
             min_p_win=self._dec_setting("min_p_win", "0.55"),
             max_trades_per_day=self._max_trades_per_day,
+            adapt_after_trades=int(
+                getattr(self.agents.get("market_analyst"), "_adapt_every", 8)
+            ),
         )
 
     def get_risk_settings(self) -> dict[str, str]:
@@ -131,6 +134,10 @@ class _RiskControlMixin(_RuntimeBase):
         self._max_single_order_thb = new.max_single_order_thb
         # Operator-controlled daily entry budget (0 = unlimited).
         self._max_trades_per_day = new.max_trades_per_day
+        # Operator-controlled experience-before-self-tuning cadence.
+        analyst = self.agents.get("market_analyst")
+        if analyst is not None and hasattr(analyst, "set_adapt_every"):
+            analyst.set_adapt_every(new.adapt_after_trades)
         # Keep the paper sizing cap in lockstep with the live order cap so a
         # real order and its paper mirror size identically.
         if tp is not None:

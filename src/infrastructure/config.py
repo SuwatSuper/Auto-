@@ -116,6 +116,11 @@ class Settings(BaseSettings):
     # bias, RSI-based MA). Needs multi_indicator_entry ON. OFF keeps the leaner
     # 4-line confluence. Only takes effect once enough history has accumulated.
     expanded_confluence_entry: bool = False
+    # How many graded (resolved) trades of experience the Market Analyst gathers
+    # before it re-tunes its OWN selectivity. The bot trades + records outcomes
+    # from the first signal; this only sets how often it self-adjusts.
+    # Operator-settable live from the dashboard risk panel.
+    adapt_after_trades: int = 8
     # ── Daily trade governance ──────────────────────────────────────────
     # Capability cap on entries per day. ~200 supports active intraday hunting;
     # actual count depends on how many real setups the market offers.

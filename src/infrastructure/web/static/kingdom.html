@@ -2537,6 +2537,7 @@ html, body {
               <label class="cmd-lab">max consec. losses (0=ไม่จำกัด)<input id="cmd-max_consecutive_losses" class="cmd-input sm" /></label>
               <label class="cmd-lab">max open positions<input id="cmd-max_open_positions" class="cmd-input sm" /></label>
               <label class="cmd-lab">ไม้/วัน (0=ไม่จำกัด)<input id="cmd-max_trades_per_day" class="cmd-input sm" /></label>
+              <label class="cmd-lab">ปรับตัวทุกๆ N ไม้ (ประสบการณ์)<input id="cmd-adapt_after_trades" class="cmd-input sm" /></label>
               <label class="cmd-lab">cap/order (THB)<input id="cmd-max_single_order_thb" class="cmd-input sm" /></label>
               <label class="cmd-lab">เกตชนะขั้นต่ำ p_win (0-1)<input id="cmd-min_p_win" class="cmd-input sm" /></label>
             </div>
@@ -4791,7 +4792,7 @@ function cmdErr(res) {
 }
 
 const CMD_RISK_FIELDS = ['risk_per_trade_pct','stop_pct','take_profit_pct','max_daily_loss_pct',
-  'max_consecutive_losses','max_open_positions','max_trades_per_day','max_single_order_thb','min_p_win'];
+  'max_consecutive_losses','max_open_positions','max_trades_per_day','adapt_after_trades','max_single_order_thb','min_p_win'];
 
 async function cmdLoadStrategies() {
   const box = $('cmd-strategies');

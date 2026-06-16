@@ -37,6 +37,7 @@ class EntryExitAgent:
         logger: structlog.BoundLogger,
         multi_indicator: bool = True,
         expanded: bool = False,
+        adapt_every: int = 8,
     ) -> None:
         self._bus = bus
         self._topic_in = topic_in
@@ -50,6 +51,11 @@ class EntryExitAgent:
         # vocabulary (adds SMA cross, WMA/HMA slope, Bollinger bias, RSI-based MA)
         # so the analyst reasons over more of what it now knows.
         self._expanded = expanded
+        # How many graded (resolved) trades of experience to gather before the
+        # agent re-tunes its own selectivity. Operator-controllable — the bot
+        # still trades and records outcomes from the very first signal; this only
+        # sets how often it adjusts its OWN knobs. Min 1.
+        self._adapt_every = max(1, int(adapt_every))
         self._last_action: SignalAction = SignalAction.HOLD
         self._prices: list[Decimal] = []
         self.running = False
@@ -142,9 +148,15 @@ class EntryExitAgent:
         hr = self.learner.hit_rate()
         return f"{hr * 100:.0f}% ({self.learner.resolved} ไม้)" if hr is not None else "—"
 
+    def set_adapt_every(self, n: int) -> None:
+        """Operator sets how many graded trades of experience to gather before
+        the agent re-tunes its own selectivity (min 1)."""
+        self._adapt_every = max(1, int(n))
+
     def _maybe_adapt(self) -> None:
         r = self.learner.today_resolved
-        if r < 8 or r == self._last_adapt_at or r % 8 != 0:
+        step = self._adapt_every
+        if r < step or r == self._last_adapt_at or r % step != 0:
             return
         self._last_adapt_at = r
         hr = self.learner.today_hit_rate() or 0.0

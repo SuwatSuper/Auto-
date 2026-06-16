@@ -101,6 +101,22 @@ async def test_operator_can_set_daily_trade_budget() -> None:
 
 
 @pytest.mark.asyncio
+async def test_operator_can_set_adapt_cadence() -> None:
+    """The operator controls how many graded trades of experience the analyst
+    gathers before it re-tunes itself (default 8, min 1)."""
+    rt = _rt()
+    analyst = rt.agents["market_analyst"]
+    assert analyst._adapt_every == 8  # type: ignore[attr-defined]
+    ok, payload = await rt.update_risk_settings({"adapt_after_trades": "20"})
+    assert ok
+    assert analyst._adapt_every == 20  # type: ignore[attr-defined]
+    assert payload["settings"]["adapt_after_trades"] == "20"
+    # rejected below 1
+    bad, _ = await rt.update_risk_settings({"adapt_after_trades": "0"})
+    assert not bad
+
+
+@pytest.mark.asyncio
 async def test_manual_risk_sticks_and_kelly_stops_overriding() -> None:
     """Setting risk %/trade by hand must be authoritative: Kelly auto-sizing is
     switched off so it can no longer re-clamp the operator's value."""
