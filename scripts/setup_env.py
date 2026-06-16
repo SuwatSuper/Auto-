@@ -12,6 +12,7 @@ No third-party imports — stdlib only, so it runs before/after deps are install
 from __future__ import annotations
 
 import getpass
+import secrets
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -20,6 +21,11 @@ _EXAMPLE = _ROOT / ".env.example"
 
 _KEY_FIELD = "BITKUB_API_KEY"
 _SECRET_FIELD = "BITKUB_API_SECRET"
+
+# Control-plane key. Auto-generated once so the operator never types it: the
+# server injects it into the dashboard page, which sends it back automatically.
+_DASH_KEY_FIELD = "DASHBOARD_API_KEY"
+_DASH_PLACEHOLDER = "put-your-secret-key-here"
 
 
 def _read_lines() -> list[str]:
@@ -54,13 +60,37 @@ def _set_value(lines: list[str], field: str, value: str) -> list[str]:
     return out
 
 
+def _ensure_dashboard_key(lines: list[str]) -> tuple[list[str], bool]:
+    """Guarantee DASHBOARD_API_KEY holds a real secret.
+
+    Generates a strong random key when the field is empty or still the shipped
+    placeholder, so the operator never has to type a control-plane key — the
+    dashboard injects it automatically on every load. An existing real key is
+    left untouched. Returns (lines, generated?).
+    """
+    current = _value_of(lines, _DASH_KEY_FIELD)
+    if current and current != _DASH_PLACEHOLDER:
+        return lines, False
+    return _set_value(lines, _DASH_KEY_FIELD, secrets.token_urlsafe(24)), True
+
+
 def main() -> None:
     lines = _read_lines()
 
-    # Always make sure .env exists on disk.
+    # One door, entered once: auto-provision the control key so the only thing
+    # the operator ever types is the Bitkub key/secret below.
+    lines, generated_dash = _ensure_dashboard_key(lines)
+
+    # Always make sure .env exists on disk (with the control key persisted).
     if not _ENV.exists():
         _ENV.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print("[setup] Created .env")
+    elif generated_dash:
+        _ENV.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    if generated_dash:
+        print("[setup] Generated a private DASHBOARD_API_KEY in .env — the "
+              "dashboard uses it automatically (you never type it).")
 
     existing_key = _value_of(lines, _KEY_FIELD)
     if existing_key:

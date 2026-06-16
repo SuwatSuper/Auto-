@@ -22,6 +22,9 @@ if (-not (Test-Path $Python)) {
     Write-Host "      Done." -ForegroundColor Green
 }
 
+Write-Host "[setup] API key setup..." -ForegroundColor Cyan
+& $Python (Join-Path $Root "scripts\setup_env.py")
+
 Write-Host "[2/3] Starting Kingdom Prime server..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", `
     "cd '$Root'; `$env:PYTHONPATH=Join-Path '$Root' 'src'; & '$Python' -m uvicorn main:app --host 127.0.0.1 --port 8000"
