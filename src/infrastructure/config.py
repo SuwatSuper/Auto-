@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     price_feed_mode: str = "rest"
     bitkub_rest_url: str = "https://api.bitkub.com"
     price_poll_interval_s: float = 3.0
+    # If no fresh price reaches the bus for this many seconds, the watchdog
+    # re-dials the feed (new HTTP client / socket). Recovers a feed that is
+    # alive but silent — a wedged pool, half-open WS, or API shape change —
+    # so the displayed price can never hang forever. Keep it well above
+    # price_poll_interval_s to avoid re-dialing a merely-slow feed.
+    price_stale_restart_s: float = 30.0
     # News sentiment via public RSS (no API key). Polls headlines, scores them,
     # feeds the News Intelligence agent.
     news_enabled: bool = True

@@ -95,6 +95,13 @@ class PipelineRuntime(
         self._ephemeral_control_key: str = ""
         self._latest_price: Decimal | None = None
         self._latest_latency_ms: int = 0
+        # Wall-clock ms of the last price published to the bus. Powers the
+        # staleness watchdog: a feed that is alive but no longer producing
+        # (wedged httpx pool, silent half-open WS, API shape change) leaves
+        # this frozen, so the watchdog can re-dial it instead of letting the
+        # displayed price hang forever. 0 = no price seen since feed (re)start.
+        self._last_price_wall_ms: int = 0
+        self._price_feed_stale_restarts: int = 0
         self._latency_samples: deque[int] = deque(maxlen=100)
         self._msg_count_current: int = 0
         self._window_task: asyncio.Task[None] | None = None
@@ -277,6 +284,9 @@ class PipelineRuntime(
         if self._deps is None:
             await self._backfill_history(topic)
         self.supervisor_task = asyncio.create_task(self._price_guardian.run())
+        # Baseline the staleness clock to feed-start so a feed that never
+        # produces is also re-dialed (not just one that produced then stopped).
+        self._last_price_wall_ms = int(time.time() * 1000)
         self._watchdog_task = asyncio.create_task(self._watchdog())
         self._coach_task = asyncio.create_task(self._coach_loop())
         # Gradually persist memory to the user's machine while running so a hard
@@ -434,6 +444,7 @@ class PipelineRuntime(
     def record_message(self, price: Decimal, latency_ms: int) -> None:
         """Record a processed price message for metrics."""
         self._latest_price = price
+        self._last_price_wall_ms = int(time.time() * 1000)
         clamped = max(0, latency_ms)
         self._latest_latency_ms = clamped
         self._latency_samples.append(clamped)
@@ -564,9 +575,43 @@ class PipelineRuntime(
                         why = f"{type(e).__name__}: {e}" if e is not None else "completed"
                     self.logger.error("watchdog.price_feed_restarting", reason=why)
                     self.supervisor_task = asyncio.create_task(self._price_guardian.run())
+                else:
+                    await self._restart_feed_if_stale()
             except Exception:
                 # A bug in the watchdog body must never kill self-healing.
                 self.logger.error("watchdog.loop_error", exc_info=True)
+
+    async def _restart_feed_if_stale(self) -> None:
+        """Re-dial a feed that is alive but no longer producing prices.
+
+        The existing ``sup.done()`` branch only catches a feed task that has
+        DIED. A feed can also go silent while its task stays alive — a wedged
+        httpx connection pool, a half-open WebSocket the keepalive missed, or an
+        API response shape change that yields no parseable price. The displayed
+        BTC price then hangs with no recovery. Here we detect that no price has
+        reached the bus for ``price_stale_restart_s`` and force a fresh
+        ``feed.run()`` (new HTTP client / new socket)."""
+        sup = self.supervisor_task
+        guardian = self._price_guardian
+        if (
+            sup is None or guardian is None or sup.done()
+            or self.emergency_stopped or self._last_price_wall_ms == 0
+        ):
+            return
+        threshold_ms = int(float(getattr(self.settings, "price_stale_restart_s", 30.0)) * 1000)
+        age_ms = int(time.time() * 1000) - self._last_price_wall_ms
+        if age_ms < threshold_ms:
+            return
+        self.logger.error("watchdog.price_feed_stale_restarting", stale_ms=age_ms)
+        sup.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await sup
+        guardian.reset()  # fresh restart budget for the re-dialed feed
+        self.supervisor_task = asyncio.create_task(guardian.run())
+        # Reset the clock so the new feed gets a full grace window to produce
+        # before another re-dial (avoids a tight restart loop).
+        self._last_price_wall_ms = int(time.time() * 1000)
+        self._price_feed_stale_restarts += 1
 
     async def _coach_loop(self) -> None:
         """Peer-coaching: the best strategy agent of the round coaches the

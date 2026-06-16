@@ -219,3 +219,100 @@ def test_backoff_never_negative() -> None:
         for _ in range(20):
             v = gw._backoff(attempt)
             assert v >= 0.0, f"_backoff({attempt}) returned negative: {v}"
+
+
+# --- price-feed staleness watchdog (frozen-price auto-recovery) ---
+
+class _StallingFeed:
+    """Emits a few prices on each run() entry, then goes silent.
+
+    Models a feed whose task stays alive but stops producing (wedged HTTP pool,
+    half-open socket, API shape change). A fresh run() — triggered by the
+    watchdog re-dial — resumes emitting, with a strictly rising price so the
+    test can prove the stream recovered."""
+
+    def __init__(self) -> None:
+        self.step = 0
+        self.runs = 0
+
+    async def run(self, on_raw) -> None:  # type: ignore[no-untyped-def]
+        self.runs += 1
+        for _ in range(3):
+            self.step += 1
+            # No "ts" — exactly like the real REST feed, so the normalizer
+            # stamps event time as now (a hardcoded ts would read as 1970 =
+            # STALE and the price would be dropped).
+            await on_raw({"last": str(1_500_000 + self.step)})
+            await asyncio.sleep(0.02)
+        await asyncio.sleep(3600)  # go silent: alive but producing nothing
+
+
+def _make_runtime_with_feed(feed) -> PipelineRuntime:  # type: ignore[no-untyped-def]
+    settings = Settings(persist_state=False, initial_capital="1000", prices_topic="prices.thb_btc.v1")
+    deps = RuntimeDeps(
+        bus=InMemoryEventBus(),
+        clock=SystemClock(),
+        state_store=InMemoryStateStore(),
+        event_store=InMemoryEventStore(),
+        feed_factory=lambda _mode: feed,
+        prices_topic="prices.thb_btc.v1",
+    )
+    return PipelineRuntime(settings, structlog.get_logger("test"), deps=deps)
+
+
+async def _wait_until(cond, timeout: float = 3.0) -> None:  # type: ignore[no-untyped-def]
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        if cond():
+            return
+        await asyncio.sleep(0.02)
+    raise AssertionError("condition not reached in time")
+
+
+@pytest.mark.asyncio
+async def test_fresh_feed_is_not_restarted() -> None:
+    """A feed that produced a price recently must NOT be re-dialed."""
+    import time
+
+    runtime = _make_runtime_with_feed(FakePriceFeed())
+    await runtime.start("live")
+    try:
+        await _wait_until(lambda: runtime._latest_price is not None)
+        runtime._last_price_wall_ms = int(time.time() * 1000)  # just produced
+        await runtime._restart_feed_if_stale()
+        assert runtime._price_feed_stale_restarts == 0
+    finally:
+        await runtime.stop()
+
+
+@pytest.mark.asyncio
+async def test_stale_feed_is_redialed_and_price_resumes() -> None:
+    """A feed that is alive but silent past the threshold is re-dialed, and
+    the price stream resumes (regression: frozen BTC price never recovered)."""
+    import time
+
+    feed = _StallingFeed()
+    runtime = _make_runtime_with_feed(feed)
+    await runtime.start("live")
+    try:
+        await _wait_until(lambda: runtime._latest_price is not None)
+        price_before = runtime._latest_price
+        runs_before = feed.runs
+        old_task = runtime.supervisor_task
+        assert price_before is not None
+
+        # Simulate "no price for a long time" and run the watchdog probe.
+        runtime._last_price_wall_ms = int(time.time() * 1000) - 999_999
+        await runtime._restart_feed_if_stale()
+        # The re-dialed feed must produce a fresh, higher price.
+        await _wait_until(
+            lambda: runtime._latest_price is not None and runtime._latest_price > price_before
+        )
+
+        assert runtime._price_feed_stale_restarts == 1
+        assert feed.runs > runs_before, "feed.run() was not re-entered"
+        assert runtime.supervisor_task is not old_task, "feed task was not replaced"
+        assert runtime.supervisor_task is not None and not runtime.supervisor_task.done()
+        assert runtime.status()["price_feed"]["stale_restarts"] == 1
+    finally:
+        await runtime.stop()

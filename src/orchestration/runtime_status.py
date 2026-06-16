@@ -322,6 +322,13 @@ class _StatusMixin(_RuntimeBase):
                 "last_error": (
                     getattr(self.feed, "last_error", None) if self.feed is not None else None
                 ),
+                # Age of the last published price + how often the staleness
+                # watchdog had to re-dial a silent feed (diagnostic for "ราคาค้าง").
+                "price_age_ms": (
+                    int(time.time() * 1000) - self._last_price_wall_ms
+                    if self._last_price_wall_ms > 0 else None
+                ),
+                "stale_restarts": self._price_feed_stale_restarts,
             },
             # Phase A: real Bitkub account connected READ-ONLY when a key is set.
             "bitkub_account_connected": account_connected,

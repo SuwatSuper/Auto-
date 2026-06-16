@@ -60,3 +60,10 @@ class Supervisor:
 
     def stop(self) -> None:
         self._running = False
+
+    def reset(self) -> None:
+        """Refresh the restart budget before a forced re-run (e.g. a staleness
+        re-dial). Without this, a re-created task inherits a near-exhausted
+        counter and could give up after a single error."""
+        self._restart_count = 0
+        self._running = True
