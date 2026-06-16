@@ -277,6 +277,21 @@ class _LiveTradingMixin(_RuntimeBase):
                     "runtime.live_order_below_min", notional=str(notional), min_thb=str(min_thb)
                 )
                 return None
+            # B2: total-deployable hard ceiling — cumulative live exposure may
+            # never exceed the deployable cap (documented guarantee). Enforced at
+            # the placement boundary so it holds even if the single-position rule
+            # is ever relaxed; the order is rejected (never trimmed).
+            from orchestration.control import HARD_CAP_DEPLOYABLE_THB  # noqa: PLC0415
+            deploy_cap = HARD_CAP_DEPLOYABLE_THB
+            if self._max_deployable_thb > 0:
+                deploy_cap = min(self._max_deployable_thb, HARD_CAP_DEPLOYABLE_THB)
+            if trader.open_market_value() + notional > deploy_cap:
+                self.logger.warning(
+                    "runtime.live_order_over_deployable_cap",
+                    exposure=str(trader.open_market_value() + notional),
+                    cap=str(deploy_cap),
+                )
+                return None
             # C1: gate the REAL order behind the treasury BEFORE placing it, so a
             # halted / underfunded / floor-breaching account never spends real
             # money and is never left with an untracked, unhedged live position.
@@ -284,7 +299,7 @@ class _LiveTradingMixin(_RuntimeBase):
             entry_fee = fee_for(qty * entry, tp.fee_taker_bps)
             order_cost = qty * entry + entry_fee
             exit_fee_est = fee_for(qty * stop, tp.fee_taker_bps)
-            worst = worst_case_loss(qty, entry, stop, entry_fee, exit_fee_est)
+            worst = worst_case_loss(qty, entry, stop, entry_fee, exit_fee_est, tp.slippage_bps)
             if not self._treasury.would_approve(order_cost, worst, trader.open_market_value()):
                 self.logger.warning("runtime.live_order_treasury_veto")
                 return None

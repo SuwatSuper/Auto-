@@ -196,6 +196,7 @@ class TreasuryAgent:
                     self.cash = Decimal(str(t["cash"]))
                     self.realized_pnl = Decimal(str(t["realized_pnl"]))
                     self.realized_today = Decimal(str(t["realized_today"]))
+                    self.fees_today = Decimal(str(t.get("fees_today", "0")))
                     self.day_key = str(t["day_key"])
                     self.wins = int(t["wins"])
                     self.losses = int(t["losses"])
@@ -213,6 +214,7 @@ class TreasuryAgent:
             self.cash = Decimal(str(data["cash"]))
             self.realized_pnl = Decimal(str(data["realized_pnl"]))
             self.realized_today = Decimal(str(data["realized_today"]))
+            self.fees_today = Decimal(str(data.get("fees_today", "0")))
             self.day_key = str(data["day_key"])
             self.wins = int(data["wins"])
             self.losses = int(data["losses"])
@@ -230,6 +232,7 @@ class TreasuryAgent:
                 "cash": str(self.cash),
                 "realized_pnl": str(self.realized_pnl),
                 "realized_today": str(self.realized_today),
+                "fees_today": str(self.fees_today),
                 "day_key": self.day_key,
                 "wins": self.wins,
                 "losses": self.losses,

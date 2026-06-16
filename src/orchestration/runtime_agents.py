@@ -85,6 +85,12 @@ class _AgentsMixin(_RuntimeBase):
                 live_order_fn=self._build_live_order,
                 entry_gate_fn=self._entry_gate,
                 trade_budget_fn=self._trade_budget,
+                # M2: the AUTOMATED live path must respect the same reconciliation
+                # gate the manual path does — never fire a real order against an
+                # unverified account. Open (None) in paper / before an account is
+                # connected; once a reconciliation agent exists it must be verified.
+                reconciliation_gate=lambda: self._reconciliation is None
+                or bool(getattr(self._reconciliation, "is_reconciled", False)),
             ),
         }
         # ── Phase-2 extended departments — all real, data-driven ──────

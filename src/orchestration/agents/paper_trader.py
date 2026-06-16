@@ -361,7 +361,7 @@ class PaperTraderAgent:
         # On a real fill, debit the treasury by the exact THB the exchange spent.
         order_cost = fill["thb"] if (fill is not None and fill["thb"] > 0) else (qty * entry + entry_fee)
         exit_fee_est = fee_for(qty * stop, p.fee_taker_bps)
-        worst = worst_case_loss(qty, entry, stop, entry_fee, exit_fee_est)
+        worst = worst_case_loss(qty, entry, stop, entry_fee, exit_fee_est, p.slippage_bps)
 
         decision = self._treasury.request_open(order_cost, worst, self.open_market_value())
         if not decision.approved:

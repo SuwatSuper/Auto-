@@ -17,7 +17,9 @@ def fixed_fractional(equity: Money, risk_pct: Decimal, stop_distance: Decimal) -
     if stop_distance <= 0:
         return Decimal(0)
     risk_amount = equity.amount * risk_pct / 100
-    return (risk_amount / stop_distance).quantize(Decimal("0.00000001"))
+    # ROUND_DOWN so the sized position never rounds UP past the risk budget
+    # (consistent with size_order / adaptive_kelly_size / size_with_fees).
+    return (risk_amount / stop_distance).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
 
 
 def kelly_fraction(win_rate: Decimal, win_loss_ratio: Decimal) -> Decimal:

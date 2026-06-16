@@ -70,6 +70,19 @@ def should_halt(realized_today: Decimal, equity: Decimal, limits: TreasuryLimits
     return equity < limits.floor_equity()
 
 
-def worst_case_loss(qty: Decimal, entry_price: Decimal, stop_price: Decimal, entry_fee: Decimal, exit_fee_est: Decimal) -> Decimal:
-    """Worst-case loss of a bracketed long = stop distance + both fees."""
-    return qty * (entry_price - stop_price) + entry_fee + exit_fee_est
+def worst_case_loss(
+    qty: Decimal,
+    entry_price: Decimal,
+    stop_price: Decimal,
+    entry_fee: Decimal,
+    exit_fee_est: Decimal,
+    slippage_bps: Decimal = Decimal("0"),
+) -> Decimal:
+    """Worst-case loss of a bracketed long = slipped-stop distance + both fees.
+
+    The protective stop does not fill exactly at ``stop_price``: a market exit
+    slips ``slippage_bps`` below it, so the real loss is slightly larger. Pass the
+    configured slippage so the survival-floor guard is not too permissive
+    (defaults to 0 = exact stop, preserving the original behaviour)."""
+    stop_fill = stop_price * (Decimal("1") - slippage_bps / Decimal("10000"))
+    return qty * (entry_price - stop_fill) + entry_fee + exit_fee_est

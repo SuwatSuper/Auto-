@@ -24,6 +24,7 @@ def treasury_snapshot(a: PaperTraderAgent) -> dict[str, object]:
         "cash": str(t.cash),
         "realized_pnl": str(t.realized_pnl),
         "realized_today": str(t.realized_today),
+        "fees_today": str(t.fees_today),
         "day_key": t.day_key,
         "wins": t.wins,
         "losses": t.losses,
@@ -51,6 +52,7 @@ async def load_state(a: PaperTraderAgent) -> None:
                 a._treasury.cash = Decimal(str(t_data["cash"]))
                 a._treasury.realized_pnl = Decimal(str(t_data["realized_pnl"]))
                 a._treasury.realized_today = Decimal(str(t_data["realized_today"]))
+                a._treasury.fees_today = Decimal(str(t_data.get("fees_today", "0")))
                 a._treasury.day_key = str(t_data["day_key"])
                 a._treasury.wins = int(t_data["wins"])
                 a._treasury.losses = int(t_data["losses"])
