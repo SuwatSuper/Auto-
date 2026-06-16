@@ -111,6 +111,11 @@ class Settings(BaseSettings):
     # history, not just a single EMA cross — more confirmation per entry. Set OFF
     # to fall back to the plain EMA-cross signal.
     multi_indicator_entry: bool = True
+    # Expanded confluence: widen the Market Analyst's multi-indicator vote from 4
+    # lines to the 9-line vocabulary (adds SMA cross, WMA/HMA slope, Bollinger
+    # bias, RSI-based MA). Needs multi_indicator_entry ON. OFF keeps the leaner
+    # 4-line confluence. Only takes effect once enough history has accumulated.
+    expanded_confluence_entry: bool = False
     # ── Daily trade governance ──────────────────────────────────────────
     # Capability cap on entries per day. ~200 supports active intraday hunting;
     # actual count depends on how many real setups the market offers.

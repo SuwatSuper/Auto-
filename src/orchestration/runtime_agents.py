@@ -60,6 +60,7 @@ class _AgentsMixin(_RuntimeBase):
             "market_analyst": EntryExitAgent(
                 bus, prices, _TOPIC_SIGNALS, log,
                 multi_indicator=bool(getattr(self.settings, "multi_indicator_entry", True)),
+                expanded=bool(getattr(self.settings, "expanded_confluence_entry", False)),
             ),
             "news_intelligence": NewsSentimentAgent(bus, _TOPIC_NEWS_RAW, _TOPIC_SENTIMENT, log),
             "risk_management": RiskAgent(

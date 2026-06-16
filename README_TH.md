@@ -79,7 +79,7 @@ src/domain/          Layer 1 — กฎธุรกิจล้วน (Decimal, 
 src/orchestration/   Layer 2 — runtime + 7 agents + supervisors
 src/infrastructure/  Layer 3 — FastAPI, WS, SQLite, gateways, dashboard
 tests/               858 เทส (domain / orchestration / web / architecture)
-docs/                ARCHITECTURE, RUNBOOK, EVENTS, ADRs, SECURITY
+docs/                ARCHITECTURE, RUNBOOK, EVENTS, ADRs, SECURITY, INDICATORS_TH
 docs/archive/        รายงานพัฒนา + คู่มือเฟสถัดไป (CLAUDE_CODE_*, SCORECARD, PHASE*, *_REPORT_TH)
 ```
 

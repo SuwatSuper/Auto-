@@ -18,6 +18,18 @@ skipped by default — by design.
 
 ## What changed in this release pass
 
+### Added — indicator knowledge for the analyst agent
+- **`src/domain/analytics/indicator_lines.py`** — a pure-`Decimal` library covering
+  all **45 standard indicator lines across 9 families** (moving averages, MACD,
+  Bollinger, oscillators, Ichimoku, DMI/ADX, channels/envelopes, Fibonacci/pivots,
+  trailing stops). ATR/SuperTrend cross-validate against the vendored `.ta` stub.
+- **`src/domain/analytics/indicator_catalog.py`** — a declarative 45-entry catalogue
+  (English/Thai names, family, category, inputs, Thai description) so the agent can
+  *enumerate and explain* its indicator vocabulary, not just compute it.
+- **`expanded_confluence_signal`** — widens the Market Analyst's confluence vote from
+  4 to 9 lines (SMA cross, WMA/HMA slope, Bollinger bias, RSI-based MA). Opt-in via
+  `EXPANDED_CONFLUENCE_ENTRY` (default off). See **`docs/INDICATORS_TH.md`**.
+
 ### Added
 - **English `README.md`** — replaced the 2-line placeholder with a complete,
   accurate production README (quick start, architecture, configuration, safety

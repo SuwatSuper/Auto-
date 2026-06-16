@@ -11,7 +11,10 @@ import structlog
 from domain.analytics.indicators import ema
 from domain.strategy.base import SignalAction, StrategyContext
 from domain.strategy.ema_cross import EmaCrossStrategy
-from domain.strategy.multi_indicator import multi_indicator_signal
+from domain.strategy.multi_indicator import (
+    expanded_confluence_signal,
+    multi_indicator_signal,
+)
 from orchestration.agents.learning import Learner
 from orchestration.ports.event_bus import EventBus
 
@@ -33,6 +36,7 @@ class EntryExitAgent:
         topic_out: str,
         logger: structlog.BoundLogger,
         multi_indicator: bool = True,
+        expanded: bool = False,
     ) -> None:
         self._bus = bus
         self._topic_in = topic_in
@@ -42,6 +46,10 @@ class EntryExitAgent:
         # When True, entries lean on a multi-indicator confluence (EMA momentum +
         # trend + MACD + RSI) over the price history, not just a single EMA cross.
         self._multi_indicator = multi_indicator
+        # When True, the confluence widens from 4 lines to the 9-line expanded
+        # vocabulary (adds SMA cross, WMA/HMA slope, Bollinger bias, RSI-based MA)
+        # so the analyst reasons over more of what it now knows.
+        self._expanded = expanded
         self._last_action: SignalAction = SignalAction.HOLD
         self._prices: list[Decimal] = []
         self.running = False
@@ -88,10 +96,15 @@ class EntryExitAgent:
 
     async def _evaluate(self, price: Decimal, ts_ms: int) -> None:
         if self._multi_indicator:
-            res = multi_indicator_signal(self._prices)
+            if self._expanded:
+                res = expanded_confluence_signal(self._prices)
+                label = "Confluence+"
+            else:
+                res = multi_indicator_signal(self._prices)
+                label = "Confluence"
             action = res.action
             confidence = res.confidence
-            self.detail = f"Confluence {res.detail} · แม่น {self._hr_txt()}"
+            self.detail = f"{label} {res.detail} · แม่น {self._hr_txt()}"
         else:
             ctx = StrategyContext(prices=tuple(self._prices), position_qty=Decimal(0))
             sig = self._strategy.decide(ctx)

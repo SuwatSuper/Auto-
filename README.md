@@ -148,7 +148,7 @@ Current baseline: **858 passed, 1 skipped, 91% coverage**; `ruff` and
 ```
 src/                 Application code (3 layers, see above)
 tests/               858 tests: domain / orchestration / infrastructure / web / architecture / contracts
-docs/                ARCHITECTURE, RUNBOOK, LIVE_TRADING_RUNBOOK, EVENTS, ADRs, SECURITY
+docs/                ARCHITECTURE, RUNBOOK, LIVE_TRADING_RUNBOOK, EVENTS, ADRs, SECURITY, INDICATORS_TH
 docs/archive/        Development-history reports & build prompts (not needed to run)
 deploy/              systemd unit, logrotate config, DEPLOY.md
 scripts/             Dev/ops helpers (run, bench, make_zip, setup_env, probes)
