@@ -3331,10 +3331,10 @@ function renderBitkubAccount() {
     const elapsed = State._bitkubConnectTime ? (Date.now() - State._bitkubConnectTime) / 1000 : 0;
     if (elapsed > 15) {
       el.style.color = 'var(--accent-red)';
-      el.textContent = 'Bitkub wallet not reading — check API key/secret in .env, Bitkub API permissions, and IP whitelist.';
+      el.textContent = 'Bitkub wallet not reading — recheck the API key/secret you connected, the Bitkub API read permission, and IP whitelist.';
     } else {
       el.style.color = 'var(--accent-gold)';
-      el.textContent = 'Connecting… (or API key/IP error — check .env and Bitkub IP whitelist)';
+      el.textContent = 'Connecting… (or API key/IP error — recheck Bitkub API permission + IP whitelist)';
     }
     return;
   }

@@ -60,10 +60,14 @@ async def test_kill_switch_endpoints(tmp_path, monkeypatch) -> None:  # type: ig
 
 
 @pytest.mark.asyncio
-async def test_kill_switch_post_is_strict_auth(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+async def test_kill_switch_post_localhost_trusted_remote_strict(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.chdir(tmp_path)
     rt = _rt(dashboard_api_key="k")
-    transport = ASGITransport(app=create_app(rt))  # localhost, but no header
+    app = create_app(rt)
+    # localhost (no header) → trusted, toggles fine
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        assert (await c.post("/api/kill_switch", json={"on": False})).status_code == 200
+    # remote (no header) → rejected before acting
+    transport = ASGITransport(app=app, client=("203.0.113.7", 5555))  # type: ignore[arg-type]
     async with AsyncClient(transport=transport, base_url="http://test") as c:
-        # dangerous endpoint requires the token even on localhost
         assert (await c.post("/api/kill_switch", json={"on": True})).status_code == 401

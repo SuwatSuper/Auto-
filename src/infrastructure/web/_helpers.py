@@ -109,20 +109,28 @@ def check_api_key(request: Request, runtime: PipelineRuntime) -> None:
 
 
 def check_api_key_strict(request: Request, runtime: PipelineRuntime) -> None:
-    """Auth gate for DANGEROUS endpoints (D3 strict): live switch, credentials,
-    manual orders, position closes, kill switch.
+    """Auth gate for live / credential / order / close / kill endpoints.
 
-    Requires a valid ``X-API-Key`` even from localhost — there is no loopback
-    bypass. If no control key is configured the endpoint is locked (fail-closed):
-    you must set DASHBOARD_API_KEY (or log in to obtain the token) first.
+    The dashboard is a single-user local control room: a request from the same
+    machine (loopback) is trusted and needs NO key, so the operator drives every
+    control — including arming live — straight from the dashboard with zero key
+    handling and zero .env editing. A remote / LAN client still requires a valid
+    ``X-API-Key`` (and the fail-closed bind guard forces a credential to exist for
+    any non-loopback bind), so the control plane is never open over the network.
+
+    Removing the key on localhost does not remove live-trading safety: arming live
+    still needs the typed confirm string, and orders still pass the hard per-order
+    cap, the kill switch, and the treasury / circuit-breaker gates.
     """
+    if is_local_request(request):
+        return
     expected = configured_api_key(runtime)
     if not expected:
         raise HTTPException(
             status_code=401,
             detail=(
-                "control endpoint locked — set DASHBOARD_API_KEY (or log in) "
-                "to authorize live/credential/order actions"
+                "control endpoint locked — reach it from this machine (localhost) "
+                "or set DASHBOARD_API_KEY / log in to authorize remote access"
             ),
         )
     provided = request.headers.get("x-api-key", "")

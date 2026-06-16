@@ -154,7 +154,7 @@
         <label>รหัสผ่าน (DASHBOARD_PASSWORD)</label><input id="c-pass" type="password" placeholder="รหัสผ่าน operator" />
         <div class="row"><button class="b-blue" id="c-login">Login</button></div>
         <div class="st" id="c-login-st"></div>
-        <div class="note">คำสั่งอันตราย (เชื่อม key/สั่งซื้อ/kill) ต้องมีสิทธิ์ก่อน — ตั้ง <b>DASHBOARD_API_KEY</b> ใน .env (จะถูกฝังให้อัตโนมัติ) หรือ login ด้วย DASHBOARD_PASSWORD</div>
+        <div class="note">เปิดจากเครื่องนี้ (localhost) คุมได้ทุกปุ่มทันที ไม่ต้องตั้งคีย์ใดๆ · เปิดจากมือถือ/เครื่องอื่นผ่าน LAN ให้ login ด้วย DASHBOARD_PASSWORD ก่อน (เพื่อความปลอดภัย)</div>
       </div>
       <div class="panel">
         <h3>ควบคุมการทำงาน</h3>
@@ -240,7 +240,7 @@ function errOf(r){ const d=r&&r.data; if(d&&d.detail) return typeof d.detail==='
 function authMsg(r){
   const e=(errOf(r)||'').toLowerCase();
   if(e.includes('x-api-key')||e.includes('locked')||e.includes('login not configured')||(r&&r.status===401))
-    return '🔑 ต้องมี “สิทธิ์ควบคุม” ก่อน: ตั้ง DASHBOARD_API_KEY=อะไรก็ได้ ใน .env แล้วรีสตาร์ทเซิร์ฟเวอร์ + รีเฟรชหน้า (Ctrl+F5) · นี่คนละตัวกับ Bitkub key — ถ้าใส่ BITKUB key ใน .env แล้ว บัญชีจะต่อให้เองโดยไม่ต้องกดปุ่มนี้';
+    return '🔑 คุมจากเครื่องนี้ (localhost) ได้เลยทุกปุ่ม ไม่ต้องใช้คีย์ · ถ้าเปิดจากมือถือ/เครื่องอื่นผ่าน LAN ให้ล็อกอินด้วยรหัส (DASHBOARD_PASSWORD) ก่อน';
   return 'ล้มเหลว: '+errOf(r);
 }
 
@@ -430,7 +430,6 @@ function wire(){
     else st('c-login-st', authMsg(r), 'err');
   };
   $('c-arm').onclick=async()=>{
-    if(!apiKey()){ st('c-mode-st', authMsg({status:401,data:{}}), 'err'); return; }
     const c=prompt('⚠️ เปิดเทรดด้วยเงินจริงบน Bitkub (ซื้อ/ขายจริง ย้อนกลับไม่ได้)\n\nพิมพ์  ENABLE  เพื่อยืนยัน:');
     if((c||'').trim().toUpperCase()!=='ENABLE'){ st('c-mode-st','ยกเลิก — ต้องพิมพ์ ENABLE เพื่อยืนยัน','err'); return; }
     st('c-mode-st','กำลังเปิดเทรดจริง…');
@@ -475,7 +474,7 @@ function wire(){
 async function boot(){
   wire();
   if(!apiKey()){
-    st('c-acct','ℹ️ เปิดจากเครื่องนี้ (localhost): กรอก Bitkub key/secret แล้วกด “เชื่อม” (หรือ Enter) ได้เลย · เปิดจากมือถือ/เครื่องอื่นผ่าน LAN ต้องตั้ง DASHBOARD_API_KEY ใน .env ก่อน (เพื่อความปลอดภัย)');
+    st('c-acct','ℹ️ เปิดจากเครื่องนี้ (localhost): กรอก Bitkub key/secret แล้วกด “เชื่อม” (หรือ Enter) ได้เลย · ทุกปุ่มควบคุมใช้ได้ทันที ไม่ต้องตั้งคีย์');
   }
   const h=await apiGet('/api/prices/history');
   if(h.ok&&h.data&&Array.isArray(h.data.prices)) h.data.prices.forEach(d=>pushPrice(num(d.ts_ms),d.price));

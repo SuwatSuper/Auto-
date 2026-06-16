@@ -63,20 +63,20 @@ def test_password_only_network_bind_mints_key_but_does_not_expose_it() -> None:
     assert rt.page_control_key() == ""      # but never pre-exposed in the page
 
 
-# ── strict auth for dangerous endpoints (even on localhost) ──────────
+# ── localhost trusted for ALL control; remote still strict ───────────
 @pytest.mark.asyncio
-async def test_local_dashboard_autoprovisions_key_but_still_requires_it() -> None:
-    """Loopback with no explicit key auto-provisions a per-process control key so
-    the LOCAL dashboard works without hand-editing .env — but a request WITHOUT
-    that key is still rejected (the strict guard is preserved, just not manual)."""
+async def test_local_dashboard_control_needs_no_key() -> None:
+    """The loopback dashboard is a single-user control room: every control —
+    including arming live — works from this machine with NO key and NO .env
+    editing. An explicit key, when present, authorizes the same action too."""
     rt = _runtime(dashboard_api_key="")  # loopback bind, no explicit key
     rt.agents = rt._make_agents()
     transport = ASGITransport(app=create_app(rt))  # localhost client
     async with AsyncClient(transport=transport, base_url="http://test") as c:
-        # No header → still 401 (the auto key is required, not bypassed).
-        assert (await c.post("/api/execution/mode", json={"mode": "paper"})).status_code == 401
+        # No header, no configured key → trusted from localhost (NOT 401).
+        assert (await c.post("/api/execution/mode", json={"mode": "paper"})).status_code != 401
         key = rt.control_key()
-        assert key  # a real per-process key was minted for the loopback dashboard
+        assert key  # a per-process key is still minted (used for remote/login)
         ok = await c.post(
             "/api/execution/mode", json={"mode": "paper"}, headers={"X-API-Key": key}
         )
@@ -84,14 +84,32 @@ async def test_local_dashboard_autoprovisions_key_but_still_requires_it() -> Non
 
 
 @pytest.mark.asyncio
-async def test_dangerous_endpoint_requires_token_even_on_localhost() -> None:
+async def test_dangerous_endpoint_localhost_trusted() -> None:
+    """Money endpoints are reachable from localhost without a token (the
+    operator's own machine). Arming live still needs the typed confirm string,
+    and orders still pass the hard per-order cap / kill switch / treasury."""
     rt = _runtime(dashboard_api_key="secret")
     rt.agents = rt._make_agents()
     transport = ASGITransport(app=create_app(rt))  # default localhost client
     async with AsyncClient(transport=transport, base_url="http://test") as c:
-        # localhost, but NO header → still 401 (D3 strict: no loopback bypass).
+        # localhost, NO header → reaches the handler (not a 401).
+        assert (await c.post("/api/order", json={"side": "BUY"})).status_code != 401
+        # an explicit token works too.
+        ok = await c.post(
+            "/api/order", json={"side": "BUY"}, headers={"X-API-Key": "secret"}
+        )
+        assert ok.status_code != 401
+
+
+@pytest.mark.asyncio
+async def test_dangerous_endpoint_remote_requires_token() -> None:
+    """A remote/LAN client must still present the key for money endpoints — the
+    control plane is never open over the network."""
+    rt = _runtime(dashboard_api_key="secret")
+    rt.agents = rt._make_agents()
+    transport = ASGITransport(app=create_app(rt), client=("203.0.113.7", 5555))  # type: ignore[arg-type]
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
         assert (await c.post("/api/order", json={"side": "BUY"})).status_code == 401
-        # correct token → passes auth (reaches the handler, not a 401).
         ok = await c.post(
             "/api/order", json={"side": "BUY"}, headers={"X-API-Key": "secret"}
         )

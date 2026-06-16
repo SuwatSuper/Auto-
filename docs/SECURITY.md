@@ -30,11 +30,13 @@ Risk settings, breaker, agent start/stop, emergency stop, alerts, strategy
 toggles, capital, kill-switch *read*. Localhost is trusted (no key needed);
 remote requests require `X-API-Key == DASHBOARD_API_KEY` (when a key is set).
 
-### 3. Dangerous endpoints (`check_api_key_strict`, D3 = strict)
+### 3. Money / live endpoints (`check_api_key_strict`)
 
-These spend real money or change the real-money posture and require a valid
-`X-API-Key` **even from localhost** (no loopback bypass). If no key is configured
-they are **locked** (fail-closed) — set `DASHBOARD_API_KEY` or log in first:
+These spend real money or change the real-money posture. **Localhost is trusted**
+(the operator's single-user machine) so they work straight from the dashboard with
+no key and no `.env` editing. A **remote / LAN** client must present a valid
+`X-API-Key` — and a non-loopback bind can't even start without a credential (§1),
+so the control plane is never open over the network:
 
 - `POST /api/execution/mode`   (arm live trading)
 - `POST /api/credentials`      (set real Bitkub API keys)
@@ -42,9 +44,12 @@ they are **locked** (fail-closed) — set `DASHBOARD_API_KEY` or log in first:
 - `POST /api/positions/close`, `POST /api/positions/close_all`
 - `POST /api/kill_switch`      (block/unblock live across restarts)
 
-Obtain the token by setting `DASHBOARD_API_KEY` in `.env`, or via
-`POST /api/login` with `DASHBOARD_PASSWORD` (returns the token). Rotate by editing
-`.env` and restarting. Send it as the `X-API-Key` header.
+Dropping the localhost key requirement does **not** drop live-trading safety:
+arming live still needs the typed confirm string (`I_ACCEPT_REAL_MONEY_RISK`), and
+every order still passes the hard per-order cap (≤ ฿1,000), the kill switch, and
+the treasury / circuit-breaker gates. For remote control, obtain the token via
+`POST /api/login` with `DASHBOARD_PASSWORD`, or set `DASHBOARD_API_KEY`; send it as
+the `X-API-Key` header.
 
 ## WebSocket
 
