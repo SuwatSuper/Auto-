@@ -59,6 +59,9 @@ class SettingsView(Protocol):
     execution_engine: str
     live_trading_confirm: str
     min_p_win: str
+    # Disarmed when the operator sets risk %/trade by hand, so their exact value
+    # is not re-clamped by the Kelly auto-sizer.
+    kelly_sizing_enabled: bool
 
 
 class Notifier(Protocol):

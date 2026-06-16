@@ -24,6 +24,8 @@ _PCT_FIELDS: dict[str, tuple[Decimal, Decimal]] = {
 _INT_FIELDS: dict[str, tuple[int, int]] = {
     "max_consecutive_losses": (0, 1_000_000),
     "max_open_positions": (1, 50),
+    # Max entries per day the operator allows (0 = unlimited). Dashboard-settable.
+    "max_trades_per_day": (0, 100_000),
 }
 # ── Hard-coded real-money ceilings (defense-in-depth, B1/T5) ───────────────
 # Absolute caps enforced IN CODE. No operator setting may exceed them, so a
@@ -88,6 +90,9 @@ class RiskSettings:
     # Win-probability entry gate (0..1). Default at the end so existing callers
     # that build RiskSettings with the first 8 fields keep working.
     min_p_win: Decimal = Decimal("0.55")
+    # Max entries per day the operator allows (0 = unlimited). Defaulted at the
+    # end too, so positional callers building the first fields keep working.
+    max_trades_per_day: int = 200
 
     def as_str_dict(self) -> dict[str, str]:
         return {
@@ -100,6 +105,7 @@ class RiskSettings:
             "max_deployable_thb": str(self.max_deployable_thb),
             "max_single_order_thb": str(self.max_single_order_thb),
             "min_p_win": str(self.min_p_win),
+            "max_trades_per_day": str(self.max_trades_per_day),
         }
 
 
@@ -191,6 +197,7 @@ def validate_risk_settings(
             max_deployable_thb=dec_out["max_deployable_thb"],
             max_single_order_thb=dec_out["max_single_order_thb"],
             min_p_win=dec_out["min_p_win"],
+            max_trades_per_day=int_out["max_trades_per_day"],
         ),
         [],
     )

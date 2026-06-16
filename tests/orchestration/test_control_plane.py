@@ -84,6 +84,37 @@ async def test_update_risk_settings_rejects_bad() -> None:
     assert "errors" in payload
 
 
+def test_validate_max_trades_per_day() -> None:
+    new, errors = validate_risk_settings(_base(), {"max_trades_per_day": "50"})
+    assert errors == [] and new is not None and new.max_trades_per_day == 50
+    bad, errs = validate_risk_settings(_base(), {"max_trades_per_day": "-1"})
+    assert bad is None and any("max_trades_per_day" in e for e in errs)
+
+
+@pytest.mark.asyncio
+async def test_operator_can_set_daily_trade_budget() -> None:
+    rt = _rt()
+    ok, _ = await rt.update_risk_settings({"max_trades_per_day": "42"})
+    assert ok
+    assert rt._max_trades_per_day == 42
+    assert rt.status()["daily"]["max_trades_per_day"] == 42
+
+
+@pytest.mark.asyncio
+async def test_manual_risk_sticks_and_kelly_stops_overriding() -> None:
+    """Setting risk %/trade by hand must be authoritative: Kelly auto-sizing is
+    switched off so it can no longer re-clamp the operator's value."""
+    rt = _rt()
+    assert rt.settings.kelly_sizing_enabled is True  # on by default
+    ok, _ = await rt.update_risk_settings({"risk_per_trade_pct": "10"})
+    assert ok
+    assert rt._trade_params.risk_per_trade_pct == Decimal("10")  # type: ignore[union-attr]
+    assert rt.settings.kelly_sizing_enabled is False  # Kelly disarmed
+    # Kelly can no longer pull the manual 10% back down.
+    assert rt.apply_kelly_risk("1.5") is False
+    assert rt._trade_params.risk_per_trade_pct == Decimal("10")  # type: ignore[union-attr]
+
+
 # ── breaker control ──────────────────────────────────────────────────
 
 def test_breaker_trip_and_reset() -> None:

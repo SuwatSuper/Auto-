@@ -71,6 +71,7 @@ class _RiskControlMixin(_RuntimeBase):
             max_deployable_thb=self._max_deployable_thb,
             max_single_order_thb=self._max_single_order_thb,
             min_p_win=self._dec_setting("min_p_win", "0.55"),
+            max_trades_per_day=self._max_trades_per_day,
         )
 
     def get_risk_settings(self) -> dict[str, str]:
@@ -99,6 +100,13 @@ class _RiskControlMixin(_RuntimeBase):
             tp.risk_per_trade_pct = new.risk_per_trade_pct
             tp.stop_pct = new.stop_pct
             tp.take_profit_pct = new.take_profit_pct
+        # Operator takes the wheel: when they SET risk %/trade by hand, the Kelly
+        # auto-sizer must stop re-clamping it (it would otherwise pull any value
+        # back into [0.25 .. kelly_max_risk_pct] on the next cycle, so a typed 10%
+        # silently became ≤2% — the "ไม่ลิ้งกัน" the operator hit). Their exact %
+        # now sticks. Re-enable Kelly from .env (KELLY_SIZING_ENABLED=true).
+        if "risk_per_trade_pct" in patch:
+            self.settings.kelly_sizing_enabled = False
         if self._treasury is not None:
             from domain.portfolio.treasury import TreasuryLimits  # noqa: PLC0415
 
@@ -121,6 +129,8 @@ class _RiskControlMixin(_RuntimeBase):
             gate.set_max_open_positions(new.max_open_positions)
         self._max_deployable_thb = new.max_deployable_thb
         self._max_single_order_thb = new.max_single_order_thb
+        # Operator-controlled daily entry budget (0 = unlimited).
+        self._max_trades_per_day = new.max_trades_per_day
         # Keep the paper sizing cap in lockstep with the live order cap so a
         # real order and its paper mirror size identically.
         if tp is not None:

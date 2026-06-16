@@ -190,6 +190,7 @@
         <label>เสี่ยง %/ไม้</label><input id="c-risk" placeholder="เช่น 1" />
         <label>Stop-Loss %</label><input id="c-sl" placeholder="เช่น 0.5" />
         <label>Take-Profit %</label><input id="c-tp" placeholder="เช่น 1.5" />
+        <label>ไม้/วัน (0=ไม่จำกัด)</label><input id="c-maxtrades" placeholder="เช่น 200" />
         <div class="row"><button class="b-blue" id="c-risk-set">บันทึกความเสี่ยง</button></div>
         <div class="st" id="c-risk-st"></div>
         <div class="note">เว้นว่างช่องไหน = ไม่เปลี่ยนช่องนั้น</div>
@@ -455,7 +456,9 @@ function wire(){
   };
   $('c-risk-set').onclick=async()=>{
     const body={}; const rk=($('c-risk').value||'').trim(), sl=($('c-sl').value||'').trim(), tp=($('c-tp').value||'').trim();
+    const mt=($('c-maxtrades').value||'').trim();
     if(rk)body.risk_per_trade_pct=rk; if(sl)body.stop_pct=sl; if(tp)body.take_profit_pct=tp;
+    if(mt!=='')body.max_trades_per_day=mt;
     if(!Object.keys(body).length){ st('c-risk-st','กรอกอย่างน้อย 1 ช่อง','err'); return; }
     const r=await apiPost('/api/risk/settings',body);
     st('c-risk-st', r.ok?'บันทึกความเสี่ยงแล้ว ✅':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
