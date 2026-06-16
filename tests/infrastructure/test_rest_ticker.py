@@ -11,6 +11,7 @@ import pytest
 from infrastructure.gateway.bitkub_rest_ticker import (
     BitkubRestTickerFeed,
     extract_last_price,
+    fetch_recent_prices,
 )
 
 # ── robust parsing across Bitkub response shapes ─────────────────────
@@ -132,3 +133,32 @@ async def test_feed_survives_http_error() -> None:
         await task
     await client.aclose()
     assert feed.last_price is None
+
+
+# ── historical warm-start backfill ───────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_fetch_recent_prices_parses_and_sorts_oldest_first() -> None:
+    # Bitkub /market/trades shape: result = [[ts_sec, rate, amount, side], ...]
+    # (newest-first); fetch_recent_prices must parse + sort oldest-first + ms.
+    payload = {"error": 0, "result": [
+        [1700000002, "2010000", "0.01", "BUY"],
+        [1700000001, "2000000", "0.02", "SELL"],
+    ]}
+    client = httpx.AsyncClient(transport=_MockTransport(payload))
+    out = await fetch_recent_prices(symbol="THB_BTC", client=client)
+    await client.aclose()
+    assert [str(p) for _, p in out] == ["2000000", "2010000"]   # oldest-first
+    assert out[0][0] == 1700000001000                            # seconds -> ms
+
+
+@pytest.mark.asyncio
+async def test_fetch_recent_prices_graceful_on_error() -> None:
+    class _ErrTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):  # type: ignore[no-untyped-def]
+            return httpx.Response(500, text="boom")
+
+    client = httpx.AsyncClient(transport=_ErrTransport())
+    out = await fetch_recent_prices(client=client)   # must NOT raise
+    await client.aclose()
+    assert out == []

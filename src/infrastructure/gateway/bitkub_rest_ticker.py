@@ -90,6 +90,62 @@ def extract_last_price(data: object, symbol: str = "THB_BTC") -> Decimal | None:
     return price if price > 0 else None
 
 
+async def fetch_recent_prices(
+    symbol: str = "THB_BTC",
+    limit: int = 300,
+    base_url: str = "https://api.bitkub.com",
+    client: httpx.AsyncClient | None = None,
+) -> list[tuple[int, Decimal]]:
+    """Recent trade prices from Bitkub v3 ``/market/trades``, oldest-first.
+
+    Used to WARM-START the agents' price buffers so they compute immediately
+    instead of starting cold (no historical data). Returns ``[(ts_ms, price)]``
+    and NEVER raises — any error (unreachable / blocked / bad shape) yields an
+    empty list, so the caller falls back to the previous cold-start behaviour.
+
+    Tolerates both Bitkub response shapes: a list of ``[ts, rate, amount, side]``
+    rows and a list of ``{"ts"/"rate"}`` dicts, enveloped or bare.
+    """
+    owns = client is None
+    c = client or httpx.AsyncClient(timeout=8.0)
+    out: list[tuple[int, Decimal]] = []
+    try:
+        url = f"{base_url.rstrip('/')}/api/v3/market/trades"
+        resp = await c.get(url, params={"sym": symbol.lower(), "lim": str(int(limit))})
+        resp.raise_for_status()
+        data: object = resp.json()
+        rows: object = data["result"] if isinstance(data, dict) and "result" in data else data
+        if isinstance(rows, list):
+            for row in rows:
+                ts_raw: object = None
+                px_raw: object = None
+                if isinstance(row, list | tuple) and len(row) >= 2:
+                    ts_raw, px_raw = row[0], row[1]
+                elif isinstance(row, dict):
+                    ts_raw = row.get("ts") or row.get("timestamp") or row.get("time")
+                    px_raw = row.get("rate") if row.get("rate") is not None else row.get("price")
+                if ts_raw is None or px_raw is None:
+                    continue
+                try:
+                    ts = int(float(str(ts_raw)))
+                    price = Decimal(str(px_raw))
+                except (InvalidOperation, ValueError, TypeError):
+                    continue
+                if not price.is_finite() or price <= 0:
+                    continue
+                # Bitkub trade timestamps are seconds; normalise to ms.
+                ts_ms = ts * 1000 if ts < 1_000_000_000_000 else ts
+                out.append((ts_ms, price))
+        out.sort(key=lambda r: r[0])
+    except Exception:
+        return []
+    finally:
+        if owns:
+            with contextlib.suppress(Exception):
+                await c.aclose()
+    return out
+
+
 class BitkubRestTickerFeed:
     """Polls the Bitkub v3 ticker and feeds normalized price dicts."""
 

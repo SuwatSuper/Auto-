@@ -270,6 +270,12 @@ class PipelineRuntime(
         # synchronous bus.subscribe() before the first price tick can be
         # published, closing the publish-before-subscribe startup race (the
         # in-memory bus has no replay, so a tick sent before a subscribe is lost).
+        # Warm-start (production live path only): seed agents + chart with recent
+        # REAL prices NOW that every consumer has subscribed and BEFORE the live
+        # feed starts, so history precedes live. Graceful — never blocks startup
+        # on a slow/unreachable exchange beyond the short fetch timeout.
+        if self._deps is None:
+            await self._backfill_history(topic)
         self.supervisor_task = asyncio.create_task(self._price_guardian.run())
         self._watchdog_task = asyncio.create_task(self._watchdog())
         self._coach_task = asyncio.create_task(self._coach_loop())
@@ -411,6 +417,43 @@ class PipelineRuntime(
     def price_history(self) -> list[dict[str, object]]:
         """Recent (ts_ms, price) ticks for the dashboard chart backfill."""
         return [{"ts_ms": ts, "price": px} for ts, px in list(self._price_history)]
+
+    async def _backfill_history(self, topic: str, symbol: str = "THB_BTC") -> None:
+        """Warm-start: seed the agents' price buffers + the dashboard chart with
+        recent REAL Bitkub prices so they compute immediately instead of starting
+        cold (no history → long warm-up before the win-prob gate trusts anything).
+
+        Never raises — a blocked or slow exchange just leaves the previous
+        cold-start behaviour (the published batch carries historical timestamps,
+        so it precedes the live ticks the agents receive next)."""
+        try:
+            from domain.trading.market_data import (  # noqa: PLC0415
+                NormalizationFailure,
+                normalize_bitkub_ticker,
+            )
+            from infrastructure.gateway.bitkub_rest_ticker import (  # noqa: PLC0415
+                fetch_recent_prices,
+            )
+
+            base = str(getattr(self.settings, "bitkub_rest_url", "https://api.bitkub.com"))
+            prices = await fetch_recent_prices(symbol=symbol, base_url=base, limit=300)
+            if not prices:
+                self.logger.info("runtime.history_backfill_empty")
+                return
+            bus = self._ensure_bus()
+            seeded = 0
+            for ts_ms, price in prices:
+                result = normalize_bitkub_ticker({"last": str(price), "symbol": symbol}, now_ms=ts_ms)
+                if isinstance(result, NormalizationFailure):
+                    continue
+                await bus.publish(
+                    topic, result.symbol.encode(), orjson.dumps(result.model_dump(mode="json"))
+                )
+                self._price_history.append((ts_ms, str(price)))
+                seeded += 1
+            self.logger.info("runtime.history_backfilled", count=seeded)
+        except Exception:
+            self.logger.warning("runtime.history_backfill_failed", exc_info=True)
 
     def recent_trades(self) -> list[dict[str, object]]:
         """Recent paper FILL/CLOSE events (oldest first) for the trades table."""
