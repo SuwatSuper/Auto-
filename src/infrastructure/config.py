@@ -121,6 +121,11 @@ class Settings(BaseSettings):
     # from the first signal; this only sets how often it self-adjusts.
     # Operator-settable live from the dashboard risk panel.
     adapt_after_trades: int = 8
+    # Circuit breaker halts PAPER trading too? Default OFF — paper (เทรดลม) is a
+    # learning sandbox with no real money, so a losing streak should NOT stop it
+    # gaining experience. The breaker always halts LIVE regardless. Set True to
+    # make paper behave like live (halt after MAX_CONSECUTIVE_LOSSES).
+    circuit_breaker_halts_paper: bool = False
     # ── Daily trade governance ──────────────────────────────────────────
     # Capability cap on entries per day. ~200 supports active intraday hunting;
     # actual count depends on how many real setups the market offers.

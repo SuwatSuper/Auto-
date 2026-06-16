@@ -192,8 +192,11 @@ class ExecutionAgent:
             self._log.warning("execution_agent.vetoed", reason="STARTUP_NOT_RECONCILED")
             return
 
-        # 1. Circuit-breaker fast path
-        if self._breaker.is_open:
+        # 1. Circuit-breaker fast path. The breaker protects REAL money, so it only
+        # halts entries when the live engine is armed (or the operator explicitly
+        # opts to halt paper too). In paper mode (เทรดลม) it keeps trading so the
+        # agent can gather experience — the streak is still counted for display.
+        if self._breaker.is_open and self._breaker_halts():
             await self._publish_rejection(["CIRCUIT_BREAKER_OPEN"])
             self._log.warning("execution_agent.vetoed", reason="CIRCUIT_BREAKER_OPEN")
             return
@@ -276,6 +279,18 @@ class ExecutionAgent:
             if not live_ok:
                 self._log.critical("live_blocked", gate=blocked_gate)
             await self._route_paper(raw)
+
+    def _breaker_halts(self) -> bool:
+        """Whether an open circuit breaker should HALT new entries.
+
+        True when real money is in play (``execution_engine == "live"``) or when
+        the operator opted to also halt paper (``circuit_breaker_halts_paper``).
+        Paper trading keeps running by default so the agent gains experience even
+        through a losing streak — capital protection only matters for live.
+        """
+        if str(getattr(self._settings, "execution_engine", "paper")) == "live":
+            return True
+        return bool(getattr(self._settings, "circuit_breaker_halts_paper", False))
 
     def _live_gates_open(self) -> tuple[bool, str | None]:
         """Check all four live trading gates; return (open, failed_gate_name)."""

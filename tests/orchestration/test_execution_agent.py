@@ -21,6 +21,7 @@ def _settings(engine: str = "paper", confirm: str = "") -> object:
     s = MagicMock()
     s.execution_engine = engine
     s.live_trading_confirm = confirm
+    s.circuit_breaker_halts_paper = True  # explicit: exercise the breaker-halt path
     return s
 
 

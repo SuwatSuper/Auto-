@@ -14,13 +14,16 @@ from infrastructure.gateway.rate_limiter import TokenBucket
 from orchestration.agents.execution_agent import ExecutionAgent
 
 
-def _make_exec(breaker: CircuitBreaker, open_positions_fn=None, max_open=1) -> tuple[ExecutionAgent, InMemoryEventBus]:
+def _make_exec(breaker: CircuitBreaker, open_positions_fn=None, max_open=1, halts_paper=True) -> tuple[ExecutionAgent, InMemoryEventBus]:
     bus = InMemoryEventBus()
     bucket = TokenBucket(capacity=100, refill_per_sec=100.0)
 
     class FakeSettings:
         execution_engine = "paper"
         live_trading_confirm = ""
+        # Default True here so the breaker-veto tests exercise the halt path; the
+        # production default is False (paper keeps trading — gains experience).
+        circuit_breaker_halts_paper = halts_paper
 
     agent = ExecutionAgent(
         bus=bus,
@@ -91,6 +94,26 @@ async def test_consecutive_losses_trip_breaker_and_veto() -> None:
     msg = approved_q.get_nowait()
     data = orjson.loads(msg)
     assert data["type"] == "EXECUTION_VETOED"
+
+
+@pytest.mark.asyncio
+async def test_paper_keeps_trading_through_open_breaker() -> None:
+    """Default (circuit_breaker_halts_paper=False): a tripped breaker must NOT halt
+    PAPER trading — the sandbox keeps trading to gain experience. The trade is
+    forwarded (EXECUTE), not vetoed."""
+    breaker = CircuitBreaker(max_consecutive_losses=3)
+    for _ in range(3):
+        breaker.record_trade(Decimal("-100"))
+    assert breaker.is_open  # streak still tripped it (for display)
+
+    agent, bus = _make_exec(breaker, halts_paper=False)  # production default
+    approved_q = bus.subscribe("decisions.approved.v1")
+
+    await agent._handle(_execute_msg(decision_id="paper-through-breaker"))
+
+    data = orjson.loads(approved_q.get_nowait())
+    assert data.get("decision") == "EXECUTE"  # forwarded, NOT vetoed
+    assert data.get("type") != "EXECUTION_VETOED"
 
 
 @pytest.mark.asyncio
