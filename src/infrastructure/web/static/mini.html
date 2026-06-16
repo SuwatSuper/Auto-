@@ -178,6 +178,31 @@
         <div class="st" id="c-mode-st"></div>
         <div class="note">⚠️ เงินจริง! กดแล้วต้องพิมพ์ <b>ENABLE</b> ยืนยัน 1 ครั้ง · วงเงิน ฿500/ไม้ (กันบั๊ก) · บอท<b>ซื้อ/ขายเท่านั้น ไม่ถอนเงิน</b> · กด KILL หยุดได้ทุกเมื่อ · ต้องมี THB ในบัญชี Bitkub จริง (ขั้นต่ำ ~฿10/ไม้)</div>
       </div>
+      <div class="panel">
+        <h3>เงินทุน paper (คุมเอง 100%)</h3>
+        <label>เงินทุนเริ่มต้น (บาท)</label><input id="c-capital" placeholder="เช่น 1000" />
+        <div class="row"><button class="b-blue" id="c-capital-set">ตั้งเงินทุน</button></div>
+        <div class="st" id="c-capital-st"></div>
+        <div class="note">เปลี่ยนทุน paper ได้ทันที (ไม่กระทบเงินจริง) · เงินจริงคุมที่บัญชี Bitkub (ฝาก/ถอนเอง)</div>
+      </div>
+      <div class="panel">
+        <h3>ความเสี่ยง/ไม้ (คุมเอง)</h3>
+        <label>เสี่ยง %/ไม้</label><input id="c-risk" placeholder="เช่น 1" />
+        <label>Stop-Loss %</label><input id="c-sl" placeholder="เช่น 0.5" />
+        <label>Take-Profit %</label><input id="c-tp" placeholder="เช่น 1.5" />
+        <div class="row"><button class="b-blue" id="c-risk-set">บันทึกความเสี่ยง</button></div>
+        <div class="st" id="c-risk-st"></div>
+        <div class="note">เว้นว่างช่องไหน = ไม่เปลี่ยนช่องนั้น</div>
+      </div>
+      <div class="panel">
+        <h3>สั่งเทรดเอง (override บอท)</h3>
+        <div class="row">
+          <button class="b-green" id="c-buy">🟢 ซื้อเลย (เปิดไม้)</button>
+          <button class="b-red" id="c-closeall">🔴 ปิดไม้ทั้งหมด</button>
+        </div>
+        <div class="st" id="c-order-st"></div>
+        <div class="note">สั่งเองข้ามด่านกรอง (operator override) · paper = ไม้จำลอง · live (ปลดล็อกแล้ว) = ออเดอร์จริง</div>
+      </div>
     </div>
   </details>
 
@@ -419,6 +444,27 @@ function wire(){
   $('c-stop').onclick=async()=>{ const r=await apiPost('/api/agents/stop_all'); st('c-ctl-st',r.ok?'หยุดแล้ว':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
   $('c-kill-on').onclick=async()=>{ const r=await apiPost('/api/kill_switch',{on:true}); st('c-ctl-st',r.ok?'KILL เปิด — live ถูกบล็อก':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
   $('c-kill-off').onclick=async()=>{ const r=await apiPost('/api/kill_switch',{on:false}); st('c-ctl-st',r.ok?'ปลด KILL แล้ว':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
+  $('c-capital-set').onclick=async()=>{
+    const v=($('c-capital').value||'').trim();
+    if(!v){ st('c-capital-st','กรอกจำนวนเงินก่อน','err'); return; }
+    const r=await apiPost('/api/settings/capital',{capital:v});
+    st('c-capital-st', r.ok?('ตั้งเงินทุนเป็น ฿'+v+' แล้ว ✅'):('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
+  };
+  $('c-risk-set').onclick=async()=>{
+    const body={}; const rk=($('c-risk').value||'').trim(), sl=($('c-sl').value||'').trim(), tp=($('c-tp').value||'').trim();
+    if(rk)body.risk_per_trade_pct=rk; if(sl)body.stop_pct=sl; if(tp)body.take_profit_pct=tp;
+    if(!Object.keys(body).length){ st('c-risk-st','กรอกอย่างน้อย 1 ช่อง','err'); return; }
+    const r=await apiPost('/api/risk/settings',body);
+    st('c-risk-st', r.ok?'บันทึกความเสี่ยงแล้ว ✅':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
+  };
+  $('c-buy').onclick=async()=>{
+    const r=await apiPost('/api/order',{side:'BUY'});
+    st('c-order-st', r.ok?'เปิดไม้แล้ว ✅':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus(); loadTrades();
+  };
+  $('c-closeall').onclick=async()=>{
+    const r=await apiPost('/api/positions/close_all');
+    st('c-order-st', r.ok?'ปิดไม้ทั้งหมดแล้ว ✅':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus(); loadTrades();
+  };
 }
 
 /* ── boot ── */
