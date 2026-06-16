@@ -38,11 +38,32 @@ async def test_manual_buy_then_close_changes_real_paper_portfolio() -> None:
 
 @pytest.mark.asyncio
 async def test_manual_buy_blocked_when_breaker_open() -> None:
-    rt = _rt()
+    # Opt paper into the breaker halt to exercise the block path.
+    rt = _rt(circuit_breaker_halts_paper=True)
     rt.trip_breaker("test")
     ok, payload = await rt.manual_order("BUY", price="1500000")
     assert not ok
     assert "breaker" in str(payload).lower()
+
+
+@pytest.mark.asyncio
+async def test_manual_paper_buy_flows_through_open_breaker_by_default() -> None:
+    """Default (paper, breaker does NOT halt the learning sandbox): a manual BUY
+    still opens even with the breaker tripped — paper keeps trading to learn."""
+    rt = _rt()
+    rt.trip_breaker("test")
+    ok, _ = await rt.manual_order("BUY", price="1500000")
+    assert ok
+
+
+@pytest.mark.asyncio
+async def test_manual_close_never_blocked_by_open_breaker() -> None:
+    """A CLOSE must never be gated by the breaker — you can always exit."""
+    rt = _rt(circuit_breaker_halts_paper=True)
+    assert (await rt.manual_order("BUY", price="1500000"))[0] is True  # open first
+    rt.trip_breaker("test")  # breaker opens AFTER the position is on
+    ok, payload = await rt.manual_order("CLOSE", price="1510000")
+    assert ok, payload
 
 
 @pytest.mark.asyncio

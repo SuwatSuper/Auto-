@@ -16,6 +16,15 @@ from orchestration.runtime_base import _RuntimeBase
 
 class _LiveTradingMixin(_RuntimeBase):
 
+    def _breaker_should_halt_entries(self) -> bool:
+        """Breaker halts NEW entries only when real money is at stake
+        (``execution_engine == "live"``) or the operator opts paper in
+        (``circuit_breaker_halts_paper``). Paper keeps trading so a losing streak
+        never freezes the learning sandbox; a CLOSE is never gated by this."""
+        if str(getattr(self.settings, "execution_engine", "paper")) == "live":
+            return True
+        return bool(getattr(self.settings, "circuit_breaker_halts_paper", False))
+
     async def manual_order(
         self, side: str, price: object | None = None
     ) -> tuple[bool, dict[str, object]]:
@@ -23,8 +32,6 @@ class _LiveTradingMixin(_RuntimeBase):
         paper portfolio; live routing remains gated. Respects breaker + cash."""
         if self._trader is None:
             return False, {"error": "runtime not started"}
-        if self._circuit_breaker is not None and self._circuit_breaker.is_open:
-            return False, {"error": "circuit breaker is OPEN"}
         px: Decimal | None = None
         if price is not None:
             try:
@@ -36,6 +43,15 @@ class _LiveTradingMixin(_RuntimeBase):
                 return False, {"error": f"bad price {price!r}"}
         side_u = str(side).upper()
         if side_u == "BUY":
+            # The breaker blocks a NEW entry only when it should halt (live / opted-
+            # in paper). Paper keeps trading through a losing streak. A CLOSE below
+            # is NEVER gated — you must always be able to exit a position.
+            if (
+                self._circuit_breaker is not None
+                and self._circuit_breaker.is_open
+                and self._breaker_should_halt_entries()
+            ):
+                return False, {"error": "circuit breaker is OPEN — reset it to open new positions"}
             # In live-armed mode a manual BUY fires a REAL bid first; the paper
             # position is then marked live-backed so its exits close the real
             # position too. Manual orders bypass the p_win gate (operator override).
