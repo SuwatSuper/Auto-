@@ -197,6 +197,13 @@
         <div class="note">เว้นว่างช่องไหน = ไม่เปลี่ยนช่องนั้น</div>
       </div>
       <div class="panel">
+        <h3>🎯 เป้ากำไร/วัน</h3>
+        <label>เป้ากำไร %/วัน</label><input id="c-target" placeholder="เช่น 3" />
+        <div class="row"><button class="b-blue" id="c-target-set">บันทึกเป้ากำไร</button></div>
+        <div class="st" id="c-target-st"></div>
+        <div class="note">ถึงเป้าแล้วบอทจะหยุดเปิดไม้ใหม่ของวันนั้น · เป็นเป้า ไม่ใช่การการันตี</div>
+      </div>
+      <div class="panel">
         <h3>สั่งเทรดเอง (override บอท)</h3>
         <div class="row">
           <button class="b-green" id="c-buy">🟢 ซื้อเลย (เปิดไม้)</button>
@@ -464,6 +471,12 @@ function wire(){
     if(!Object.keys(body).length){ st('c-risk-st','กรอกอย่างน้อย 1 ช่อง','err'); return; }
     const r=await apiPost('/api/risk/settings',body);
     st('c-risk-st', r.ok?'บันทึกความเสี่ยงแล้ว ✅':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
+  };
+  $('c-target-set').onclick=async()=>{
+    const v=($('c-target').value||'').trim();
+    if(!v){ st('c-target-st','กรอกเป้า %/วัน ก่อน','err'); return; }
+    const r=await apiPost('/api/settings/daily_target',{target_pct:v});
+    st('c-target-st', r.ok?('ตั้งเป้า '+((r.data&&r.data.target_profit_pct)||v)+'%/วัน แล้ว ✅'):('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
   };
   $('c-buy').onclick=async()=>{
     const r=await apiPost('/api/order',{side:'BUY'});
