@@ -73,7 +73,6 @@
     <span class="badge" id="b-data">DATA —</span>
     <span class="badge" id="b-acct">ACCOUNT —</span>
     <span class="badge mut" id="b-uptime">—</span>
-    <a href="/full" class="badge">การควบคุมเต็มรูปแบบ →</a>
   </header>
 
   <!-- KPI cards -->
@@ -107,7 +106,7 @@
     <div class="card">
       <div class="lbl">บัญชีจริง (Bitkub · อ่านอย่างเดียว)</div>
       <div class="val" id="k-real">ยังไม่เชื่อม</div>
-      <div class="sub" id="k-realsub">เทรดจริงต้องปลดล็อกโหมด LIVE เองที่หน้า /full</div>
+      <div class="sub" id="k-realsub">เทรดจริงต้องปลดล็อกโหมด LIVE เองด้านล่าง (ปุ่มแดง)</div>
     </div>
     <div class="card" style="grid-column:1/-1">
       <div class="lbl">สถานะการเข้าไม้ (ทำไมยังไม่เข้า/เข้าได้)</div>
@@ -185,7 +184,7 @@
   <p class="note" style="margin-top:14px">
     “เทรดลม (PAPER)” = เอเจนต์เทรดจำลองบนราคาจริงของ Bitkub — ตัวเลขทั้งหมดด้านบนเป็นผลจริงของการเทรดลม
     หักค่าธรรมเนียมสองขาแล้ว · “บัญชีจริง” แสดงยอด wallet จริงเมื่อเชื่อม key (อ่านอย่างเดียว) ·
-    การเทรดด้วยเงินจริงถูกล็อกไว้ (paper-only) ต้องปลดล็อก LIVE เองที่หน้า /full
+    การเทรดด้วยเงินจริงถูกล็อกไว้ (paper-only) ต้องปลดล็อก LIVE เองด้านล่าง (ปุ่มแดง)
   </p>
 </div>
 
@@ -319,7 +318,7 @@ async function loadStatus(){
     $('k-realsub').textContent = parts.length?parts.join(' · '):'wallet ว่าง (อ่านอย่างเดียว)';
   } else {
     $('k-real').textContent='ยังไม่เชื่อม';
-    $('k-realsub').textContent='ใส่ API key ด้านล่างเพื่ออ่านยอดจริง · เทรดจริงต้องปลดล็อก LIVE ที่ /full';
+    $('k-realsub').textContent='ใส่ API key ด้านล่างเพื่ออ่านยอดจริง · เทรดจริงต้องปลดล็อก LIVE ด้านล่าง';
   }
   // Entry gate — explain WHY no trades yet (or that it's ready).
   const eg=s.entry_gate||{}; const tl=s.timeline||{};
@@ -341,7 +340,7 @@ async function loadStatus(){
       $('k-gate').className='val'; $('k-gate').style.color='var(--txt)';
     }
     const topTxt = top ? ('เหตุที่บล็อกบ่อยสุด: '+(REASON_TH[top[0]]||top[0])+' ×'+top[1]) : 'ยังไม่มีสัญญาณให้กรอง';
-    $('k-gatesub').textContent = topTxt + ' · บล็อกรวม '+num(eg.blocked_total)+' ครั้ง · ปรับเกณฑ์ที่ /full → Settings (ลด min_p_win / gate_min_samples ให้เข้าถี่ขึ้น)';
+    $('k-gatesub').textContent = topTxt + ' · บล็อกรวม '+num(eg.blocked_total)+' ครั้ง · ปรับ/ปิดด่านใน .env (ENTRY_GATE_ENABLED=false)';
   }
 }
 

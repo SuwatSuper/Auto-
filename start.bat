@@ -43,7 +43,7 @@ echo [4/4] Opening dashboard...
 timeout /t 3 /nobreak >nul
 start "" "http://localhost:8000/"
 echo.
-echo  Ready!  Dashboard: http://localhost:8000/   (classic UI: /classic)
+echo  Ready!  Dashboard: http://localhost:8000/
 echo  To change your API key later: delete .env and run start.bat again.
 echo  Close the server window to stop.
 endlocal

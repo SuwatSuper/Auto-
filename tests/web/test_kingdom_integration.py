@@ -2,7 +2,7 @@
 """Integration contract between the Kingdom Prime dashboard and the backend.
 
 Pins:
-- `/` serves the Kingdom dashboard with the control key injected; `/classic` serves the old UI.
+- `/` serves the single Kingdom dashboard with the control key injected.
 - `/api/status` carries every field the dashboard reads.
 - POST control endpoints enforce X-API-Key when a key is configured (and stay
   open when it is not).
@@ -117,14 +117,6 @@ async def test_root_serves_kingdom_dashboard_with_key_injected(locked_client) ->
     # placeholder must be replaced server-side with the configured key
     assert "__DASHBOARD_API_KEY__" not in resp.text
     assert TEST_KEY in resp.text
-
-
-@pytest.mark.asyncio
-async def test_classic_route_serves_old_dashboard(open_client) -> None:  # type: ignore[no-untyped-def]
-    _, client = open_client
-    resp = await client.get("/classic")
-    assert resp.status_code == 200
-    assert "Anime Bitcoin" in resp.text
 
 
 @pytest.mark.asyncio

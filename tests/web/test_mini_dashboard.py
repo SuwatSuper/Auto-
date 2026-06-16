@@ -66,15 +66,6 @@ async def test_root_serves_minimal_chart_dashboard(local_client) -> None:  # typ
 
 
 @pytest.mark.asyncio
-async def test_full_route_serves_control_room(local_client) -> None:  # type: ignore[no-untyped-def]
-    _, client = local_client
-    r = await client.get("/full")
-    assert r.status_code == 200
-    # kingdom.html is the heavy control room — it loads Chart.js; mini does not.
-    assert "chart.umd.min.js" in r.text
-
-
-@pytest.mark.asyncio
 async def test_prices_history_endpoint_backfills_after_ticks(local_client) -> None:  # type: ignore[no-untyped-def]
     _, client = local_client
     await asyncio.sleep(0.25)  # let the fake feed publish a few ticks

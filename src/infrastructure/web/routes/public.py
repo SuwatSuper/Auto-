@@ -25,19 +25,10 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
 
     @app.get("/", response_class=HTMLResponse)
     async def index() -> HTMLResponse:
-        """Minimal Kingdom Prime dashboard: a real live price chart with the
-        agent's entry/exit markers + the paper/real numbers (win rate, P&L,
-        per-trade). The full control room remains at /full."""
+        """The single Kingdom Prime dashboard: live price chart with the agent's
+        entry/exit markers, the paper/real numbers (win rate, P&L, per-trade),
+        and every control (connect account, login, start/stop, kill, live)."""
         return _render_dashboard("mini.html")
-
-    @app.get("/full", response_class=HTMLResponse)
-    async def full() -> HTMLResponse:
-        """The full-featured control room (former default dashboard)."""
-        return _render_dashboard("kingdom.html")
-
-    @app.get("/classic", response_class=HTMLResponse)
-    async def classic() -> str:
-        return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
     @app.get("/api/prices/history")
     async def prices_history(request: Request) -> dict[str, object]:

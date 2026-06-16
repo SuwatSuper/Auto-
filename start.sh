@@ -25,7 +25,7 @@ sleep 3
 ( command -v open >/dev/null && open "http://localhost:8000/" ) \
   || ( command -v xdg-open >/dev/null && xdg-open "http://localhost:8000/" ) || true
 
-echo "Ready!  Dashboard: http://localhost:8000/   (classic UI: /classic)"
+echo "Ready!  Dashboard: http://localhost:8000/"
 echo "Press Ctrl+C to stop."
 trap "kill $SERVER_PID 2>/dev/null" EXIT
 wait $SERVER_PID

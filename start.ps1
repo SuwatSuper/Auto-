@@ -32,4 +32,4 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", `
 Write-Host "[3/3] Opening dashboard..." -ForegroundColor Cyan
 Start-Sleep -Seconds 3
 Start-Process "http://localhost:8000/"
-Write-Host "Ready!  http://localhost:8000/  (classic UI: /classic)" -ForegroundColor Green
+Write-Host "Ready!  http://localhost:8000/" -ForegroundColor Green

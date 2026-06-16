@@ -39,7 +39,6 @@ PYTHONPATH=src venv/bin/python -m uvicorn main:app --port 8000
 | URL | คืออะไร |
 |---|---|
 | `http://localhost:8000/` | **Kingdom Prime** dashboard (หลัก) |
-| `http://localhost:8000/classic` | Anime Ops Center (แดชบอร์ดเดิม) |
 | `/api/status` | สถานะระบบ (JSON) |
 | `/healthz`, `/metrics` | liveness + Prometheus metrics |
 

@@ -48,9 +48,7 @@ Then open **http://localhost:8000/**.
 
 | URL | What it is |
 |---|---|
-| `/` | **Kingdom Prime** dashboard (default) |
-| `/classic` | Anime Ops Center (legacy dashboard) |
-| `/mini` | Minimal status dashboard |
+| `/` | **Kingdom Prime** dashboard — the single page (chart, balances, trades, all controls) |
 | `/api/status` | System status (JSON) |
 | `/api/ceo/summary`, `/api/ceo/audit` | Executive view + decision audit trail |
 | `/healthz`, `/metrics` | Liveness + Prometheus-style metrics |
