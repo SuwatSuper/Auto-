@@ -220,7 +220,11 @@ def _dic_int_run(M, c):
             continue
         try:
             n = int(float(str(v)))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
+            # [BUGHUNT v9.3.1] OverflowError: int(float('inf'/'-inf'/'1e400')) ระเบิด
+            #   — เดิม except ไม่ครอบ → 1 เซลล์ข้อความ 'inf'/'1e400' ทำ detect คอลัมน์ครัช
+            #   แล้ว parse_file ดักที่ระดับชีต → บิล "ทั้งชีต" หายเงียบ (ข้อมูลผู้เสียภาษีหาย).
+            #   ค่าเหล่านี้ไม่ใช่ลำดับสินค้า 1..50 อยู่แล้ว → ข้ามถูกต้อง, golden ไม่ขยับ.
             continue
         if 1 <= n <= 50: ints.append(n)
     return ints

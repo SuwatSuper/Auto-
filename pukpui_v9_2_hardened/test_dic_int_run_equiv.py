@@ -51,8 +51,8 @@ def check(cond, label):
 
 def _capture(fn, *args):
     """รันแล้วคืน ('ok', result) หรือ ('err', ExcTypeName) — เทียบ "พฤติกรรมเหมือนกัน"
-       รวมถึงกรณี raise (เช่น 'inf' → OverflowError ที่ except (ValueError,TypeError) เดิมไม่จับ
-       → โค้ดเดิมก็ crash เหมือนกัน). optimize ต้องโปร่งใสแม้ในเส้น exception."""
+       รวมถึงกรณี raise. (หมายเหตุ v9.3.1: 'inf'/'1e400' เคยทำ OverflowError ทั้งสองเส้น
+       — ตอนนี้ except ครอบ OverflowError แล้ว → ทั้งคู่คืน [] เหมือนกัน). optimize ต้องโปร่งใสทุกเส้น."""
     try:
         return ('ok', fn(*args))
     except Exception as e:
@@ -63,12 +63,14 @@ def _capture(fn, *args):
 # implementation เดิม (verbatim ก่อน OPT-1) — oracle อิสระจากโค้ดที่กำลังทดสอบ
 # ─────────────────────────────────────────────────────────────────────────────
 def _orig_dic_int_run(df, c):
-    """โค้ดเดิม: df.iloc[:,c].dropna() + int(float(str(v))) + ช่วง 1..50."""
+    """โค้ดเดิม: df.iloc[:,c].dropna() + int(float(str(v))) + ช่วง 1..50.
+    [BUGHUNT v9.3.1] except ครอบ OverflowError ด้วย (ตรงกับ fix ใน parser_p0a) — ทั้งเส้น
+    OPT-1 (M-based) และเส้นอ้างอิงนี้ต้องกัน 'inf'/'1e400' เหมือนกัน (differential ยังคง byte-identical)."""
     ints = []
     for v in df.iloc[:, c].dropna():
         try:
             n = int(float(str(v)))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             continue
         if 1 <= n <= 50:
             ints.append(n)
