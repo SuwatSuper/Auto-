@@ -6,7 +6,10 @@
 
   • Parse-S1 : _dic_int_run ระเบิด OverflowError เมื่อเซลล์เป็นข้อความ 'inf'/'1e400'
                → detect คอลัมน์ครัช → parse_file ดักที่ระดับชีต → บิล "ทั้งชีต" หายเงียบ
-  (รอบถัดไปจะ append: Parse-M1/M3 (Decimal/inf), Master-S1, Master-M1/M2)
+  • Parse-M1 : ยอด subtotal มหึมา → Decimal.quantize ระเบิด InvalidOperation → บิลหายทั้งชีต/ไฟล์
+  • Parse-M3 : _cell_to_num ปล่อย ±inf หลุด (f!=f จับแค่ NaN) → คูณ Decimal ระเบิดปลายน้ำ
+  • Master-S1: write_master_file kill-before-atexit + ทับ .user.bak → master จริง+backup หายถาวร
+  • Master-M1/M2: save_master เขียนไม่ atomic (kill = master ครึ่ง/ว่าง) + .bak ถูก save ที่หดทับ
 
 รันเดี่ยว:  PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 test_bughunt_hardening.py
 exit 0 = ผ่านหมด, 1 = พบ regression
@@ -30,6 +33,7 @@ import parser as P
 import parser_p0a as P0A
 import parser_p2 as P2
 import golden_snapshot as GS
+import master as mstr
 
 PASS, FAIL = 0, []
 
@@ -174,6 +178,31 @@ mp3 = os.path.join(TMP, "m3.json")
 GS._atomic_write_json(mp3, {"x": 1})
 check(_rj(mp3) == {"x": 1} and not os.path.exists(mp3 + ".tmp"),
       "_atomic_write_json เขียน valid + ลบ .tmp")
+
+# ════════════════════════════════════════════════════════════════════════════
+# Master-M1/M2 — save_master atomic + .bak ห้ามหด
+# ════════════════════════════════════════════════════════════════════════════
+print("\n[Master-M1/M2] save_master: atomic write + .bak ไม่ถูก save ที่หดทับ")
+_orig_cfg = mstr.CFG
+try:
+    smf = os.path.join(TMP, "save_master.json")
+    mstr.CFG = {**dict(mstr.CFG), 'MASTER_FILE': smf}   # CFG จริงเป็น mappingproxy (อ่านอย่างเดียว) → patch ref ในโมดูล
+    sbak = smf + ".bak"
+    AB = {"บริษัท ก": {"tax_id": "1"}, "บริษัท ข": {"tax_id": "2"}}
+
+    # M1: เขียน valid + ไม่เหลือ .tmp
+    _quiet(lambda: mstr.save_master(AB))
+    check(os.path.exists(smf) and _rj(smf) == AB and not os.path.exists(smf + ".tmp"),
+          "save_master เขียน atomic (valid + ไม่เหลือ .tmp)")
+
+    # M2: หดบริษัท (AB → A → {}) แล้ว .bak ต้องคงสภาพ "ครบสุด" (AB) ไว้กู้คืน
+    _quiet(lambda: mstr.save_master({"บริษัท ก": {"tax_id": "1"}}))   # AB→A : .bak=AB
+    _quiet(lambda: mstr.save_master({}))                              # A→{} : ต้องไม่ทับ .bak ด้วย A
+    bak_after = _rj(sbak) if os.path.exists(sbak) else {}
+    check("บริษัท ก" in bak_after and "บริษัท ข" in bak_after,
+          f"save ที่หดไม่ทำ .bak สูญข้อมูล (.bak มี {len(bak_after)} บริษัท, ต้อง 2)")
+finally:
+    mstr.CFG = _orig_cfg
 
 # ════════════════════════════════════════════════════════════════════════════
 shutil.rmtree(TMP, ignore_errors=True)

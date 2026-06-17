@@ -31,22 +31,44 @@ def validate_master_entry(name, tax_id, address):
     return errors
 
 
+def _json_dict_len(text):
+    """จำนวน key ระดับบนของ JSON dict ในข้อความ (−1 ถ้า parse ไม่ได้/ไม่ใช่ dict)."""
+    try:
+        d = json.loads(text)
+        return len(d) if isinstance(d, dict) else -1
+    except Exception:
+        return -1
+
+
 def save_master(master):
     try:
         payload = json.dumps(master, ensure_ascii=False, indent=2)
+        mf = CFG['MASTER_FILE']
         # [M-1b FIX 11.06.69] กันพลาดชั้นสุดท้าย: ก่อนทับไฟล์ สำรองของเดิมเป็น .bak
-        #   ข้ามสำรองถ้าเนื้อหาไม่เปลี่ยน (กัน save ซ้ำติดกัน — เช่น เพิ่ม_master.py เรียกซ้ำ —
-        #   ทับ .bak ที่ยังมีสภาพ "ก่อนแก้จริง" ทิ้ง)
+        #   ข้ามสำรองถ้าเนื้อหาไม่เปลี่ยน (กัน save ซ้ำติดกันทับ .bak "ก่อนแก้จริง" ทิ้ง)
+        # [BUGHUNT v9.3.1/ADR-040 M2] ห้ามให้ save ที่ "หด" (บริษัทน้อยลง) ทับ .bak ที่สมบูรณ์กว่า
+        #   → .bak เก็บสภาพ "ครบที่สุดที่รู้จัก" เสมอ (กู้คืนได้แม้ถูก wipe หลายรอบ)
         try:
-            if os.path.exists(CFG['MASTER_FILE']):
-                with open(CFG['MASTER_FILE'], 'r', encoding='utf-8') as f:
-                    if f.read() != payload:
-                        shutil.copy2(CFG['MASTER_FILE'], CFG['MASTER_FILE'] + '.bak')
+            if os.path.exists(mf):
+                with open(mf, 'r', encoding='utf-8') as f:
+                    current = f.read()
+                bak = mf + '.bak'
+                if current != payload:
+                    keep = True
+                    if os.path.exists(bak):
+                        with open(bak, 'r', encoding='utf-8') as f:
+                            keep = _json_dict_len(current) >= _json_dict_len(f.read())
+                    if keep:
+                        shutil.copy2(mf, bak)
         except Exception:
             pass   # สำรองไม่ได้ (เช่น read-only) → ไม่ขวางการบันทึกหลัก
-        with open(CFG['MASTER_FILE'], 'w', encoding='utf-8') as f:
-            f.write(payload)
-        print(f'💾 บันทึก master → {CFG["MASTER_FILE"]}')
+        # [BUGHUNT v9.3.1/ADR-040 M1] เขียน atomic (temp+fsync+replace) — kill กลาง write
+        #   ไม่ทำ master ครึ่ง/ว่าง (เดิม truncate-then-write → load_master กลืน error คืน None เงียบ)
+        tmp = mf + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            f.write(payload); f.flush(); os.fsync(f.fileno())
+        os.replace(tmp, mf)
+        print(f'💾 บันทึก master → {mf}')
     except Exception as e:
         print(f'⚠️ บันทึก master ไม่ได้: {e}')
 
