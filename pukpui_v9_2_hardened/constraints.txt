@@ -1,0 +1,29 @@
+# constraints.txt — ตรึงเวอร์ชันให้ตรง golden baseline (ใช้คู่กับ requirements.txt)
+#
+#   pip install -r requirements.txt -c constraints.txt
+#
+# เหตุผล: requirements.txt บอก "ต้องมีอะไร", constraints.txt บอก "เวอร์ชันเป๊ะแค่ไหน"
+#   → กัน pip เผลอหยิบเวอร์ชันอื่น (เช่นเครื่องใหม่/อัป Colab) แล้ว golden hash เพี้ยนเงียบ.
+#   ค่าตรงกับ config._LOCKED (source of truth) และตรงกับ version_gate.py ที่บังคับใช้ตอนรัน.
+#
+# ⚠️ ถ้าจะอัปเวอร์ชันโดยตั้งใจ: แก้ทั้ง requirements.txt + constraints.txt + config._LOCKED
+#    แล้วรัน  PYTHONHASHSEED=0 python3 regression_full.py . <ข้อมูลจริง 106 ไฟล์>
+#    ถ้า hash เปลี่ยน = พฤติกรรมต่าง → ต้องสร้าง baseline.json ใหม่อย่างตั้งใจ (ดู REBUILD_STATUS ข้อ 7).
+
+# ── lib หัวใจ (กระทบผลตรวจ/golden hash โดยตรง) ─────────────────────────────
+pandas==2.2.2
+xlrd==2.0.1
+openpyxl==3.1.5
+rapidfuzz==3.10.1
+
+# ── lib เสริม (ชั้นแสดงผล/text — degrade ได้ ไม่กระทบ golden hash) ──────────
+matplotlib==3.9.2
+plotly==5.24.1
+tqdm==4.67.1
+pythainlp==5.0.5
+
+# ── transitive ที่ควรกันเวอร์ชันใหญ่กระโดด (pandas พึ่ง numpy) ───────────────
+# ปัก numpy==2.2.6 (เวอร์ชันที่ reproduce golden + รัน coverage ได้จริง).
+#   เหตุ: numpy 2.4.x ทำ coverage tooling พัง และ major bump เสี่ยงเปลี่ยน format/sort → hash เพี้ยน.
+#   ถ้าจำเป็นต้องขยับ ให้รัน regression_full กับชุด 106 ไฟล์จริงยืนยันค่าใน baseline.json._sha256 ก่อน (ดู GOLDEN.md).
+numpy==2.2.6
