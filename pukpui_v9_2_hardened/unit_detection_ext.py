@@ -529,3 +529,65 @@ def collect_unit_typos(bills):
         for msg in msgs:
             out.append(f"({ref}) {msg}" if ref else msg)
     return out
+
+
+# ─────── (อาการ 5) หน่วย "วัด" ในชื่อ/สเปกสินค้า ปนไทย+อังกฤษ ราย "ไฟล์" (v9.3.4) ───────
+# ผู้ใช้ขอ "จับจากหน่วยสินค้าจริง" แล้วขึ้นหมายเหตุในรีพอร์ตที่ส่งลูกค้า:
+#   หน่วยวัด (มม./mm, ซม./cm, เมตร/m, นิ้ว/inch, กก./kg, ตรม./sqm) มักฝังในชื่อ/สเปกสินค้า
+#   (ช่อง 'unit' เป็นหน่วยนับ เช่น ท่อน/แผ่น ที่เป็นไทยล้วน). เช่น SHS เขียนทั้ง '9 มม.' และ '9mm.'.
+# เกณฑ์: ไฟล์มีหน่วยวัดทั้ง "รูปไทย" และ "รูปอังกฤษ" ที่ติดตัวเลข → หมายเหตุระดับไฟล์.
+#   ตัด '"' (นิ้ว) ออก เพราะเป็นสัญลักษณ์สากล ไม่ใช่ "ภาษา" (กัน FP ที่ทุกไฟล์ติดเพราะขนาดท่อ 1/2").
+_MEASURE_KINDS = {'length', 'area', 'volume', 'weight'}
+_MEASURE_TH_KEYS = set()
+_MEASURE_EN_KEYS = set()
+for _fam in _FAMILIES:
+    if _fam.get('kind') in _MEASURE_KINDS:
+        for _u in _fam['th']:
+            _k = _u.replace('.', '').replace(' ', '')
+            if len(_k) >= 2:                 # กัน FP จาก token สั้น 1 ตัว (เช่น 'ม','ล') ติดเลขในรหัสสินค้า
+                _MEASURE_TH_KEYS.add(_k)
+        for _u in _fam['en']:
+            _k = _u.replace('.', '').replace(' ', '').lower()
+            if len(_k) >= 2:                 # กัน FP จาก 'm'/'g'/'l' ใน '9M2'/รหัสรุ่น
+                _MEASURE_EN_KEYS.add(_k)
+# token หน่วยที่ "ติดตัวเลข" (เช่น 9มม. / 9mm. / 240ซม. / 100 เมตร) — ทีละสคริปต์ (greedy ยาวสุดก่อน)
+_NUM_UNIT_RE = re.compile(r'\d\s*([A-Za-z]{1,6}|[ก-๎]{1,7})\.?')
+
+
+def _file_tag(fname):
+    """ชื่อย่อไฟล์ (เช่น 'SHS' จาก 'SHS_69.04.xls') — ตัวอักษรนำหน้า basename."""
+    base = str(fname or '').replace('\\', '/').rsplit('/', 1)[-1]
+    m = re.match(r'([A-Za-z]+)', base)
+    return m.group(1) if m else (base or '(ไม่ทราบไฟล์)')
+
+
+def file_spec_unit_lang_notes(bills):
+    """หมายเหตุระดับ "ไฟล์": หน่วยวัดของสินค้า (ฝังในชื่อ/สเปก) ปนทั้งไทยและอังกฤษ.
+
+    คืน list[str] เรียงตามชื่อไฟล์ เช่น
+      "ไฟล์ SHS หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษ (ไทย: ซม/มม · อังกฤษ: mm)"
+    advisory ล้วน (อ่าน bills เท่านั้น ไม่ mutate / ไม่แตะ b['issues'] / golden hash ไม่ขยับ).
+    """
+    by_file = {}
+    for b in (bills or []):
+        fname = (b or {}).get('file') or '(ไม่ทราบไฟล์)'
+        slot = by_file.setdefault(fname, {'th': set(), 'en': set()})
+        for it in ((b or {}).get('items') or []):
+            text = _norm((it or {}).get('name')) + ' ' + _norm((it or {}).get('unit'))
+            for m in _NUM_UNIT_RE.finditer(text):
+                tok = m.group(1)
+                key = tok.replace('.', '').replace(' ', '').lower()
+                if _LATIN_RE.search(tok):
+                    if key in _MEASURE_EN_KEYS:
+                        slot['en'].add(tok.lower())
+                elif key in _MEASURE_TH_KEYS:
+                    slot['th'].add(tok)
+    notes = []
+    for fname in sorted(by_file):
+        slot = by_file[fname]
+        if slot['th'] and slot['en']:
+            notes.append(
+                f"ไฟล์ {_file_tag(fname)} หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษ "
+                f"(ไทย: {'/'.join(sorted(slot['th']))} · อังกฤษ: {'/'.join(sorted(slot['en']))})"
+            )
+    return notes

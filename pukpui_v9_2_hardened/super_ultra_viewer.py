@@ -281,7 +281,7 @@ def build(bills, master_present=True, masters=None):
                     if dnote and dnote not in rec["dates"]:
                         rec["dates"].append(dnote)
         notes = [_note_line(code, rec, ml2) for code, rec in sorted(notes_acc.items())]
-        try: import unit_detection_ext as _uxe; notes.extend(_uxe.company_unit_notes(gbills))  # [ADD-ON v9.2] หมายเหตุหน่วยระดับบริษัท (ปนไทย+อังกฤษ/หน่วยขาด) — advisory อ่าน gbills เท่านั้น
+        try: import unit_detection_ext as _uxe; notes.extend(_uxe.company_unit_notes(gbills)); notes.extend(_uxe.file_spec_unit_lang_notes(gbills))  # [ADD-ON v9.2/v9.3.4] หมายเหตุหน่วยปนไทย+อังกฤษ (ระดับบริษัทจากช่องหน่วย + ระดับไฟล์จากหน่วยวัดในชื่อ/สเปก เช่น SHS '9มม.'+'9mm.') — advisory
         except Exception: pass
         rows.append({
             "company": comp, "short": _short_name(comp), "month": ml,
