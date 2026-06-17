@@ -1428,9 +1428,6 @@ html, body {
         <span class="conn-text" id="conn-text">Connecting…</span>
         <span id="dropped-msgs-badge" style="display:none;margin-left:8px;font-size:9px;font-weight:700;color:#ff5252;background:rgba(255,82,82,0.12);border:1px solid #ff525260;border-radius:4px;padding:2px 6px;"></span>
       </div>
-      <div class="mode-switcher">
-        <button class="mode-btn live-mode" data-mode="live" id="btn-live">LIVE</button>
-      </div>
       <button class="btn-emergency" id="emergency-stop">
         <span>🛑</span> EMERGENCY STOP
       </button>
@@ -1486,9 +1483,9 @@ html, body {
           </svg>
         </div>
         <div class="stat-body">
-          <div class="stat-label" data-i18n="stat_monthly">MONTHLY RETURN</div>
+          <div class="stat-label" data-i18n="stat_monthly">RETURN TODAY</div>
           <div class="stat-value" id="stat-monthly-val">— %</div>
-          <div class="stat-change positive" data-i18n="this_month">This month</div>
+          <div class="stat-change positive" data-i18n="this_month">Realized + open today</div>
         </div>
         <div class="stat-sparkle"></div>
       </div>
@@ -2631,12 +2628,6 @@ html, body {
               </div>
             </div>
             <div class="settings-row">
-              <div><div class="sr-label" data-i18n="set_mode">Trading Mode</div><div class="sr-desc">Live prices · paper execution</div></div>
-              <div class="lang-choose">
-                <button id="set-mode-live" class="active" data-i18n="live_btn">LIVE</button>
-              </div>
-            </div>
-            <div class="settings-row">
               <div><div class="sr-label" data-i18n="set_notifs">Notifications</div><div class="sr-desc" data-i18n="set_notifs_desc">Alert badge on events</div></div>
               <div class="toggle on" data-toggle="notifs"></div>
             </div>
@@ -3394,12 +3385,6 @@ function renderHeaderChips() {
   }
 }
 
-/* ──────────────────────────────────────────────────────────────
-   SIMULATE AGENT METRICS — production: metrics come from /api/status only.
-────────────────────────────────────────────────────────────── */
-function simulateAgentMetrics() {
-  /* Production migration: agent metrics now come from /api/status only. */
-}
 
 /** Refresh chibi walkers in the isometric city scene */
 function refreshCityWalkers() {
@@ -3699,15 +3684,6 @@ function flashBtn(btn, ok = true) {
 }
 
 function bindEvents() {
-  // ── Mode buttons (live only) ──
-  const btnLive = $('btn-live');
-  if (btnLive) btnLive.addEventListener('click', () => {
-    flashBtn(btnLive);
-    // Real execution mode is armed in the Command Room (token-gated); this only
-    // pokes the price-mode endpoint. The badge reflects real status, not a click.
-    apiPost('/api/mode/live');
-  });
-
   // ── Emergency stop / reset ──
   const eStop  = $('emergency-stop');
   const eReset = $('emergency-reset');
@@ -3727,17 +3703,17 @@ function bindEvents() {
   // ── Start / Stop all agents ──
   const startAll = $('start-all');
   const stopAll  = $('stop-all');
-  if (startAll) startAll.addEventListener('click', () => {
+  // Drive agent cards from the REAL /api/status only — no optimistic local
+  // mutation that would flip cards to "running" even if the backend call fails.
+  if (startAll) startAll.addEventListener('click', async () => {
     flashBtn(startAll);
-    AGENTS.forEach(a => { State.agents[a.id] = { running: true }; });
-    updateAgentCards();
-    apiPost('/api/agents/start_all');
+    await apiPost('/api/agents/start_all');
+    fetchStatus();
   });
-  if (stopAll) stopAll.addEventListener('click', () => {
+  if (stopAll) stopAll.addEventListener('click', async () => {
     flashBtn(stopAll);
-    AGENTS.forEach(a => { State.agents[a.id] = { running: false }; });
-    updateAgentCards();
-    apiPost('/api/agents/stop_all');
+    await apiPost('/api/agents/stop_all');
+    fetchStatus();
   });
 
   // ── Nav items → page routing ──
@@ -3816,6 +3792,14 @@ function notifAlertCount() { return buildNotifications().filter(n => n.sev === '
 
 function renderNotifications() {
   const badge = $('notif-badge');
+  // Notifications toggle (Settings): when muted, hide the badge + panel entirely.
+  if (State.notifsOn === false) {
+    if (badge) badge.style.display = 'none';
+    const p = $('notif-panel');
+    if (p) p.style.display = 'none';
+    State.notifCount = 0;
+    return;
+  }
   const count = notifAlertCount();
   if (badge) {
     if (count > 0) { badge.textContent = String(count); badge.style.display = 'flex'; }
@@ -4420,8 +4404,6 @@ function renderSettingsPage() {
 function syncSettingsActiveStates() {
   const le = $('set-lang-en'), lt = $('set-lang-th');
   if (le && lt) { le.classList.toggle('active', State.lang === 'en'); lt.classList.toggle('active', State.lang === 'th'); }
-  const ml = $('set-mode-live');
-  if (ml) { ml.classList.add('active'); }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -4669,16 +4651,17 @@ function bindPageEvents() {
   const sLangEn = $('set-lang-en'), sLangTh = $('set-lang-th');
   if (sLangEn) sLangEn.addEventListener('click', () => setLang('en'));
   if (sLangTh) sLangTh.addEventListener('click', () => setLang('th'));
-  // Settings: mode buttons (mirror sidebar)
-  const sModeLive = $('set-mode-live');
-  if (sModeLive) sModeLive.addEventListener('click', () => { State.mode = 'live'; renderModeBtn(); syncSettingsActiveStates(); apiPost('/api/mode/live'); });
-  // Settings: toggles (UI state only)
+  // Settings: toggles — each does a REAL action (no decoy toggles).
   document.querySelectorAll('[data-toggle]').forEach(tg => {
     tg.addEventListener('click', () => {
       tg.classList.toggle('on');
       if (tg.dataset.toggle === 'motion') {
         document.documentElement.style.scrollBehavior = 'auto';
         document.body.classList.toggle('reduced-motion', tg.classList.contains('on'));
+      } else if (tg.dataset.toggle === 'notifs') {
+        // Actually mute/unmute the notification badge + panel.
+        State.notifsOn = tg.classList.contains('on');
+        renderNotifications();
       }
     });
   });
@@ -4708,11 +4691,8 @@ function bindPageEvents() {
 function startPeriodicUpdates() {
   // Poll /api/status every 5 seconds
   setInterval(fetchStatus, 5000);
-  // Simulate emotion metrics drift every 3 seconds
-  setInterval(() => {
-    simulateAgentMetrics();
-    updateAgentCards();
-  }, 3000);
+  // Repaint agent cards from the latest REAL /api/status data every 3 seconds.
+  setInterval(updateAgentCards, 3000);
   // Refresh city walkers every 6 seconds
   setInterval(refreshCityWalkers, 6000);
   // Notification badge count comes from real backend data only
