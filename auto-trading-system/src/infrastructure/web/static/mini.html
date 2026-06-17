@@ -375,7 +375,15 @@ async function loadStatus(){
       $('k-gate').className='val'; $('k-gate').style.color='var(--txt)';
     }
     const topTxt = top ? ('เหตุที่บล็อกบ่อยสุด: '+(REASON_TH[top[0]]||top[0])+' ×'+top[1]) : 'ยังไม่มีสัญญาณให้กรอง';
-    $('k-gatesub').textContent = topTxt + ' · บล็อกรวม '+num(eg.blocked_total)+' ครั้ง · ปรับ/ปิดด่านใน .env (ENTRY_GATE_ENABLED=false)';
+    // Self-learning surface: the bus-fed confluence regime + the dynamic vote
+    // weighting learned from real trade outcomes (no LLM).
+    const cf=s.confluence||{}; const dw=(s.dynamic_weighting&&s.dynamic_weighting.sources)||{};
+    const srcs=Object.entries(dw);
+    const boosted=srcs.filter(([,v])=>num(v.weight)>1).length;
+    const muted=srcs.filter(([,v])=>num(v.weight)===0).length;
+    const regimeTxt = cf.regime ? (' · ตลาด '+cf.regime+' (ฉันทามติฝูง '+num(cf.swarm_bias).toFixed(2)+')') : '';
+    const learnTxt = srcs.length ? (' · ⚖️ เรียนรู้น้ำหนักโหวต: เก่ง '+boosted+' / ปิดเสียง '+muted+' จาก '+srcs.length) : '';
+    $('k-gatesub').textContent = topTxt + regimeTxt + learnTxt + ' · บล็อกรวม '+num(eg.blocked_total)+' ครั้ง · ปรับ/ปิดด่านใน .env (ENTRY_GATE_ENABLED=false)';
   }
 }
 

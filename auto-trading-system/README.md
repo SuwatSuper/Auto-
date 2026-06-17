@@ -71,6 +71,16 @@ Supreme Commander tallies agent votes; the Risk and Treasury agents can veto; th
 CEO agent records an audit trail of what fired and why. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/EVENTS.md](docs/EVENTS.md).
 
+**Strict bus connectivity & self-learning** — every cross-agent input travels on a
+topic; there is no hidden attribute coupling. The entry gate consumes a single
+bus-fed *confluence* cache (timeline win-probability + regime, the rolling
+backtest win-rate, the swarm consensus bias, RSI probability, news sentiment, and
+the research price-percentile). A quantitative feedback loop routes `paper.events`
+Win/Loss back into per-source **vote weights** (>55% boosted, <45% muted) and into
+the 150-agent grid's regime-aware reliability weighting — the system adapts to the
+current market with **no LLM in the loop**. Both are surfaced under
+`/api/status` (`confluence`, `dynamic_weighting`).
+
 ---
 
 ## ⚙️ Configuration
