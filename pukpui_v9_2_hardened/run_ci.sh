@@ -96,6 +96,7 @@ run "[3x10] reset completeness (parse 2 รอบในโปรเซสเด�
 run "[3x11] stub-marker (master จริงไม่ถูกตีเป็น stub)" "$PY" test_stub_marker.py
 run "[3x12] match-guard (กัน fuzzy ผูกข้ามบริษัท)" "$PY" test_match_guard.py
 run "[3x13] rules_c Decimal gates (ค่าขอบเงิน)" "$PY" test_rules_c_decimal_gates.py
+run "[3x14] bughunt hardening (crash/data-integrity guards, golden-safe)" "$PY" test_bughunt_hardening.py
 run "[3x7] package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)" "$PY" test_package_integrity.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
 run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py
