@@ -37,10 +37,36 @@ MASTER = {
 }
 
 
-def _restore_master_file(path: str, backup: str) -> None:
-    """[P0-FIX ข้อมูลหาย] คืน master เดิมของผู้ใช้จากไฟล์สำรอง (เรียกโดย atexit ตอนโปรเซสจบ)."""
+def _file_has_stub_marker(path: str) -> bool:
+    """True ถ้าไฟล์ master ที่ path มี marker `_golden_stub` (= ไฟล์ stub ทดสอบ ไม่ใช่ master จริง)."""
     try:
-        if os.path.exists(backup):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return isinstance(data, dict) and bool(data.get("_golden_stub"))
+    except (OSError, ValueError):
+        return False
+
+
+def _atomic_write_json(path: str, payload: dict) -> None:
+    """เขียน JSON แบบ atomic (temp + fsync + os.replace) — kill กลางคันไม่ทำไฟล์ครึ่ง ๆ/ว่าง."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)   # atomic บน FS เดียวกัน
+
+
+def _restore_master_file(path: str, backup: str) -> None:
+    """[P0-FIX ข้อมูลหาย] คืน master เดิมของผู้ใช้จากไฟล์สำรอง (เรียกโดย atexit ตอนโปรเซสจบ).
+
+    [BUGHUNT v9.3.1/ADR-039] คืน "เฉพาะเมื่อไฟล์ปัจจุบันเป็น stub หรือหายไป" — กันเผลอทับ master จริง
+    ที่อาจถูกกู้คืนแล้วด้วย backup เก่า. ถ้าไฟล์ปัจจุบันเป็น master จริงอยู่แล้ว → ปล่อย backup ไว้ (ไม่ลบข้อมูล).
+    """
+    try:
+        if not os.path.exists(backup):
+            return
+        if (not os.path.exists(path)) or _file_has_stub_marker(path):
             os.replace(backup, path)   # atomic; ทับ golden stub กลับเป็นของผู้ใช้
     except OSError:
         pass   # คืนไม่ได้ → ปล่อย backup ไว้ให้ผู้ใช้กู้เอง (ดีกว่าทำโปรเซส exit พัง)
@@ -54,12 +80,20 @@ def write_master_file(path: str = "master_companies.json") -> None:
     "ในโฟลเดอร์โปรเจกต์" ซึ่งเดิม **เขียนทับ master จริงของผู้ใช้ทิ้งถาวร** ด้วย stub ทดสอบ 1 บริษัท.
     แก้ที่จุดเดียว: ถ้ามี master เดิมอยู่ → สำรองไว้ก่อน แล้ว 'คืนค่าเดิมอัตโนมัติเมื่อโปรเซสจบ' (atexit).
     ระหว่างรันไฟล์ยังเป็น golden MASTER ครบถ้วน → golden hash / report hash ไม่ขยับ (พฤติกรรม sandbox เดิม).
+
+    [BUGHUNT v9.3.1/ADR-039] กันข้อมูลหายถาวร 2 ทาง:
+      1) ห้าม copy2 ทับ .user.bak ถ้าไฟล์ปัจจุบันเป็น stub อยู่แล้ว (รอบก่อนถูก kill ก่อน atexit) —
+         เดิมทับ → .user.bak (ที่ยังเก็บ master จริง) กลายเป็น stub → master จริงหายถาวร.
+      2) ห้ามทับ .user.bak ที่มีอยู่แล้ว (ถือว่าเก็บ master จริงไว้ครบแล้ว).
+      เขียน stub แบบ atomic (temp+fsync+replace) — kill กลาง write ไม่ทำไฟล์ครึ่ง/ว่าง.
     """
+    backup = path + ".user.bak"
     if os.path.exists(path):
-        backup = path + ".user.bak"
         try:
-            shutil.copy2(path, backup)
-            atexit.register(_restore_master_file, path, backup)
+            if not os.path.exists(backup) and not _file_has_stub_marker(path):
+                shutil.copy2(path, backup)
+            if os.path.exists(backup):
+                atexit.register(_restore_master_file, path, backup)
         except OSError:
             pass   # สำรองไม่ได้ → ยังเขียน golden ตามเดิม (อย่าทำให้เครื่องมือล้ม)
     # [STUB-MARKER] ใส่ "_golden_stub": true เฉพาะ "ในไฟล์" (ไม่แตะ MASTER dict ที่ใช้คำนวณ golden) —
@@ -67,8 +101,7 @@ def write_master_file(path: str = "master_companies.json") -> None:
     #   (เดิมเดาจากเลขภาษี → master จริงของบริษัทเดียวกับ stub เช่น ฉีอัน ถูกตีเป็น stub ทิ้งทั้งที่เป็นของจริง)
     _payload = dict(MASTER)
     _payload["_golden_stub"] = True
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(_payload, f, ensure_ascii=False)
+    _atomic_write_json(path, _payload)
 
 
 def canonical(obj):

@@ -48,3 +48,5 @@ check*.json
 final*.json
 snapshot_*.json
 master_companies.json.bak
+master_companies.json.user.bak
+master_companies.json.tmp

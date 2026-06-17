@@ -25,9 +25,11 @@ from openpyxl import load_workbook
 _buf = io.StringIO()
 with contextlib.redirect_stdout(_buf):
     importlib.import_module('ปุ้มปุ้ย_ultimate_v9_modular')
+import json
 import parser as P
 import parser_p0a as P0A
 import parser_p2 as P2
+import golden_snapshot as GS
 
 PASS, FAIL = 0, []
 
@@ -120,6 +122,58 @@ check(P0A._cell_to_num(float('nan')) is None,  "_cell_to_num(nan) = None")
 check(P0A._cell_to_num(2500) == 2500.0,        "_cell_to_num(2500) = 2500.0 (ค่าจริงคงอยู่)")
 check(P0A._cell_to_num(1e30) == 1e30,          "_cell_to_num(1e30) = 1e30 (finite ผ่าน)")
 check(P0A._cell_to_num('2,500') == 2500.0,     "_cell_to_num('2,500') = 2500.0 (comma คงอยู่)")
+
+# ════════════════════════════════════════════════════════════════════════════
+# Master-S1 — write_master_file ต้องไม่ทำลาย master จริง + backup ของผู้ใช้
+# ════════════════════════════════════════════════════════════════════════════
+print("\n[Master-S1] write_master_file: kill-before-atexit ต้องไม่ทำ master จริงหายถาวร")
+REAL = {"บริษัท ก จำกัด": {"tax_id": "0000000000001"},
+        "บริษัท ข จำกัด": {"tax_id": "0000000000002"}}
+
+
+def _wj(p, obj):
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False)
+
+
+def _rj(p):
+    with open(p, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+# (1) สถานการณ์ร้ายแรง: รอบก่อนถูก kill → live=stub, .user.bak=master จริง.
+#     เรียก write_master_file ซ้ำ ต้อง "ไม่" ทับ .user.bak ด้วย stub.
+mp = os.path.join(TMP, "master_companies.json")
+bak = mp + ".user.bak"
+_wj(bak, dict(REAL))                                   # backup = master จริง
+_wj(mp, {**GS.MASTER, "_golden_stub": True})           # live = stub (ค้างจากรอบที่ถูก kill)
+_quiet(lambda: GS.write_master_file(mp))
+ok_bak = (os.path.exists(bak) and "บริษัท ก จำกัด" in _rj(bak)
+          and not _rj(bak).get("_golden_stub"))
+check(ok_bak, "live=stub + .user.bak=จริง → เรียกซ้ำไม่ทับ backup (master จริงรอด)")
+
+# (2) ห้ามทับ .user.bak ที่มีอยู่แล้ว (ถือว่าเก็บของจริงครบแล้ว)
+_wj(mp, dict(REAL)); _wj(bak, {"บริษัท ค จำกัด": {"tax_id": "0000000000003"}})
+_quiet(lambda: GS.write_master_file(mp))
+check(os.path.exists(bak) and "บริษัท ค จำกัด" in _rj(bak),
+      ".user.bak ที่มีอยู่ไม่ถูกเขียนทับ")
+
+# (3) วงจรปกติ (golden flow): real → write_master_file → restore คืน master จริงครบ
+mp2 = os.path.join(TMP, "m2.json"); bak2 = mp2 + ".user.bak"
+_wj(mp2, dict(REAL))
+_quiet(lambda: GS.write_master_file(mp2))
+check(GS._file_has_stub_marker(mp2), "ระหว่างรัน: ไฟล์เป็น golden stub (golden hash ไม่ขยับ)")
+GS._restore_master_file(mp2, bak2)                     # จำลอง atexit
+restored = _rj(mp2)
+check("บริษัท ก จำกัด" in restored and "บริษัท ข จำกัด" in restored
+      and not restored.get("_golden_stub"), "atexit restore คืน master จริงครบ 2 บริษัท")
+check(not os.path.exists(bak2), "restore แล้ว .user.bak ถูก consume (atomic)")
+
+# (4) atomic write: ได้ไฟล์ valid + ไม่เหลือ .tmp
+mp3 = os.path.join(TMP, "m3.json")
+GS._atomic_write_json(mp3, {"x": 1})
+check(_rj(mp3) == {"x": 1} and not os.path.exists(mp3 + ".tmp"),
+      "_atomic_write_json เขียน valid + ลบ .tmp")
 
 # ════════════════════════════════════════════════════════════════════════════
 shutil.rmtree(TMP, ignore_errors=True)
