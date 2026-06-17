@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="api-key" content="__DASHBOARD_API_KEY__" />
+<title>Kingdom Prime — Minimal Live Dashboard</title>
+<style>
+  :root{
+    --bg:#0a0e1a; --panel:#111726; --panel2:#0e1422; --line:rgba(255,255,255,.07);
+    --txt:#e7ecf5; --muted:#8a96ab; --blue:#4da3ff; --green:#36d07f; --red:#ff5d6c;
+    --gold:#ffce54; --accent:#6ea8fe;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Segoe UI",Roboto,system-ui,"Noto Sans Thai",sans-serif;font-size:14px}
+  a{color:var(--blue);text-decoration:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:14px}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+  .brand{font-weight:800;letter-spacing:.5px}
+  .brand .crown{color:var(--gold)}
+  .price{font-size:20px;font-weight:800;color:var(--gold)}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--muted)}
+  .badge.on{color:var(--green);border-color:rgba(54,208,127,.4)}
+  .badge.warn{color:var(--gold);border-color:rgba(255,206,84,.4)}
+  .badge.off{color:var(--red);border-color:rgba(255,93,108,.4)}
+  .spacer{flex:1}
+  .grid{display:grid;gap:12px;margin-top:12px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .card .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .card .val{font-size:20px;font-weight:800;margin-top:4px}
+  .card .sub{font-size:12px;color:var(--muted);margin-top:3px}
+  .pos{color:var(--green)} .neg{color:var(--red)} .mut{color:var(--muted)}
+  .two{grid-template-columns:1.55fr 1fr}
+  @media(max-width:860px){.two{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .panel h3{margin:0 0 8px;font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  canvas{width:100%;height:300px;display:block;border-radius:8px;background:var(--panel2)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:600}
+  .bar{height:8px;border-radius:999px;background:var(--panel2);overflow:hidden;margin-top:6px}
+  .bar > i{display:block;height:100%;background:var(--green);width:0%}
+  .ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:12px}
+  input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    color:var(--txt);padding:8px 10px;font-size:13px;margin-top:4px}
+  label{font-size:11px;color:var(--muted)}
+  button{cursor:pointer;border:none;border-radius:8px;padding:8px 12px;font-weight:700;font-size:13px;color:#08101e}
+  .b-blue{background:var(--blue)} .b-green{background:var(--green)} .b-red{background:var(--red);color:#fff}
+  .b-gray{background:#2a3346;color:var(--txt)}
+  .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .st{font-size:12px;margin-top:6px;min-height:16px}
+  .st.ok{color:var(--green)} .st.err{color:var(--red)}
+  .note{font-size:11.5px;color:var(--muted);line-height:1.5}
+  details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:12px}
+  .legend{font-size:11px;color:var(--muted);margin-top:6px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;margin:0 4px 0 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="brand"><span class="crown">👑</span> KINGDOM PRIME</span>
+    <span class="badge mut">BTC/THB</span>
+    <span class="price" id="px">—</span>
+    <span class="spacer"></span>
+    <span class="badge" id="b-exec">EXEC —</span>
+    <span class="badge" id="b-data">DATA —</span>
+    <span class="badge" id="b-acct">ACCOUNT —</span>
+    <span class="badge mut" id="b-uptime">—</span>
+    <a class="badge" href="/full" title="เปิดแดชบอร์ดเต็ม (หลายหน้า)" style="text-decoration:none;">🖥 หน้าเต็ม</a>
+  </header>
+
+  <!-- KPI cards -->
+  <div class="grid cards">
+    <div class="card">
+      <div class="lbl" id="lbl-equity">มูลค่าพอร์ต (เทรดลม)</div>
+      <div class="val" id="k-equity">—</div>
+      <div class="sub">เงินสด <span id="k-cash">—</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl" id="lbl-pnl">กำไรวันนี้ (เทรดลม)</div>
+      <div class="val" id="k-pnl">—</div>
+      <div class="sub">รับรู้แล้ว <span id="k-realized">—</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl">อัตราชนะ (Win Rate)</div>
+      <div class="val" id="k-wr">—</div>
+      <div class="sub"><span class="pos" id="k-wins">0</span> ชนะ · <span class="neg" id="k-losses">0</span> แพ้ · ปิด <span id="k-closed">0</span> ไม้</div>
+    </div>
+    <div class="card">
+      <div class="lbl">ไม้ที่เปิดอยู่</div>
+      <div class="val" id="k-open">0</div>
+      <div class="sub" id="k-openpnl">—</div>
+    </div>
+    <div class="card">
+      <div class="lbl">เป้ากำไรวันนี้</div>
+      <div class="val" id="k-target">—</div>
+      <div class="sub" id="k-targetstate">—</div>
+      <div class="bar"><i id="k-targetbar"></i></div>
+    </div>
+    <div class="card">
+      <div class="lbl">บัญชีจริง (Bitkub · อ่านอย่างเดียว)</div>
+      <div class="val" id="k-real">ยังไม่เชื่อม</div>
+      <div class="sub" id="k-realsub">เทรดจริงต้องปลดล็อกโหมด LIVE เองด้านล่าง (ปุ่มแดง)</div>
+    </div>
+    <div class="card" style="grid-column:1/-1">
+      <div class="lbl">สถานะการเข้าไม้ (ทำไมยังไม่เข้า/เข้าได้)</div>
+      <div class="val" id="k-gate" style="font-size:15px">—</div>
+      <div class="sub" id="k-gatesub">—</div>
+    </div>
+  </div>
+
+  <!-- chart + trades -->
+  <div class="grid two">
+    <div class="panel">
+      <h3>กราฟราคา BTC สด + จุดที่เอเจนต์เข้า/ออก</h3>
+      <canvas id="chart" width="700" height="300"></canvas>
+      <div class="legend">
+        <span class="dot" style="background:var(--green)"></span>เปิดไม้ (BUY)
+        <span class="dot" style="background:var(--red)"></span>ปิดไม้ (SELL/exit)
+        <span class="mut" style="margin-left:10px" id="chart-info"></span>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>ไม้ล่าสุด (กำไร/ขาดทุนต่อไม้ · สุทธิหลังค่าธรรมเนียม)</h3>
+      <div style="max-height:300px;overflow:auto">
+        <table>
+          <thead><tr><th>เวลา</th><th>ชนิด</th><th>จำนวน</th><th>ราคา</th><th>กำไร/ขาดทุน</th></tr></thead>
+          <tbody id="trades"><tr><td colspan="5" class="mut">ยังไม่มีไม้ที่ปิด…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- controls -->
+  <details open>
+    <summary>⚙️ การเชื่อมต่อ & ควบคุม (เชื่อม API key / login / เริ่ม-หยุด / kill switch)</summary>
+    <div class="ctl">
+      <div class="panel">
+        <h3>เชื่อมบัญชี Bitkub (อ่าน wallet จริง)</h3>
+        <label>API Key</label><input id="c-key" placeholder="Bitkub API key" />
+        <label>API Secret</label><input id="c-secret" type="password" placeholder="Bitkub API secret" />
+        <div class="row"><button class="b-blue" id="c-connect">เชื่อมต่อ</button></div>
+        <div class="st" id="c-acct"></div>
+        <div class="note">หมายเหตุ: นี่คือการอ่านยอด wallet จริงแบบ read-only เท่านั้น ไม่ใช่การเทรดจริง</div>
+      </div>
+      <div class="panel">
+        <h3>เข้าสู่ระบบควบคุม (Login)</h3>
+        <label>รหัสผ่าน (DASHBOARD_PASSWORD)</label><input id="c-pass" type="password" placeholder="รหัสผ่าน operator" />
+        <div class="row"><button class="b-blue" id="c-login">Login</button></div>
+        <div class="st" id="c-login-st"></div>
+        <div class="note">เปิดจากเครื่องนี้ (localhost) คุมได้ทุกปุ่มทันที ไม่ต้องตั้งคีย์ใดๆ · เปิดจากมือถือ/เครื่องอื่นผ่าน LAN ให้ login ด้วย DASHBOARD_PASSWORD ก่อน (เพื่อความปลอดภัย)</div>
+      </div>
+      <div class="panel">
+        <h3>ควบคุมการทำงาน</h3>
+        <div class="row">
+          <button class="b-green" id="c-start">▶ เริ่มเอเจนต์ทั้งหมด</button>
+          <button class="b-gray" id="c-stop">⏸ หยุดทั้งหมด</button>
+        </div>
+        <div class="row">
+          <button class="b-red" id="c-kill-on">🛑 KILL (บล็อก live)</button>
+          <button class="b-gray" id="c-kill-off">ปลด KILL</button>
+        </div>
+        <div class="st" id="c-ctl-st"></div>
+      </div>
+      <div class="panel">
+        <h3>โหมดการเทรด (เงินจริง)</h3>
+        <div class="sub" style="margin-bottom:6px">ตอนนี้: <b id="c-mode">—</b></div>
+        <div class="row">
+          <button class="b-red" id="c-arm">🔴 เปิดเทรดจริง (LIVE)</button>
+          <button class="b-gray" id="c-disarm">↩ กลับเป็นเทรดลม</button>
+        </div>
+        <div class="st" id="c-mode-st"></div>
+        <div class="note">⚠️ เงินจริง! กดแล้วต้องพิมพ์ <b>ENABLE</b> ยืนยัน 1 ครั้ง · วงเงิน ฿500/ไม้ (กันบั๊ก) · บอท<b>ซื้อ/ขายเท่านั้น ไม่ถอนเงิน</b> · กด KILL หยุดได้ทุกเมื่อ · ต้องมี THB ในบัญชี Bitkub จริง (ขั้นต่ำ ~฿10/ไม้)</div>
+      </div>
+      <div class="panel">
+        <h3>เงินทุน paper (คุมเอง 100%)</h3>
+        <label>เงินทุนเริ่มต้น (บาท)</label><input id="c-capital" placeholder="เช่น 1000" />
+        <div class="row"><button class="b-blue" id="c-capital-set">ตั้งเงินทุน</button></div>
+        <div class="st" id="c-capital-st"></div>
+        <div class="note">เปลี่ยนทุน paper ได้ทันที (ไม่กระทบเงินจริง) · เงินจริงคุมที่บัญชี Bitkub (ฝาก/ถอนเอง)</div>
+      </div>
+      <div class="panel">
+        <h3>ความเสี่ยง/ไม้ (คุมเอง)</h3>
+        <label>เสี่ยง %/ไม้</label><input id="c-risk" placeholder="เช่น 1" />
+        <label>Stop-Loss %</label><input id="c-sl" placeholder="เช่น 0.5" />
+        <label>Take-Profit %</label><input id="c-tp" placeholder="เช่น 1.5" />
+        <label>ไม้/วัน (0=ไม่จำกัด)</label><input id="c-maxtrades" placeholder="เช่น 200" />
+        <label>ปรับตัวทุกๆ N ไม้</label><input id="c-adapt" placeholder="เช่น 8" />
+        <div class="row"><button class="b-blue" id="c-risk-set">บันทึกความเสี่ยง</button></div>
+        <div class="st" id="c-risk-st"></div>
+        <div class="note">เว้นว่างช่องไหน = ไม่เปลี่ยนช่องนั้น</div>
+      </div>
+      <div class="panel">
+        <h3>🎯 เป้ากำไร/วัน</h3>
+        <label>เป้ากำไร %/วัน</label><input id="c-target" placeholder="เช่น 3" />
+        <div class="row"><button class="b-blue" id="c-target-set">บันทึกเป้ากำไร</button></div>
+        <div class="st" id="c-target-st"></div>
+        <div class="note">ถึงเป้าแล้วบอทจะหยุดเปิดไม้ใหม่ของวันนั้น · เป็นเป้า ไม่ใช่การการันตี</div>
+      </div>
+      <div class="panel">
+        <h3>สั่งเทรดเอง (override บอท)</h3>
+        <div class="row">
+          <button class="b-green" id="c-buy">🟢 ซื้อเลย (เปิดไม้)</button>
+          <button class="b-red" id="c-closeall">🔴 ปิดไม้ทั้งหมด</button>
+        </div>
+        <div class="st" id="c-order-st"></div>
+        <div class="note">สั่งเองข้ามด่านกรอง (operator override) · paper = ไม้จำลอง · live (ปลดล็อกแล้ว) = ออเดอร์จริง</div>
+      </div>
+    </div>
+  </details>
+
+  <p class="note" style="margin-top:14px">
+    “เทรดลม (PAPER)” = เอเจนต์เทรดจำลองบนราคาจริงของ Bitkub — ตัวเลขทั้งหมดด้านบนเป็นผลจริงของการเทรดลม
+    หักค่าธรรมเนียมสองขาแล้ว · “บัญชีจริง” แสดงยอด wallet จริงเมื่อเชื่อม key (อ่านอย่างเดียว) ·
+    การเทรดด้วยเงินจริงถูกล็อกไว้ (paper-only) ต้องปลดล็อก LIVE เองด้านล่าง (ปุ่มแดง)
+  </p>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const apiKey = () => {
+  const k = document.querySelector('meta[name="api-key"]')?.content || '';
+  return (k && k !== '__DASHBOARD_API_KEY__') ? k : '';
+};
+function headers(body){ const h={}; const k=apiKey(); if(k)h['X-API-Key']=k; if(body)h['Content-Type']='application/json'; return h; }
+async function apiGet(u){ try{ const r=await fetch(u,{headers:headers(false)}); return {ok:r.ok,status:r.status,data:await r.json().catch(()=>null)}; }catch(e){ return {ok:false,status:0,data:null}; } }
+async function apiPost(u,b){ try{ const r=await fetch(u,{method:'POST',headers:headers(b!=null),body:b!=null?JSON.stringify(b):undefined}); return {ok:r.ok,status:r.status,data:await r.json().catch(()=>null)}; }catch(e){ return {ok:false,status:0,data:{detail:String(e)}}; } }
+const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+const REASON_TH = {
+  SAMPLE_TOO_SMALL:'ยังเก็บสถิติไม่พอ (อุ่นเครื่อง)', P_WIN_BELOW_MIN:'โอกาสชนะต่ำกว่าเกณฑ์',
+  LOW_CONFIDENCE:'สัญญาณไม่มั่นใจพอ', STRATEGY_REGIME_MISMATCH:'สวนเทรนด์',
+  SENTIMENT_OPPOSED:'ข่าวสวนทาง', TREND_DISAGREE:'เทรนด์ไม่เห็นด้วย', NO_SIGNAL:'ยังไม่มีสัญญาณ',
+  REGIME_VOLATILE_BLOCKED:'ตลาดผันผวนสูง', BOOK_IMBALANCE_OPPOSED:'ออเดอร์บุ๊คสวนทาง',
+};
+const baht = (v) => '฿' + num(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const signed = (v) => (num(v)>=0?'+':'') + baht(v);
+const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function setCls(el,v){ if(!el)return; el.classList.remove('pos','neg'); el.classList.add(num(v)>=0?'pos':'neg'); }
+function errOf(r){ const d=r&&r.data; if(d&&d.detail) return typeof d.detail==='string'?d.detail:JSON.stringify(d.detail); if(d&&d.error)return d.error; return 'HTTP '+(r?r.status:'?'); }
+/* Translate the strict-auth errors into something actionable (the #1 confusion:
+   the dashboard control key is NOT the Bitkub key). */
+function authMsg(r){
+  const e=(errOf(r)||'').toLowerCase();
+  if(e.includes('x-api-key')||e.includes('locked')||e.includes('login not configured')||(r&&r.status===401))
+    return '🔑 คุมจากเครื่องนี้ (localhost) ได้เลยทุกปุ่ม ไม่ต้องใช้คีย์ · ถ้าเปิดจากมือถือ/เครื่องอื่นผ่าน LAN ให้ล็อกอินด้วยรหัส (DASHBOARD_PASSWORD) ก่อน';
+  return 'ล้มเหลว: '+errOf(r);
+}
+
+/* ── chart state ── */
+let PRICES = [];          // {t, p}
+const MARKERS = [];       // {t, p, side}  side: 'buy'|'sell'
+const seenTrades = new Set();
+
+function fmtUptime(s){ s=Math.max(0,s|0); const h=(s/3600|0),m=((s%3600)/60|0),x=s%60; return (h<10?'0':'')+h+':'+(m<10?'0':'')+m+':'+(x<10?'0':'')+x; }
+
+function drawChart(){
+  const cv=$('chart'); if(!cv)return;
+  const dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||700, h=cv.clientHeight||300;
+  cv.width=w*dpr; cv.height=h*dpr;
+  const g=cv.getContext('2d'); g.scale(dpr,dpr);
+  g.clearRect(0,0,w,h);
+  if(PRICES.length<2){ g.fillStyle='#8a96ab'; g.font='13px sans-serif'; g.fillText('กำลังรอราคาสด…',16,24); return; }
+  const pad={l:8,r:62,t:12,b:18};
+  const xs=PRICES.map(d=>d.t), ps=PRICES.map(d=>d.p);
+  let lo=Math.min(...ps), hi=Math.max(...ps);
+  MARKERS.forEach(m=>{ if(m.p<lo)lo=m.p; if(m.p>hi)hi=m.p; });
+  if(hi===lo){ hi+=1; lo-=1; }
+  const t0=xs[0], t1=xs[xs.length-1]||t0+1;
+  const X=t=>pad.l+(w-pad.l-pad.r)*((t-t0)/Math.max(1,(t1-t0)));
+  const Y=p=>pad.t+(h-pad.t-pad.b)*(1-((p-lo)/(hi-lo)));
+  // grid + price labels
+  g.strokeStyle='rgba(255,255,255,.06)'; g.fillStyle='#8a96ab'; g.font='10px sans-serif';
+  for(let i=0;i<=4;i++){ const yy=pad.t+(h-pad.t-pad.b)*i/4, pv=hi-(hi-lo)*i/4;
+    g.beginPath(); g.moveTo(pad.l,yy); g.lineTo(w-pad.r,yy); g.stroke();
+    g.fillText('฿'+Math.round(pv).toLocaleString('en-US'), w-pad.r+4, yy+3); }
+  // price line
+  g.strokeStyle='#4da3ff'; g.lineWidth=1.6; g.beginPath();
+  PRICES.forEach((d,i)=>{ const x=X(d.t),y=Y(d.p); i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke();
+  // last dot
+  const last=PRICES[PRICES.length-1];
+  g.fillStyle='#4da3ff'; g.beginPath(); g.arc(X(last.t),Y(last.p),3,0,7); g.fill();
+  // markers
+  MARKERS.forEach(m=>{
+    if(m.t<t0)return; const x=X(m.t),y=Y(m.p), up=m.side==='buy';
+    g.fillStyle=up?'#36d07f':'#ff5d6c'; g.beginPath();
+    if(up){ g.moveTo(x,y-7); g.lineTo(x-5,y+3); g.lineTo(x+5,y+3); }
+    else  { g.moveTo(x,y+7); g.lineTo(x-5,y-3); g.lineTo(x+5,y-3); }
+    g.closePath(); g.fill();
+  });
+  $('chart-info').textContent = PRICES.length+' จุด · ' + MARKERS.length + ' จุดเข้า/ออก';
+}
+
+function pushPrice(t,p){
+  p=num(p); if(p<=0)return;
+  PRICES.push({t:t||Date.now(), p});
+  if(PRICES.length>900)PRICES=PRICES.slice(-900);
+}
+
+/* ── status ── */
+async function loadStatus(){
+  const r=await apiGet('/api/status'); if(!r.ok||!r.data)return; const s=r.data;
+  if(s.latest_price){ $('px').textContent=baht(s.latest_price); }
+  // badges
+  const exec=(s.execution_engine||'paper').toUpperCase();
+  const be=$('b-exec'); be.textContent='EXEC '+exec; be.className='badge '+(exec==='LIVE'?'off':'on');
+  if($('c-mode')) $('c-mode').textContent = exec==='LIVE' ? '🔴 เทรดจริง (LIVE)' : '🟢 เทรดลม (PAPER)';
+  const moneyTag = exec==='LIVE' ? '(เงินจริง)' : '(เทรดลม)';
+  if($('lbl-equity')) $('lbl-equity').textContent = 'มูลค่าพอร์ต '+moneyTag;
+  if($('lbl-pnl')) $('lbl-pnl').textContent = 'กำไรวันนี้ '+moneyTag;
+  const pf=s.price_feed||{}; const bd=$('b-data');
+  bd.textContent='DATA '+(pf.connected?'LIVE':'รอราคา'); bd.className='badge '+(pf.connected?'on':'warn');
+  const ba=$('b-acct'); ba.textContent='ACCOUNT '+(s.bitkub_account_connected?'ONLINE':'OFFLINE');
+  ba.className='badge '+(s.bitkub_account_connected?'on':'mut');
+  $('b-uptime').textContent='⏱ '+fmtUptime(s.uptime_sec||s.uptime_seconds||0);
+  if(s.emergency_stopped){ const k=$('b-exec'); k.textContent='KILL 🛑'; k.className='badge off'; }
+  // paper cards (prefer *_str for precision)
+  $('k-equity').textContent=baht(s.equity_str ?? s.equity);
+  $('k-cash').textContent=baht(s.cash_str ?? s.cash);
+  const pnl=num(s.pnl_today_str ?? s.pnl_today); const cap=num(s.initial_capital)||1;
+  const pnlpct=cap?(pnl/cap*100):0;
+  const ke=$('k-pnl'); ke.textContent=signed(pnl)+'  ('+(pnl>=0?'+':'')+pnlpct.toFixed(2)+'%)'; setCls(ke,pnl);
+  const kr=$('k-realized'); kr.textContent=signed(s.realized_today_str ?? s.realized_today); setCls(kr,num(s.realized_today_str ?? s.realized_today));
+  const wr=s.win_rate; $('k-wr').textContent=(wr==null)?'— (ยังไม่มีไม้ปิด)':(wr*100).toFixed(0)+'%';
+  $('k-wins').textContent=s.wins??0; $('k-losses').textContent=s.losses??0; $('k-closed').textContent=s.trades_closed??0;
+  $('k-open').textContent=s.positions??0;
+  // open position unrealized pnl
+  const port=Array.isArray(s.portfolio)?s.portfolio:[];
+  if(port.length){ const u=port.reduce((a,p)=>a+num(p.unrealized_pnl),0);
+    const ko=$('k-openpnl'); ko.textContent='กำไรลอยตัว '+signed(u); setCls(ko,u); }
+  else $('k-openpnl').textContent='ไม่มีไม้เปิดอยู่';
+  // daily target
+  const dy=s.daily||{}; const tgtpct=num(dy.target_profit_pct); const tgtbaht=cap*tgtpct/100;
+  $('k-target').textContent=baht(tgtbaht)+'  ('+tgtpct.toFixed(1)+'%)';
+  const prog=tgtbaht>0?Math.max(0,Math.min(100,pnl/tgtbaht*100)):0;
+  $('k-targetbar').style.width=prog+'%';
+  $('k-targetbar').style.background = pnl<0?'var(--red)':'var(--green)';
+  $('k-targetstate').textContent = dy.target_reached?'✅ ถึงเป้าแล้ว — ล็อกกำไร หยุดเปิดไม้':
+    ('ตอนนี้ '+signed(pnl)+' · ไม้วันนี้ '+(dy.trades_today??0)+'/'+(dy.max_trades_per_day??'∞'));
+  // real account
+  const wv=s.wallet_value_thb||{}; const bal=s.bitkub_balances||{};
+  if(s.bitkub_account_connected){
+    $('k-real').textContent = wv.total_thb!=null?baht(wv.total_thb):'เชื่อมแล้ว';
+    const parts=Object.entries(bal).map(([k,v])=>k+' '+v);
+    $('k-realsub').textContent = parts.length?parts.join(' · '):'wallet ว่าง (อ่านอย่างเดียว)';
+  } else {
+    $('k-real').textContent='ยังไม่เชื่อม';
+    $('k-realsub').textContent='ใส่ API key ด้านล่างเพื่ออ่านยอดจริง · เทรดจริงต้องปลดล็อก LIVE ด้านล่าง';
+  }
+  // Entry gate — explain WHY no trades yet (or that it's ready).
+  const eg=s.entry_gate||{}; const tl=s.timeline||{};
+  if(eg.enabled===false){
+    $('k-gate').textContent='ด่านปิดอยู่ — เข้าไม้ได้ทันทีเมื่อมีสัญญาณ';
+    $('k-gate').className='val pos'; $('k-gatesub').textContent='(entry_gate_enabled=false)';
+  } else {
+    const samp=num(eg.samples), need=num(eg.min_samples)||8;
+    const reasons=eg.blocked_by_reason||{};
+    const top=Object.entries(reasons).sort((a,b)=>b[1]-a[1])[0];
+    if(eg.warming_up){
+      $('k-gate').textContent='⏳ กำลังอุ่นเครื่อง — เก็บสถิติ '+samp+'/'+need+' ไม้ก่อนเริ่มเข้า';
+      $('k-gate').className='val warn'; $('k-gate').style.color='var(--gold)';
+    } else if(tl.passes_gate){
+      $('k-gate').textContent='✅ พร้อมเข้าไม้ (โอกาสชนะ '+(tl.p_win_pct??0)+'% ≥ เกณฑ์)';
+      $('k-gate').className='val pos'; $('k-gate').style.color='var(--green)';
+    } else {
+      $('k-gate').textContent='เฝ้าหาจังหวะ — ยังไม่ผ่านเกณฑ์ (โอกาสชนะ '+(tl.p_win_pct??0)+'% / ขั้นต่ำ '+(num(eg.min_p_win)*100).toFixed(0)+'%)';
+      $('k-gate').className='val'; $('k-gate').style.color='var(--txt)';
+    }
+    const topTxt = top ? ('เหตุที่บล็อกบ่อยสุด: '+(REASON_TH[top[0]]||top[0])+' ×'+top[1]) : 'ยังไม่มีสัญญาณให้กรอง';
+    $('k-gatesub').textContent = topTxt + ' · บล็อกรวม '+num(eg.blocked_total)+' ครั้ง · ปรับ/ปิดด่านใน .env (ENTRY_GATE_ENABLED=false)';
+  }
+}
+
+/* ── trades ── */
+async function loadTrades(){
+  const r=await apiGet('/api/trades'); if(!r.ok||!r.data||!Array.isArray(r.data.trades))return;
+  const list=r.data.trades;
+  // markers for chart (dedupe by ts+type)
+  list.forEach(ev=>{
+    const id=(ev.type||'')+':'+(ev.ts_ms||0)+':'+(ev.entry||ev.exit||'');
+    if(seenTrades.has(id))return; seenTrades.add(id);
+    if(ev.type==='FILL') MARKERS.push({t:num(ev.ts_ms),p:num(ev.entry),side:'buy'});
+    else if(ev.type==='CLOSE') MARKERS.push({t:num(ev.ts_ms),p:num(ev.exit),side:'sell'});
+  });
+  const rows=list.slice(-40).reverse().map(ev=>{
+    const tm=new Date(num(ev.ts_ms)).toLocaleTimeString('th-TH');
+    if(ev.type==='FILL'){
+      return `<tr><td>${tm}</td><td class="pos">เปิด</td><td>${esc(ev.qty??'—')}</td><td>${baht(ev.entry)}</td><td class="mut">—</td></tr>`;
+    }
+    const pnl=num(ev.pnl_net ?? ev.pnl); const c=pnl>=0?'pos':'neg';
+    const reason=esc({TAKE_PROFIT:'TP',STOP_LOSS:'SL',TRAILING_STOP:'trail',OPPOSITE_SIGNAL:'กลับสัญญาณ',MANUAL:'มือ'}[ev.reason]||ev.reason||'');
+    return `<tr><td>${tm}</td><td class="neg">ปิด·${reason}</td><td>—</td><td>${baht(ev.exit)}</td><td class="${c}">${signed(pnl)}</td></tr>`;
+  });
+  $('trades').innerHTML = rows.length?rows.join(''):'<tr><td colspan="5" class="mut">ยังไม่มีไม้ที่ปิด…</td></tr>';
+  drawChart();
+}
+
+/* ── live price via WS ── */
+function connectWS(){
+  try{
+    const proto=location.protocol==='https:'?'wss':'ws';
+    const ws=new WebSocket(proto+'://'+location.host+'/ws');
+    ws.onmessage=(e)=>{ try{ const m=JSON.parse(e.data);
+      if(m.type==='price'&&m.data){ pushPrice(num(m.data.ts_ms)||Date.now(), m.data.price); drawChart(); }
+    }catch(_){} };
+    ws.onclose=()=>setTimeout(connectWS,3000);
+  }catch(_){ setTimeout(connectWS,3000); }
+}
+
+/* ── controls ── */
+function st(id,msg,kind){ const el=$(id); if(el){ el.textContent=msg; el.className='st '+(kind||''); } }
+function wire(){
+  $('c-connect').onclick=async()=>{
+    // Localhost is trusted: just paste the Bitkub key/secret and connect — the
+    // server's soft auth allows it from this machine (no DASHBOARD_API_KEY). If a
+    // remote bind rejects it, authMsg() below explains the key requirement.
+    const api_key=($('c-key').value||'').trim(), api_secret=($('c-secret').value||'').trim();
+    if(!api_key||!api_secret){ st('c-acct','กรอกทั้ง key และ secret','err'); return; }
+    st('c-acct','กำลังเชื่อมต่อ…');
+    const r=await apiPost('/api/credentials',{api_key,api_secret});
+    if(r.ok){ const d=r.data||{};
+      st('c-acct', d.verified?('เชื่อม + อ่าน wallet สำเร็จ ✅'):('บันทึก key แล้วแต่อ่าน wallet ไม่ได้: '+(d.error||'?')+' — เช็กสิทธิ์อ่าน wallet + IP whitelist ที่ Bitkub'), d.verified?'ok':'err');
+      $('c-secret').value=''; loadStatus();
+    } else st('c-acct', authMsg(r), 'err');
+  };
+  // Press Enter in either field to connect (กรอก → เอ็นเตอร์ → เชื่อม).
+  ['c-key','c-secret'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('c-connect').click(); } }); });
+  $('c-login').onclick=async()=>{
+    const r=await apiPost('/api/login',{password:$('c-pass').value||''});
+    if(r.ok&&r.data&&r.data.token){ const m=document.querySelector('meta[name="api-key"]'); if(m)m.content=r.data.token;
+      st('c-login-st','เข้าสู่ระบบสำเร็จ ✅ ได้สิทธิ์ควบคุมแล้ว','ok'); $('c-pass').value=''; }
+    else st('c-login-st', authMsg(r), 'err');
+  };
+  $('c-arm').onclick=async()=>{
+    const c=prompt('⚠️ เปิดเทรดด้วยเงินจริงบน Bitkub (ซื้อ/ขายจริง ย้อนกลับไม่ได้)\n\nพิมพ์  ENABLE  เพื่อยืนยัน:');
+    if((c||'').trim().toUpperCase()!=='ENABLE'){ st('c-mode-st','ยกเลิก — ต้องพิมพ์ ENABLE เพื่อยืนยัน','err'); return; }
+    st('c-mode-st','กำลังเปิดเทรดจริง…');
+    const r1=await apiPost('/api/risk/settings',{max_single_order_thb:'500'});  // วงเงินกันบั๊ก
+    if(!r1.ok){ st('c-mode-st','ตั้งวงเงินไม่สำเร็จ: '+authMsg(r1),'err'); return; }
+    const r2=await apiPost('/api/execution/mode',{mode:'live',confirm:'I_ACCEPT_REAL_MONEY_RISK'});
+    if(r2.ok){ st('c-mode-st','✅ เปิดเทรดจริงแล้ว · วงเงิน ฿500/ไม้ · กด KILL เพื่อหยุดทันที','ok'); loadStatus(); }
+    else st('c-mode-st','เปิดไม่สำเร็จ: '+errOf(r2),'err');
+  };
+  $('c-disarm').onclick=async()=>{
+    const r=await apiPost('/api/execution/mode',{mode:'paper'});
+    st('c-mode-st', r.ok?'↩ กลับเป็นเทรดลม (paper) แล้ว':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
+  };
+  $('c-start').onclick=async()=>{ const r=await apiPost('/api/agents/start_all'); st('c-ctl-st',r.ok?'เริ่มแล้ว ✅':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
+  $('c-stop').onclick=async()=>{ const r=await apiPost('/api/agents/stop_all'); st('c-ctl-st',r.ok?'หยุดแล้ว':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
+  $('c-kill-on').onclick=async()=>{ const r=await apiPost('/api/kill_switch',{on:true}); st('c-ctl-st',r.ok?'KILL เปิด — live ถูกบล็อก':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
+  $('c-kill-off').onclick=async()=>{ const r=await apiPost('/api/kill_switch',{on:false}); st('c-ctl-st',r.ok?'ปลด KILL แล้ว':('ล้มเหลว: '+errOf(r)),r.ok?'ok':'err'); };
+  $('c-capital-set').onclick=async()=>{
+    const v=($('c-capital').value||'').trim();
+    if(!v){ st('c-capital-st','กรอกจำนวนเงินก่อน','err'); return; }
+    const r=await apiPost('/api/settings/capital',{capital:v});
+    st('c-capital-st', r.ok?('ตั้งเงินทุนเป็น ฿'+v+' แล้ว ✅'):('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
+  };
+  $('c-risk-set').onclick=async()=>{
+    const body={}; const rk=($('c-risk').value||'').trim(), sl=($('c-sl').value||'').trim(), tp=($('c-tp').value||'').trim();
+    const mt=($('c-maxtrades').value||'').trim(); const ad=($('c-adapt').value||'').trim();
+    if(rk)body.risk_per_trade_pct=rk; if(sl)body.stop_pct=sl; if(tp)body.take_profit_pct=tp;
+    if(mt!=='')body.max_trades_per_day=mt;
+    if(ad!=='')body.adapt_after_trades=ad;
+    if(!Object.keys(body).length){ st('c-risk-st','กรอกอย่างน้อย 1 ช่อง','err'); return; }
+    const r=await apiPost('/api/risk/settings',body);
+    st('c-risk-st', r.ok?'บันทึกความเสี่ยงแล้ว ✅':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
+  };
+  $('c-target-set').onclick=async()=>{
+    const v=($('c-target').value||'').trim();
+    if(!v){ st('c-target-st','กรอกเป้า %/วัน ก่อน','err'); return; }
+    const r=await apiPost('/api/settings/daily_target',{target_pct:v});
+    st('c-target-st', r.ok?('ตั้งเป้า '+((r.data&&r.data.target_profit_pct)||v)+'%/วัน แล้ว ✅'):('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus();
+  };
+  $('c-buy').onclick=async()=>{
+    const r=await apiPost('/api/order',{side:'BUY'});
+    st('c-order-st', r.ok?'เปิดไม้แล้ว ✅':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus(); loadTrades();
+  };
+  $('c-closeall').onclick=async()=>{
+    const r=await apiPost('/api/positions/close_all');
+    st('c-order-st', r.ok?'ปิดไม้ทั้งหมดแล้ว ✅':('ล้มเหลว: '+authMsg(r)), r.ok?'ok':'err'); loadStatus(); loadTrades();
+  };
+}
+
+/* ── boot ── */
+async function boot(){
+  wire();
+  if(!apiKey()){
+    st('c-acct','ℹ️ เปิดจากเครื่องนี้ (localhost): กรอก Bitkub key/secret แล้วกด “เชื่อม” (หรือ Enter) ได้เลย · ทุกปุ่มควบคุมใช้ได้ทันที ไม่ต้องตั้งคีย์');
+  }
+  const h=await apiGet('/api/prices/history');
+  if(h.ok&&h.data&&Array.isArray(h.data.prices)) h.data.prices.forEach(d=>pushPrice(num(d.ts_ms),d.price));
+  await loadStatus(); await loadTrades(); drawChart(); connectWS();
+  setInterval(loadStatus,2000);
+  setInterval(loadTrades,3000);
+  window.addEventListener('resize',drawChart);
+}
+document.addEventListener('DOMContentLoaded',boot);
+</script>
+</body>
+</html>
