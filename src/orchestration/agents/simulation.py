@@ -54,6 +54,12 @@ class SimulationAgent:
                     price = Decimal(str(data.get("price", "0")))
                     ts_ms = int(data.get("ts_ms", 0))
                     self._prices.append((ts_ms, price))
+                    # Keep only the rolling window the backtest actually uses.
+                    # Without this the list grows by one entry per tick forever
+                    # (~60 MB over a 10-day run) — the only unbounded buffer on
+                    # the live price path. The backtest reads self._prices[-50:].
+                    if len(self._prices) > 50:
+                        self._prices = self._prices[-50:]
                     if len(self._prices) >= 50:
                         strategy = EmaCrossStrategy()
                         limits = RiskLimits(

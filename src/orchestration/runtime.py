@@ -574,6 +574,7 @@ class PipelineRuntime(
                         e = sup.exception()
                         why = f"{type(e).__name__}: {e}" if e is not None else "completed"
                     self.logger.error("watchdog.price_feed_restarting", reason=why)
+                    self._price_guardian.reset()  # fresh budget (symmetry w/ stale path)
                     self.supervisor_task = asyncio.create_task(self._price_guardian.run())
                 else:
                     await self._restart_feed_if_stale()
