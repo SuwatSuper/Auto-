@@ -20,10 +20,11 @@ from __future__ import annotations
 import os
 import re
 import glob
+import math
 import unicodedata
 from collections import Counter, defaultdict
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP  # [F2/ADR-020] money-math: VAT ด้วย Decimal+HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation  # [F2/ADR-020] money-math: VAT ด้วย Decimal+HALF_UP
 
 import pandas as pd
 
@@ -124,8 +125,13 @@ def merge_continuation_bills(bills):
             if _sub > 0:
                 new_bill['subtotal'] = round(_sub, 2)
                 # [F2/ADR-020] VAT ด้วย Decimal+ROUND_HALF_UP แล้ว cast กลับ float (คงชนิดที่เก็บ → hash ขยับเฉพาะเมื่อค่าปัดเศษต่างจริง)
-                new_bill['vat'] = float((_D(_sub) * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
-                new_bill['total'] = round(_sub + new_bill['vat'], 2)
+                # [BUGHUNT v9.3.1] ห่อ try: _sub มหึมาทำ quantize ระเบิด InvalidOperation → เดิมครัชหลุดถึง
+                #   parse_all_files ดักระดับไฟล์ → บิล "ทั้งไฟล์" หาย. ยอดจริงปกติ → เหมือนเดิม (golden ไม่ขยับ).
+                try:
+                    new_bill['vat'] = float((_D(_sub) * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+                    new_bill['total'] = round(_sub + new_bill['vat'], 2)
+                except (InvalidOperation, ValueError, TypeError):
+                    pass
             new_bill['issues'].append({
                 'code': 'IV001', 'severity': 'INFO', 'category': 'เอกสาร',
                 'name': 'รวมบิลข้ามหน้า',
@@ -368,7 +374,9 @@ def _cell_to_num(v):
     """
     if isinstance(v, (int, float)) and not isinstance(v, bool):
         f = float(v)
-        return None if f != f else f         # v6.x: กัน NaN (nan != nan) → ไม่ให้ nan หลุดไปปนยอด/คะแนน
+        # v6.x: กัน NaN ; [BUGHUNT v9.3.1] กัน ±inf ด้วย (เดิม f!=f จับแค่ NaN, inf หลุดผ่าน →
+        #   _D(inf)*0.07 ระเบิด InvalidOperation ปลายน้ำ). isfinite ครอบทั้ง NaN/inf จุดเดียว.
+        return f if math.isfinite(f) else None
     s = str(v).strip().replace(',', '')
     if _NUM_FULL_RE.fullmatch(s):
         return float(s)

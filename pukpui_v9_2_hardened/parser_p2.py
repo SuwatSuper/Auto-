@@ -12,7 +12,7 @@ import parser_p1 as _up
 _rx.reexport(_up, globals(), exclude=('Decimal', 'ROUND_HALF_UP', '_RATE_MARKERS',
                                       '_rightmost_num_has_decimal', '_row_has_rate_marker'))
 del _rx, _up
-from decimal import Decimal, ROUND_HALF_UP  # [F2/ADR-020] money-math: VAT ด้วย Decimal+HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation  # [F2/ADR-020] money-math: VAT ด้วย Decimal+HALF_UP
 from parser_guards import (   # [F4 ceiling 11.06.69] ชั้นปราการ input + iv last-resort (ซอยตามเพดาน 600)
     apply_iv_lastresort_if_needed, get_files_via_drive, get_files_via_upload, _pb_iv_lastresort,
     reject_iv_equal_amount)   # [F-MONEYIV v9.3.1] กันยอดเงินถูกอ่านเป็นเลขที่เอกสาร
@@ -118,11 +118,13 @@ def _pb_finalize_amounts(result):
     if result['total']    is None and _t is not None: src['total']    = 'derived'
     result['subtotal'], result['vat'], result['total'] = _s, _v, _t
     result['amount_confidence'] = _conf
-    # PATCH 5: vat = subtotal × 7% ถ้ายังไม่มี → ค่าที่ได้คือ derived
+    # PATCH 5: vat = subtotal × 7% ถ้ายังไม่มี → derived. [BUGHUNT v9.3.1/ADR-038] try กัน subtotal มหึมาทำ quantize ระเบิด InvalidOperation → บิลทั้งชีตหาย
     if result['vat'] is None and result['subtotal'] is not None:
-        result['vat'] = float((_D(result['subtotal']) * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)); src['vat'] = 'derived'  # [F2/ADR-020]
-        if result['total'] is None:
-            result['total'] = round(float(result['subtotal']) + result['vat'], 2); src['total'] = 'derived'
+        try:
+            result['vat'] = float((_D(result['subtotal']) * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)); src['vat'] = 'derived'  # [F2/ADR-020]
+            if result['total'] is None:
+                result['total'] = round(float(result['subtotal']) + result['vat'], 2); src['total'] = 'derived'
+        except (InvalidOperation, ValueError, TypeError): pass
     # legacy: subtotal จากผลรวมรายการ → item_sum (ไม่ใช่ยอดก่อน VAT ที่พิมพ์บนเอกสาร)
     if result['subtotal'] is None and result['items']:
         s = sum(i['amount'] or 0 for i in result['items'])
@@ -135,7 +137,7 @@ def _pb_finalize_amounts(result):
                 result['vat'] = float((_D(_sub) * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)); src['vat'] = 'derived'  # [F2/ADR-020]
             if result['total'] is None:
                 result['total'] = round(_sub + float(result['vat']), 2); src['total'] = 'derived'
-        except (ValueError, TypeError):
+        except (InvalidOperation, ValueError, TypeError):   # [BUGHUNT v9.3.1] +InvalidOperation (subtotal มหึมา)
             pass
     result['amount_source'] = src   # v9: provenance ใช้ใน VAT010 + รายงาน
 

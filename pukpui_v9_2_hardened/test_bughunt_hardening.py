@@ -27,6 +27,7 @@ with contextlib.redirect_stdout(_buf):
     importlib.import_module('ปุ้มปุ้ย_ultimate_v9_modular')
 import parser as P
 import parser_p0a as P0A
+import parser_p2 as P2
 
 PASS, FAIL = 0, []
 
@@ -94,6 +95,31 @@ for bad in ('inf', '1e400'):
     ok, bills = _quiet(lambda: P.parse_file(f))
     n = len(bills) if ok and isinstance(bills, list) else -1
     check(ok and n >= 1, f"parse_file(ไฟล์มีเซลล์ {bad!r}) คืน {n} บิล (ต้อง ≥1, ไม่ครัช)")
+
+# ════════════════════════════════════════════════════════════════════════════
+# Parse-M1 — Decimal.quantize InvalidOperation (ยอดมหึมา) ใน _pb_finalize_amounts
+# ════════════════════════════════════════════════════════════════════════════
+print("\n[Parse-M1] ยอด subtotal มหึมา (≥~1e28) ต้องไม่ทำ derive-VAT ครัช")
+for sub in (1e30, 1e29, 9.9e27):
+    r = {'subtotal': sub, 'vat': None, 'total': None, 'items': []}
+    ok, _ = _quiet(lambda: P2._pb_finalize_amounts(r))
+    check(ok, f"_pb_finalize_amounts(subtotal={sub:.0e}) ไม่ครัช (vat={r.get('vat')})")
+# พฤติกรรมปกติต้องเหมือนเดิมเป๊ะ: 2500 → vat 175.0, total 2675.0
+r_ok = {'subtotal': 2500.0, 'vat': None, 'total': None, 'items': []}
+_quiet(lambda: P2._pb_finalize_amounts(r_ok))
+check(r_ok.get('vat') == 175.0 and r_ok.get('total') == 2675.0,
+      f"ยอดปกติ 2500 → derive vat={r_ok.get('vat')} total={r_ok.get('total')} (ต้อง 175.0/2675.0)")
+
+# ════════════════════════════════════════════════════════════════════════════
+# Parse-M3 — _cell_to_num ต้องกรอง ±inf/NaN (ไม่ปล่อยหลุดไปคูณ Decimal ปลายน้ำ)
+# ════════════════════════════════════════════════════════════════════════════
+print("\n[Parse-M3] _cell_to_num ต้องคืน None สำหรับ NaN/±inf และคงค่าจริง")
+check(P0A._cell_to_num(float('inf')) is None,  "_cell_to_num(inf) = None")
+check(P0A._cell_to_num(float('-inf')) is None, "_cell_to_num(-inf) = None")
+check(P0A._cell_to_num(float('nan')) is None,  "_cell_to_num(nan) = None")
+check(P0A._cell_to_num(2500) == 2500.0,        "_cell_to_num(2500) = 2500.0 (ค่าจริงคงอยู่)")
+check(P0A._cell_to_num(1e30) == 1e30,          "_cell_to_num(1e30) = 1e30 (finite ผ่าน)")
+check(P0A._cell_to_num('2,500') == 2500.0,     "_cell_to_num('2,500') = 2500.0 (comma คงอยู่)")
 
 # ════════════════════════════════════════════════════════════════════════════
 shutil.rmtree(TMP, ignore_errors=True)
