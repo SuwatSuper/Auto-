@@ -65,6 +65,14 @@ class TreasuryAgent:
         self.day_key: str = self._local_day()
         self.wins: int = 0
         self.losses: int = 0
+        # Per-DAY counters for the daily-summary report (reset at each Thai
+        # midnight rollover). wins/losses above stay cumulative for lifetime
+        # stats; these mirror today's slice so the daily CSV is accurate after
+        # day 1. day_start_equity is the realized equity at the day's open, used
+        # for that day's % return.
+        self.wins_today: int = 0
+        self.losses_today: int = 0
+        self.day_start_equity: Decimal = limits.initial_capital
         self.halted: bool = False
         self.approved_count: int = 0
         self.rejected_count: int = 0
@@ -78,6 +86,7 @@ class TreasuryAgent:
         """
         self._limits = self._limits.model_copy(update={"initial_capital": new_capital})
         self.cash = new_capital
+        self.day_start_equity = new_capital
         self.halted = should_halt(self.realized_today, self.cash, self._limits)
 
     # ── lifecycle ────────────────────────────────────────────────
@@ -155,8 +164,10 @@ class TreasuryAgent:
         self.fees_today += trade.entry_fee + trade.exit_fee
         if trade.pnl > 0:
             self.wins += 1
+            self.wins_today += 1
         elif trade.pnl < 0:
             self.losses += 1
+            self.losses_today += 1
         self.halted = should_halt(self.realized_today, self.cash, self._limits)
 
     def release_reservation(self, amount: Decimal) -> None:
@@ -200,6 +211,9 @@ class TreasuryAgent:
                     self.day_key = str(t["day_key"])
                     self.wins = int(t["wins"])
                     self.losses = int(t["losses"])
+                    self.wins_today = int(t.get("wins_today", 0))
+                    self.losses_today = int(t.get("losses_today", 0))
+                    self.day_start_equity = Decimal(str(t.get("day_start_equity", self.cash)))
                     self.halted = bool(t["halted"])
                     self._rollover_if_new_day()
                     self._log.info("treasury_agent.state_restored_from_session", cash=str(self.cash))
@@ -218,6 +232,9 @@ class TreasuryAgent:
             self.day_key = str(data["day_key"])
             self.wins = int(data["wins"])
             self.losses = int(data["losses"])
+            self.wins_today = int(data.get("wins_today", 0))
+            self.losses_today = int(data.get("losses_today", 0))
+            self.day_start_equity = Decimal(str(data.get("day_start_equity", self.cash)))
             self.halted = bool(data["halted"])
             self._rollover_if_new_day()
             self._log.info("treasury_agent.state_restored", cash=str(self.cash))
@@ -236,6 +253,9 @@ class TreasuryAgent:
                 "day_key": self.day_key,
                 "wins": self.wins,
                 "losses": self.losses,
+                "wins_today": self.wins_today,
+                "losses_today": self.losses_today,
+                "day_start_equity": str(self.day_start_equity),
                 "halted": self.halted,
             }
         )
@@ -255,6 +275,9 @@ class TreasuryAgent:
             self.day_key = today
             self.realized_today = Decimal("0")
             self.fees_today = Decimal("0")
+            self.wins_today = 0
+            self.losses_today = 0
+            self.day_start_equity = self.cash  # realized equity at the new day's open
             if self.cash >= self._limits.floor_equity():
                 self.halted = False  # daily halt clears at Thai (UTC+7) midnight; floor halt stays
 

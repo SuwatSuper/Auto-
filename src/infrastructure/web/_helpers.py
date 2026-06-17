@@ -19,6 +19,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 _rate_store: dict[str, tuple[float, int]] = {}
 _RATE_LIMIT = 100  # requests per window
 _RATE_WINDOW = 60.0  # seconds
+_RATE_MAX_IPS = 4096  # reap stale IPs past this so the table can't grow forever
 
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
@@ -26,6 +27,12 @@ _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 def check_rate_limit(ip: str) -> bool:
     """Return True if request is allowed, False if rate-limited."""
     now = time.time()
+    # Opportunistic eviction: stale IPs (window long expired) are never removed
+    # otherwise, so over a long run with many distinct clients the dict would
+    # grow without bound. Sweep only when it gets large to keep this O(1) amortised.
+    if len(_rate_store) > _RATE_MAX_IPS:
+        for stale_ip in [k for k, (ws, _) in _rate_store.items() if now - ws > _RATE_WINDOW]:
+            del _rate_store[stale_ip]
     window_start, count = _rate_store.get(ip, (now, 0))
     if now - window_start > _RATE_WINDOW:
         _rate_store[ip] = (now, 1)

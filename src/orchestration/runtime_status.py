@@ -451,12 +451,13 @@ class _StatusMixin(_RuntimeBase):
         open_value = self._trader.open_market_value() if self._trader is not None else Decimal("0")
         row = build_summary_row(
             date=tr.day_key,
-            start_equity=self._initial_capital,
+            # Per-DAY values so each row reflects that day, not lifetime totals.
+            start_equity=tr.day_start_equity,
             end_equity=tr.cash + open_value,
             pnl_net=tr.realized_today,
             fees_total=tr.fees_today,
-            wins=tr.wins,
-            losses=tr.losses,
+            wins=tr.wins_today,
+            losses=tr.losses_today,
             target_pct=self._target_daily_profit_pct,
         )
         upsert_daily_summary(Path("data/daily_summary.csv"), row)

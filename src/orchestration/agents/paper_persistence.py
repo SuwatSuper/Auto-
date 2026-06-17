@@ -28,6 +28,9 @@ def treasury_snapshot(a: PaperTraderAgent) -> dict[str, object]:
         "day_key": t.day_key,
         "wins": t.wins,
         "losses": t.losses,
+        "wins_today": t.wins_today,
+        "losses_today": t.losses_today,
+        "day_start_equity": str(t.day_start_equity),
         "halted": t.halted,
     }
 
@@ -56,6 +59,9 @@ async def load_state(a: PaperTraderAgent) -> None:
                 a._treasury.day_key = str(t_data["day_key"])
                 a._treasury.wins = int(t_data["wins"])
                 a._treasury.losses = int(t_data["losses"])
+                a._treasury.wins_today = int(t_data.get("wins_today", 0))
+                a._treasury.losses_today = int(t_data.get("losses_today", 0))
+                a._treasury.day_start_equity = Decimal(str(t_data.get("day_start_equity", a._treasury.cash)))
                 a._treasury.halted = bool(t_data["halted"])
             a.state_loaded = True
             a._treasury._session_loaded = True
