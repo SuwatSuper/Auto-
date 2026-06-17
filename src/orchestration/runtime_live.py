@@ -114,12 +114,19 @@ class _LiveTradingMixin(_RuntimeBase):
         return {"ok": True, "positions": self._trader.open_positions()}
 
     def _roll_trade_day(self) -> None:
+        # Day rollover for the trade-count quota now lives in the treasury
+        # (entries_today, persisted + reset at Thai-midnight). Kept as a no-op
+        # hook for the legacy baseline fields so older call sites stay valid.
         today = self._treasury.day_key if self._treasury is not None else ""
         if today != self._trades_day_key:
             self._trades_day_key = today
             self._entries_baseline = self._trader.entries_opened if self._trader is not None else 0
 
     def trades_today(self) -> int:
+        # Persisted per-day counter: unlike a runtime-only baseline it survives a
+        # same-day restart, so the daily trade cap can't be reset by a crash loop.
+        if self._treasury is not None:
+            return self._treasury.entries_today
         cur = self._trader.entries_opened if self._trader is not None else 0
         return max(0, cur - self._entries_baseline)
 

@@ -325,6 +325,12 @@ class _RiskControlMixin(_RuntimeBase):
             return False, {"error": f"initial_capital: not a number ({raw!r})"}
         if value <= 0:
             return False, {"error": "initial_capital must be > 0"}
+        # Refuse while a position is open: set_capital re-funds cash to the new
+        # base while the reserved cash + open position still exist, which would
+        # double-count equity (cash + open_market_value) and break the
+        # cash == initial + realized invariant. Close first, then re-base.
+        if self._trader is not None and self._trader.position is not None:
+            return False, {"error": "close the open position before changing capital"}
         self._initial_capital = value
         self._peak_equity = value
         if self._treasury is not None:

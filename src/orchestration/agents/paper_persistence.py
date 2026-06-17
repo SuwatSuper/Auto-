@@ -30,6 +30,7 @@ def treasury_snapshot(a: PaperTraderAgent) -> dict[str, object]:
         "losses": t.losses,
         "wins_today": t.wins_today,
         "losses_today": t.losses_today,
+        "entries_today": t.entries_today,
         "day_start_equity": str(t.day_start_equity),
         "halted": t.halted,
     }
@@ -61,8 +62,14 @@ async def load_state(a: PaperTraderAgent) -> None:
                 a._treasury.losses = int(t_data["losses"])
                 a._treasury.wins_today = int(t_data.get("wins_today", 0))
                 a._treasury.losses_today = int(t_data.get("losses_today", 0))
+                a._treasury.entries_today = int(t_data.get("entries_today", 0))
                 a._treasury.day_start_equity = Decimal(str(t_data.get("day_start_equity", a._treasury.cash)))
                 a._treasury.halted = bool(t_data["halted"])
+                # An overnight restart restores yesterday's day_key/realized/halt;
+                # roll immediately so the per-day slice and daily-halt are fresh
+                # on the very first tick (the treasury loop would also do this
+                # within ~1s, but this removes the stale window entirely).
+                a._treasury._rollover_if_new_day()
             a.state_loaded = True
             a._treasury._session_loaded = True
             a._log.info("paper_trader.session_restored", open=a.position is not None)

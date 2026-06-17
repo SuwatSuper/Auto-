@@ -576,6 +576,10 @@ class PipelineRuntime(
                     self.logger.error("watchdog.price_feed_restarting", reason=why)
                     self._price_guardian.reset()  # fresh budget (symmetry w/ stale path)
                     self.supervisor_task = asyncio.create_task(self._price_guardian.run())
+                    # Rebase the staleness clock too, so the next tick doesn't
+                    # immediately re-dial the feed we just recreated before it
+                    # has had a chance to produce its first price.
+                    self._last_price_wall_ms = int(time.time() * 1000)
                 else:
                     await self._restart_feed_if_stale()
             except Exception:

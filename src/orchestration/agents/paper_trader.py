@@ -387,9 +387,16 @@ class PaperTraderAgent:
         if qty <= 0:
             self.entries_rejected += 1
             return
-        entry_fee = fee_for(qty * entry, p.fee_taker_bps)
-        # On a real fill, debit the treasury by the exact THB the exchange spent.
-        order_cost = fill["thb"] if (fill is not None and fill["thb"] > 0) else (qty * entry + entry_fee)
+        # On a real fill, debit the treasury by the EXACT THB the exchange spent,
+        # and fold the difference vs notional into entry_fee so the position's
+        # PnL cost basis equals that debit. Otherwise the modelled fee would
+        # diverge from the real spend and break cash == initial + realized_pnl.
+        if fill is not None and fill["thb"] > 0:
+            order_cost = fill["thb"]
+            entry_fee = order_cost - qty * entry  # implied real entry fee
+        else:
+            entry_fee = fee_for(qty * entry, p.fee_taker_bps)
+            order_cost = qty * entry + entry_fee
         exit_fee_est = fee_for(qty * stop, p.fee_taker_bps)
         worst = worst_case_loss(qty, entry, stop, entry_fee, exit_fee_est, p.slippage_bps)
 
@@ -412,6 +419,9 @@ class PaperTraderAgent:
                 fee_bps=p.fee_taker_bps,
                 slippage_bps=Decimal("0") if use_fill else p.slippage_bps,
                 now_ms=int(time.time() * 1000),
+                # Live fill: use the fee implied by the real spend so the
+                # position's cost basis matches the treasury debit (order_cost).
+                entry_fee=entry_fee if use_fill else None,
             )
         except ValueError:
             self._treasury.release_reservation(order_cost)

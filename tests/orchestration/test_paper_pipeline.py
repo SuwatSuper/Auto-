@@ -18,6 +18,7 @@ from domain.portfolio.treasury import TreasuryLimits, VetoReason
 from domain.trading.paper import ClosedTrade, ExitReason
 from infrastructure.eventbus.in_memory import InMemoryEventBus
 from infrastructure.state.sqlite_store import SqliteStateStore
+from orchestration.agents.paper_persistence import load_state, save_state
 from orchestration.agents.paper_trader import PaperTraderAgent, TradeParams
 from orchestration.agents.treasury_agent import TreasuryAgent
 from orchestration.runtime import PipelineRuntime
@@ -319,6 +320,47 @@ async def test_state_persists_across_restart(tmp_path: Path) -> None:
     assert treasury2.cash == cash_before
     assert treasury2.wins == 1
     assert treasury2.realized_pnl == D("2.475")
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_live_mirror_fill_conserves_cash() -> None:
+    """A live-mirror open is debited the EXACT exchange THB; the position's
+    entry_fee absorbs the gap to notional so cash == initial + realized_pnl
+    holds even when the real fee differs from the modelled taker fee."""
+    bus = InMemoryEventBus()
+    treasury, trader = _mk(bus)
+    initial = treasury.cash
+    trader.mark_price = D("2000000")
+    # qty 0.0004 @ 2,000,000 = 800 notional, but the exchange spent 810 THB
+    # (real fee 10; the modelled 0.25% would be only 2).
+    await trader._open(D("2000000"), is_live=True, fill={"qty": D("0.0004"), "thb": D("810")})
+    assert trader.position is not None
+    assert trader.position.entry_fee == D("10")  # implied real fee, not modelled 2
+    assert initial - treasury.cash == D("810")  # debited the exact real spend
+    await trader._close(D("2000000"), ExitReason.MANUAL)
+    # The invariant must hold exactly despite the non-modelled fee.
+    assert treasury.cash == initial + treasury.realized_pnl
+
+
+@pytest.mark.asyncio
+async def test_trade_count_survives_same_day_restart(tmp_path: Path) -> None:
+    """The per-day trade-count quota is treasury-backed and persisted, so a
+    same-day restart cannot reset it (a runtime-only baseline used to)."""
+    store = SqliteStateStore(tmp_path / "state.db")
+    bus = InMemoryEventBus()
+    _, trader1 = _mk(bus, store)
+    for px in ("2000000", "2001000", "2002000"):
+        trader1.mark_price = D(px)
+        await trader1.manual_buy(D(px))
+        await trader1.manual_close(D(px))
+    assert trader1._treasury.entries_today == 3
+    await save_state(trader1)
+
+    # Fresh trader+treasury from the same store == a restart.
+    _, trader2 = _mk(bus, store)
+    await load_state(trader2)
+    assert trader2._treasury.entries_today == 3  # NOT reset to 0
     store.close()
 
 

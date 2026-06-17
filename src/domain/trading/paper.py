@@ -129,8 +129,15 @@ def open_position(
     fee_bps: Decimal,
     slippage_bps: Decimal,
     now_ms: int,
+    entry_fee: Decimal | None = None,
 ) -> PaperPosition:
-    """Open a long with bracket attached atomically (H1). Entry includes slippage."""
+    """Open a long with bracket attached atomically (H1). Entry includes slippage.
+
+    ``entry_fee`` overrides the modelled fee. The LIVE path passes the fee
+    *implied by the exchange's real THB spend* (fill_thb − qty·entry) so the
+    position's PnL cost basis equals the cash the treasury was debited — keeping
+    ``cash == initial + realized_pnl`` exact when the modelled fee differs from
+    the real one. Paper trades leave it None and use the modelled taker fee."""
     entry = slip_buy(signal_price, slippage_bps)
     stop = entry * (Decimal("1") - stop_pct / _HUNDRED)
     take = entry * (Decimal("1") + take_profit_pct / _HUNDRED)
@@ -140,7 +147,7 @@ def open_position(
         entry_price=entry,
         stop_price=stop,
         take_profit_price=take,
-        entry_fee=fee_for(qty * entry, fee_bps),
+        entry_fee=entry_fee if entry_fee is not None else fee_for(qty * entry, fee_bps),
         opened_ms=now_ms,
     )
 

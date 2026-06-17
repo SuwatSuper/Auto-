@@ -72,6 +72,10 @@ class TreasuryAgent:
         # for that day's % return.
         self.wins_today: int = 0
         self.losses_today: int = 0
+        # Entries approved TODAY — backs the per-day trade-count quota. Persisted
+        # + reset at rollover so the cap can't be reset by a same-day restart
+        # (a runtime-only baseline would collapse to 0 after a crash/restart).
+        self.entries_today: int = 0
         self.day_start_equity: Decimal = limits.initial_capital
         self.halted: bool = False
         self.approved_count: int = 0
@@ -131,6 +135,7 @@ class TreasuryAgent:
         if decision.approved:
             self.cash -= order_cost
             self.approved_count += 1
+            self.entries_today += 1  # per-day trade-count quota (survives restart)
         else:
             self.rejected_count += 1
         return decision
@@ -213,6 +218,7 @@ class TreasuryAgent:
                     self.losses = int(t["losses"])
                     self.wins_today = int(t.get("wins_today", 0))
                     self.losses_today = int(t.get("losses_today", 0))
+                    self.entries_today = int(t.get("entries_today", 0))
                     self.day_start_equity = Decimal(str(t.get("day_start_equity", self.cash)))
                     self.halted = bool(t["halted"])
                     self._rollover_if_new_day()
@@ -234,6 +240,7 @@ class TreasuryAgent:
             self.losses = int(data["losses"])
             self.wins_today = int(data.get("wins_today", 0))
             self.losses_today = int(data.get("losses_today", 0))
+            self.entries_today = int(data.get("entries_today", 0))
             self.day_start_equity = Decimal(str(data.get("day_start_equity", self.cash)))
             self.halted = bool(data["halted"])
             self._rollover_if_new_day()
@@ -255,6 +262,7 @@ class TreasuryAgent:
                 "losses": self.losses,
                 "wins_today": self.wins_today,
                 "losses_today": self.losses_today,
+                "entries_today": self.entries_today,
                 "day_start_equity": str(self.day_start_equity),
                 "halted": self.halted,
             }
@@ -277,6 +285,7 @@ class TreasuryAgent:
             self.fees_today = Decimal("0")
             self.wins_today = 0
             self.losses_today = 0
+            self.entries_today = 0
             self.day_start_equity = self.cash  # realized equity at the new day's open
             if self.cash >= self._limits.floor_equity():
                 self.halted = False  # daily halt clears at Thai (UTC+7) midnight; floor halt stays
