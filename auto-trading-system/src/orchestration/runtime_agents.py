@@ -152,7 +152,13 @@ class _AgentsMixin(_RuntimeBase):
         # feed BUY signals into the SAME pipeline (signals → Supreme → gate).
         from orchestration.agents.swarm import build_swarm_agents  # noqa: PLC0415
         swarm = build_swarm_agents(
-            bus, prices, _TOPIC_SIGNALS, _TOPIC_ANALYSIS, log, per_division=50
+            bus, prices, _TOPIC_SIGNALS, _TOPIC_ANALYSIS, log, per_division=50,
+            # Task 3: regime-aware dynamic weighting across the 150-agent grid.
+            # The shared meta-learner accrues per-(method, regime) reliability;
+            # the regime comes from the bus-fed confluence cache (timeline.v1),
+            # not a direct attribute read — keeping the coupling on the bus.
+            meta=self._swarm_meta,
+            regime_provider=lambda: str(self._confluence.get("regime", "RANGE")),
         )
         agents.update(swarm)
         # Timeline Analyst — replays full history, measures p_win, gates entries.

@@ -18,6 +18,8 @@ from typing import Protocol
 import structlog
 from pydantic import SecretStr
 
+from domain.analytics.source_weights import SourcePerformance
+from domain.analytics.swarm_meta import SwarmMetaLearner
 from domain.risk.circuit_breaker import CircuitBreaker
 from orchestration.agents.ceo_agent import CeoAgent
 from orchestration.agents.learning import Learner
@@ -118,6 +120,8 @@ class _RuntimeBase:
     emergency_stopped: bool
     _latest_price: Decimal | None
     _latest_latency_ms: int
+    _last_price_wall_ms: int
+    _price_feed_stale_restarts: int
     _latency_samples: deque[int]
     _msg_count_current: int
     _window_task: asyncio.Task[None] | None
@@ -153,6 +157,15 @@ class _RuntimeBase:
     _trades_day_key: str
     _entries_baseline: int
     _gate_block_reasons: dict[str, int]
+    # Task 1: bus-fed confluence cache (the entry gate's only input source).
+    _confluence: dict[str, object]
+    _division_bias: dict[str, float]
+    _confluence_task: asyncio.Task[None] | None
+    # Task 2: dynamic-weighting feedback (paper.events → per-source win-rate).
+    _source_perf: SourcePerformance
+    _weighting_task: asyncio.Task[None] | None
+    # Task 3: shared regime-aware meta-learner for the 150-agent grid.
+    _swarm_meta: SwarmMetaLearner
 
     def _ensure_bus(self) -> EventBus:
         raise NotImplementedError
@@ -202,6 +215,12 @@ class _RuntimeBase:
         raise NotImplementedError
 
     def _entry_gate(self, data: dict[str, object]) -> tuple[bool, list[str]]:
+        raise NotImplementedError
+
+    def _confluence_dec(self, key: str, default: str = "0") -> Decimal:
+        raise NotImplementedError
+
+    def _confluence_int(self, key: str, default: int = 0) -> int:
         raise NotImplementedError
 
     async def _live_close(self, qty: object, rate: object) -> None:

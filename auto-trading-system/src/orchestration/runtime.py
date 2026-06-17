@@ -27,7 +27,13 @@ from orchestration.ports.price_feed import PriceFeed
 from orchestration.ports.state_store import StateStore
 from orchestration.runtime_agents import _AgentsMixin
 from orchestration.runtime_base import (
+    _TOPIC_ANALYSIS,
     _TOPIC_PAPER_EVENTS,
+    _TOPIC_PROBABILITY,
+    _TOPIC_RESEARCH,
+    _TOPIC_SENTIMENT,
+    _TOPIC_SIM_RESULTS,
+    _TOPIC_TIMELINE,
     AgentLike,
     NewsSource,
     Notifier,
@@ -43,6 +49,22 @@ from orchestration.runtime_status import _StatusMixin
 from orchestration.runtime_strategy import _StrategyMixin
 from orchestration.supervisors.price_supervisor import PriceSupervisor
 from orchestration.supervisors.supervisor import Supervisor
+
+
+def _obj_int(value: object, default: int) -> int:
+    """Best-effort int from an ``object`` bus field (never raises)."""
+    try:
+        return int(str(value)) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _obj_float(value: object, default: float) -> float:
+    """Best-effort float from an ``object`` bus field (never raises)."""
+    try:
+        return float(str(value)) if value is not None else default
+    except (TypeError, ValueError):
+        return default
 
 
 class PipelineRuntime(
@@ -152,6 +174,31 @@ class PipelineRuntime(
         self._trades_day_key: str = ""
         self._entries_baseline: int = 0
         self._gate_block_reasons: dict[str, int] = {}
+        # ── Task 1: bus-fed confluence cache ────────────────────────────────
+        # The entry gate reads ONLY from this dict — never from agent instance
+        # attributes. A background consumer (``_confluence_loop``) subscribes to
+        # every department's output topic and keeps these fields fresh. Defaults
+        # are NEUTRAL so the gate behaves until real reads arrive over the bus.
+        self._confluence: dict[str, object] = {
+            "p_win": "0", "p_win_samples": 0, "regime": "RANGE",
+            "past_win_rate": None, "recent_win_rate": None, "analysis": {},
+            "sentiment": "0",          # news_intelligence  (sentiment.v1)
+            "prob_bull": "0.5",        # probability_lab    (probability.v1)
+            "sim_win_rate": "-1",      # execution_agent    (sim.results.v1)
+            "sim_total_trades": 0,
+            "price_pctl": "-1",        # research_dept      (research.v1)
+            "pct_from_mean": "0",
+            "swarm_bias": 0.0,         # division chiefs    (analysis.v1)
+        }
+        self._division_bias: dict[str, float] = {}
+        self._confluence_task: asyncio.Task[None] | None = None
+        # ── Task 2: dynamic weighting (paper.events → source win-rate) ──────
+        from domain.analytics.source_weights import SourcePerformance  # noqa: PLC0415
+        self._source_perf = SourcePerformance()
+        self._weighting_task: asyncio.Task[None] | None = None
+        # ── Task 3: shared regime-aware meta-learner for the 150-agent grid ──
+        from domain.analytics.swarm_meta import SwarmMetaLearner  # noqa: PLC0415
+        self._swarm_meta = SwarmMetaLearner()
 
     @property
     def bus(self) -> EventBus:
@@ -273,6 +320,11 @@ class PipelineRuntime(
         # Record paper FILL/CLOSE events for the dashboard (subscribe BEFORE the
         # price feed starts so no trade is missed).
         self._trade_rec_task = asyncio.create_task(self._recent_trades_loop())
+        # Task 1 + 2 consumers: subscribe BEFORE producers so no message is lost
+        # (the in-memory bus has no replay). The confluence loop feeds the entry
+        # gate; the weighting loop routes paper.events back into vote weights.
+        self._confluence_task = asyncio.create_task(self._confluence_loop())
+        self._weighting_task = asyncio.create_task(self._weighting_loop())
         # Producers start LAST: every consumer above has already run its
         # synchronous bus.subscribe() before the first price tick can be
         # published, closing the publish-before-subscribe startup race (the
@@ -329,6 +381,11 @@ class PipelineRuntime(
             self._trade_rec_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._trade_rec_task
+        for task in (self._confluence_task, self._weighting_task):
+            if task and not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
         if self._trade_csv is not None and hasattr(self._trade_csv, "stop"):
             await self._trade_csv.stop()
         if self._trade_csv_task and not self._trade_csv_task.done():
@@ -424,6 +481,7 @@ class PipelineRuntime(
         for task in (
             self._coach_task, self._news_task, self._memory_task,
             self._trade_rec_task, self._window_task,
+            self._confluence_task, self._weighting_task,
         ):
             if task and not task.done():
                 task.cancel()
@@ -512,6 +570,123 @@ class PipelineRuntime(
                     raise
                 except Exception:
                     self.logger.warning("runtime.recent_trades_frame_error", exc_info=True)
+        except asyncio.CancelledError:
+            raise
+        finally:
+            bus.unsubscribe(_TOPIC_PAPER_EVENTS, queue)
+
+    # ── Task 1: bus-fed confluence consumer ──────────────────────────
+    _CONFLUENCE_TOPICS = (
+        _TOPIC_TIMELINE,       # Group B: timeline_analyst (p_win, regime)
+        _TOPIC_SIM_RESULTS,    # Group B: execution_agent (Sim) win_rate
+        _TOPIC_ANALYSIS,       # Group B: division chiefs' consensus bias
+        _TOPIC_PROBABILITY,    # Group A: probability_lab (prob_bull)
+        _TOPIC_SENTIMENT,      # Group A: news_intelligence (sentiment)
+        _TOPIC_RESEARCH,       # Group A: research_dept (price percentile)
+    )
+
+    def _apply_confluence_message(self, topic: str, data: dict[str, object]) -> None:
+        """Fold one department message into the confluence cache. Pure dict
+        updates — this is the ONLY place agent outputs enter the entry gate, so
+        there is no hidden attribute coupling anywhere."""
+        c = self._confluence
+        if topic == _TOPIC_TIMELINE:
+            c["p_win"] = str(data.get("p_win", c["p_win"]))
+            c["p_win_samples"] = _obj_int(data.get("p_win_samples"), 0)
+            c["regime"] = str(data.get("regime", c["regime"]))
+            c["past_win_rate"] = data.get("past_win_rate", c["past_win_rate"])
+            c["recent_win_rate"] = data.get("recent_win_rate", c["recent_win_rate"])
+            if isinstance(data.get("analysis"), dict):
+                c["analysis"] = data["analysis"]
+        elif topic == _TOPIC_SIM_RESULTS:
+            c["sim_win_rate"] = str(data.get("win_rate", c["sim_win_rate"]))
+            c["sim_total_trades"] = _obj_int(data.get("total_trades"), 0)
+        elif topic == _TOPIC_ANALYSIS:
+            div = str(data.get("division", ""))
+            self._division_bias[div] = _obj_float(data.get("bias"), 0.0)
+            if self._division_bias:
+                c["swarm_bias"] = sum(self._division_bias.values()) / len(self._division_bias)
+        elif topic == _TOPIC_PROBABILITY:
+            c["prob_bull"] = str(data.get("prob_bull", c["prob_bull"]))
+        elif topic == _TOPIC_SENTIMENT:
+            c["sentiment"] = str(data.get("sentiment_score", c["sentiment"]))
+        elif topic == _TOPIC_RESEARCH:
+            c["price_pctl"] = str(data.get("price_pctl", c["price_pctl"]))
+            c["pct_from_mean"] = str(data.get("pct_from_mean", c["pct_from_mean"]))
+
+    async def _confluence_loop(self) -> None:
+        """Subscribe to every department output topic and keep the confluence
+        cache fresh. Replaces the old direct reads of agent attributes."""
+        bus = self._ensure_bus()
+        queues = {t: bus.subscribe(t) for t in self._CONFLUENCE_TOPICS}
+        # One in-flight get() per topic; refresh whichever completes.
+        getters: dict[str, asyncio.Task[bytes]] = {}
+        try:
+            while True:
+                for topic, q in queues.items():
+                    if topic not in getters or getters[topic].done():
+                        getters[topic] = asyncio.create_task(q.get())
+                done, _ = await asyncio.wait(
+                    set(getters.values()), timeout=0.5, return_when=asyncio.FIRST_COMPLETED
+                )
+                for topic, task in list(getters.items()):
+                    if task in done:
+                        try:
+                            raw = task.result()
+                            data = orjson.loads(raw)
+                            if isinstance(data, dict):
+                                self._apply_confluence_message(topic, data)
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            self.logger.warning("runtime.confluence_frame_error", exc_info=True)
+                        del getters[topic]
+        except asyncio.CancelledError:
+            raise
+        finally:
+            for t in getters.values():
+                if not t.done():
+                    t.cancel()
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await t
+            for topic, q in queues.items():
+                bus.unsubscribe(topic, q)
+
+    # ── Task 2: dynamic-weighting feedback loop ───────────────────────
+    def _record_trade_outcome(self, ev: dict[str, object]) -> None:
+        """Attribute a CLOSE event's Win/Loss to the sources that voted it open,
+        then push the refreshed vote weights into the Supreme commander."""
+        if ev.get("type") != "CLOSE":
+            return
+        raw_voters = ev.get("voters")
+        voters = [str(v) for v in raw_voters] if isinstance(raw_voters, list) else []
+        if not voters:
+            return
+        try:
+            pnl_net = Decimal(str(ev.get("pnl_net", ev.get("pnl", "0"))))
+        except (InvalidOperation, ValueError, TypeError):
+            return
+        self._source_perf.record_many(voters, won=pnl_net > 0)
+        supreme = self.agents.get("supreme_commander")
+        if supreme is not None and hasattr(supreme, "update_weights"):
+            supreme.update_weights(self._source_perf.weights())
+
+    async def _weighting_loop(self) -> None:
+        """Route paper.events Win/Loss/PnL back into the per-source vote weights
+        (Task 2). A dedicated subscriber, decoupled from the trades-table mirror."""
+        bus = self._ensure_bus()
+        queue = bus.subscribe(_TOPIC_PAPER_EVENTS)
+        try:
+            while True:
+                raw = await queue.get()
+                try:
+                    ev = orjson.loads(raw)
+                    if isinstance(ev, dict):
+                        self._record_trade_outcome(ev)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self.logger.warning("runtime.weighting_frame_error", exc_info=True)
         except asyncio.CancelledError:
             raise
         finally:

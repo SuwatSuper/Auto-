@@ -105,6 +105,12 @@ class PaperTraderAgent:
         # Whether the open position is backed by a REAL order (opened via the
         # live mirror). Only such positions are closed on the exchange.
         self._position_is_live: bool = False
+        # Task 2 provenance: the Supreme voters + decision that OPENED the live
+        # position, carried onto its CLOSE event so the runtime can attribute the
+        # Win/Loss back to the exact sources that voted for it. Single-position
+        # rule ⇒ one set at a time; cleared on close.
+        self._open_voters: list[str] = []
+        self._open_decision_id: str = ""
 
         self.running = False
         self.msg_count = 0
@@ -328,11 +334,17 @@ class PaperTraderAgent:
             return
         if signal == "BUY" and self.position is None and self.mark_price is not None:
             # Phase 5 provenance: carry which strategy/regime/win-prob opened it.
+            raw_voters = data.get("voters")
+            voters = [str(v) for v in raw_voters] if isinstance(raw_voters, list) else []
             meta = {
                 "strategy_id": str(data.get("source", "")),
                 "regime": str(data.get("regime", "")),
                 "win_prob_est": str(data.get("win_prob", data.get("p_win", ""))),
+                # Task 2: the Supreme voters behind this entry + the decision id.
+                "decision_id": str(data.get("decision_id", "")),
             }
+            self._open_voters = voters
+            self._open_decision_id = meta["decision_id"]
             await self._open(
                 self.mark_price, is_live=bool(data.get("live_mirror")),
                 meta=meta, fill=self._live_fill(data),
@@ -440,6 +452,9 @@ class PaperTraderAgent:
                 "strategy_id": (meta or {}).get("strategy_id", ""),
                 "regime": (meta or {}).get("regime", ""),
                 "win_prob_est": (meta or {}).get("win_prob_est", ""),
+                # Task 2: provenance for the dynamic-weighting feedback loop.
+                "voters": list(self._open_voters),
+                "decision_id": (meta or {}).get("decision_id", ""),
             },
         )
         await self._save()
@@ -492,8 +507,15 @@ class PaperTraderAgent:
                 "pnl_gross": str(trade.pnl + fee_paid),      # before fees
                 "pnl_net": str(trade.pnl),                   # == target metric
                 "slippage_bps": str(self._params.slippage_bps),
+                # Task 2: the sources that voted this entry open get credited
+                # (win) / blamed (loss) by the runtime's weighting feedback loop.
+                "voters": list(self._open_voters),
+                "decision_id": self._open_decision_id,
             },
         )
+        # Provenance consumed — clear it before the next entry.
+        self._open_voters = []
+        self._open_decision_id = ""
         await self._save()
         await self._treasury.persist()
 

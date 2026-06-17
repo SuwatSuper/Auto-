@@ -6,7 +6,6 @@ flow signals → Supreme → risk gate → paper trader and open a position."""
 from __future__ import annotations
 
 import asyncio
-from decimal import Decimal
 
 import orjson
 
@@ -22,13 +21,15 @@ async def _wait_mark(rt: object, timeout: float = 4.0) -> None:
 
 async def _inject_timeline(rt: object, p_win: str, samples: int, regime: str) -> None:
     # Freeze the Timeline Analyst so its real analysis can't overwrite the
-    # injected win-probability mid-test, then set a deterministic verdict.
+    # injected win-probability mid-test, then set a deterministic verdict in the
+    # bus-fed confluence cache (the gate's only input — no attribute coupling).
     await rt.stop_agent("timeline_analyst")  # type: ignore[attr-defined]
-    tl = rt._timeline  # type: ignore[attr-defined]
-    tl.p_win = Decimal(p_win)
-    tl.p_win_samples = samples
-    tl.regime = regime
-    rt.last_news = {"score": "0.2"}  # mild-positive: no sentiment veto
+    c = rt._confluence  # type: ignore[attr-defined]
+    c["p_win"] = p_win
+    c["p_win_samples"] = samples
+    c["regime"] = regime
+    c["sentiment"] = "0.2"  # mild-positive: no sentiment veto
+    rt.last_news = {"score": "0.2"}
 
 
 async def test_pipeline_opens_a_position_when_gate_passes() -> None:

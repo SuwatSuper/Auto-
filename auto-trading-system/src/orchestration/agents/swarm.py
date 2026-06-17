@@ -26,6 +26,7 @@ from typing import Protocol
 import orjson
 import structlog
 
+from domain.analytics.swarm_meta import SwarmMetaLearner
 from domain.analytics.swarm_methods import (
     BEAR,
     BULL,
@@ -158,6 +159,15 @@ class ChartAnalystAgent(PeriodicAgent):
         self.read: AnalysisRead = AnalysisRead.neutral("เริ่มต้น")
         self.signal_count = 0
 
+    @property
+    def method(self) -> str:
+        """The analysis method this grid agent runs (key for dynamic weighting)."""
+        return self._method
+
+    @property
+    def timeframe(self) -> str:
+        return self._tf
+
     def _hr_txt(self) -> str:
         hr = self.learner.hit_rate()
         return f"{hr * 100:.0f}% ({self.learner.resolved} ครั้ง)" if hr is not None else "—"
@@ -216,6 +226,15 @@ class EntryHunterAgent(PeriodicAgent):
         self.signal_count = 0
         self.entries_found = 0
 
+    @property
+    def method(self) -> str:
+        """The analysis method this grid agent runs (key for dynamic weighting)."""
+        return self._method
+
+    @property
+    def timeframe(self) -> str:
+        return self._tf
+
     def _hr_txt(self) -> str:
         hr = self.learner.hit_rate()
         return f"{hr * 100:.0f}% ({self.learner.resolved} ครั้ง)" if hr is not None else "—"
@@ -245,7 +264,16 @@ class EntryHunterAgent(PeriodicAgent):
 # ── division chief (aggregates 50 workers → consensus bias) ──────────
 class DivisionChiefAgent(PeriodicAgent):
     """Reads its workers' latest verdicts, computes a consensus bias in [-1,1],
-    and publishes it so the rest of the swarm can coordinate."""
+    and publishes it so the rest of the swarm can coordinate.
+
+    Task 3 — dynamic weighting: when a :class:`SwarmMetaLearner` is wired in, the
+    consensus is no longer an equal-weight headcount. Each worker's vote is scaled
+    by its method's MEASURED reliability *in the current regime* (graded from real
+    price outcomes the workers self-score). The swarm thus naturally leans on the
+    grid agents that are actually winning under the conditions at hand — true,
+    LLM-free consensus that adapts as the regime shifts. With no meta-learner the
+    original equal-weight behaviour is preserved (back-compat for tests).
+    """
 
     interval = 3.0
 
@@ -257,6 +285,8 @@ class DivisionChiefAgent(PeriodicAgent):
         analysis_topic: str,
         label: str,
         logger: structlog.BoundLogger,
+        meta: SwarmMetaLearner | None = None,
+        regime_provider: Callable[[], str] | None = None,
     ) -> None:
         super().__init__(name, logger, kind="reliability")
         self._workers = workers
@@ -265,15 +295,63 @@ class DivisionChiefAgent(PeriodicAgent):
         self._label = label
         self.bias: float = 0.0
         self._last_bucket = 99
+        # Dynamic-weighting machinery (Task 3). ``meta`` is shared across the
+        # divisions so reliability accrues per (method, regime) for the whole grid.
+        self.meta = meta
+        self._regime_provider = regime_provider
+        # Last seen (resolved, correct) per worker, to record only NEW outcomes
+        # into the meta-learner each tick (deltas, not the running totals).
+        self._seen: dict[str, tuple[int, int]] = {}
+
+    def _record_outcomes(self, regime: str) -> None:
+        """Feed each worker's newly-graded predictions into the shared meta-learner
+        as (method, regime) Win/Loss outcomes — the real signal the weights learn
+        from. Bounded, deterministic, no I/O."""
+        meta = self.meta
+        if meta is None:
+            return
+        for w in self._workers:
+            resolved = w.learner.resolved
+            correct = w.learner.correct
+            prev_r, prev_c = self._seen.get(w.name, (0, 0))
+            d_resolved = resolved - prev_r
+            d_correct = correct - prev_c
+            if d_resolved > 0:
+                wins = max(0, min(d_resolved, d_correct))
+                for _ in range(wins):
+                    meta.record(w.method, regime, won=True)
+                for _ in range(d_resolved - wins):
+                    meta.record(w.method, regime, won=False)
+            self._seen[w.name] = (resolved, correct)
+
+    def _weighted_bias(self, regime: str) -> float:
+        """Reliability-weighted net bias in [-1, 1]. Equal-weight if no meta."""
+        meta = self.meta
+        num = 0.0
+        den = 0.0
+        for w in self._workers:
+            weight = float(meta.weight(w.method, regime)) if meta is not None else 1.0
+            direction = (
+                1.0 if w.read.direction == BULL
+                else -1.0 if w.read.direction == BEAR
+                else 0.0
+            )
+            num += weight * direction
+            den += weight
+        return num / den if den else 0.0
 
     async def tick(self) -> None:
+        regime = self._regime_provider() if self._regime_provider is not None else "RANGE"
+        self._record_outcomes(regime)
         bulls = sum(1 for w in self._workers if w.read.direction == BULL)
         bears = sum(1 for w in self._workers if w.read.direction == BEAR)
         total = len(self._workers)
         neutrals = total - bulls - bears
-        self.bias = (bulls - bears) / total if total else 0.0
+        self.bias = self._weighted_bias(regime)
+        weighted = self.meta is not None
+        tag = f" · ถ่วงน้ำหนักตาม regime {regime}" if weighted else ""
         self.detail = (
-            f"{self._label}: 🟢{bulls} 🔴{bears} ⚪{neutrals} → ฉันทามติ {self.bias:+.2f}"
+            f"{self._label}: 🟢{bulls} 🔴{bears} ⚪{neutrals} → ฉันทามติ {self.bias:+.2f}{tag}"
         )
         out = orjson.dumps(
             {
@@ -282,6 +360,8 @@ class DivisionChiefAgent(PeriodicAgent):
                 "bulls": bulls,
                 "bears": bears,
                 "neutral": neutrals,
+                "weighted": weighted,
+                "regime": regime,
                 "ts_ms": int(time.time() * 1000),
                 "source": self.name,
             }
@@ -315,8 +395,13 @@ class EntryChiefAgent(DivisionChiefAgent):
         label: str,
         logger: structlog.BoundLogger,
         quorum_frac: float = 0.25,
+        meta: SwarmMetaLearner | None = None,
+        regime_provider: Callable[[], str] | None = None,
     ) -> None:
-        super().__init__(name, scouts, bus, analysis_topic, label, logger)
+        super().__init__(
+            name, scouts, bus, analysis_topic, label, logger,
+            meta=meta, regime_provider=regime_provider,
+        )
         self._hub = hub
         self._signals_topic = signals_topic
         self._quorum = max(1, int(len(scouts) * quorum_frac))
@@ -394,8 +479,16 @@ def build_swarm_agents(
     logger: structlog.BoundLogger,
     *,
     per_division: int = 50,
+    meta: SwarmMetaLearner | None = None,
+    regime_provider: Callable[[], str] | None = None,
 ) -> dict[str, AgentLike]:
-    """Assemble the full analyst swarm. Returns name → agent (all real tasks)."""
+    """Assemble the full analyst swarm. Returns name → agent (all real tasks).
+
+    Task 3: ``meta`` (a shared :class:`SwarmMetaLearner`) and ``regime_provider``
+    enable regime-aware dynamic weighting across the whole 150-agent parameter
+    grid — each division chief weights its workers by their method's measured
+    reliability in the current regime. Defaults (None) keep equal-weight voting.
+    """
     hub = MarketDataHub()
     agents: dict[str, AgentLike] = {"market_data_hub": MarketDataHubAgent(
         "market_data_hub", bus, prices_topic, hub, logger
@@ -412,7 +505,8 @@ def build_swarm_agents(
         agents[name] = a
         hist_workers.append(a)
     hist_chief = DivisionChiefAgent(
-        "historical_chief", hist_workers, bus, analysis_topic, "วิเคราะห์กราฟอดีต", logger
+        "historical_chief", hist_workers, bus, analysis_topic, "วิเคราะห์กราฟอดีต", logger,
+        meta=meta, regime_provider=regime_provider,
     )
     agents["historical_chief"] = hist_chief
 
@@ -425,7 +519,8 @@ def build_swarm_agents(
         agents[name] = a
         live_workers.append(a)
     live_chief = DivisionChiefAgent(
-        "live_chief", live_workers, bus, analysis_topic, "อ่านราคาปัจจุบัน", logger
+        "live_chief", live_workers, bus, analysis_topic, "อ่านราคาปัจจุบัน", logger,
+        meta=meta, regime_provider=regime_provider,
     )
     agents["live_chief"] = live_chief
 
@@ -445,7 +540,7 @@ def build_swarm_agents(
     # consolidates its 50 scouts into one coordinated, edge-triggered BUY.
     entry_chief = EntryChiefAgent(
         "entry_chief", entry_workers, hub, bus, analysis_topic, signals_topic,
-        "หาจุดเข้าซื้อ", logger,
+        "หาจุดเข้าซื้อ", logger, meta=meta, regime_provider=regime_provider,
     )
     agents["entry_chief"] = entry_chief
 

@@ -136,3 +136,13 @@ class SwarmMetaLearner:
                 wins=int(rec.get("wins", 0)), total=int(rec.get("total", 0))
             )
         return cls(stats=stats)
+
+    def load_dict(self, data: Mapping[str, Mapping[str, int]]) -> None:
+        """Restore learned reliability IN PLACE (the swarm chiefs hold a live
+        reference to this instance, so it must be mutated, not replaced)."""
+        self.stats.clear()
+        for key, rec in data.items():
+            method, _, regime = key.partition("|")
+            self.stats[(method, regime)] = MethodRegimeStats(
+                wins=int(rec.get("wins", 0)), total=int(rec.get("total", 0))
+            )

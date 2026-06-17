@@ -162,6 +162,11 @@ class TimelineAnalystAgent:
                 "p_win": str(self.p_win),
                 "p_win_samples": self.p_win_samples,
                 "regime": self.regime,
+                # Surfaced top-level (not just inside ``analysis``) so the entry
+                # gate and dashboard read the full Group-B output from the bus —
+                # no hidden attribute coupling to this agent's instance state.
+                "past_win_rate": self.past_win_rate,
+                "recent_win_rate": self.recent_win_rate,
                 "analysis": self.analysis,
             }
         )

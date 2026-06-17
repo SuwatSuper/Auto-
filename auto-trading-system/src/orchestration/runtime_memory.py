@@ -17,6 +17,10 @@ from orchestration.runtime_base import _RuntimeBase
 class _MemoryMixin(_RuntimeBase):
     _CONTROL_KEY = "control.settings.v1"
     _MEMORY_KEY = "agents.memory.v1"  # every agent's learned memory, on disk
+    # Task 2/3: the learned dynamic weights (per-source trade win-rate) and the
+    # swarm's per-(method, regime) reliability table, so self-learning survives
+    # a restart instead of starting cold every session.
+    _WEIGHTS_KEY = "weights.learned.v1"
 
 
     async def _persist_controls(self, settings: dict[str, str]) -> None:
@@ -42,6 +46,13 @@ class _MemoryMixin(_RuntimeBase):
         }
         with contextlib.suppress(Exception):
             await store.set(self._MEMORY_KEY, orjson.dumps(payload))
+        # Persist the learned dynamic weights alongside the per-agent memory.
+        weights_blob = {
+            "source_perf": self._source_perf.to_dict(),
+            "swarm_meta": self._swarm_meta.to_dict(),
+        }
+        with contextlib.suppress(Exception):
+            await store.set(self._WEIGHTS_KEY, orjson.dumps(weights_blob))
 
     async def _restore_memories(self) -> None:
         """Reload each agent's memory from the last session so it remembers its
@@ -71,6 +82,34 @@ class _MemoryMixin(_RuntimeBase):
             learner.log("🧠 จำจากเซสชันก่อนได้ (ความผิดพลาด + การแก้ไข)", "event")
             restored += 1
         self.logger.info("runtime.memory_restored", agents=restored)
+        await self._restore_weights(store)
+
+    async def _restore_weights(self, store: StateStore) -> None:
+        """Reload the learned dynamic weights (Task 2/3) and push the source
+        weights into the live Supreme commander. Best-effort; never raises."""
+        try:
+            raw = await store.get(self._WEIGHTS_KEY)
+        except Exception:
+            return
+        if raw is None:
+            return
+        try:
+            blob = orjson.loads(raw)
+        except orjson.JSONDecodeError:
+            return
+        if not isinstance(blob, dict):
+            return
+        sp = blob.get("source_perf")
+        if isinstance(sp, dict):
+            with contextlib.suppress(Exception):
+                self._source_perf.load_dict(sp)
+                supreme = self.agents.get("supreme_commander")
+                if supreme is not None and hasattr(supreme, "update_weights"):
+                    supreme.update_weights(self._source_perf.weights())
+        sm = blob.get("swarm_meta")
+        if isinstance(sm, dict):
+            with contextlib.suppress(Exception):
+                self._swarm_meta.load_dict(sm)
 
     async def _memory_loop(self) -> None:
         """Persist memory on an interval so progress is saved gradually."""

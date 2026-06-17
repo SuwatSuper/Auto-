@@ -1,13 +1,9 @@
 """Win-probability entry gate + per-agent learning board + daily governance."""
 from __future__ import annotations
 
-from decimal import Decimal
-
 import structlog
 
 from orchestration.runtime import PipelineRuntime
-
-D = Decimal
 
 
 class _S:
@@ -40,15 +36,17 @@ def test_gate_blocks_buy_until_pwin_proven() -> None:
     assert not approved
     assert "SAMPLE_TOO_SMALL" in reasons or "P_WIN_BELOW_MIN" in reasons
 
-    # simulate analyst measuring a high win rate over a real sample
-    rt._timeline.p_win = D("0.85")        # type: ignore[attr-defined]
-    rt._timeline.p_win_samples = 40       # type: ignore[attr-defined]
-    rt._timeline.regime = "TREND_UP"      # type: ignore[attr-defined]
+    # The gate reads ONLY the bus-fed confluence cache (no hidden attribute
+    # coupling). Simulate the Timeline Analyst publishing a high measured win
+    # rate over a real sample by folding a timeline.v1 message into the cache.
+    rt._apply_confluence_message(
+        "timeline.v1", {"p_win": "0.85", "p_win_samples": 40, "regime": "TREND_UP"}
+    )
     approved2, reasons2 = rt._entry_gate({"signal": "BUY"})
     assert approved2 and reasons2 == []
 
     # drop p_win below the floor → blocked again
-    rt._timeline.p_win = D("0.60")        # type: ignore[attr-defined]
+    rt._apply_confluence_message("timeline.v1", {"p_win": "0.60", "p_win_samples": 40})
     approved3, reasons3 = rt._entry_gate({"signal": "BUY"})
     assert not approved3 and "P_WIN_BELOW_MIN" in reasons3
 

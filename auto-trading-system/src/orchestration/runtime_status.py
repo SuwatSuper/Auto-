@@ -359,6 +359,8 @@ class _StatusMixin(_RuntimeBase):
             "live_orders_armed": self._live_orders_armed(),
             "timeline": self._timeline_status(),
             "entry_gate": self._entry_gate_status(),
+            "confluence": self._confluence_status(),
+            "dynamic_weighting": self._weighting_status(),
             "daily": self._daily_status(),
             "news": dict(self.last_news),
             "agents": [self._agent_status(n, a) for n, a in self.agents.items()],
@@ -399,29 +401,38 @@ class _StatusMixin(_RuntimeBase):
         )
 
     def _timeline_status(self) -> dict[str, object]:
-        """Timeline Analyst snapshot for the dashboard (win-prob + regime)."""
-        tl = self._timeline
-        if tl is None:
+        """Timeline Analyst snapshot for the dashboard (win-prob + regime).
+
+        Reads from the bus-fed confluence cache, not the agent instance — the
+        dashboard sees exactly what the gate sees (single source of truth)."""
+        if self._timeline is None:
             return {"available": False}
+        c = self._confluence
+        p_win = str(c.get("p_win", "0"))
+        samples = self._confluence_int("p_win_samples")
+        analysis = c.get("analysis", {})
+        try:
+            p_win_pct = round(float(p_win) * 100, 1)
+        except (TypeError, ValueError):
+            p_win_pct = 0.0
         return {
             "available": True,
-            "p_win": str(getattr(tl, "p_win", "0")),
-            "p_win_pct": round(float(getattr(tl, "p_win", 0)) * 100, 1),
-            "p_win_samples": int(getattr(tl, "p_win_samples", 0)),
-            "regime": str(getattr(tl, "regime", "RANGE")),
-            "past_win_rate": getattr(tl, "past_win_rate", None),
-            "recent_win_rate": getattr(tl, "recent_win_rate", None),
+            "p_win": p_win,
+            "p_win_pct": p_win_pct,
+            "p_win_samples": samples,
+            "regime": str(c.get("regime", "RANGE")),
+            "past_win_rate": c.get("past_win_rate"),
+            "recent_win_rate": c.get("recent_win_rate"),
             "min_p_win": str(self._dec_setting("min_p_win", "0.55")),
             "passes_gate": (
-                int(getattr(tl, "p_win_samples", 0)) >= int(getattr(self.settings, "gate_min_samples", 8))
-                and Decimal(str(getattr(tl, "p_win", "0"))) >= self._dec_setting("min_p_win", "0.55")
+                samples >= int(getattr(self.settings, "gate_min_samples", 8))
+                and self._confluence_dec("p_win") >= self._dec_setting("min_p_win", "0.55")
             ),
-            "analysis": dict(getattr(tl, "analysis", {})),
+            "analysis": dict(analysis) if isinstance(analysis, dict) else {},
         }
 
     def _entry_gate_status(self) -> dict[str, object]:
-        tl = self._timeline
-        samples = int(getattr(tl, "p_win_samples", 0)) if tl is not None else 0
+        samples = self._confluence_int("p_win_samples")
         min_samples = int(getattr(self.settings, "gate_min_samples", 8))
         return {
             "enabled": self._entry_gate_enabled,
@@ -433,6 +444,37 @@ class _StatusMixin(_RuntimeBase):
             "warming_up": samples < min_samples,
             "blocked_by_reason": dict(self._gate_block_reasons),
             "blocked_total": sum(self._gate_block_reasons.values()),
+        }
+
+    def _confluence_status(self) -> dict[str, object]:
+        """The full bus-fed confluence snapshot feeding the entry gate (Task 1).
+
+        Proves every department reaches the gate via the bus: each field here is
+        the latest value published to that department's topic."""
+        c = self._confluence
+        return {
+            "p_win": str(c.get("p_win", "0")),                 # timeline_analyst (B)
+            "regime": str(c.get("regime", "RANGE")),           # timeline_analyst (B)
+            "sim_win_rate": str(c.get("sim_win_rate", "-1")),  # execution_agent  (B)
+            "swarm_bias": round(float(self._confluence_dec("swarm_bias")), 4),  # chiefs (B)
+            "prob_bull": str(c.get("prob_bull", "0.5")),       # probability_lab  (A)
+            "sentiment": str(c.get("sentiment", "0")),         # news_intelligence (A)
+            "price_pctl": str(c.get("price_pctl", "-1")),      # research_dept    (A)
+            "division_bias": dict(self._division_bias),
+        }
+
+    def _weighting_status(self) -> dict[str, object]:
+        """Dynamic vote-weighting snapshot (Task 2): each source's measured trade
+        win-rate and the resulting Supreme vote weight."""
+        supreme = self.agents.get("supreme_commander")
+        weights = (
+            supreme.weights_snapshot()
+            if supreme is not None and hasattr(supreme, "weights_snapshot")
+            else {}
+        )
+        return {
+            "sources": self._source_perf.summary(),
+            "supreme_weights": weights,
         }
 
     def write_daily_summary(self) -> dict[str, object]:

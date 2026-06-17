@@ -148,10 +148,31 @@ class _LiveTradingMixin(_RuntimeBase):
         )
         return not target_locked  # opt-in: halt new entries once target reached
 
+    def _confluence_dec(self, key: str, default: str = "0") -> Decimal:
+        """Read one Decimal field from the bus-fed confluence cache (never raises)."""
+        try:
+            return Decimal(str(self._confluence.get(key, default)))
+        except (InvalidOperation, ValueError, TypeError):
+            return Decimal(default)
+
+    def _confluence_int(self, key: str, default: int = 0) -> int:
+        """Read one int field from the bus-fed confluence cache (never raises)."""
+        try:
+            return int(str(self._confluence.get(key, default)))
+        except (ValueError, TypeError):
+            return default
+
     def _entry_gate(self, data: dict[str, object]) -> tuple[bool, list[str]]:
         """Confluence + win-probability gate for a proposed BUY entry.
-        Returns (approved, reason_codes). Honest: p_win is the Timeline Analyst's
-        MEASURED historical win rate, not a promise."""
+
+        Reads EVERY input from the bus-fed confluence cache (``self._confluence``)
+        — the Timeline Analyst's p_win/regime (Group B), the Sim backtest win-rate
+        (Group B), the division chiefs' consensus bias (Group B), the RSI-based
+        probability (Group A), the news sentiment (Group A), and the research
+        percentile (Group A). NO agent instance attributes are touched here, so
+        there is no hidden coupling: a department influences the gate only by
+        publishing to its topic, which ``_confluence_loop`` folds into the cache.
+        Honest: p_win is the MEASURED historical win rate, not a promise."""
         if not self._entry_gate_enabled:
             return True, []
         from domain.strategy.base import SignalAction  # noqa: PLC0415
@@ -161,29 +182,45 @@ class _LiveTradingMixin(_RuntimeBase):
             evaluate_entry,
         )
 
-        tl = self._timeline
-        p_win = Decimal(str(getattr(tl, "p_win", "0"))) if tl is not None else Decimal("0")
-        samples = int(getattr(tl, "p_win_samples", 0)) if tl is not None else 0
-        regime = str(getattr(tl, "regime", "RANGE")) if tl is not None else "RANGE"
-        try:
-            sentiment = Decimal(str(self.last_news.get("score", "0")))
-        except (InvalidOperation, ValueError, TypeError):
-            sentiment = Decimal("0")
-
+        c = self._confluence
+        regime = str(c.get("regime", "RANGE"))
         inputs = EntryInputs(
             signal_action=SignalAction.BUY,
             signal_confidence=Decimal("1"),  # already cleared Supreme consensus
             regime=regime,
-            sentiment_score=sentiment,
-            p_win=p_win,
-            p_win_samples=samples,
+            sentiment_score=self._confluence_dec("sentiment"),       # news_intelligence
+            p_win=self._confluence_dec("p_win"),                     # timeline_analyst
+            p_win_samples=self._confluence_int("p_win_samples"),
             trend_agree=(regime != "TREND_DOWN"),
+            prob_bull=self._confluence_dec("prob_bull", "0.5"),      # probability_lab
+            swarm_bias=self._confluence_dec("swarm_bias"),           # division chiefs
+            price_pctl=self._confluence_dec("price_pctl", "-1"),     # research_dept
+            sim_win_rate=self._confluence_dec("sim_win_rate", "-1"), # execution_agent (Sim)
         )
         params = GateParams(
             min_p_win=self._dec_setting("min_p_win", "0.55"),
             min_confidence=self._dec_setting("gate_min_confidence", "0.50"),
             min_samples=int(getattr(self.settings, "gate_min_samples", 8)),
             block_regime_mismatch=bool(getattr(self.settings, "gate_block_regime_mismatch", False)),
+            # Task 1: every Group-A/Group-B read is CONSUMED from the bus and fed
+            # into the gate here. The two confluence vetoes that don't fight a
+            # long-only TREND entry — news sentiment (above) and the swarm's net
+            # consensus — gate by DEFAULT; they only bite on a genuinely opposing
+            # read (neutral always passes). The mean-reversion-flavoured reads
+            # (RSI probability, range percentile, rolling-backtest win-rate) are
+            # operator opt-in (default OFF, like the order-book veto) because a
+            # valid trend BUY legitimately fires into overbought / new-high / thin
+            # -backtest conditions; an operator running a dip-buying profile turns
+            # them on. All four are still surfaced in status() so the operator
+            # sees what each department is currently saying.
+            swarm_veto=bool(getattr(self.settings, "gate_swarm_veto", True)),
+            min_swarm_bias=self._dec_setting("gate_min_swarm_bias", "-0.50"),
+            probability_veto=bool(getattr(self.settings, "gate_probability_veto", False)),
+            min_prob_bull=self._dec_setting("gate_min_prob_bull", "0.30"),
+            research_veto=bool(getattr(self.settings, "gate_research_veto", False)),
+            max_entry_pctl=self._dec_setting("gate_max_entry_pctl", "0.97"),
+            sim_veto=bool(getattr(self.settings, "gate_sim_veto", False)),
+            min_sim_win_rate=self._dec_setting("gate_min_sim_win_rate", "0.20"),
         )
         decision = evaluate_entry(inputs, params)
         reasons = [r.value for r in decision.reasons]
