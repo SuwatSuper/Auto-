@@ -29,6 +29,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -c constraints.txt pandas xlrd openpyxl rapidfuzz numpy coverage
+          # [typing gate] mypy ทำให้ test_typing_leaf.py บังคับจริงใน standalone loop
+          #   (ชั้น leaf utility ต้อง type-annotated ครบ — ไม่มี mypy = test SKIP)
+          pip install mypy
 
       - name: Version gate (blocking — danger=fail, aux/optional missing=warn)
         # [B1-FIX] เดิม `|| true` ทำให้ด่านนี้เป็นแค่ของประดับ. version_gate FAIL เฉพาะเคสอันตราย

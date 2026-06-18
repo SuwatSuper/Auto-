@@ -6,6 +6,10 @@
 
 ตำแหน่งใน DAG:  config + puopuy_core(safe)  →  [puopuy_dates]  →  parser/validators  →  main
 """
+from __future__ import annotations
+
+from typing import Any
+
 import re
 from datetime import datetime
 import pandas as pd
@@ -18,7 +22,7 @@ except Exception:
     xlrd = None
 
 
-def parse_date_any(v):
+def parse_date_any(v: Any) -> datetime | None:
     if v is None or (isinstance(v, float) and pd.isna(v)): return None
     if isinstance(v, datetime):
         d = v
@@ -72,7 +76,7 @@ def parse_date_any(v):
     return None
 
 
-def _ivp_year2_to_ce(yy):
+def _ivp_year2_to_ce(yy: int) -> tuple[int | None, str | None]:
     """ปี 2 หลัก → (ปี ค.ศ., ฐาน) หรือ (None, None) ถ้าไม่อยู่ช่วงปีจริง
     [T-1 FIX 11.06.69] ขยายเพดาน 82→99 / 39→56 (เดิมหมดอายุ พ.ศ.2582/ค.ศ.2039 —
     ระเบิดเวลา: ปี 83+ จะตก fallback yy+2500-543 ได้ปีเพี้ยน). ช่วง 40–57 คงตีความไม่ได้
@@ -83,7 +87,7 @@ def _ivp_year2_to_ce(yy):
         return 2000 + yy, 'ค.ศ.'
     return None, None
 
-def _ivp_year4_to_ce(yyyy):
+def _ivp_year4_to_ce(yyyy: int) -> tuple[int | None, str | None]:
     """ปี 4 หลัก → (ปี ค.ศ., ฐาน) หรือ (None, None) ถ้าไม่อยู่ช่วงปีจริง
     [T-1 FIX 11.06.69] ขยายเพดานเช่นเดียวกับปี 2 หลัก (2582→2599 / 2039→2056)."""
     if 2558 <= yyyy <= 2599:           # พ.ศ. 4 หลัก

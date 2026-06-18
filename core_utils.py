@@ -10,6 +10,8 @@
 """
 from __future__ import annotations
 
+from typing import Any
+
 import re
 from datetime import datetime
 
@@ -17,7 +19,7 @@ from config import _PP20_LABELS  # [F3] explicit (เดิม `from config impo
 from puopuy_core import normalize_text
 
 
-def clean_pp20_address(raw):
+def clean_pp20_address(raw: Any) -> str:
     """ล้างที่อยู่ที่ก๊อปจากเว็บ ภ.พ.20 — ตัด label ที่ตามด้วย '-' (ไม่มีข้อมูล)
     เก็บเฉพาะ label ที่มีข้อมูลจริง คืนเป็นบรรทัดเดียว
     เช่น 'อาคาร - ห้องเลขที่ - เลขที่ 450/18 ตรอก/ซอย - ถนนอนามัยงามเจริญ ...'
@@ -48,7 +50,7 @@ def clean_pp20_address(raw):
     return s
 
 
-def parse_address_input(addr_text):
+def parse_address_input(addr_text: Any) -> dict[str, str]:
     """v5.8 [FIX-2]: เพิ่ม ซ. ใน soi pattern"""
     parts = {}
     addr_text = normalize_text(addr_text)
@@ -74,11 +76,11 @@ def parse_address_input(addr_text):
     return parts
 
 
-def sort_bills_by_date(bills):
+def sort_bills_by_date(bills: list[dict]) -> list[dict]:
     return sorted(bills, key=lambda b: (b['iv_date'] or datetime.max, b['file'], str(b['sheet'])))
 
 
-def iv_digits_garbage(iv):
+def iv_digits_garbage(iv: Any) -> str | None:
     """[D1/D2] เลขใบกำกับ (เฉพาะส่วนตัวเลข) เป็น 'ขยะ' ไหม — คืนเหตุผล (str) หรือ None ถ้าปกติ.
 
     single-source ใช้ร่วม: r_iv007 (กฎ flag) + parser guard _pb_try_iv (กัน parser คว้าเศษ float ของยอด
@@ -96,7 +98,7 @@ def iv_digits_garbage(iv):
     return None
 
 
-def iv_amount_fragment(iv, subtotal=None, vat=None, total=None) -> bool:
+def iv_amount_fragment(iv: Any, subtotal: Any = None, vat: Any = None, total: Any = None) -> bool:
     """[D1/D2] เลข iv เป็น 'เศษทศนิยม/ตรงทั้งก้อนของยอดเงิน' ไหม — จับ parser คว้าเศษ float ของยอด
     (เช่น iv '0000000002' จาก VAT '1416233.0000000002'). conservative: ยาว ≥6 ถึงเทียบ. single-source."""
     digits = re.sub(r'\D', '', str(iv or ''))
@@ -115,7 +117,7 @@ def iv_amount_fragment(iv, subtotal=None, vat=None, total=None) -> bool:
     return False
 
 
-def validate_iv_post(bill) -> bool:
+def validate_iv_post(bill: dict | None) -> bool:
     """[D2-GUARD] post-extraction: ปฏิเสธ iv_number ที่เป็นเลขขยะ/มาจากยอดเงิน → ตั้งว่าง (mutate).
 
     เรียก "หลัง parse ครบ" (มีทั้ง iv + ยอด) — ไม่แก้ flow การ extract. ถ้า iv เป็น all-zeros/ซ้ำ/

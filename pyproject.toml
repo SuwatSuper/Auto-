@@ -23,3 +23,18 @@ target-version = "py312"
 # เทสเป็น script: ต้องตั้ง sys.path ก่อน import engine (E402), รวม import บรรทัดเดียว (E401),
 # ชื่อสั้น l ในตัวช่วย (E741) — เป็น idiom ของ harness ไม่ใช่โค้ดส่งมอบ
 "test_*.py" = ["E402", "E401", "E741"]
+
+# ── mypy: บังคับ type เฉพาะ "ชั้น leaf utility" (self-contained, ไม่พึ่ง re-export chain) ──
+# โค้ด parser/rules ใช้ dynamic re-export → mypy ทั้งก้อนจะ false-positive (undefined-name) เพียบ
+# จึง scope การบังคับ type ไว้ที่ leaf layer ที่ type-check ได้จริง. test_typing_leaf.py ตรึงสัญญานี้
+# (รัน mypy --disallow-untyped-defs บน 4 โมดูลนี้) และ GitHub CI บังคับจริง.
+#   ใช้เอง:  mypy --ignore-missing-imports --disallow-untyped-defs puopuy_core.py puopuy_dates.py puopuy_units.py core_utils.py
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+files = ["puopuy_core.py", "puopuy_dates.py", "puopuy_units.py", "core_utils.py"]
+
+[[tool.mypy.overrides]]
+module = ["puopuy_core", "puopuy_dates", "puopuy_units", "core_utils"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true

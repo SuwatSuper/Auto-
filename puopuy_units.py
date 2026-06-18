@@ -16,6 +16,8 @@
 """
 from __future__ import annotations
 
+from typing import Any
+
 import re
 from decimal import Decimal, InvalidOperation
 
@@ -24,7 +26,7 @@ from config import UNIT_HINT_PATTERNS
 
 
 # ───────────────────────── Decimal helper (FAITHFUL) ─────────────────────────
-def _D(x):
+def _D(x: Any) -> Decimal | None:
     """แปลงเป็น Decimal; None/ว่าง/แปลงไม่ได้ → None.
 
     Contract สรุปจาก call sites (rules_engine.r_vat001/002/003, formula/vat agents):
@@ -86,7 +88,7 @@ _VAT_TOL_BASE = Decimal('0.5')          # ฐานคงที่ (บาท)
 _VAT_TOL_DIVISOR = Decimal('100000')    # +1 บาท ต่อ subtotal ทุก 100,000 บาท
 
 
-def _vat_tolerance(sub):
+def _vat_tolerance(sub: Any) -> Decimal:
     """เกณฑ์ยอมรับส่วนต่างของผลรวมรายการ vs subtotal (คืน Decimal).
 
     สูตร (RESTORED): 0.5 + |subtotal|/100000.
@@ -119,7 +121,7 @@ for _grp in _UNIT_SYNONYMS:
         _UNIT_CANON_MAP[_u] = _rep
 
 
-def _unit_canon(u):
+def _unit_canon(u: Any) -> str:
     """ยุบหน่วยพ้องความหมายเป็นตัวแทนกลุ่ม (deterministic).
 
     ใช้ใน rules_engine.r_itm006/r_itm015 เพื่อ "ฟ้องเฉพาะหน่วยที่ต่างกลุ่มจริง".
@@ -141,7 +143,7 @@ def _unit_canon(u):
 _UNIT_HINT_COMPILED = [(re.compile(pat), hint) for pat, hint in UNIT_HINT_PATTERNS]
 
 
-def extract_unit_hint(name):
+def extract_unit_hint(name: Any) -> str:
     """ดึง 'หน่วยที่บอกใบ้ในชื่อสินค้า' จากรูปแบบ เลข+หน่วย (เช่น '5 ลิตร' → 'ลิตร').
 
     ใช้ UNIT_HINT_PATTERNS จาก config.py (ข้อมูลต้นฉบับ). คืนหน่วยของ pattern แรกที่เจอ,
