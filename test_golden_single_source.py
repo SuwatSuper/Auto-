@@ -139,6 +139,23 @@ def main():
     if n_bills is not None and f'{n_bills} บิล' not in readme:
         fails.append(f'README.md: ไม่พบ "{n_bills} บิล" (จำนวนบิลทางการต้องตรง baseline.n_bills)')
 
+    # 3) เวอร์ชัน — แหล่งความจริงเดียว = config_base.APP_VERSION. เคย drift (v9.1/v9.2/v9.3 ปนกัน
+    #    ข้าม README/README_PACKAGE/อ่านก่อนใช้). ดึงค่าจาก source ด้วย regex (ไม่ import เลี่ยงพึ่ง openpyxl)
+    #    แล้วบังคับให้ title ของเอกสารผู้ใช้ทุกฉบับสะกด "v<APP_VERSION>" ตรงกัน.
+    import re as _re
+    cfg_txt = _read('config_base.py') or ''
+    m = _re.search(r'APP_VERSION\s*=\s*"([^"]+)"', cfg_txt)
+    if not m:
+        fails.append('config_base.py: อ่าน APP_VERSION ไม่ได้ (แหล่งความจริงเดียวของเวอร์ชันหาย)')
+    else:
+        ver = m.group(1)
+        for rel in ('README.md', 'README_PACKAGE_TH.md', 'อ่านก่อนใช้.md', 'QUICKSTART_VSCODE_TH.md'):
+            txt = _read(rel)
+            if txt is None:
+                continue
+            if f'v{ver}' not in txt.splitlines()[0]:
+                fails.append(f'{rel}: title ไม่ตรง APP_VERSION (ต้องมี "v{ver}") — เวอร์ชัน drift')
+
     print('-' * 60)
     if fails:
         for f in fails:

@@ -18,7 +18,7 @@ import tempfile
 import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PREFIX = "pukpui_v9_2_hardened"
+PREFIX = "pukpui_v9_3_4"
 MAIN = f"{PREFIX}/ปุ้มปุ้ย_ultimate_v9_modular.py"
 JUNK_SUBSTR = ("/.git/", "__pycache__", "/master_companies.json")
 

@@ -1,4 +1,4 @@
-# QUICKSTART — ปุ้มปุ้ย v9.1 บน VS Code (ฉบับ Offline)
+# QUICKSTART — ปุ้มปุ้ย v9.3.4 บน VS Code (ฉบับ Offline)
 
 คู่มือเริ่มใช้งานบนเครื่องตัวเอง ผ่าน VS Code แบบ **ออฟไลน์ล้วน** (ไม่ต้องต่อเน็ตหลังติดตั้ง deps ครั้งแรก).
 ทุกอย่างกดผ่านเมนู **Terminal → Run Task…** (`Ctrl/Cmd+Shift+P` → "Run Task") ได้เลย ไม่ต้องจำคำสั่ง.

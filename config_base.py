@@ -19,7 +19,7 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 #   → banner/HTML/รายงาน อ่านจาก APP_VERSION เสมอ. *ไม่อยู่ในสิ่งที่ถูกแฮช* (audit snapshot/
 #   Excel ที่ verify_report_det ตรวจ) → ปรับได้โดย golden hash ทุกตัวไม่ขยับ (พิสูจน์แล้ว).
 # ============================================================
-APP_VERSION = "9.2"
+APP_VERSION = "9.3.4"
 __version__ = APP_VERSION
 
 

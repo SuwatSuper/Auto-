@@ -7,14 +7,14 @@
 #   สคริปต์นี้แพ็กผ่าน Python zipfile ที่ตั้ง flag 0x800 ให้ชื่อ non-ASCII อัตโนมัติ + self-verify.
 #
 # ใช้:
-#   bash package.sh                 # → dist/pukpui_v9_2_hardened.zip
+#   bash package.sh                 # → dist/pukpui_v9_3_4.zip
 #   bash package.sh /path/out.zip   # ระบุปลายทางเอง
 #
 # แพ็ก "เฉพาะไฟล์ที่ git track" (กรอง .git/cache/master_companies.json/.env อัตโนมัติตาม .gitignore).
 set -u
 cd "$(dirname "$0")" || exit 2
 
-PREFIX="pukpui_v9_2_hardened"
+PREFIX="pukpui_v9_3_4"
 OUT="${1:-dist/${PREFIX}.zip}"
 mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
 

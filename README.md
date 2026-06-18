@@ -1,4 +1,4 @@
-# ปุ้มปุ้ย (Puopuy) v9.2 — ระบบตรวจสอบใบกำกับภาษี (offline tax-invoice audit)
+# ปุ้มปุ้ย (Puopuy) v9.3.4 — ระบบตรวจสอบใบกำกับภาษี (offline tax-invoice audit)
 
 ระบบ Python แบบ **offline / deterministic** สำหรับตรวจใบกำกับภาษี/ใบแจ้งหนี้จากไฟล์ Excel
 (`.xls` / `.xlsx`) ของผู้ขาย: แกะไฟล์ → รัน rules ตรวจสอบ → ออกรายงาน Excel + สรุปรายบริษัทเป็น `.txt`
