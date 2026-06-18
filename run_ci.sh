@@ -134,8 +134,9 @@ fi
 LINT_SCOPE="offline_guard.py file_guard.py agents/verification_lenses.py agents/verification_agent.py test_offline_audit.py test_input_hardening.py test_validators_coverage.py test_verification_lens_pin.py test_verification_lenses_unit.py"
 MYPY_SCOPE="agents/contracts.py agents/base.py offline_guard.py file_guard.py"
 if "$PY" -m coverage --version >/dev/null 2>&1; then
-  # P2: line≥90 บังคับ + [coverage push 2026-06] บังคับ branch ≥85 ด้วย (floor ADR ที่ทุกกลุ่มผ่านแล้ว:
-  #   parser 90.3 / rules_engine 85.6 (ตึงสุด) / validators 93.9 / units 100). override ได้: PUOPUY_COV_BRANCH_MIN=NN
+  # P2: line≥90 บังคับ + [coverage push 2026-06] บังคับ branch ≥85 ด้วย (floor ADR ที่ทุกกลุ่มผ่านแล้ว บน Py3.12+pinned:
+  #   parser branch 85.3 / rules_engine 85.1 (ตึงสุด) / validators 85.2 / units 100). override ได้: PUOPUY_COV_BRANCH_MIN=NN
+  # [drift-fix 2026-06] GitHub CI (ci.yml) ตั้ง PUOPUY_COV_BRANCH_MIN=85 แล้วเช่นกัน → local==CI เข้มเท่ากัน
   run "[10] coverage gate (line ≥90% + branch ≥85)" env PUOPUY_COV_BRANCH_MIN="${PUOPUY_COV_BRANCH_MIN:-85}" "$PY" coverage_gate.py
 else _strict_skip "[10] coverage gate" "pip install coverage --break-system-packages"; fi
 if "$PY" -m ruff --version >/dev/null 2>&1; then

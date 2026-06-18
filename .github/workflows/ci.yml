@@ -51,8 +51,12 @@ jobs:
           done
           exit $fail
 
-      - name: Coverage gate (line ≥90%)
+      - name: Coverage gate (line ≥90% + branch ≥85%)
         # [B4-FIX] เดิมรันเฉพาะ local (run_ci.sh) — ย้ายเข้า GitHub CI ให้ coverage ตกแล้ว CI แดงจริง
+        # [drift-fix 2026-06] เดิม GitHub CI บังคับแค่ line; run_ci.sh บังคับ branch ≥85 อยู่แล้ว →
+        #   ตั้ง PUOPUY_COV_BRANCH_MIN=85 ให้ GitHub CI "เข้ม=local" (branch coverage เป็นเกตจริง ไม่ใช่รายงานเฉย ๆ)
+        env:
+          PUOPUY_COV_BRANCH_MIN: "85"
         run: python coverage_gate.py
 
       - name: Parse canary (fixture rate — กัน parse ถอยหลังเงียบ)

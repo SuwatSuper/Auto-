@@ -7,7 +7,7 @@ export PUOPUY_AUDIT_DATE ?= 2026-06-02
 PY ?= python3
 DATA ?= /mnt/project
 
-.PHONY: help ci gate smoke pinned mesh agents agents-real regression regression-real baseline-fixture clean
+.PHONY: help ci gate smoke pinned mesh agents agents-real regression regression-real coverage baseline-fixture clean
 
 help:
 	@echo "เป้าหมายที่ใช้ได้:"
@@ -17,7 +17,8 @@ help:
 	@echo "  make mesh            - สัญญา mesh (Tier-2 ไม่เพี้ยนเงียบ)"
 	@echo "  make agents          - สัญญา agent บน fixture"
 	@echo "  make regression      - regression engine==agent บน fixture (hash 269ddaed)"
-	@echo "  make ci              - รันด่านทั้งหมด (gate+smoke+pinned+mesh+agents+regression fixture)"
+	@echo "  make coverage        - coverage gate (line ≥90% + branch ≥85%; override: BRANCH_MIN=NN)"
+	@echo "  make ci              - รันด่านทั้งหมด (gate+smoke+pinned+mesh+agents+regression+coverage)"
 	@echo "  make regression-real DATA=<dir> - regression เต็มบนข้อมูลจริง (baseline d6b23d12, 106 ไฟล์)"
 	@echo "  make agents-real DATA=<dir>     - สัญญา agent + เช็คเลข baseline (ต้องมี 106 ไฟล์)"
 	@echo "  make baseline-fixture - สร้าง baseline ของ fixture ใหม่ (เมื่อแก้ fixture โดยตั้งใจ)"
@@ -46,7 +47,10 @@ regression:
 regression-real:
 	$(PY) regression_full.py . $(DATA)
 
-ci: gate smoke pinned mesh agents regression
+coverage:
+	PUOPUY_COV_BRANCH_MIN=$(or $(BRANCH_MIN),85) $(PY) coverage_gate.py
+
+ci: gate smoke pinned mesh agents regression coverage
 	@echo "✅ CI (fixture) ผ่านทั้งหมด"
 
 baseline-fixture:
