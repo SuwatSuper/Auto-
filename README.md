@@ -37,6 +37,12 @@ tests/fixtures · tests/real_cases   ข้อมูลตัวอย่าง 
 ปุ้มปุ้ย_ultimate_v9_modular.py     main entry (โหลดทั้งระบบ)
 ```
 
+## เอกสาร
+
+เริ่มที่ **[`DOCS_INDEX.md`](DOCS_INDEX.md)** — สารบัญเอกสารทั้งหมด แบ่งเป็น active / ADR / historical.
+การเปลี่ยนแปลงตามเวอร์ชันดู [`CHANGELOG.md`](CHANGELOG.md); ค่า hash ทางการดู `GOLDEN.md`;
+ทะเบียน ADR + ตัวเลข baseline ดู `INVARIANTS/DECISIONS.md`.
+
 ## ปรัชญาการตรวจ
 
 > **"ตรวจไม่ได้" ≠ "ถูก"** — ถ้าไม่มี reference (master) หรือข้อมูลขาด ระบบต้องพูดความจริงว่า
