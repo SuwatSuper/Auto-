@@ -1,4 +1,4 @@
-# MAINTENANCE — กฎโดยนัยที่คนดูแลต้องรู้ (ปุ้มปุ้ย v9.2)
+# MAINTENANCE — กฎโดยนัยที่คนดูแลต้องรู้ (ปุ้มปุ้ย v9.3.4)
 
 > เอกสารนี้รวบ "กฎที่ต้องจำ" ซึ่งเดิมกระจายเป็นคอมเมนต์ติดป้ายเวอร์ชันหลายที่ — เพื่อให้ผู้รับช่วง
 > เห็นภาพรวมในหน้าเดียว. **แหล่งความจริงของ ADR/ตัวเลข baseline ยังคงเป็น `INVARIANTS/DECISIONS.md`.**
@@ -8,9 +8,9 @@
    ทุกการแก้ "engine/leaf" ต้องผ่าน:
    ```
    PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 \
-     python3 regression_full.py . tests/fixtures tests/fixtures/baseline_fixture.json   # d8bcde85…
-     python3 golden_master.py . /tmp/x.json /mnt/project                                # f1ac8421… (106 ไฟล์)
-     python3 regression_full.py . <81-ไฟล์จริง>                                          # f1ac8421… (ทางการ)
+     python3 regression_full.py . tests/fixtures tests/fixtures/baseline_fixture.json   # 269ddaed… (fixture)
+     python3 golden_master.py . /tmp/x.json /mnt/project                                # d6b23d12… (106 ไฟล์ ทางการ)
+     python3 regression_full.py . <106-ไฟล์จริง>                                         # d6b23d12… (ทางการ)
    ```
 2. **ออฟไลน์เป็นค่าตั้งต้น.** เน็ตเปิดได้เฉพาะตั้งใจผ่าน `PUOPUY_ALLOW_NETWORK=1` (ดู `offline_guard.py`).
 3. **ห้ามเพิ่มฟีเจอร์** เว้นแต่ได้รับอนุญาตชัดเจน. งานคุณภาพ (เสถียร/น่าเชื่อถือ/บำรุงรักษา) มาก่อน.
@@ -59,4 +59,4 @@ agent review/AI/synthesis/super เป็น **read-only** → ผลไปอ�
 ## 7. รายการที่ "แนะนำแต่ยังเป็น Tier 2/อนาคต" (ต้อง golden gate + อนุมัติ)
 - ✅ **(ทำแล้ว · ADR-017)** cross-check idempotent ด้วย `_append_issue_unique` — §2 ปลอดภัยเมื่อเรียกซ้ำแล้ว (เดิมเป็นรากของ non-idempotency).
 - ✅ **(ทำแล้ว · ADR-017)** `webverify` sqlite `conn` ห่อ `try/finally` แล้ว (กัน leak).
-- ⏳ **(รอ golden gate 81 ไฟล์ + อนุมัติ)** ลด hot loop ใน parser (`_dic_int_run`/`_row_label_match`) เพื่อ perf — แตะ parse core (byte-sensitive) ห้ามแก้แบบเดา.
+- ⏳ **(รอ golden gate 106 ไฟล์ + อนุมัติ)** ลด hot loop ใน parser (`_dic_int_run`/`_row_label_match`) เพื่อ perf — แตะ parse core (byte-sensitive) ห้ามแก้แบบเดา.

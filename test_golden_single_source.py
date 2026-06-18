@@ -28,6 +28,9 @@ OPERATIONAL_SURFACES = [
     'QUICKSTART_VSCODE_TH.md',
     'INVARIANTS/DECISIONS.md',   # เฉพาะ banner/ADR-019 ส่วนบน (ทั้งไฟล์มีของเก่าด้วย → ดูหมายเหตุ §ledger ด้านล่าง)
     'constraints.txt',           # [doc-hash-fix] คำสั่ง rebuild ต้องชี้ค่าปัจจุบัน (เคยค้าง f1ac8421)
+    'Makefile',                  # [drift-fix 2026-06] help text เคยค้าง ec61907f/d8bcde85 — ปิดช่องที่เคยทำ drift
+    '.github/workflows/ci.yml',  # [drift-fix 2026-06] comment/step-name ต้องชี้ค่าปัจจุบัน (เคยค้าง 81 ไฟล์/ec61907f)
+    'MAINTENANCE.md',            # [drift-fix 2026-06] how-to-maintain ต้องชี้ค่าปัจจุบัน ไม่ใช่ f1ac8421
 ]
 # หมายเหตุ: regression_full.py / verify_golden.py / golden_master.py จงใจ "ไม่" อยู่ใน list นี้ —
 #   มันคือ verifier ที่ "อ่าน" baseline.json ตอน runtime (ไม่ได้ hardcode ค่า hash ไว้ในตัว) →
@@ -100,6 +103,34 @@ def main():
         fails.append('GOLDEN.md: ไม่พบ (ควรเป็นแหล่งอ้างอิง hash ทางการเดียว — กันสับสน)')
     elif not ((cur in gm) or any(ref in gm for ref in NEUTRAL_REFS)):
         fails.append(f'GOLDEN.md: ไม่อ้าง golden ปัจจุบัน ({cur}… หรือ baseline.json._sha256)')
+
+    # 1.7) FIXTURE golden (3 บิล) — แกนคนละตัวกับ corpus. เคย drift จริง (d8bcde85 → 269ddaed หลัง ADR-041)
+    #   เพราะ "ไม่มีใครเฝ้า": Makefile/ci.yml/MAINTENANCE อ้างค่าเก่าค้างทั้งที่ baseline_fixture.json
+    #   ถูก rebaseline แล้ว. แกนนี้ปิดช่องนั้น — อ่านค่าปัจจุบันจาก baseline_fixture.json (single source)
+    #   แล้วบังคับให้พื้นผิวที่ "พูดถึง fixture golden" อ้างค่าปัจจุบัน + ห้ามมี fixture hash ปลดระวาง.
+    fx_path = os.path.join(HERE, 'tests', 'fixtures', 'baseline_fixture.json')
+    cur_fix = ''
+    if os.path.isfile(fx_path):
+        fxfull = (json.load(open(fx_path, encoding='utf-8')).get('_sha256') or '')
+        if len(fxfull) == 64:
+            cur_fix = fxfull[:8]
+    if not cur_fix:
+        fails.append('tests/fixtures/baseline_fixture.json: อ่าน _sha256 ไม่ได้ (fixture single source หาย)')
+    else:
+        RETIRED_FIXTURE_PREFIXES = ('d8bcde85',)   # fixture hash ก่อน ADR-041 (float decimal tail) — ปลดระวาง
+        FIXTURE_SURFACES = ['Makefile', '.github/workflows/ci.yml', 'MAINTENANCE.md']
+        for rel in FIXTURE_SURFACES:
+            text = _read(rel)
+            if text is None:
+                continue
+            if cur_fix not in text:
+                fails.append(f'{rel}: ไม่อ้าง fixture golden ปัจจุบัน ({cur_fix}…) — เคยค้างค่าเก่า')
+            for stale in RETIRED_FIXTURE_PREFIXES:
+                if stale != cur_fix and stale in text:
+                    ln = next((i + 1 for i, l in enumerate(text.splitlines()) if stale in l), '?')
+                    fails.append(f'{rel}: พบ fixture hash ปลดระวาง "{stale}" (บรรทัด ~{ln}) — ต้องเป็น {cur_fix}')
+        if gm is not None and cur_fix not in gm:
+            fails.append(f'GOLDEN.md: ไม่อ้าง fixture golden ปัจจุบัน ({cur_fix}…) ในตารางอภิธานศัพท์')
 
     # 2) README ต้องระบุจำนวนไฟล์/บิลตรง baseline (derive — ไม่ hardcode ใน test)
     readme = _read('README.md') or ''
