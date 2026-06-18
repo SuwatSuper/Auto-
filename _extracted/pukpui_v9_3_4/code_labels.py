@@ -338,6 +338,8 @@ def clean_detail(code: str, detail: str) -> str:
             return (f"สินค้า: {prod} | ไม่มีหน่วยสินค้า (ดึงไม่ครบ)" if prod else "ไม่มีหน่วยสินค้า (ดึงไม่ครบ)")
         mu = re.search(r'หน่วย\s*"([^"]+)".*?ควรเป็น\s*"([^"]+)"', d)
         if mu:
+            # [recheck] เก็บรูป 'ควรเป็น' ไว้ใน "ราย detail ภายใน" (council/viewer ใช้จำแนก typo↔หน่วยขาด) —
+            #   การแสดงผลต่อผู้ใช้ตัด 'ควรเป็น' ออกที่ชั้น render (super_ultra_viewer) ให้เหลือ 'หน่วย X'
             return (f"สินค้า: {prod} | " if prod else "") + f'หน่วย "{mu.group(1)}" ควรเป็น "{mu.group(2)}"'
         return d_nohdr
     if code == "ITM010":                                   # สะกดผิด: ของเดิม→ที่ควร + ชื่อสินค้า

@@ -315,7 +315,7 @@ def _pinpoint_field(field, entries):
             _e = extra.replace("\u201c", '"').replace("\u201d", '"')
             _q = re.findall(r'"([^"]+)"', _e)
             if fx.get("code") == "ITM019" and (_um := re.search(r'หน่วย\s*"([^"]+)"\s*ควรเป็น\s*"([^"]+)"', _e)):
-                seg += f' หน่วย "{_um.group(1)}" ควรเป็น "{_um.group(2)}"'   # [C2] หน่วยสะกดผิด → ผิด→ถูก
+                seg += f' หน่วย {_um.group(1)}'   # [recheck] หน่วยทำเหมือนรายการสินค้า: โชว์หน่วยในบิลให้รีเช็ค ไม่ระบุ "ควรเป็น"
             elif fx.get("seq") and _q:
                 seg += f" คำว่า{_q[0]}"
             elif extra:
@@ -508,8 +508,8 @@ def write_xlsx(rows, path):
         # fixlist (ขึ้นทั้ง .txt + Excel) + xlsx_only (เช่น ITM016 รายการซ้ำ — Excel เท่านั้น)
         for x in list(r.get("fixlist", [])) + list(r.get("xlsx_only", [])):
             seq = f"#{x['seq']}" if x["seq"] else "ทั้งบิล"
-            vals = [wr - 1, x["file"], x["date"], x["sheet"], seq, r["company"],
-                    x["field"], x["type"], x["detail"], x["action"]]
+            vals = [wr - 1, x["file"], x["date"], x["sheet"], seq, r["company"], x["field"], x["type"],
+                    re.sub(r'หน่วย\s*"([^"]+)"\s*ควรเป็น\s*"[^"]+"', r'หน่วย \1', x["detail"]), x["action"]]  # [recheck] หน่วย→รีเช็ค ไม่ระบุ 'ควรเป็น'
             for ci, v in enumerate(vals, 1):
                 c = ws2.cell(wr, ci, v); c.font = Font(name="Arial", size=10)
                 c.alignment = Alignment(wrap_text=True, vertical="top"); c.border = BD

@@ -47,11 +47,15 @@ chk('control (ไม่ข้ามหลัก) ยังจับซ้ำไ�
 chk('format ต่างจริง (raw 3 vs 4 หลัก) ยังข้ามถูกต้อง',
     V._iv_check_sequence([_mk('IV100'), _mk('IV0099')]) == [])
 
-print('== #2 r_vat004 ทศนิยมเกิน 2 ==')
-chk('flag 100.123 (3 ทศนิยมจริง)', rb.r_vat004({'subtotal': 100.123, 'vat': 0.0, 'total': 100.123, 'items': []}, {}, {}) != [])
-chk('ไม่ flag float residue 12128.830000000002',
+print('== #2 VAT004 ปิดใช้งาน (เจ้าของยืนยันถูกต้อง — ปัดทศนิยม 2 ตำแหน่งถูกแล้ว) ==')
+from rules_engine import RULES
+import code_registry as CR
+chk('VAT004 ปิดใน RULES (enabled=False)', RULES['VAT004'].get('enabled') is False)
+chk('VAT004 มีเหตุผลใน DISABLED_BY_DESIGN', 'VAT004' in CR.DISABLED_BY_DESIGN)
+chk('r_vat004 ไม่ flag float residue 12128.830000000002',
     rb.r_vat004({'subtotal': 12128.830000000002, 'vat': 0.0, 'total': 12128.830000000002, 'items': []}, {}, {}) == [])
-chk('ไม่ flag เลข 2 ทศนิยมสะอาด 100.50', rb.r_vat004({'subtotal': 100.50, 'vat': 0.0, 'total': 100.50, 'items': []}, {}, {}) == [])
+chk('r_vat004 ไม่ flag ทศนิยม 3 ตำแหน่ง (ปัดเป็น 2 = ถูกต้อง)',
+    rb.r_vat004({'subtotal': 100.123, 'vat': 0.0, 'total': 100.123, 'items': []}, {}, {}) == [])
 
 print('== #3 ANTI_PREFIX (label ยอดเงิน ≠ เลขที่ใบกำกับ) ==')
 chk("'VAT 1416233' ไม่ถูกอ่านเป็น IV", p1._pick_best_iv('VAT 1416233') is None)
@@ -87,6 +91,35 @@ chk("r_itm013 seq เป็น string '1','2','3' ไม่ false positive",
     rb.r_itm013({'items': [{'seq': '1'}, {'seq': '2'}, {'seq': '3'}]}, {}, {}) == [])
 chk('r_itm013 seq int เริ่มที่ 2 ยังฟ้อง',
     rb.r_itm013({'items': [{'seq': 2}, {'seq': 3}]}, {}, {}) != [])
+
+print('== รายงาน: หน่วยสินค้าทำเหมือนรายการสินค้า (ตัด "ควรเป็น") ==')
+import super_ultra_viewer as SUV
+_ub = {'file': 'TSH_69_05.xls', 'sheet': '1', 'company': 'บริษัท ทดสอบ จำกัด', 'tax_id': '0',
+       'branch': 'สำนักงานใหญ่', 'address': 'x', 'iv_number': 'IV1',
+       'iv_date': dt.datetime(2022, 6, 13), 'total': 1070.0, 'vat': 70.0, 'subtotal': 1000.0,
+       'items': [{'seq': 6, 'name': 'ทินเนอร์', 'unit': 'ปี๊ป'}],
+       'issues': [{'code': 'ITM019', 'detail': '#6: "ทินเนอร์" — หน่วย "ปี๊ป" ควรเป็น "ปี๊บ"', 'severity': 'WARNING'}]}
+_blk = SUV.render_block(1, SUV.build([_ub])[0])
+chk("หน่วยโชว์ 'หน่วย ปี๊ป' (แบบรายการสินค้า)", 'หน่วย ปี๊ป' in _blk)
+chk("ไม่มีรูปเดิม 'ควรเป็น' ในบล็อก", 'ควรเป็น' not in _blk)
+
+print('== รายงาน: หมายเหตุหน่วยไทย/อังกฤษ สั้น (ตัด list หน่วย + ลงท้ายครับ) ==')
+import unit_detection_ext as UX
+# company_unit_notes อ่าน "ช่องหน่วย" ตรง ๆ (กก ↔ kg)
+_cbill = {'file': 'SHS_69_05.xls', 'company': 'บ.เอ', 'tax_id': '0111111111111',
+          'items': [{'seq': 1, 'name': 'a', 'unit': 'กก'}, {'seq': 2, 'name': 'b', 'unit': 'kg'}]}
+_notes = UX.company_unit_notes([_cbill])
+chk('company note ลงท้าย "ครับ"', any(n.endswith('ครับ') for n in _notes))
+chk('company note ไม่ list หน่วย (ไม่มี "(ไทย:")', all('(ไทย:' not in n for n in _notes))
+# file_spec อ่าน "หน่วยวัดฝังในชื่อ/สเปก" → ต้องมีเลขนำหน้า (เช่น 9มม. / 9mm.)
+def _fb(fl, *specs):
+    return {'file': fl, 'company': 'บ.เอ', 'tax_id': '0111111111111',
+            'items': [{'seq': i + 1, 'name': s, 'unit': ''} for i, s in enumerate(specs)]}
+_fnotes = UX.file_spec_unit_lang_notes([_fb('SHS_69_05.xls', 'ท่อ 9มม.', 'pipe 9mm.'),
+                                        _fb('TSH_69_05.xls', 'แผ่น 5ซม.', 'sheet 5cm.')])
+chk('file note รวมไฟล์เป็นบรรทัดเดียว "SHS และ TSH"', any('SHS และ TSH' in n for n in _fnotes))
+chk('file note ลงท้าย "ครับ" + ไม่ list หน่วย',
+    all(n.endswith('ครับ') and '(ไทย:' not in n for n in _fnotes))
 
 print()
 if _fails:

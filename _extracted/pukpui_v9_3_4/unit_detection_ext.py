@@ -407,10 +407,8 @@ def company_unit_notes(bills):
                 en.add(_norm(u))
     notes = []
     if th and en:
-        notes.append(
-            "หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษ "
-            f"(ไทย: {'/'.join(sorted(th))} · อังกฤษ: {'/'.join(sorted(en))})"
-        )
+        # [recheck] สั้น ภาษาคน — ไม่ list หน่วยทีละตัว (เจ้าของขอ "แค่นี้พอ จะได้ไม่งง")
+        notes.append("หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษครับ")
     if blank:
         notes.append(f"หน่วยสินค้าบางรายการไม่มีหน่วย/ดึงมาไม่ครบ ({blank} รายการ)")
     return notes
@@ -564,8 +562,8 @@ def _file_tag(fname):
 def file_spec_unit_lang_notes(bills):
     """หมายเหตุระดับ "ไฟล์": หน่วยวัดของสินค้า (ฝังในชื่อ/สเปก) ปนทั้งไทยและอังกฤษ.
 
-    คืน list[str] เรียงตามชื่อไฟล์ เช่น
-      "ไฟล์ SHS หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษ (ไทย: ซม/มม · อังกฤษ: mm)"
+    คืน list[str] รวมไฟล์ที่ปนภาษาเป็นบรรทัดเดียว สั้น ภาษาคน เช่น
+      "ไฟล์ SHS และ TSH หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษครับ"
     advisory ล้วน (อ่าน bills เท่านั้น ไม่ mutate / ไม่แตะ b['issues'] / golden hash ไม่ขยับ).
     """
     by_file = {}
@@ -582,12 +580,15 @@ def file_spec_unit_lang_notes(bills):
                         slot['en'].add(tok.lower())
                 elif key in _MEASURE_TH_KEYS:
                     slot['th'].add(tok)
-    notes = []
+    # [recheck] รวมทุกไฟล์ที่ปนภาษาเป็น "บรรทัดเดียว" สั้น ภาษาคน (เจ้าของขอ ไม่ list หน่วย/ไม่แยกหลายบรรทัด)
+    tags = []
     for fname in sorted(by_file):
         slot = by_file[fname]
         if slot['th'] and slot['en']:
-            notes.append(
-                f"ไฟล์ {_file_tag(fname)} หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษ "
-                f"(ไทย: {'/'.join(sorted(slot['th']))} · อังกฤษ: {'/'.join(sorted(slot['en']))})"
-            )
-    return notes
+            t = _file_tag(fname)
+            if t not in tags:                       # dedupe + รักษาลำดับ sorted (เช่น SHS_69_05/SHS_69_06 → 'SHS' ครั้งเดียว)
+                tags.append(t)
+    if not tags:
+        return []
+    joined = ' และ '.join(tags)                     # 1 ไฟล์ → "SHS" ; หลายไฟล์ → "SHS และ TSH"
+    return [f"ไฟล์ {joined} หน่วยสินค้า มีทั้งภาษาไทยและภาษาอังกฤษครับ"]

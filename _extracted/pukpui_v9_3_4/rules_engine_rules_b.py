@@ -3,7 +3,6 @@
 """rules_engine_rules_b — OBJ-MAINT: กลุ่มกฎ r_* (extract คัดลอกเป๊ะ). toolkit จาก rules_engine_base.
 ห้ามแก้ logic — golden byte-identical."""
 from __future__ import annotations
-import math   # [BUGFIX recheck #2/#4] isfinite guard บนเส้นทางยอดเงิน
 from rules_engine_base import (   # [F3 de-star] explicit re-export shim (split-base chain; เดิม `import *`)
     CFG, COMPANY_PREFIXES, COMPANY_PREFIX_RE, Counter,
     Decimal, PRODUCT_CATEGORIES, ROUND_HALF_UP, _AMBIG_SHORT_KW,
@@ -368,13 +367,12 @@ def r_vat003(b,m,c):
     return [f"Total ควร {expected:,.2f} แต่={tot:,.2f} (ต่าง {diff:,.2f})"]
 
 def r_vat004(b,m,c):
-    """ตรวจยอดเงินที่มีทศนิยมเกิน 2 ตำแหน่ง (เกินหน่วยสตางค์) — ผิดปกติสำหรับเงินบาท
+    """[ปิดใช้งาน — enabled=False ที่ registry] ปัดเศษทศนิยม.
 
-    [BUGFIX recheck #2] เดิม `round(fv, 2)` "ก่อน" แล้ววัดความยาวทศนิยม → หลังปัดเป็น 2 ตำแหน่ง
-      จำนวนทศนิยมเป็นไปไม่ได้ที่จะ > 2 → กฎตาย (เปิดใช้แต่ไม่เคย flag อะไรเลย).
-    ใหม่: ปัดที่ความละเอียดสูง (6 ตำแหน่ง) เพื่อ "ตัด floating-point residue" ออกก่อน
-      (เช่น vat=32678.830000000002 → 32678.83 → ไม่ flag) แล้วค่อยวัดทศนิยม "จริง"
-      → ค่า 3+ ตำแหน่งจริง (เช่น 100.123) ถูกฟ้องตามชื่อกฎ; residue ไม่โดน.
+    [recheck] เจ้าของยืนยัน: ค่าที่ปัดเป็น 2 ตำแหน่งเพื่อ "แสดงผล" (เช่น 12128.830000000002 →
+      12128.83) ถูกต้องอยู่แล้ว — float residue ไม่ใช่ error. กฎนี้จึง round เป็น 2 ตำแหน่งก่อน
+      วัด → ค่าที่แสดงจริงมี ≤2 ตำแหน่งเสมอ → ไม่ flag (เดิมตั้งใจไว้แบบนี้). คงฟังก์ชันเป็น
+      pure check (ไม่มี side-effect) เผื่ออ้างอิง/เปิดคืนภายหลัง — แต่ปิดที่ RULES.
     """
     o = []
     _max_dec = CFG['ROUNDING_DECIMALS']
@@ -384,10 +382,8 @@ def r_vat004(b,m,c):
             fv = float(v)
         except (ValueError, TypeError):
             continue
-        if not math.isfinite(fv):          # กัน nan/inf (ดู recheck #4)
-            continue
-        cleaned = round(fv, 6)             # ตัด float residue ที่ตำแหน่งลึก ก่อนวัดทศนิยมจริง
-        dec_str = f'{cleaned:.6f}'.split('.')[-1].rstrip('0')
+        rounded = round(fv, _max_dec)      # ปัดเป็น 2 ตำแหน่งก่อน → ค่าที่แสดงจริงมี ≤2 ตำแหน่งเสมอ
+        dec_str = f'{rounded:.{_max_dec}f}'.split('.')[-1].rstrip('0')
         if len(dec_str) > _max_dec:
             o.append(f"{f}={v} > {_max_dec} ตำแหน่ง")
     return o

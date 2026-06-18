@@ -177,7 +177,7 @@ RULES = {
     'VAT001':{'name':'Sum=PreVAT','severity':'CRITICAL','category':'ยอดเงิน','check':r_vat001,'enabled':True},
     'VAT002':{'name':'PreVAT×0.07','severity':'CRITICAL','category':'ยอดเงิน','check':r_vat002,'enabled':True},
     'VAT003':{'name':'PreVAT+VAT=Total','severity':'CRITICAL','category':'ยอดเงิน','check':r_vat003,'enabled':True},
-    'VAT004':{'name':'Rounding','severity':'WARNING','category':'ยอดเงิน','check':r_vat004,'enabled':True},
+    'VAT004':{'name':'ปัดเศษ (ปิดใช้งาน — เจ้าของยืนยันถูกต้องแล้ว)','severity':'WARNING','category':'ยอดเงิน','check':r_vat004,'enabled':False},  # [recheck] ปิดตามคำขอเจ้าของ — ทศนิยมถูกปัดเป็น 2 ตำแหน่งเพื่อแสดงผลถูกอยู่แล้ว (float residue ไม่ใช่ error). r_vat004 เป็น pure check ไม่มี side-effect
     'VAT005':{'name':'ค่าผิดปกติ','severity':'CRITICAL','category':'ยอดเงิน','check':r_vat005,'enabled':True},
     'VAT006':{'name':'VAT Included','severity':'WARNING','category':'ยอดเงิน','check':r_vat006,'enabled':True},
     'VAT007':{'name':'Discount validation','severity':'CRITICAL','category':'ยอดเงิน','check':r_vat007,'enabled':True},
