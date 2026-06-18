@@ -40,7 +40,7 @@ from puopuy_core import (to_conf01, normalize_text, has_hidden_chars, clean_tax_
                          _taxid_checksum_ok, remove_branch_suffix, _raw_company_form,
                          extract_branch, safe)
 from puopuy_dates import parse_date_any, _ivp_year2_to_ce, _ivp_year4_to_ce
-from puopuy_units import extract_unit_hint, _unit_canon, _D, _vat_tolerance
+from puopuy_units import extract_unit_hint, _unit_canon, _D, _vat_tolerance, VAT_RATE
 
 # ---------------------------------------------------------------------------
 # late-import จาก main (กัน circular import): symbol เหล่านี้ยังอยู่ใน main

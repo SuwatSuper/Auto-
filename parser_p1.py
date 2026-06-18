@@ -55,7 +55,6 @@ def _detect_vat_rows(df):
                 if s in ['7', '7.00'] and row_has_vat_label:
                     vat_rows.append(r); break
     return vat_rows
-    return vat_rows
 
 def _pick_best_iv(text, known_tax_id=None, return_score=False):
     # v8.3 [FIX-IV-BESTMATCH]: เพิ่ม return_score เพื่อให้ผู้เรียกเปรียบเทียบคะแนน

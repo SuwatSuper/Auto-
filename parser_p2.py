@@ -4,7 +4,7 @@
 cascade toolkit จาก parser_p1 (และชั้นล่างทั้งหมด)."""
 from __future__ import annotations
 # [OPT-2 ก] auto re-export parser_p1.__all__ ยกเว้นที่ p2 จัดการเอง (คง minimal-interface curation):
-#   • Decimal/ROUND_HALF_UP → p2 import ตรงจาก decimal (บรรทัดล่าง) = object เดียวกันทั้ง chain
+#   • Decimal/ROUND_HALF_UP → import ตรงจาก decimal (ล่าง); VAT_RATE (อัตรา 7% แหล่งเดียว) → มาทาง chain เหมือน _D
 #   • _RATE_MARKERS/_rightmost_num_has_decimal/_row_has_rate_marker → helper ภายใน p1 (M8 VAT-rate)
 #     ที่ p2 ไม่เคย re-export ขึ้นไป (เดิมก็ไม่อยู่ในลิสต์ explicit). reexport bind object เดิม → golden ไม่ขยับ.
 import parser_reexport as _rx
@@ -121,7 +121,7 @@ def _pb_finalize_amounts(result):
     # PATCH 5: vat = subtotal × 7% ถ้ายังไม่มี → derived. [BUGHUNT v9.3.1/ADR-038] try กัน subtotal มหึมาทำ quantize ระเบิด InvalidOperation → บิลทั้งชีตหาย
     if result['vat'] is None and result['subtotal'] is not None:
         try:
-            result['vat'] = float((_D(result['subtotal']) * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)); src['vat'] = 'derived'  # [F2/ADR-020]
+            result['vat'] = float((_D(result['subtotal']) * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)); src['vat'] = 'derived'  # [F2/ADR-020]
             if result['total'] is None:
                 result['total'] = round(float(result['subtotal']) + result['vat'], 2); src['total'] = 'derived'
         except (InvalidOperation, ValueError, TypeError): pass
@@ -134,7 +134,7 @@ def _pb_finalize_amounts(result):
         try:
             _sub = float(result['subtotal'])
             if result['vat'] is None or abs(float(result['vat'] or 0)) <= 1.0:
-                result['vat'] = float((_D(_sub) * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)); src['vat'] = 'derived'  # [F2/ADR-020]
+                result['vat'] = float((_D(_sub) * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)); src['vat'] = 'derived'  # [F2/ADR-020]
             if result['total'] is None:
                 result['total'] = round(_sub + float(result['vat']), 2); src['total'] = 'derived'
         except (InvalidOperation, ValueError, TypeError):   # [BUGHUNT v9.3.1] +InvalidOperation (subtotal มหึมา)

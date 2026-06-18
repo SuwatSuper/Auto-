@@ -75,6 +75,13 @@ def _D(x):
 #       • ค่าถูกตรึงด้วย test_pinned_logic.py (ถ้าใครแก้สูตรเงียบ ๆ ภายหลัง = เทสล้มทันที)
 #
 #   None / แปลงไม่ได้ → คืนฐาน 0.5 (พจน์ |sub|/100000 = 0).
+# ───────────── อัตรา VAT (แหล่งความจริงเดียวของ "7%") ─────────────
+# [OBJ-CONSISTENCY 2026-06] เดิมเลข Decimal('0.07') ถูกฮาร์ดโค้ดซ้ำในหลายไฟล์
+#   (rules_engine_rules_b/c, parser_p0a/p2 และ agent อีก 2 ไฟล์มี _SEVEN_PCT/_VAT_RATE ของตัวเอง).
+#   ตั้งค่ากลางที่ leaf money-math นี้ (parser + rules_engine import จากที่นี่ตรง ๆ) → ถ้าวันหนึ่ง
+#   อัตราเปลี่ยน แก้จุดเดียว. ค่า = Decimal('0.07') เป๊ะ → golden hash ไม่ขยับ (พิสูจน์ด้วยชุดเทส).
+VAT_RATE = Decimal('0.07')              # อัตราภาษีมูลค่าเพิ่ม 7% (สูตร: VAT = round(subtotal × VAT_RATE, 2))
+
 _VAT_TOL_BASE = Decimal('0.5')          # ฐานคงที่ (บาท)
 _VAT_TOL_DIVISOR = Decimal('100000')    # +1 บาท ต่อ subtotal ทุก 100,000 บาท
 

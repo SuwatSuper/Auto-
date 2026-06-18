@@ -8,7 +8,7 @@ from rules_engine_base import (   # [F3 de-star] explicit re-export shim (split-
     Decimal, PRODUCT_CATEGORIES, ROUND_HALF_UP, _AMBIG_SHORT_KW,
     _D, _THAI_MARKS, _build_cat_keywords, _ivp_year2_to_ce,
     _ivp_year4_to_ce, _kw_in_name, _raw_company_form, _taxid_checksum_ok,
-    _unit_canon, _vat_tolerance, add_issue, clean_tax_id,
+    _unit_canon, _vat_tolerance, VAT_RATE, add_issue, clean_tax_id,
     datetime, defaultdict, extract_branch, extract_unit_hint,
     find_similar_in_thai_dict, fuzz, has_hidden_chars, json,
     log_system_issue, match_company, normalize_company_name, normalize_text,
@@ -70,8 +70,8 @@ def r_vat007(b,m,c):
     sub_d = _D(sub); vat_d = _D(vat)
     if items_sum <= sub_d: return []
     discount = items_sum - sub_d
-    exp_vat_post = (sub_d * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    exp_vat_pre = (items_sum * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    exp_vat_post = (sub_d * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    exp_vat_pre = (items_sum * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     if abs(vat_d - exp_vat_pre) < Decimal('0.5') and abs(vat_d - exp_vat_post) > Decimal('0.5'):
         return [f"VAT คำนวณก่อนหักส่วนลด! discount={discount:,.2f}, ควร VAT={exp_vat_post:,.2f} แต่={vat:,.2f}"]
     return []

@@ -8,7 +8,7 @@ from rules_engine_base import (   # [F3 de-star] explicit re-export shim (split-
     Decimal, PRODUCT_CATEGORIES, ROUND_HALF_UP, _AMBIG_SHORT_KW,
     _D, _THAI_MARKS, _build_cat_keywords, _ivp_year2_to_ce,
     _ivp_year4_to_ce, _kw_in_name, _raw_company_form, _taxid_checksum_ok,
-    _unit_canon, _vat_tolerance, add_issue, clean_tax_id,
+    _unit_canon, _vat_tolerance, VAT_RATE, add_issue, clean_tax_id,
     datetime, defaultdict, extract_branch, extract_unit_hint,
     find_similar_in_thai_dict, fuzz, has_hidden_chars, json,
     log_system_issue, match_company, normalize_company_name, normalize_text,
@@ -339,7 +339,7 @@ def r_vat002(b,m,c):
     # v5.8g: ถ้า vat ≤ 1.0 → มันคือ rate (เช่น 0.07) ไม่ใช่ amount → skip
     if abs(vat) <= Decimal('1.00'):
         return []
-    expected = (sub * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    expected = (sub * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     diff = abs(expected - vat)
     if diff < Decimal('0.50'):   # OBJ-0 (ADR-005): ยอมต่างเฉพาะเศษปัด "< 0.50" (ฟ้องเมื่อ ≥0.50; pin: test_vat002_tolerance.py)
         return []
@@ -359,7 +359,7 @@ def r_vat003(b,m,c):
         return []
     # ถ้า total ถูกต้องอยู่แล้ว (total-sub ≈ 7% ของ sub) → ช่อง vat แค่อ่านได้ rate, ไม่ใช่ error
     actual_vat = tot - sub
-    expected_vat = (sub * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    expected_vat = (sub * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     if abs(actual_vat - expected_vat) < Decimal('1.00'):
         return []  # total ถูก → ไม่ต้องแจ้งเตือน
     return [f"Total ควร {expected:,.2f} แต่={tot:,.2f} (ต่าง {diff:,.2f})"]

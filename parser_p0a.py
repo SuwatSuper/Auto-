@@ -34,7 +34,7 @@ from puopuy_core import (to_conf01, normalize_text, has_hidden_chars, clean_tax_
                          _taxid_checksum_ok, remove_branch_suffix, _raw_company_form,
                          extract_branch, safe)
 from puopuy_dates import parse_date_any, _ivp_year2_to_ce, _ivp_year4_to_ce
-from puopuy_units import extract_unit_hint, _unit_canon, _D, _vat_tolerance
+from puopuy_units import extract_unit_hint, _unit_canon, _D, _vat_tolerance, VAT_RATE
 from diagnostics import log_system_issue, _trim_cache
 from thai_text import (find_similar_in_thai_dict, predict_category, pythainlp_spell_check,
                        detect_ocr_input, normalize_ocr, formal_language_score, gen_explanation)
@@ -128,7 +128,7 @@ def merge_continuation_bills(bills):
                 # [BUGHUNT v9.3.1] ห่อ try: _sub มหึมาทำ quantize ระเบิด InvalidOperation → เดิมครัชหลุดถึง
                 #   parse_all_files ดักระดับไฟล์ → บิล "ทั้งไฟล์" หาย. ยอดจริงปกติ → เหมือนเดิม (golden ไม่ขยับ).
                 try:
-                    new_bill['vat'] = float((_D(_sub) * Decimal('0.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+                    new_bill['vat'] = float((_D(_sub) * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
                     new_bill['total'] = round(_sub + new_bill['vat'], 2)
                 except (InvalidOperation, ValueError, TypeError):
                     pass
