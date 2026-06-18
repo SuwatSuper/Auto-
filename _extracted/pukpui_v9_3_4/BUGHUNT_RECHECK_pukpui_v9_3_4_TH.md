@@ -1,7 +1,3 @@
-> ✅ **อัปเดต: บั๊กทั้งหมดในรายงานนี้แก้แล้ว** — โค้ดฉบับแก้อยู่ที่ `_extracted/pukpui_v9_3_4/`
-> (สรุปการแก้: `FIXES_RECHECK_v9_3_4_TH.md`; ด่านกันถอยหลัง: `test_bughunt_recheck.py`).
-> ทุกการแก้ golden-neutral (fixture `269ddaed…` + real-case `95852c68…` ไม่ขยับ), เทสต์ 77/1.
-
 # รายงานรีเช็คบั๊กทั้งระบบ — pukpui v9.3.4 (ทุกหมวดหมู่)
 
 วันที่: 2026-06-18 · ขอบเขต: ทั้งระบบ (parser / rules / validators / reporting / agents+concurrency / core utils)

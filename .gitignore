@@ -1,2 +1,5 @@
-# scratch: extracted copy of uploaded zip (reviewed, not a deliverable)
-_extracted/
+# delivered binary artifact (sent to user separately; not committed as source)
+_extracted/*.zip
+# python caches
+**/__pycache__/
+*.py[cod]
