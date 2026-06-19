@@ -4,13 +4,19 @@ from __future__ import annotations
 
 from domain.strategy.base import Strategy
 from domain.strategy.breakout import BreakoutStrategy
+from domain.strategy.breakout_ls import BreakoutLongShortStrategy
+from domain.strategy.momentum_ls import MomentumLongShortStrategy
 from domain.strategy.range_reversion import RangeReversionStrategy
+from domain.strategy.reversion_ls import ReversionLongShortStrategy
 from domain.strategy.trend_following import TrendFollowingStrategy
 
 _REGISTRY: dict[str, type] = {
     "trend_following": TrendFollowingStrategy,
     "breakout": BreakoutStrategy,
     "range_reversion": RangeReversionStrategy,
+    "momentum_ls": MomentumLongShortStrategy,
+    "reversion_ls": ReversionLongShortStrategy,
+    "breakout_ls": BreakoutLongShortStrategy,
 }
 
 

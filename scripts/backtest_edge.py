@@ -51,10 +51,12 @@ from infrastructure.gateway.bitkub_klines import (
 )
 
 _BPS = Decimal("10000")
-# Trailing window fed to each strategy per bar. Covers the longest strategy
+# Max trailing window fed to each strategy per bar. Covers the longest strategy
 # lookback (regime.classify needs 51 bars) plus SuperTrend/EMA warmup, so the
-# windowed replay matches a full-history decision while staying O(n).
+# windowed replay matches a full-history decision while staying O(n). The scan
+# starts at _SCAN_START (not _WINDOW) and slides, so early signals are not missed.
 _WINDOW = 160
+_SCAN_START = 25
 
 
 def _build_df(bars: list[OhlcBar]) -> pd.DataFrame:
@@ -83,8 +85,8 @@ def _candidate_entries(
         return []
     out: list[tuple[int, Decimal, Decimal]] = []
     n = len(df)
-    for i in range(_WINDOW, n + 1):
-        window = df.iloc[i - _WINDOW : i]
+    for i in range(_SCAN_START, n + 1):
+        window = df.iloc[max(0, i - _WINDOW) : i]
         sig = decide_df(window)
         if sig.action != SignalAction.BUY:
             continue
@@ -185,7 +187,7 @@ def _run_mode(
         n = len(closes)
         baseline = [
             Entry(index=i, direction=Direction.LONG, tp_bps=tp_bps, sl_bps=sl_bps)
-            for i in range(_WINDOW, n - 1, max_hold)
+            for i in range(_SCAN_START, n - 1, max_hold)
         ]
         results.append(
             backtest_bracket(

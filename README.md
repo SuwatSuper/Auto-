@@ -158,9 +158,28 @@ pip-audit -r requirements.txt              # dependency vulnerability scan
 bandit -r src -ll -ii                       # static security analysis
 ```
 
-Current baseline: **1018 passed, 1 skipped, ~92% coverage**; `ruff`,
-`mypy --strict`, `pip-audit`, and `bandit` all clean. Integration tests that hit
+Current baseline: **1034 passed, 1 skipped, ~92% coverage**; `ruff`,
+`mypy --strict`, `pip-audit`, and `bandit` all clean. Tests make no real network
+calls (RSS/feeds are stubbed in `conftest.py`); integration tests that hit
 external services are marked `integration` and skipped by default.
+
+## 📈 Does it actually make money?
+
+That verdict is decided by the **profit-proof** tools, which trade **both
+directions** (long when price rises, short when it falls) across **any market**:
+
+```bash
+# net return / profit factor / drawdown / PROFITABLE verdict, long + short
+PYTHONPATH=src python scripts/prove_profit.py --csv data/btc_1h.csv --direction both
+# per-trade edge: win% vs breakeven% (incl. fees+slippage)
+PYTHONPATH=src python scripts/backtest_edge.py --csv data/btc_1h.csv --bracket both
+```
+
+The engine is unit-tested and validated on synthetic up/down trends (longs profit
+in uptrends, shorts in downtrends); the **real** verdict needs real candles
+(`--fetch` once `api.bitkub.com` is allowlisted, or `--csv`). See
+[docs/PROFIT_PROOF.md](docs/PROFIT_PROOF.md). An honest tool never reports edge it
+hasn't measured on real prices.
 
 ---
 
@@ -169,15 +188,15 @@ external services are marked `integration` and skipped by default.
 ```
 src/                 Application code (3 layers, see above)
 tests/               1000+ tests: domain / orchestration / infrastructure / web / architecture / contracts
-docs/                ARCHITECTURE, CI_CD, OBSERVABILITY, EXTENDING, BACKTEST_EDGE, SECURITY, RUNBOOK, EVENTS, ADRs, INDICATORS_TH
+docs/                ARCHITECTURE, CI_CD, OBSERVABILITY, EXTENDING, PROFIT_PROOF, BACKTEST_EDGE, SECURITY, RUNBOOK, EVENTS, ADRs, INDICATORS_TH
 deploy/              systemd unit, logrotate config, DEPLOY.md
-scripts/             Dev/ops helpers (backtest_edge, run, bench, setup_env, probes)
+scripts/             Dev/ops helpers (prove_profit, backtest_edge, run, bench, setup_env, probes)
 *.md (root)          User-facing guides (this file + Thai guides)
 ```
 
-**More docs:** [CI_CD](docs/CI_CD.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) ·
-[EXTENDING](docs/EXTENDING.md) · [BACKTEST_EDGE](docs/BACKTEST_EDGE.md) ·
-[ARCHITECTURE](docs/ARCHITECTURE.md) · [SECURITY](docs/SECURITY.md)
+**More docs:** [PROFIT_PROOF](docs/PROFIT_PROOF.md) · [BACKTEST_EDGE](docs/BACKTEST_EDGE.md) ·
+[CI_CD](docs/CI_CD.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) ·
+[EXTENDING](docs/EXTENDING.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [SECURITY](docs/SECURITY.md)
 
 ---
 
