@@ -9,6 +9,7 @@ import orjson
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
+from infrastructure.observability import render_status_metrics
 from infrastructure.web._helpers import STATIC_DIR, check_api_key, configured_api_key
 from orchestration.runtime import PipelineRuntime
 
@@ -60,29 +61,12 @@ def register(app: FastAPI, runtime: PipelineRuntime) -> None:
     async def healthz() -> dict[str, object]:
         return {"status": "ok", "ts_ms": int(time.time() * 1000)}
 
-    # P4: /metrics — Prometheus-style text metrics
+    # P4: /metrics — Prometheus text exposition (rich runtime metrics).
+    # The legacy ``trading_agent_count`` is pinned to len(runtime.agents) so
+    # existing scrapers keep working; the rest is derived from the real status.
     @app.get("/metrics", response_class=PlainTextResponse)
     async def metrics() -> str:
-        status = runtime.status()
-        uptime = status.get("uptime_seconds", 0)
-        msg_rate = status.get("msg_rate", 0)
-        latency = status.get("latency_ms", 0)
-        agent_count = len(runtime.agents)
-        lines = [
-            "# HELP trading_uptime_seconds Total uptime in seconds",
-            "# TYPE trading_uptime_seconds gauge",
-            f"trading_uptime_seconds {uptime}",
-            "# HELP trading_msg_rate Messages per second",
-            "# TYPE trading_msg_rate gauge",
-            f"trading_msg_rate {msg_rate}",
-            "# HELP trading_latency_ms Latency in milliseconds",
-            "# TYPE trading_latency_ms gauge",
-            f"trading_latency_ms {latency}",
-            "# HELP trading_agent_count Number of registered agents",
-            "# TYPE trading_agent_count gauge",
-            f"trading_agent_count {agent_count}",
-        ]
-        return "\n".join(lines) + "\n"
+        return render_status_metrics(runtime.status(), agent_count=len(runtime.agents))
 
     # P4: /api/timeline — recent event timeline
     @app.get("/api/timeline")

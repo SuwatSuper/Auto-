@@ -138,18 +138,29 @@ Full operator procedures: [docs/LIVE_TRADING_RUNBOOK.md](docs/LIVE_TRADING_RUNBO
 
 ## 🧪 Quality gates & testing
 
-The CI pipeline ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) enforces
-lint, strict typing, and a 90% coverage gate. Run them locally:
+Three CI workflows run on every push/PR (details in [docs/CI_CD.md](docs/CI_CD.md)):
+
+- **[`ci.yml`](.github/workflows/ci.yml)** — `lint` (ruff), `typecheck`
+  (mypy --strict), `test` (Python **3.12 + 3.13** matrix, 90% coverage gate),
+  with pip caching.
+- **[`security.yml`](.github/workflows/security.yml)** — `pip-audit`
+  (dependency CVEs), `bandit` (SAST), `detect-secrets` (secret scan vs baseline).
+- **[`codeql.yml`](.github/workflows/codeql.yml)** — GitHub CodeQL + weekly
+  Dependabot updates.
+
+Run them locally:
 
 ```bash
 ruff check src tests                       # lint
-PYTHONPATH=src mypy src/                    # strict type check (132 source files)
+mypy src/                                   # strict type check (141 source files)
 PYTHONPATH=src pytest                       # tests + coverage gate (fail-under 90%)
+pip-audit -r requirements.txt              # dependency vulnerability scan
+bandit -r src -ll -ii                       # static security analysis
 ```
 
-Current baseline: **858 passed, 1 skipped, 91% coverage**; `ruff` and
-`mypy --strict` clean. Integration tests that hit external services are marked
-`integration` and skipped by default.
+Current baseline: **1018 passed, 1 skipped, ~92% coverage**; `ruff`,
+`mypy --strict`, `pip-audit`, and `bandit` all clean. Integration tests that hit
+external services are marked `integration` and skipped by default.
 
 ---
 
@@ -157,13 +168,16 @@ Current baseline: **858 passed, 1 skipped, 91% coverage**; `ruff` and
 
 ```
 src/                 Application code (3 layers, see above)
-tests/               858 tests: domain / orchestration / infrastructure / web / architecture / contracts
-docs/                ARCHITECTURE, RUNBOOK, LIVE_TRADING_RUNBOOK, EVENTS, ADRs, SECURITY, INDICATORS_TH
-docs/archive/        Development-history reports & build prompts (not needed to run)
+tests/               1000+ tests: domain / orchestration / infrastructure / web / architecture / contracts
+docs/                ARCHITECTURE, CI_CD, OBSERVABILITY, EXTENDING, BACKTEST_EDGE, SECURITY, RUNBOOK, EVENTS, ADRs, INDICATORS_TH
 deploy/              systemd unit, logrotate config, DEPLOY.md
-scripts/             Dev/ops helpers (run, bench, make_zip, setup_env, probes)
+scripts/             Dev/ops helpers (backtest_edge, run, bench, setup_env, probes)
 *.md (root)          User-facing guides (this file + Thai guides)
 ```
+
+**More docs:** [CI_CD](docs/CI_CD.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) ·
+[EXTENDING](docs/EXTENDING.md) · [BACKTEST_EDGE](docs/BACKTEST_EDGE.md) ·
+[ARCHITECTURE](docs/ARCHITECTURE.md) · [SECURITY](docs/SECURITY.md)
 
 ---
 

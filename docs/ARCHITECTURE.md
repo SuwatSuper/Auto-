@@ -36,3 +36,39 @@ Layer N may only import from Layer N or lower. Infrastructure never imports from
 - New endpoints: `GET /api/ceo/summary`, `GET /api/ceo/audit`, `GET /api/ceo/agents`.
 - Dashboard mock data (`SYMBOL_PRICES`, `POSITIONS`, `TRADES`, `EQUITY_CURVE`, `MONTHLY_RETURNS`, `startDemoSimulator`, hardcoded `1284567.89` initial state) removed.
 - Live order execution is STILL NOT implemented. The `tests/architecture/test_paper_only.py` guard remains in force.
+
+## Machine-enforced architecture
+
+The layer rules are not a convention — they are tests (`tests/architecture/`):
+
+- **Layer purity** (`test_layer_rules.py`): domain may import only
+  stdlib + pydantic + numpy/pandas/vendor_ta; it must not import
+  `time/random/os/datetime/asyncio/httpx/infrastructure/orchestration` — checked
+  **recursively**, so a hidden function-scope import is caught too.
+- **Float ban**: `domain/portfolio`, `domain/risk`, `domain/backtest` must not
+  use `float` literals or annotations (Decimal only) — AST-checked.
+- **Execution cage** (`test_execution_guard.py`): order-placement markers
+  (`place-bid`, `X-BTK-APIKEY`, …) may appear only in `gateway/bitkub_rest.py`,
+  and only `execution_agent.py` may import it. Default engine is `paper`.
+- **Honesty** (`test_honesty_guard.py`): dashboard/runtime numbers must come
+  from the treasury ledger, never fabricated constants or `Math.random()`.
+- **Schema compatibility** (`tests/contracts/`): published message schemas may
+  add optional fields but not remove/rename required ones.
+
+## Ports & adapters
+
+`orchestration/ports/` defines protocols (clock, event bus, price feed, state
+store, …) that the runtime depends on; Layer-3 adapters implement them and are
+wired at the `bootstrap` composition root. This keeps Layer 2 testable without
+real I/O (see `tests/conftest.py`'s `FakePriceFeed`).
+
+## Observability
+
+Read-model endpoints (`/healthz`, `/api/health`, `/metrics`) and the
+`infrastructure/observability` metrics registry expose live state without
+coupling the runtime to infrastructure — see [OBSERVABILITY.md](OBSERVABILITY.md).
+
+## Extending
+
+See [EXTENDING.md](EXTENDING.md) for the strategy / agent / gateway / metric
+extension points and the checks each must pass.

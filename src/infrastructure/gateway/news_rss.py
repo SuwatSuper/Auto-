@@ -8,10 +8,10 @@ The headlines are scored by the pure domain function elsewhere.
 from __future__ import annotations
 
 import contextlib
-from xml.etree import ElementTree as ET
 
 import httpx
 import structlog
+from defusedxml.ElementTree import ParseError, fromstring
 
 # Free, no-auth crypto RSS feeds.
 DEFAULT_RSS_FEEDS: tuple[str, ...] = (
@@ -25,8 +25,8 @@ def parse_rss_titles(xml_text: str) -> list[str]:
     """Extract item/entry titles from RSS 2.0 or Atom XML. Never raises."""
     titles: list[str] = []
     try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError:
+        root = fromstring(xml_text)
+    except ParseError:
         return titles
     # RSS 2.0: .//item/title ; Atom: .//{ns}entry/{ns}title
     for item in root.iter():

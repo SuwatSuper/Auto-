@@ -63,3 +63,29 @@ A hard-coded per-order ceiling (`HARD_CAP_SINGLE_ORDER_THB` in
 `orchestration/control.py`) cannot be exceeded by any config or dashboard input —
 the live order path rejects (and logs CRITICAL) any order above it. See
 [LIVE_TRADING_RUNBOOK.md](LIVE_TRADING_RUNBOOK.md).
+
+## Supply-chain & static analysis
+
+Automated scanning runs on every push/PR and weekly (see [CI_CD.md](CI_CD.md)):
+
+- **`pip-audit`** — dependency CVE scan over `requirements*.txt` (OSV/PyPI
+  advisories). Currently: no known vulnerabilities.
+- **`bandit -ll -ii`** — static security analysis of `src/` (medium+ severity,
+  high confidence). The only finding (unsafe `xml.etree` RSS parsing) was fixed
+  by adopting `defusedxml` in `gateway/news_rss.py`.
+- **`detect-secrets`** — secret scan against a committed `.secrets.baseline`;
+  only secrets *not* already known as test fixtures fail the build.
+- **CodeQL** — GitHub's `security-and-quality` query suite for Python.
+- **Dependabot** — weekly dependency / GitHub-Actions update PRs.
+
+### Reporting a vulnerability
+
+Open a private security advisory on the repository (GitHub → Security → Report a
+vulnerability) rather than a public issue. Include affected version/commit,
+reproduction, and impact. We aim to acknowledge within a few days.
+
+### XML / untrusted input
+
+External RSS feeds are parsed with `defusedxml` (entity-expansion / billion-laughs
+safe). New parsers of untrusted input must use hardened libraries, never the raw
+`xml.etree` stdlib parser.
