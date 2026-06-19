@@ -1,0 +1,344 @@
+# Layer 2 — Orchestration (tests/orchestration/test_real_money_matrix)
+"""B1 real-money safety matrix.
+
+A scenario matrix over the live-trading guard rails: the hard-coded order
+ceiling (defense-in-depth), the operator per-order cap, the live-arming gates,
+and the order-construction vetoes. Every row asserts that real money is only
+ever spent inside the bounds the system promises.
+"""
+from __future__ import annotations
+
+from decimal import Decimal
+
+import pytest
+import structlog
+
+from infrastructure.config import Settings
+from orchestration.control import (
+    HARD_CAP_DEPLOYABLE_THB,
+    HARD_CAP_SINGLE_ORDER_THB,
+    RiskSettings,
+    order_over_hard_cap,
+    validate_risk_settings,
+)
+from orchestration.runtime import PipelineRuntime
+
+_LIVE = "I_ACCEPT_REAL_MONEY_RISK"
+_MARK = Decimal("1500000")  # THB / BTC
+
+
+class _MockGateway:
+    def __init__(self) -> None:
+        self.bids: list[tuple[str, str, str, str]] = []
+        self.asks: list[tuple[str, str, str, str]] = []
+
+    async def place_bid(self, sym: str, amount: str, rate: str, typ: str = "market") -> dict[str, object]:
+        self.bids.append((sym, amount, rate, typ))
+        return {"error": 0, "result": {"id": 1}}
+
+    async def place_ask(self, sym: str, amount: str, rate: str, typ: str = "market") -> dict[str, object]:
+        self.asks.append((sym, amount, rate, typ))
+        return {"error": 0, "result": {"id": 2}}
+
+
+class _Recon:
+    def __init__(self, reconciled: bool, balances: dict[str, str]) -> None:
+        self.is_reconciled = reconciled
+        self.last_balances = balances
+
+
+def _armed_runtime(
+    *, cap: str = "1000", reconciled: bool = True, balances: dict[str, str] | None = None
+) -> tuple[PipelineRuntime, _MockGateway]:
+    gw = _MockGateway()
+    # Capital large enough that order sizing is bounded by the per-order / hard
+    # caps under test, not by available cash (mandate default is only 1,000 THB).
+    rt = PipelineRuntime(
+        settings=Settings(persist_state=False, initial_capital="5000000"),
+        logger=structlog.get_logger("t"),
+    )
+    rt.agents = rt._make_agents()
+    assert rt._trader is not None
+    rt._trader.mark_price = _MARK
+    rt.settings.execution_engine = "live"  # type: ignore[attr-defined]
+    rt.settings.live_trading_confirm = _LIVE  # type: ignore[attr-defined]
+    rt._max_single_order_thb = Decimal(cap)
+    rt._rest_gateway = gw
+    rt.agents["risk_gate"].set_rest_gateway(gw)  # type: ignore[attr-defined]
+    rt._reconciliation = _Recon(reconciled, balances or {"BTC": "10"})
+    return rt, gw
+
+
+def _baseline_settings() -> RiskSettings:
+    return RiskSettings(
+        risk_per_trade_pct=Decimal("1"),
+        stop_pct=Decimal("0.5"),
+        take_profit_pct=Decimal("1.5"),
+        max_daily_loss_pct=Decimal("100"),
+        max_consecutive_losses=0,
+        max_open_positions=1,
+        max_deployable_thb=Decimal("0"),
+        max_single_order_thb=Decimal("0"),
+    )
+
+
+# ── 1. Hard cap enforced at the config validation layer ──────────────
+@pytest.mark.parametrize(
+    "field,value,ok",
+    [
+        ("max_single_order_thb", "500", True),
+        ("max_single_order_thb", str(HARD_CAP_SINGLE_ORDER_THB), True),          # == ceiling allowed
+        ("max_single_order_thb", str(HARD_CAP_SINGLE_ORDER_THB + 1), False),     # over ceiling rejected
+        ("max_single_order_thb", "999999999", False),
+        ("max_deployable_thb", str(HARD_CAP_DEPLOYABLE_THB), True),
+        ("max_deployable_thb", str(HARD_CAP_DEPLOYABLE_THB + 1), False),
+    ],
+)
+def test_hard_cap_validation_matrix(field: str, value: str, ok: bool) -> None:
+    settings, errors = validate_risk_settings(_baseline_settings(), {field: value})
+    if ok:
+        assert settings is not None and not errors
+    else:
+        assert settings is None
+        assert any("hard cap" in e for e in errors)
+
+
+# ── 2. Hard cap clamps the REAL order even if the field is set too high ──
+def test_hard_cap_clamps_live_order_notional() -> None:
+    rt, _ = _armed_runtime(cap="5000")
+    # Bypass validation: directly set the field above the hard ceiling.
+    rt._max_single_order_thb = HARD_CAP_SINGLE_ORDER_THB * 3
+    spec = rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"})
+    assert spec is not None
+    notional = Decimal(spec["amount"])
+    assert notional <= HARD_CAP_SINGLE_ORDER_THB           # never above the ceiling
+    assert notional > HARD_CAP_SINGLE_ORDER_THB * Decimal("0.9")  # clamped to ~ceiling, not the 3x field
+
+
+# ── 3. Operator per-order cap clamps the notional ────────────────────
+@pytest.mark.parametrize("cap", ["200", "500", "800"])
+def test_per_order_cap_clamps_notional(cap: str) -> None:
+    rt, _ = _armed_runtime(cap=cap)
+    spec = rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"})
+    assert spec is not None
+    assert Decimal(spec["amount"]) <= Decimal(cap)
+
+
+# ── 4. Live-arming gate matrix (set_execution_mode) ──────────────────
+def _fresh_runtime() -> PipelineRuntime:
+    rt = PipelineRuntime(settings=Settings(persist_state=False), logger=structlog.get_logger("t"))
+    rt.agents = rt._make_agents()
+    return rt
+
+
+def _enable_backstops(rt: PipelineRuntime) -> None:
+    """M1: arming live now requires real capital backstops (a finite
+    consecutive-loss breaker and a daily-loss cap < 100). Set safe values the
+    way an operator would before going live."""
+    from domain.portfolio.treasury import TreasuryLimits  # noqa: PLC0415
+
+    if rt._circuit_breaker is not None:
+        rt._circuit_breaker.update_threshold(5)
+    if rt._treasury is not None:
+        rt._treasury.update_limits(
+            TreasuryLimits(
+                initial_capital=rt._initial_capital,
+                survival_floor_pct=Decimal("70"),
+                max_daily_loss_pct=Decimal("5"),
+            )
+        )
+
+
+def test_arm_requires_confirm_token() -> None:
+    rt = _fresh_runtime()
+    rt._max_single_order_thb = Decimal("5000")
+    ok, payload = rt.set_execution_mode("live", confirm="nope")
+    assert ok is False and "token" in str(payload)
+
+
+def test_arm_requires_positive_cap() -> None:
+    rt = _fresh_runtime()
+    rt._max_single_order_thb = Decimal("0")
+    ok, payload = rt.set_execution_mode("live", confirm=_LIVE)
+    assert ok is False and payload.get("field") == "max_single_order_thb"
+
+
+def test_arm_rejects_cap_above_hard_ceiling() -> None:
+    rt = _fresh_runtime()
+    rt._max_single_order_thb = HARD_CAP_SINGLE_ORDER_THB + 1
+    ok, payload = rt.set_execution_mode("live", confirm=_LIVE)
+    assert ok is False and "hard ceiling" in str(payload)
+
+
+def test_arm_succeeds_with_valid_cap_and_token() -> None:
+    rt = _fresh_runtime()
+    rt._max_single_order_thb = Decimal("500")
+    _enable_backstops(rt)
+    ok, payload = rt.set_execution_mode("live", confirm=_LIVE)
+    assert ok is True
+    assert payload["mode"] == "live"
+    assert payload["all_gates_open"] is True
+
+
+# ── 5. Order-construction veto matrix ────────────────────────────────
+def test_treasury_halt_blocks_real_buy() -> None:
+    rt, _ = _armed_runtime()
+    assert rt._treasury is not None
+    rt._treasury.halted = True
+    assert rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"}) is None
+
+
+def test_single_position_rule_blocks_second_buy() -> None:
+    from domain.trading.paper import PaperPosition  # noqa: PLC0415
+
+    rt, _ = _armed_runtime()
+    spec1 = rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"})
+    assert spec1 is not None
+    # Simulate an open position; a second BUY must not build an order.
+    assert rt._trader is not None
+    rt._trader.position = PaperPosition(
+        symbol="thb_btc",
+        qty=Decimal("0.001"),
+        entry_price=_MARK,
+        stop_price=_MARK * Decimal("0.99"),
+        take_profit_price=_MARK * Decimal("1.02"),
+        entry_fee=Decimal("0"),
+        opened_ms=0,
+    )
+    assert rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"}) is None
+
+
+def test_sell_without_position_is_noop() -> None:
+    rt, _ = _armed_runtime()
+    assert rt._trader is not None and rt._trader.position is None
+    assert rt._build_live_order({"signal": "SELL", "symbol": "thb_btc"}) is None
+
+
+def test_below_exchange_minimum_is_rejected() -> None:
+    # A cap so small the notional falls under Bitkub's minimum → no doomed order.
+    rt, _ = _armed_runtime(cap="11")  # ~11 THB target, below min once sized
+    rt.settings.bitkub_min_order_thb = "10000"  # type: ignore[attr-defined]
+    assert rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"}) is None
+
+
+@pytest.mark.asyncio
+async def test_manual_buy_blocked_when_unreconciled() -> None:
+    rt, gw = _armed_runtime(reconciled=False)
+    assert rt._live_orders_armed() is False
+    await rt.manual_order("BUY")
+    assert gw.bids == []  # no real money spent against an unverified account
+
+
+# ── 5b. Hard cap REJECTS (never silently trims) an oversized real BUY ─
+def test_order_over_hard_cap_helper() -> None:
+    assert order_over_hard_cap(str(HARD_CAP_SINGLE_ORDER_THB)) is None        # == ceiling ok
+    assert order_over_hard_cap(str(HARD_CAP_SINGLE_ORDER_THB + 1)) is not None
+    assert order_over_hard_cap("not-a-number") is not None
+
+
+def test_hard_cap_always_clamps_even_when_operator_cap_zero() -> None:
+    """Regression: a 0 (unlimited) operator cap must STILL be bounded by the hard
+    ceiling on the REAL order. Was skipped when cap==0 (e.g. .env=live with a
+    reset state.db), letting the order exceed ฿1,000."""
+    rt, _ = _armed_runtime(cap="0")
+    spec = rt._build_live_order({"signal": "BUY", "symbol": "thb_btc"})
+    assert spec is not None
+    assert Decimal(spec["amount"]) <= HARD_CAP_SINGLE_ORDER_THB
+
+
+def test_sell_ask_capped_to_real_wallet_balance() -> None:
+    """S1-D: an opposite-signal SELL must not ask for more coin than is really
+    held, or Bitkub rejects it and the real position is left open."""
+    from domain.trading.paper import PaperPosition  # noqa: PLC0415
+    rt, _ = _armed_runtime(balances={"BTC": "0.00001"})
+    rt._trader.position = PaperPosition(  # type: ignore[union-attr]
+        symbol="THB_BTC", qty=Decimal("0.001"), entry_price=Decimal("1500000"),
+        stop_price=Decimal("1485000"), take_profit_price=Decimal("1522500"),
+        entry_fee=Decimal("3.75"), opened_ms=1,
+    )
+    spec = rt._build_live_order({"signal": "SELL", "symbol": "thb_btc"})
+    assert spec is not None and spec["action"] == "ask"
+    assert Decimal(spec["amount"]) == Decimal("0.00001")  # capped to real BTC
+
+
+@pytest.mark.asyncio
+async def test_live_fill_mirrors_real_qty_and_rate() -> None:
+    """S1-C: the paper mirror must open at the EXACT qty + rate the exchange
+    reported, not a re-derived estimate (so displayed holdings/PnL are real)."""
+    import orjson  # noqa: PLC0415
+    rt, _ = _armed_runtime()
+    trader = rt._trader
+    assert trader is not None
+    raw = orjson.dumps({
+        "decision": "EXECUTE", "signal": "BUY", "live_mirror": True,
+        "price": "1515000", "fill_qty": "0.00032", "fill_thb": "485.0",
+    })
+    await trader._on_decision(raw)
+    assert trader.position is not None
+    assert trader.position.qty == Decimal("0.00032")
+    assert trader.position.entry_price == Decimal("1515000")  # real rate, not slipped mark
+
+
+def test_arm_live_seeds_capital_from_real_thb() -> None:
+    """S1-A/B: arming live bases the money figures on the REAL THB wallet so
+    equity/cash/% reflect real money, not the paper ฿1,000 sandbox."""
+    rt, _ = _armed_runtime(balances={"THB": "50000", "BTC": "0"})
+    rt._trader.position = None  # type: ignore[union-attr]
+    _enable_backstops(rt)
+    ok, _ = rt.set_execution_mode("live", _LIVE)
+    assert ok
+    assert rt._treasury.cash == Decimal("50000")  # type: ignore[union-attr]
+    assert rt._initial_capital == Decimal("50000")
+
+
+def test_arm_live_persists_engine_to_env(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The operator's 'arm once' choice survives a restart: the live engine +
+    confirm token are written to .env (persist_state on). Disarm flips it back."""
+    monkeypatch.chdir(tmp_path)
+    rt = PipelineRuntime(
+        settings=Settings(persist_state=True, initial_capital="5000"),
+        logger=structlog.get_logger("t"),
+    )
+    rt.agents = rt._make_agents()
+    rt._max_single_order_thb = Decimal("500")  # within the hard ceiling
+    _enable_backstops(rt)
+    ok, _ = rt.set_execution_mode("live", _LIVE)
+    assert ok
+    env = (tmp_path / ".env").read_text(encoding="utf-8")
+    assert "EXECUTION_ENGINE=live" in env and f"LIVE_TRADING_CONFIRM={_LIVE}" in env
+    rt.set_execution_mode("paper")
+    assert "EXECUTION_ENGINE=paper" in (tmp_path / ".env").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("bad", ["nan", "NaN", "Infinity", "-Infinity", "inf", "-inf"])
+def test_order_over_hard_cap_rejects_non_finite(bad: str) -> None:
+    """Regression: a non-finite notional must be REJECTED, never crash and never
+    slip under the cap. Before the fix, 'nan' raised InvalidOperation on the
+    comparison and '-Infinity' returned None (passed the money-spending guard)."""
+    reason = order_over_hard_cap(bad)
+    assert reason is not None and "non-finite" in reason
+
+
+@pytest.mark.asyncio
+async def test_oversized_bid_rejected_at_placement_boundary(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Even if a spec with notional above the hard cap reaches the gateway
+    (config tamper / bug), it is REJECTED — no real bid is placed."""
+    rt, gw = _armed_runtime(cap="1000")
+    oversized = {
+        "action": "bid", "symbol": "thb_btc",
+        "amount": str(HARD_CAP_SINGLE_ORDER_THB * 5),  # 5,000 THB >> 1,000 cap
+        "rate": "1500000", "typ": "market",
+    }
+    monkeypatch.setattr(rt, "_build_live_order", lambda _data: oversized)
+    placed = await rt._place_manual_live_bid(None)
+    assert placed is False
+    assert gw.bids == []  # the hard cap stopped the real order
+
+
+# ── 6. Protective close never over-sells the real wallet (C2) ────────
+@pytest.mark.asyncio
+async def test_live_close_capped_to_real_balance() -> None:
+    rt, gw = _armed_runtime(balances={"BTC": "0.3"})
+    await rt._live_close(Decimal("1.0"), _MARK)  # paper thinks 1.0 BTC
+    assert len(gw.asks) == 1
+    assert Decimal(gw.asks[0][1]) == Decimal("0.3")
