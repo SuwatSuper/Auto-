@@ -1,0 +1,10 @@
+-r requirements.txt
+pytest>=8
+pytest-asyncio>=0.23
+pytest-cov>=5
+ruff>=0.4
+mypy>=2.1
+hypothesis==6.119.4
+pip-audit>=2.7
+bandit>=1.7
+detect-secrets>=1.5
