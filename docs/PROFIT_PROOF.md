@@ -1,5 +1,13 @@
 # Profitability proof (long + short, multi-market)
 
+> ## Can you prove it makes money 100%? — No. Nobody can.
+> No trading system can guarantee profit: markets are non-stationary and past
+> results never bind the future. Any tool that prints "100% guaranteed profit"
+> is lying (and would violate this repo's own honesty guard). What we provide is
+> the strongest **honest** evidence: out-of-sample testing, statistical
+> significance, and Monte-Carlo outcome distributions — *confidence*, never
+> certainty. Size positions for the bad-luck case, always.
+
 The question that decides everything: **does the equity curve go up after costs?**
 This layer answers it for both rising and falling markets — profit comes from
 longs that rise *and* shorts that fall (buy low / sell high, either order).
@@ -66,6 +74,29 @@ on fees:
 
 Takeaway: **use maker (limit) orders** to keep round-trip cost low; high-frequency
 taker trading can give the gross edge straight back to fees.
+
+## Confidence, not certainty — `validate_profit.py`
+
+`scripts/validate_profit.py` is the rigorous validator. It runs three independent
+checks and prints a probabilistic verdict (never "100%"):
+
+1. **Out-of-sample** — observes on the first `--split` (default 70%) of the data,
+   then *tests on the unseen rest*. An edge that disappears OOS was overfit.
+2. **Statistical significance** (`src/domain/backtest/statistics.py`) — the
+   t-statistic and 95% confidence interval of the OOS per-trade return. `t > 1.96`
+   means the mean return is distinguishable from zero at ~95%.
+3. **Monte Carlo** — bootstraps the realised trades thousands of times to get the
+   *distribution* of outcomes: probability of ending profitable, median, and the
+   bad-luck 5th-percentile / worst-case return.
+
+```bash
+PYTHONPATH=src python scripts/validate_profit.py --csv data/btc_1h.csv \
+    --strategies breakout_ls --split 0.7 --mc-runs 2000
+```
+
+Verdict ladder: **HIGH** = profitable OOS *and* `t > 1.96` *and* ≥95% of Monte
+Carlo runs profitable; **MODERATE** = OOS profitable with one of the two strong
+signals; **WEAK / likely luck**; **NO edge**. Even HIGH is not a guarantee.
 
 ## ⚠️ Synthetic vs real
 
