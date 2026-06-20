@@ -98,6 +98,39 @@ Verdict ladder: **HIGH** = profitable OOS *and* `t > 1.96` *and* ≥95% of Monte
 Carlo runs profitable; **MODERATE** = OOS profitable with one of the two strong
 signals; **WEAK / likely luck**; **NO edge**. Even HIGH is not a guarantee.
 
+## Real BTC history, by regime, per agent — `backtest_history.py`
+
+`scripts/backtest_history.py` runs every registered strategy over the **real**
+long BTC/USD history (Coin Metrics daily reference price, ~2010→today, fetched
+from a public GitHub dataset via `src/infrastructure/gateway/coinmetrics.py`) and
+reports, **per market regime** (UPTREND / DOWNTREND / RANGE):
+
+- a per-agent table (trades, win%, net%, profit factor, max drawdown, expectancy);
+- **what each agent captures** — average return per trade (bps) split by regime,
+  so you can see e.g. trend-followers earn in uptrends while mean-reversion earns
+  on bear-market bounces;
+- a confidence verdict (out-of-sample + significance + Monte-Carlo on the OOS
+  trades).
+
+```bash
+PYTHONPATH=src python scripts/backtest_history.py --direction both     # fetch live
+PYTHONPATH=src python scripts/backtest_history.py --csv data/btc_daily.csv
+```
+
+### What 15.8 years of real BTC says (honest finding)
+
+- Across the **whole** history some strategies look very profitable, but that is
+  dominated by **unrepeatable** 2011-era 100× moves.
+- On the **out-of-sample** recent slice, **no strategy shows a statistically
+  significant edge** (all t < 2) — a few are marginally positive but within luck.
+- The regime breakdown is the durable signal: breakout/trend-following capture
+  **uptrends**, RSI reversion captures **downtrend bounces**, and most edge
+  evaporates in **range** after costs.
+
+Takeaway: this is exactly why the tool exists — it stops you deploying a strategy
+that looks great in-sample but has no real forward edge. Regime-aware selection
+(use the trend-follower in trends, reversion in chop) is where the honest edge is.
+
 ## ⚠️ Synthetic vs real
 
 The engine and strategies are unit-tested and validated on synthetic up/down
