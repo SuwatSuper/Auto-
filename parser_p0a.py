@@ -407,6 +407,12 @@ def _cell_to_num(v):
         #   _D(inf)*0.07 ระเบิด InvalidOperation ปลายน้ำ). isfinite ครอบทั้ง NaN/inf จุดเดียว.
         return f if math.isfinite(f) else None
     s = str(v).strip().replace(',', '')
+    # [P3] เลขติดลบรูปแบบบัญชี '(1234.50)' → -1234.50 (เดิมคืน None ทิ้งค่าเงียบ) — เฉพาะ '(ตัวเลขล้วน)'
+    #   เหมือนสัญญา _D ใน puopuy_units (กันความต่างระหว่าง parser-layer กับ rules-layer). ข้อความอื่นในวงเล็บ → None ตามเดิม.
+    if len(s) >= 3 and s[0] == '(' and s[-1] == ')':
+        _inner = s[1:-1].strip()
+        if re.fullmatch(r'\d+(?:\.\d+)?', _inner):
+            return -float(_inner)
     if _NUM_FULL_RE.fullmatch(s):
         return float(s)
     return None

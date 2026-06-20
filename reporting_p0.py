@@ -55,8 +55,7 @@ from config import (APP_VERSION, CLEAN, COLORS, FIELD_CODES, REVIEW_CODES,  # [F
 from thai_text import predict_category, PYTHAINLP_AVAILABLE
 from rules_engine import RULES
 from state import _SYSTEM_ISSUES
-from core_utils import sort_bills_by_date
-
+from core_utils import sort_bills_by_date, _df_safe   # [L4] _df_safe อยู่ leaf core_utils (คง reporting_p0 ≤600 LOC)
 
 
 def export_verification_to_excel(results, excel_path):
@@ -509,18 +508,18 @@ def _xlsx_sheet_dashboard(writer, all_bills):
         {'Metric':'ยอดสุทธิ','Value':sum(b['total'] or 0 for b in all_bills)},
         {'Metric':'RISK SCORE','Value':crit*10+err*3+warn},
     ]
-    pd.DataFrame(kpi).to_excel(writer, sheet_name='Executive Dashboard', index=False)
+    _df_safe(pd.DataFrame(kpi)).to_excel(writer, sheet_name='Executive Dashboard', index=False)
 
 def _xlsx_sheet_summary(writer, summary):
     """ชีต Summary (สรุปต่อบริษัท×งวด)."""
-    pd.DataFrame([{'บริษัท':s['key'],'งวด':s['period'],'จำนวนบิล':s['bill_count'],
+    _df_safe(pd.DataFrame([{'บริษัท':s['key'],'งวด':s['period'],'จำนวนบิล':s['bill_count'],
         'ยอดก่อน VAT':s['subtotal'],'VAT':s['vat'],'ยอดสุทธิ':s['total']}
-        for s in summary]).to_excel(writer, sheet_name='Summary', index=False)
+        for s in summary])).to_excel(writer, sheet_name='Summary', index=False)
 
 def _xlsx_sheet_allbills(writer, all_bills_s):
     """ชีต ทุกบิล (+คอลัมน์ งวดบัญชี)."""
     # [UPDATE] 2. ยัดคอลัมน์ 'งวดบัญชี' ลงชีต 'ทุกบิล'
-    pd.DataFrame([{'งวดบัญชี': _get_p(b['iv_date']), 'วันที่':b['iv_date_str'],'ไฟล์':b['file'],'ชีต':b['sheet'],
+    _df_safe(pd.DataFrame([{'งวดบัญชี': _get_p(b['iv_date']), 'วันที่':b['iv_date_str'],'ไฟล์':b['file'],'ชีต':b['sheet'],
         'บริษัท':b['company'],'เลขภาษี':b['tax_id'],
         'IV': (b.get('iv_number_raw') or b.get('iv_number') or '-'),
         'ยอดก่อน VAT':b['subtotal'],'VAT':b['vat'],'ยอดสุทธิ':b['total'],
@@ -528,18 +527,18 @@ def _xlsx_sheet_allbills(writer, all_bills_s):
         'Critical':sum(1 for i in b['issues'] if i['severity']=='CRITICAL'),
         'Error':sum(1 for i in b['issues'] if i['severity']=='ERROR'),
         'Warning':sum(1 for i in b['issues'] if i['severity']=='WARNING')}
-        for b in all_bills_s]).to_excel(writer, sheet_name='ทุกบิล', index=False)
+        for b in all_bills_s])).to_excel(writer, sheet_name='ทุกบิล', index=False)
 
 def _xlsx_sheet_highrisk(writer, all_bills_s):
     """ชีต High Risk (เฉพาะบิลที่มี CRITICAL)."""
     hr = [b for b in all_bills_s if any(i['severity']=='CRITICAL' for i in b['issues'])]
     if hr:
-        pd.DataFrame([{'งวดบัญชี': _get_p(b['iv_date']), 'วันที่':b['iv_date_str'],'ไฟล์':b['file'],'ชีต':b['sheet'],
+        _df_safe(pd.DataFrame([{'งวดบัญชี': _get_p(b['iv_date']), 'วันที่':b['iv_date_str'],'ไฟล์':b['file'],'ชีต':b['sheet'],
             'IV': (b.get('iv_number_raw') or b.get('iv_number') or '-'),
             'บริษัท':b.get('master_key') or bill_company_label(b),'ยอด':b['subtotal'] or 0,   # [L] กัน KeyError master_key
             'Critical':sum(1 for i in b['issues'] if i['severity']=='CRITICAL'),
             'หมายเหตุ':' | '.join([f"[{i['code']}] {(i.get('detail') or '')[:80]}" for i in b['issues'] if i['severity']=='CRITICAL'])}   # [M4] None-safe
-            for b in hr]).to_excel(writer, sheet_name='High Risk', index=False)
+            for b in hr])).to_excel(writer, sheet_name='High Risk', index=False)
 
 def _xlsx_sheet_ranking(writer, summary):
     """ชีต Company Ranking (เรียงตามยอดก่อน VAT)."""
@@ -550,7 +549,7 @@ def _xlsx_sheet_ranking(writer, summary):
             'Issues':sum(len(b['issues']) for b in s['bills']),
             'Critical':sum(1 for b in s['bills'] for i in b['issues'] if i['severity']=='CRITICAL')})
     if ranking:
-        pd.DataFrame(ranking).to_excel(writer, sheet_name='Company Ranking', index=False)
+        _df_safe(pd.DataFrame(ranking)).to_excel(writer, sheet_name='Company Ranking', index=False)
 
 def _xlsx_sheet_error_report(writer, all_bills_s):
     """ชีต Error Report + ข้อควรตรวจสอบ (แยกเลน FINDING/REVIEW)."""
@@ -575,9 +574,9 @@ def _xlsx_sheet_error_report(writer, all_bills_s):
         #   ของทุกชิ้นยังอยู่ในรายงาน (ไม่ลบ) — แค่จัดเลน → ลด FP ที่ตาเห็น โดย recall ไม่หาย
         df_find = df_e[df_e['เลน'] == 'FINDING'].drop('เลน', axis=1)
         df_rev  = df_e[df_e['เลน'] == 'REVIEW'].drop('เลน', axis=1)
-        df_find.to_excel(writer, sheet_name='Error Report', index=False)
+        _df_safe(df_find).to_excel(writer, sheet_name='Error Report', index=False)
         if not df_rev.empty:
-            df_rev.to_excel(writer, sheet_name='ข้อควรตรวจสอบ', index=False)
+            _df_safe(df_rev).to_excel(writer, sheet_name='ข้อควรตรวจสอบ', index=False)
 
 def _xlsx_sheet_system_issues(writer):
     """ชีต System Issues (กฎพัง/parse fail — แยกจากผลตรวจบิล)."""

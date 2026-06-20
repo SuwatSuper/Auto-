@@ -98,6 +98,7 @@ run "[3x12] match-guard (กัน fuzzy ผูกข้ามบริษัท
 run "[3x13] rules_c Decimal gates (ค่าขอบเงิน)" "$PY" test_rules_c_decimal_gates.py
 run "[3x14] bughunt hardening (crash/data-integrity guards, golden-safe)" "$PY" test_bughunt_hardening.py
 run "[3x14b] bughunt recheck (IV dup ข้ามหลัก/VAT004/ANTI_PREFIX/_D nan-inf/leap พ.ศ./addr005)" "$PY" test_bughunt_recheck.py
+run "[3x14c] re-audit 2026-06-20 (F1/F2/L1-L3/L4/P3/P4/A-C1/A-M1/A-L3/REP-C1/C2/M1)" "$PY" test_recheck_20260620.py
 run "[3x7] package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)" "$PY" test_package_integrity.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
 run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py

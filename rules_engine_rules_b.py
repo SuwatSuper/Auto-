@@ -349,7 +349,10 @@ def r_vat002(b,m,c):
     # v5.8g: ถ้า vat ≤ 1.0 → มันคือ rate (เช่น 0.07) ไม่ใช่ amount → skip
     if abs(vat) <= Decimal('1.00'):
         return []
-    expected = (sub * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    try:                                              # [L1] ห่อ quantize: ยอดมหึมา → InvalidOperation (⊂ ArithmeticError)
+        expected = (sub * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except ArithmeticError:
+        return []
     diff = abs(expected - vat)
     if diff < Decimal('0.50'):   # OBJ-0 (ADR-005): ยอมต่างเฉพาะเศษปัด "< 0.50" (ฟ้องเมื่อ ≥0.50; pin: test_vat002_tolerance.py)
         return []
@@ -363,16 +366,19 @@ def r_vat003(b,m,c):
     if b['subtotal'] is None or b['total'] is None: return []
     sub = _D(b['subtotal']); vat = _D(b['vat']) or Decimal('0'); tot = _D(b['total'])
     if sub is None or tot is None: return []
-    expected = (sub + vat).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    diff = abs(expected - tot)
-    if diff < Decimal('1.00'):
+    try:                                              # [L1] ห่อ quantize: ยอดมหึมา → InvalidOperation (⊂ ArithmeticError)
+        expected = (sub + vat).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        diff = abs(expected - tot)
+        if diff < Decimal('1.00'):
+            return []
+        # ถ้า total ถูกต้องอยู่แล้ว (total-sub ≈ 7% ของ sub) → ช่อง vat แค่อ่านได้ rate, ไม่ใช่ error
+        actual_vat = tot - sub
+        expected_vat = (sub * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if abs(actual_vat - expected_vat) < Decimal('1.00'):
+            return []  # total ถูก → ไม่ต้องแจ้งเตือน
+        return [f"Total ควร {expected:,.2f} แต่={tot:,.2f} (ต่าง {diff:,.2f})"]
+    except ArithmeticError:
         return []
-    # ถ้า total ถูกต้องอยู่แล้ว (total-sub ≈ 7% ของ sub) → ช่อง vat แค่อ่านได้ rate, ไม่ใช่ error
-    actual_vat = tot - sub
-    expected_vat = (sub * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    if abs(actual_vat - expected_vat) < Decimal('1.00'):
-        return []  # total ถูก → ไม่ต้องแจ้งเตือน
-    return [f"Total ควร {expected:,.2f} แต่={tot:,.2f} (ต่าง {diff:,.2f})"]
 
 def r_vat004(b,m,c):
     """[ปิดใช้งาน — enabled=False ที่ registry] ปัดเศษทศนิยม.

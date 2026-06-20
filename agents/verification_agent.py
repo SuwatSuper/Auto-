@@ -46,7 +46,10 @@ class VerificationAgent(Agent):
     # ---------------------------------------------------------------- run
     def _run(self, ctx: PipelineContext) -> AgentResult:
         bills = ctx.bills or []
-        scope = tuple(ctx.opt("verify_severities", ("CRITICAL", "ERROR")))
+        # [A-L3] กัน verify_severities ที่ส่งเป็น "สตริงเดี่ยว" ('ERROR') → tuple('ERROR')=('E','R','R','O','R')
+        #   → ไม่มี severity ไหน match → verification ถูกปิดเงียบ. สตริงเดี่ยว → ห่อเป็น tuple 1 สมาชิก.
+        _sev = ctx.opt("verify_severities", ("CRITICAL", "ERROR"))
+        scope = (_sev,) if isinstance(_sev, str) else tuple(_sev)
 
         # L6 (LLM lens) — opt-in + offline-safe (default ปิด → งดออกเสียง → deterministic/CI)
         self._llm = None

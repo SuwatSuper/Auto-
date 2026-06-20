@@ -90,8 +90,17 @@ def write_master_file(path: str = "master_companies.json") -> None:
     backup = path + ".user.bak"
     if os.path.exists(path):
         try:
-            if not os.path.exists(backup) and not _file_has_stub_marker(path):
-                shutil.copy2(path, backup)
+            # [INF1 FIX 2026-06-20 · แทน ADR-039 #2] สำรอง master "ทุกครั้งที่ไฟล์ปัจจุบันเป็นของจริง" (ไม่ใช่ stub).
+            #   เดิม ADR-039 #2 = "ห้ามทับ .user.bak ที่มีอยู่" (สำรองครั้งเดียว) — แต่ทำข้อมูลหายได้:
+            #   รอบก่อนถูก kill ก่อน atexit → .user.bak เก่าค้าง + live=stub. ผู้ใช้ใส่ master "ใหม่" (live=จริง).
+            #   รอบถัดมา (เดิม) ไม่สำรองของใหม่เพราะ backup มีอยู่ → atexit คืน backup "เก่า" ทับของใหม่ = หายถาวร.
+            #   ใหม่: refresh backup จาก live เมื่อ live เป็นของจริง → .user.bak สะท้อน "master ก่อนรอบนี้" เสมอ
+            #   = สัญญาที่ถูกต้องของ backup (กู้สิ่งที่อยู่ก่อนเครื่องมือ golden แตะ). คงกติกาเดิมข้อสำคัญ:
+            #   live=stub → ไม่ทับ backup (กัน stub กลืน master จริงที่ backup เก็บไว้). atomic: temp+replace.
+            if not _file_has_stub_marker(path):
+                _tmp_bak = backup + ".tmp"
+                shutil.copy2(path, _tmp_bak)
+                os.replace(_tmp_bak, backup)
             if os.path.exists(backup):
                 atexit.register(_restore_master_file, path, backup)
         except OSError:

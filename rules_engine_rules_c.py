@@ -53,7 +53,10 @@ def r_vat006(b,m,c):
     items_sum = sum((_D(i['amount']) for i in b['items']
                      if isinstance(i.get('amount'), (int, float))), Decimal('0'))
     if items_sum <= 0: return []
-    expected_inclusive = (_D(tot) / Decimal('1.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    try:                                              # [L1] ห่อ quantize เหมือน r_itm001/018: ยอด >10²⁷ → InvalidOperation
+        expected_inclusive = (_D(tot) / Decimal('1.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except ArithmeticError:
+        return []
     if (abs(items_sum - expected_inclusive) < Decimal('1') and isinstance(sub, (int, float))
         and abs(items_sum - _D(sub)) > Decimal('1')):
         return [f"อาจเป็น VAT Included: items_sum={items_sum:,.2f} = total÷1.07={expected_inclusive:,.2f}"]
@@ -73,8 +76,11 @@ def r_vat007(b,m,c):
     sub_d = _D(sub); vat_d = _D(vat)
     if items_sum <= sub_d: return []
     discount = items_sum - sub_d
-    exp_vat_post = (sub_d * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    exp_vat_pre = (items_sum * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    try:                                              # [L1] ห่อ quantize: ยอด >10²⁷ → InvalidOperation (⊂ ArithmeticError)
+        exp_vat_post = (sub_d * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        exp_vat_pre = (items_sum * VAT_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except ArithmeticError:
+        return []
     if abs(vat_d - exp_vat_pre) < Decimal('0.5') and abs(vat_d - exp_vat_post) > Decimal('0.5'):
         return [f"VAT คำนวณก่อนหักส่วนลด! discount={discount:,.2f}, ควร VAT={exp_vat_post:,.2f} แต่={vat:,.2f}"]
     return []
@@ -331,6 +337,8 @@ def r_dt004(b, m, c):
         #   (datetime จริงสร้างไม่ได้ แต่ของจำลอง/พาธอื่นได้) — มีเทสตรึงไว้ (test_rules_extra)
         if mo == 0:
             issues.append(f"เดือน = 0 ผิดปกติ")
+        if mo > 12:                                   # [L3] เดือน >12 (date-like จำลอง/พาธอื่น); real datetime สร้างไม่ได้ → golden-neutral
+            issues.append(f"เดือน {mo} > 12 ผิดปกติ")
         if day == 0:
             issues.append(f"วัน = 0 ผิดปกติ")
         if day > 31:

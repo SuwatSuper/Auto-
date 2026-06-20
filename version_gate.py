@@ -223,6 +223,10 @@ def format_report(rep: Report) -> str:
             lines.append(f"     • {it.name}: {it.got} ≠ {it.want} ({it.level})")
         if rep.allow_mismatch:
             lines.append(f"  ⚠️  ผ่อนผันด้วย {_ENV_ALLOW}=1 — รันต่อทั้งที่เสี่ยง (คุณรับความเสี่ยงเอง)")
+            # [OBS 2026-06-20] กัน golden drift ซ่อนใต้ version warning (บทเรียนจากบั๊ก C1: name_raw ขยับ
+            #   golden แต่ถูกเข้าใจว่า "แค่ version ต่าง"). เตือนชัดว่า golden ยัง "ไม่ได้ยืนยัน" จนกว่าจะรัน regression.
+            lines.append("  ⛔ golden ยัง 'ไม่ได้ยืนยัน' ในเวอร์ชันนี้ — ต้องรัน  python3 regression_full.py <data> "
+                         "เทียบ baseline._sha256 ก่อนเชื่อผล (version warning ≠ golden ผ่าน)")
         else:
             lines.append("  → หยุดการทำงาน. ติดตั้งให้ตรง:  pip install -r requirements.txt")
             lines.append(f"     (ถ้ายืนยันจะรันทั้งที่เสี่ยง: ตั้ง {_ENV_ALLOW}=1)")

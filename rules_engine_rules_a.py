@@ -578,6 +578,11 @@ def r_itm002(b,m,c):
 
     # 2. เช็กฟันหลอ (gap) ขาดตัวไหน แจ้งตัวนั้น
     start, end = min(seqs), max(seqs)
+    # [L2] กัน DoS: seq มหึมา (เช่น 5,000,000 จากเซลล์ขยะ) ทำ set(range(1,end+1)) กิน RAM/ช้าหลายวินาที.
+    #   บิลจริง seq ≤ ~50 (parser cap) → เพดาน 10000 ไม่กระทบ (golden-neutral). เกิน → ฟ้องผิดช่วงแทนสร้าง set ยักษ์.
+    if end > 10000:
+        o.append(f"ลำดับสูงสุด={end} ผิดช่วงปกติ — น่าจะอ่านเลขลำดับผิด")
+        return o
     expected_seq = set(range(1, end + 1))
     missing = expected_seq - seqs_set
 

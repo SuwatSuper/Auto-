@@ -156,11 +156,24 @@ ok_bak = (os.path.exists(bak) and "บริษัท ก จำกัด" in _r
           and not _rj(bak).get("_golden_stub"))
 check(ok_bak, "live=stub + .user.bak=จริง → เรียกซ้ำไม่ทับ backup (master จริงรอด)")
 
-# (2) ห้ามทับ .user.bak ที่มีอยู่แล้ว (ถือว่าเก็บของจริงครบแล้ว)
+# (2) [INF1 FIX แทน ADR-039 #2] live=master จริง → refresh .user.bak ให้สะท้อนของจริง "ก่อนรอบนี้"
+#     เดิมพฤติกรรม "ไม่ทับ backup เก่า" ทำข้อมูลหาย (ดู case 2b). ใหม่: backup = live ปัจจุบัน (atomic).
 _wj(mp, dict(REAL)); _wj(bak, {"บริษัท ค จำกัด": {"tax_id": "0000000000003"}})
 _quiet(lambda: GS.write_master_file(mp))
-check(os.path.exists(bak) and "บริษัท ค จำกัด" in _rj(bak),
-      ".user.bak ที่มีอยู่ไม่ถูกเขียนทับ")
+check(os.path.exists(bak) and "บริษัท ก จำกัด" in _rj(bak)
+      and "บริษัท ค จำกัด" not in _rj(bak),
+      ".user.bak ถูก refresh จาก master จริงปัจจุบัน (ของเก่าค้างถูกแทนที่)")
+
+# (2b) [INF1 ตัวจริง] kill → ผู้ใช้ใส่ master "ใหม่" → รัน golden → restore: master ใหม่ต้องรอด (ไม่ถูก backup เก่ากลืน)
+mpd = os.path.join(TMP, "mloss.json"); bakd = mpd + ".user.bak"
+_wj(mpd, {**GS.MASTER, "_golden_stub": True})          # live=stub (รอบก่อนถูก kill ก่อน atexit)
+_wj(bakd, {"co_OLD": {"tax_id": "1"}})                 # .user.bak เก่าค้าง
+_wj(mpd, {"co_NEW": {"tax_id": "2"}})                  # ผู้ใช้ใส่ master "ใหม่" (live=จริง)
+_quiet(lambda: GS.write_master_file(mpd))              # รอบ golden ใหม่ (เขียน stub + refresh backup→co_NEW)
+GS._restore_master_file(mpd, bakd)                     # จำลอง atexit
+_final = _rj(mpd); _final.pop("_golden_stub", None)
+check("co_NEW" in _final and "co_OLD" not in _final,
+      "INF1: master ใหม่หลัง kill+edit ไม่ถูก backup เก่ากลืน (ไม่หายถาวร)")
 
 # (3) วงจรปกติ (golden flow): real → write_master_file → restore คืน master จริงครบ
 mp2 = os.path.join(TMP, "m2.json"); bak2 = mp2 + ".user.bak"

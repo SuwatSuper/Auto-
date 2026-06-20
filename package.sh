@@ -19,6 +19,19 @@ OUT="${1:-dist/${PREFIX}.zip}"
 mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
 
 PY="${PYTHON:-python3}"
+
+# [PKG-GATE 2026-06-20] กัน "แพ็กทั้งที่ golden แดง" — บทเรียนบั๊ก C1 (name_raw ขยับ golden hash
+#   แล้วหลุดออก zip ฉบับ BUGFIXED ทั้งที่ regression แดง). บังคับรัน fixture regression ก่อนแพ็ก:
+#   engine ต้อง == baseline (269ddaed…) มิฉะนั้นหยุด ไม่ปล่อยแพ็กที่ golden เพี้ยน.
+echo "🔎 ด่าน golden (regression fixture) ก่อนแพ็ก..."
+if ! PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE="${PUOPUY_AUDIT_DATE:-2026-06-02}" \
+     "$PY" regression_full.py . tests/fixtures tests/fixtures/baseline_fixture.json >/tmp/_pkg_reg.log 2>&1; then
+    echo "❌ regression fixture แดง — ห้ามแพ็ก (golden เพี้ยน/เวอร์ชันไม่ตรง). ดูรายละเอียด:"
+    tail -10 /tmp/_pkg_reg.log
+    exit 3
+fi
+echo "✅ golden fixture เขียว (engine == baseline) → แพ็กต่อ"
+
 "$PY" - "$OUT" "$PREFIX" <<'PYEOF'
 import sys, os, subprocess, zipfile
 

@@ -69,8 +69,9 @@ class ReportAgent(Agent):
                     try:
                         run_addon(bills, out)
                     except Exception as e:
-                        # addon pack เป็น shoulder feature — พังไม่ควรล้มรายงานหลัก
-                        pass
+                        # [A-L4] addon pack เป็น shoulder feature — พังไม่ควรล้มรายงานหลัก
+                        #   แต่ต้องไม่ "กลืนเงียบ" (เดิม pass เปล่า → debug ไม่ได้). surface เป็น warning.
+                        print(f"⚠️ run_addon_pack ล้มเหลว (ข้าม ไม่กระทบรายงานหลัก): {type(e).__name__}: {e}")
 
         if not ok or not os.path.isfile(out):
             raise AgentError(f"สร้างรายงานไม่สำเร็จ ({'LEAN' if lean else 'FULL'}) → {out}")

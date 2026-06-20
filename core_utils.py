@@ -12,11 +12,34 @@ from __future__ import annotations
 
 from typing import Any
 
+import math
 import re
 from datetime import datetime
 
 from config import _PP20_LABELS  # [F3] explicit (เดิม `from config import *`)
 from puopuy_core import normalize_text
+
+try:                                    # [L4] อักขระควบคุมที่ openpyxl ปฏิเสธ
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE as _XL_ILLEGAL
+except Exception:
+    _XL_ILLEGAL = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+
+
+def _df_safe(df):
+    """[L4 2026-06-20] เตรียม DataFrame ก่อน to_excel (full-mode report): sanitize อักขระควบคุม (\\x07) ใน
+    เซลล์ข้อความ (กัน IllegalCharacterError = export คืน False) + coerce float NaN/±inf → 0 (กัน `or 0`
+    ปล่อย nan เป็นเซลล์ว่าง). คลีนสตริง/เลขจำกัดไม่เปลี่ยน → report-determinism ไม่ขยับ.
+    (วางที่ leaf นี้ ไม่ใช่ reporting_p0 เพื่อคงไฟล์นั้น ≤600 LOC ตาม invariant F4)."""
+    def _c(v):
+        if isinstance(v, str):
+            return _XL_ILLEGAL.sub('', v)
+        if isinstance(v, float) and not math.isfinite(v):
+            return 0
+        return v
+    try:
+        return df.map(_c)
+    except Exception:
+        return df
 
 
 def clean_pp20_address(raw: Any) -> str:
