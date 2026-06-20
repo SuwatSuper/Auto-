@@ -326,7 +326,11 @@ def r_itm011(b,m,c):
 
 def r_vat001(b,m,c):
     if not b['items'] or b['subtotal'] is None: return []
-    items_d = [_D(i['amount']) for i in b['items'] if i['amount'] is not None]
+    # [F2 2026-06-20] เดิมกรองด้วย `i['amount'] is not None` (ค่าดิบ) แล้วค่อย _D — แต่ _D คืน None ได้
+    #   กับ bool/สตริงที่ไม่ใช่ตัวเลข → None หลุดเข้า list → sum(...) ครัช TypeError (Decimal + NoneType)
+    #   → VAT001 (CRITICAL) ถูกข้ามเงียบเป็น SYS-*. กรองหลัง _D เหมือน sibling r_vat006/r_vat007.
+    #   ข้อมูลจริง amount เป็น float|None เสมอ → ผลเท่าเดิมเป๊ะ (golden ไม่ขยับ).
+    items_d = [d for d in (_D(i.get('amount')) for i in b['items']) if d is not None]
     if not items_d: return []
     s = sum(items_d, Decimal('0'))
     sub = _D(b['subtotal'])

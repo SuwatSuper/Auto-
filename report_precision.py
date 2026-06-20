@@ -29,6 +29,13 @@ except Exception:                               # standalone-safe (เทส/CI 
 CLEAR, SOFT = "clear", "soft"
 CONFIRM, RECHECK, ABSTAIN = "CONFIRM", "RECHECK", "ABSTAIN"
 
+# [REP-M3 2026-06-20] อักขระควบคุมที่ openpyxl ปฏิเสธ — sanitize ก่อนเขียนเซลล์ของ company_summary.xlsx
+#   (วาง helper ที่นี่ ไม่ใช่ super_ultra_viewer เพื่อคงไฟล์นั้นไว้ ≤600 LOC ตาม invariant F4)
+_XLS_ILLEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+def _xls_safe(v):
+    """ตัดอักขระควบคุมก่อนเขียนเซลล์ — กัน IllegalCharacterError ทำ advisory xlsx หลุดทั้งไฟล์."""
+    return _XLS_ILLEGAL.sub("", v) if isinstance(v, str) else v
+
 # รหัสที่ "โครงสร้างชัด ตรวจซ้ำได้แน่" → ค่าเริ่มต้นเอนไป clear เมื่อไม่มีผู้ตรวจค้าน
 #   ADDR002 = สะกดที่อยู่ผิด (เทียบทะเบียน) → ที่อยู่ต้องตรงทะเบียน = ต้องแก้จริง
 #   DOC001 = ชื่อชีต(=วันที่) ไม่ตรงวันที่ในบิล → 'ชื่อชีตกับวันที่ต้องตรงกัน' = สัญญาณเชื่อถือได้ → รีเช็คชัด

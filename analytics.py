@@ -23,6 +23,7 @@
 """
 from __future__ import annotations
 
+import math
 import os
 
 import pandas as pd
@@ -219,7 +220,10 @@ def _num(x):
         f = float(x)
     except (TypeError, ValueError):
         return 0.0
-    return 0.0 if f != f else f   # [M6] กัน NaN ลามเข้ายอดรวม/อันดับ (float('nan') แปลงผ่านแต่ != ตัวเอง)
+    # [M6] กัน NaN ลามเข้ายอดรวม/อันดับ (float('nan') แปลงผ่านแต่ != ตัวเอง)
+    # [REP-M1 2026-06-20] กัน ±inf ด้วย (พี่น้อง M6) — _num(inf)=inf เคยครองอันดับ -subtotal + ทำยอดรวมเพี้ยน.
+    #   ข้อมูลจริง subtotal เป็น float จำกัด|None เสมอ → ผลเท่าเดิม (golden ไม่ขยับ).
+    return 0.0 if not math.isfinite(f) else f   # isfinite = False ทั้ง NaN และ ±inf
 
 
 # ═══════════════════ summarize_by_company (FAITHFUL contract) ═══════════════════

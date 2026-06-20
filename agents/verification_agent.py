@@ -173,7 +173,13 @@ class VerificationAgent(Agent):
         votes: Dict[str, int] = {}
         reasons: List[str] = []
         for ln in INSPECTION_LENSES:
-            v, r = ln.fn(x)
+            # [A-C1 isolation 2026-06-20] เลนส์ตัวเดียว throw ไม่ควรล้มผลโหวต "ทั้งบิล/ทั้ง agent"
+            #   (เดิมไม่ห่อ → 1 เลนส์ raise = VerificationAgent error = ทิ้งผลโหวตทุกบิลรวมบิลสะอาด).
+            #   ข้อมูลสะอาดไม่มีเลนส์ไหน throw → พฤติกรรมเท่าเดิม (golden ไม่ขยับ). throw → งดออกเสียง (0).
+            try:
+                v, r = ln.fn(x)
+            except Exception:
+                v, r = 0, None
             votes[ln.id] = v
             if r:
                 reasons.append(r)

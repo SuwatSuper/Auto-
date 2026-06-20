@@ -50,7 +50,11 @@ class ConfidenceAgent(Agent):
         low_conf_bills = set()
         for b in (ctx.bills or []):
             if b.get("amount_confidence") == "low":
-                k = _bkey(b.get("file", ""), b.get("sheet", ""), b.get("iv_number") or "-")
+                # [A-M1 2026-06-20] ต้อง key ด้วย iv_number_raw ก่อน (เหมือน bill_ref/f.iv ที่ mesh ใช้)
+                #   เดิมใช้ iv_number (normalize ตัด '-') → ไม่ตรงกับ f.iv (raw เช่น 'IV6801-0001') →
+                #   โบนัส low-confidence (+3) "ไม่เคยถูกบวก" กับบิลใด ๆ ที่ raw≠normalize (= สัญญาณตาย).
+                k = _bkey(b.get("file", ""), b.get("sheet", ""),
+                          b.get("iv_number_raw") or b.get("iv_number") or "-")
                 low_conf_bills.add(k)
 
         # รวมหลักฐานต่อบิลจาก mesh (ไม่นับ finding ของ confidence เอง กัน feedback loop)

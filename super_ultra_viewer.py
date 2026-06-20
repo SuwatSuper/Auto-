@@ -484,7 +484,7 @@ def write_xlsx(rows, path):
             summ += "  | หมายเหตุ: " + " ; ".join(r["notes"])
         vals.append(summ)
         for ci, v in enumerate(vals, 1):
-            c = ws.cell(ri, ci, v); c.font = Font(name="Arial", size=10)
+            c = ws.cell(ri, ci, _precision._xls_safe(v)); c.font = Font(name="Arial", size=10)   # [REP-M3] sanitize
             c.alignment = Alignment(wrap_text=True, vertical="top"); c.border = BD
         for ci, f in enumerate(FIELD_ORDER, 6):
             m = r["verdicts"][f]["mark"]
@@ -511,7 +511,7 @@ def write_xlsx(rows, path):
             vals = [wr - 1, x["file"], x["date"], x["sheet"], seq, r["company"], x["field"], x["type"],
                     re.sub(r'หน่วย\s*"([^"]+)"\s*ควรเป็น\s*"[^"]+"', r'หน่วย \1', x["detail"]), x["action"]]  # [recheck] หน่วย→รีเช็ค ไม่ระบุ 'ควรเป็น'
             for ci, v in enumerate(vals, 1):
-                c = ws2.cell(wr, ci, v); c.font = Font(name="Arial", size=10)
+                c = ws2.cell(wr, ci, _precision._xls_safe(v)); c.font = Font(name="Arial", size=10)   # [REP-M3] sanitize
                 c.alignment = Alignment(wrap_text=True, vertical="top"); c.border = BD
             ws2.cell(wr, 8).fill = RED if x["lane"] == "fix" else YEL
             wr += 1

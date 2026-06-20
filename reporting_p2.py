@@ -13,7 +13,7 @@ from reporting_p1 import (   # [F3 de-star] explicit re-export shim (split-base 
     _clean_sheet_items, _clean_sheet_summary, _get_p, _plotly_layout,
     _sty_cell_len, _sty_col_widths, _sty_find_cols, _sty_header,
     _sty_row, _sty_sev_row, _sty_zebra_row, _style_header,
-    _style_one_sheet, _write_table, _xlsx_sheet_allbills, _xlsx_sheet_crossbill,
+    _fin, _style_one_sheet, _write_table, _xl_safe, _xlsx_sheet_allbills, _xlsx_sheet_crossbill,
     _xlsx_sheet_dashboard, _xlsx_sheet_error_report, _xlsx_sheet_heatmap, _xlsx_sheet_highrisk,
     _xlsx_sheet_items, _xlsx_sheet_monthly, _xlsx_sheet_ranking, _xlsx_sheet_rules,
     _xlsx_sheet_summary, _xlsx_sheet_system_issues, bill_company_label, bottom_only,
@@ -142,12 +142,15 @@ def _clean_sheet_dashboard(wb, all_bills, summary, stats):
     comp_iss = [c for c in comp_iss if c[1] > 0][:10]
     hd['D1'] = 'บริษัท'; hd['E1'] = 'Issues'
     for i,(k,v) in enumerate(comp_iss, start=2):
-        hd.cell(row=i, column=4, value=str(k)[:22]); hd.cell(row=i, column=5, value=v)
+        # [REP-C1 2026-06-20] sanitize master_key ก่อนเขียน: H3 ห่อ _write_table แล้วแต่ตกหล่นจุดนี้
+        #   (chart-data sheet เขียน hd.cell ตรง). ชื่อบริษัทใน master ที่มีอักขระควบคุม (\x07) → openpyxl
+        #   IllegalCharacterError → build_clean_report คืน False → "ไม่ได้รายงานเลย" (ตรงอาการที่ H3 อ้างว่าแก้).
+        hd.cell(row=i, column=4, value=_xl_safe(str(k)[:22])); hd.cell(row=i, column=5, value=v)
     # monthly net
     monthly = defaultdict(float)
     for b in all_bills:
         if b.get('iv_date'):
-            monthly[_clean_period(b['iv_date'])] += (b['total'] or 0)
+            monthly[_clean_period(b['iv_date'])] += _fin(b['total'])   # [REP-C2] NaN/inf-safe
     mitems = sorted(monthly.items())
     hd['G1'] = 'งวด'; hd['H1'] = 'ยอดสุทธิ'
     for i,(k,v) in enumerate(mitems, start=2):
@@ -266,9 +269,9 @@ def _build_clean_report_impl(all_bills, summary, iv_issues, typos, filename_issu
     n_items = sum(len(b['items']) for b in all_bills)       # v6.3: ใช้ทำซับไตเติลแถบหัวเรื่อง
     n_issues = crit + err + warn + info
     _ts = datetime.now().strftime('%d/%m/%Y %H:%M')
-    sum_sub = sum(b['subtotal'] or 0 for b in all_bills)
-    sum_vat = sum(b['vat'] or 0 for b in all_bills)
-    sum_tot = sum(b['total'] or 0 for b in all_bills)
+    sum_sub = sum(_fin(b['subtotal']) for b in all_bills)   # [REP-C2] กัน NaN/inf ลามทำยอดเป็นเซลล์ว่าง
+    sum_vat = sum(_fin(b['vat']) for b in all_bills)
+    sum_tot = sum(_fin(b['total']) for b in all_bills)
     risk    = crit*10 + err*3 + warn
 
     wb = Workbook()

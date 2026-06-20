@@ -36,6 +36,19 @@ def _xl_safe(v):
     return _XL_ILLEGAL.sub('', v) if isinstance(v, str) else v
 
 
+def _fin(v):
+    """[REP-C2 2026-06-20] ยอดเงินปลอดภัยสำหรับบวก/เขียนเซลล์ → คืน 0 เมื่อ None/NaN/±inf.
+    เดิม report builder ใช้ `v or 0`: nan เป็น truthy → `nan or 0 == nan` ลามผ่าน sum() →
+    openpyxl เขียน nan เป็น "เซลล์ว่าง" → Dashboard/Summary ยอดเงินหาย (เข้าใจผิดว่ายอด 0).
+    M6 แก้ที่ analytics._num แล้ว แต่ report builder บวกยอดเอง → จุดนี้ยังโล่ง. ข้อมูลจริง
+    subtotal/vat/total เป็น float จำกัด|None เสมอ → ค่าเท่าเดิม (report-determinism ไม่ขยับ)."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return 0
+    return f if (f == f and f not in (float('inf'), float('-inf'))) else 0
+
+
 def _xlsx_sheet_heatmap(writer, all_bills):
     """ชีต Error Heatmap (หมวด×severity)."""
     heatmap = defaultdict(lambda: defaultdict(int))
@@ -57,9 +70,9 @@ def _xlsx_sheet_monthly(writer, all_bills):
         if b['iv_date']:
             k = _get_p(b['iv_date'])
             monthly[k]['count'] += 1
-            monthly[k]['subtotal'] += b['subtotal'] or 0
-            monthly[k]['vat'] += b['vat'] or 0
-            monthly[k]['total'] += b['total'] or 0
+            monthly[k]['subtotal'] += _fin(b['subtotal'])   # [REP-C2] NaN/inf-safe
+            monthly[k]['vat'] += _fin(b['vat'])
+            monthly[k]['total'] += _fin(b['total'])
             monthly[k]['issues'] += len(b['issues'])
     if monthly:
         pd.DataFrame([{'งวดบัญชี':k,**v} for k,v in sorted(monthly.items())]).to_excel(writer, sheet_name='Monthly Pattern', index=False)
@@ -500,7 +513,7 @@ def _clean_sheet_highrisk(wb, all_bills_s, _ts):
         ws6 = wb.create_sheet('High Risk')
         ws6.sheet_view.showGridLines = False
         h_rows = [{'งวดบัญชี':_clean_period(b['iv_date']),'วันที่':b['iv_date_str'],'บริษัท':_clean_company_label(b),
-                   'IV':(b.get('iv_number_raw') or b.get('iv_number') or '-'),'ไฟล์':b['file'],'ยอด':b['subtotal'] or 0,
+                   'IV':(b.get('iv_number_raw') or b.get('iv_number') or '-'),'ไฟล์':b['file'],'ยอด':_fin(b['subtotal']),
                    'Critical':sum(1 for i in b['issues'] if i['severity']=='CRITICAL'),
                    'หมายเหตุ':' | '.join(f"[{i['code']}] {(i.get('detail') or '')[:80]}" for i in b['issues'] if i['severity']=='CRITICAL')}
                   for b in hr]
@@ -540,9 +553,9 @@ def _clean_sheet_summary(wb, all_bills, n_bills, n_files, _ts):
         if not a['tax'] and (b.get('tax_id') or '').strip():   # v9.1: เก็บเลขภาษี (ดึงจากบิลจริง) ตัวแรกที่เจอของกลุ่ม
             a['tax'] = b['tax_id']
         a['bills'] += 1
-        a['sub']   += b['subtotal'] or 0
-        a['vat']   += b['vat'] or 0
-        a['tot']   += b['total'] or 0
+        a['sub']   += _fin(b['subtotal'])   # [REP-C2] NaN/inf-safe (เดิม `or 0` ปล่อย nan ลามทำยอดว่าง)
+        a['vat']   += _fin(b['vat'])
+        a['tot']   += _fin(b['total'])
         a['iss']   += len(b['issues'])
         a['crit']  += sum(1 for i in b['issues'] if i['severity']=='CRITICAL')
     s_rows = [{'บริษัท':comp, 'เลขภาษี':(a['tax'] or '-'), 'งวดบัญชี':per, 'จำนวนบิล':a['bills'],
@@ -559,7 +572,7 @@ def _clean_sheet_duplicates(wb, all_bills):
     # ============ 7) บิลซ้ำ ============
     seen = defaultdict(list)
     for b in all_bills:
-        key = (b.get('iv_number') or '-', round(float(b['total'] or 0),2), _clean_company_label(b))
+        key = (b.get('iv_number') or '-', round(_fin(b['total']),2), _clean_company_label(b))
         seen[key].append(b)
     dups = [(k,v) for k,v in seen.items() if len(v) > 1 and k[0] != '-']
     if dups:

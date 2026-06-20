@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Callable, Dict, List, Tuple
 
 from . import core_access as core
@@ -53,7 +53,14 @@ def _is_money_issue(code: str) -> bool:
 
 
 def _q2(d: Decimal) -> Decimal:
-    return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    # [A-C1 2026-06-20] ห่อ quantize กัน InvalidOperation เมื่อยอดมหึมา (เกิน Decimal context 28 หลัก
+    #   เช่น _D('1e30')). เดิม raise หลุดถึง _build_cross_index (รันครั้งเดียวก่อน loop เลนส์) → VerificationAgent
+    #   ทั้งตัว error → ทิ้งผลโหวตของ "ทุกบิล" รวมบิลสะอาด (findings=0). engine ฮาร์ดเดนจุดนี้แล้ว (ADR-038);
+    #   เลนส์เป็น sibling ที่ตกหล่น. คืนค่าเดิม (ไม่ปัด) เมื่อปัดไม่ได้ — เลนส์เปรียบเทียบด้วย tolerance อยู่แล้ว.
+    try:
+        return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ValueError):
+        return d
 
 
 # ──────────────────────────────────────────────────────────────────────────

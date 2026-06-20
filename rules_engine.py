@@ -211,11 +211,26 @@ def run_rules(bill, master_companies, file_info, unit_index=None, all_bills_ref=
     # [M5] guard ให้ครบจริง: เดิม setdefault แค่ 4 คีย์ แล้วไปอ้าง bill['company'] (บรรทัดนี้) + bill['sheet']
     #   (ctx ด้านล่าง) ดิบ ๆ นอก try → บิลภายนอก/บางส่วนที่ขาดคีย์ "ทั้งบิลครัช" หรือกฎ ~6 ตัวข้ามเงียบเป็น SYS-*.
     #   บิลจาก parser มีคีย์เหล่านี้ครบเสมอ → setdefault = no-op (golden ไม่ขยับ).
+    # [C1 GOLDEN-FIX 2026-06-20] เดิม M5 ใส่ 'name_raw' ในลิสต์นี้ด้วย แต่ 'name_raw' เป็นคีย์ระดับ "รายการ"
+    #   (parser ใส่ให้ทุก item — parser_p1._pb_build_item / parser_p2._tor_scan_items) ไม่เคยมีที่ระดับ "บิล"
+    #   (result dict ออก company_raw/tax_id_raw/iv_number_raw/iv_date_str เท่านั้น). การ setdefault ที่ระดับบิล
+    #   จึง "ฉีดคีย์ใหม่" name_raw='' เข้าทุกบิล → ขยับ golden snapshot hash → regression fixture แดง
+    #   (engine 21d6f1a6 ≠ baseline 269ddaed). ถอด 'name_raw' ออก: ไม่มีกฎไหนอ่าน bill['name_raw'] ดิบ
+    #   (อ่านผ่าน it.get('name_raw') ที่ระดับ item ทั้งคู่) → ปลอดภัย + คืน golden เดิม.
     for _k in ('company', 'tax_id', 'branch', 'branch_no', 'address', 'iv_number', 'sheet',
-               'iv_date_str', 'name_raw', 'company_raw', 'tax_id_raw', 'iv_number_raw'):
+               'iv_date_str', 'company_raw', 'tax_id_raw', 'iv_number_raw'):
         bill.setdefault(_k, '')
     bill.setdefault('iv_date', None)
     bill.setdefault('issues', [])
+    # [F1 2026-06-20] บิลจาก parser มี item ครบ 7 คีย์เสมอ (seq/name/name_raw/qty/unit/price/amount)
+    #   → setdefault = no-op (golden ไม่ขยับ). กันบิล "ภายนอก/บางส่วน" ที่ item ขาดคีย์: กฎ ITM001/ITM005/
+    #   ITM006 + VAT001 (CRITICAL) อ้าง it['amount']/['price']/['unit']/['name'] ดิบ → KeyError → run_rules
+    #   ดักเป็น SYS-* แล้ว "ข้ามกฎเงียบ" (= 'ตรวจไม่ได้' โผล่เป็น 'ตรง' หลอก ขัดปรัชญาระบบ).
+    for _it in bill['items']:
+        if isinstance(_it, dict):
+            _it.setdefault('seq', None); _it.setdefault('name', ''); _it.setdefault('name_raw', '')
+            _it.setdefault('qty', None); _it.setdefault('unit', ''); _it.setdefault('price', None)
+            _it.setdefault('amount', None)
     key, master, score = match_company(bill['company'], master_companies)
     # [MATCH-GUARD] กัน fuzzy ผูกข้ามบริษัท: partial_ratio ให้คะแนนสูงจากคำอุตสาหกรรมร่วม
     #   ("...คอนสตรัคชั่น จำกัด") → บิลของ "คนละนิติบุคคล" (เลขภาษี 13 หลักต่างจาก master ชัด ๆ)
