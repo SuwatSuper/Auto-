@@ -1,0 +1,12 @@
+# ปุ้มปุ้ย v9 — เวอร์ชันที่พิสูจน์แล้ว (golden master baseline ทำบนชุดนี้)
+# ⚠️ Python 3.12 (ไลบรารีด้านล่างเทสต์บน 3.12). เวอร์ชันใหม่กว่ารันได้แต่ fingerprint อาจต่าง.
+#    ติดตั้ง: pip install -r requirements.txt
+
+pandas==2.2.2
+xlrd==2.0.1
+openpyxl==3.1.5
+rapidfuzz==3.10.1
+matplotlib==3.9.2
+plotly==5.24.1
+tqdm==4.67.1
+pythainlp==5.0.5
