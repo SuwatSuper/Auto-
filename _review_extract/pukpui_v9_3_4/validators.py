@@ -510,6 +510,10 @@ def apply_sheet_date_crosscheck(all_bills):
         if sheet_match:
             sh_dd = int(sheet_match.group(1))
             sh_mm = int(sheet_match.group(2))
+            # [V-F3] ชื่อชีตที่ไม่ใช่ "วัน.เดือน" จริง (เช่น "5.2025" = วัน.ปี → regex จับ mm=20) ต้องไม่ฟ้อง
+            #   DOC001 หลอก. วัน 1-31 / เดือน 1-12 เท่านั้นจึงตีความเป็น day.month — นอกช่วงนี้ = ไม่ใช่วันที่ ข้าม.
+            if not (1 <= sh_dd <= 31 and 1 <= sh_mm <= 12):
+                continue
             # [ADR-057] ถ้ามีชีต "N" เปล่าในไฟล์เดียวกันที่วันที่ภายในตรงกับบิลนี้ → ".M" เป็นลำดับย่อย ข้าม
             #   ใช้ tuple (y,m,d) เทียบ — robust ทั้ง datetime.datetime และ datetime.date (ไม่เรียก .date())
             _sib = _bare_dates.get(b.get('filepath'), {}).get(str(sh_dd))

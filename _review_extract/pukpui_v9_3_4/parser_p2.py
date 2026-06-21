@@ -33,6 +33,13 @@ def _pb_extract_items(result, block_df, cols):
             #   ถูกนับเป็นรายการสินค้า + ฟ้อง ITM016 ผิด — ข้อความนี้คือยอดรวมเป็นคำ ไม่ใช่สินค้า
             if name and _is_thai_amount_words(name):
                 continue
+            # [P-MED2] กัน "แถวสรุป/ยอดรวม/ภาษี" (label อยู่คอลัมน์ชื่อ + ยอดใน amt_col) ถูกนับเป็น
+            #   "รายการสินค้า" + ฟ้อง ITM016 (เลขลำดับหาย) ผิด. ใช้ startswith (ไม่ใช่ substring) เพื่อกัน
+            #   ชื่อสินค้าจริงที่บังเอิญมี label เป็นคำย่อยถูกตัดทิ้ง (false-negative) — conservative สุด.
+            if name:
+                _nlow = name.lower().lstrip()
+                if any(_nlow.startswith(_lab.lower()) for _lab in (_LBL_TOTAL + _LBL_SUBTOTAL + _LBL_VAT)):
+                    continue
             if name and len(name) >= 3 and amt_col is not None:
                 amt = _cell_to_num(block_df.iat[r, amt_col])   # v6: ผ่าน converter กลาง → รับยอด Text
                 if amt is not None and amt > 0:

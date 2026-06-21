@@ -68,7 +68,7 @@ def _D(x: Any) -> Decimal | None:
         return None
     if _neg:
         d = -d
-    return d if d.is_finite() else None   # [BUGFIX recheck #4] กัน "nan"/"inf"/"1e999"
+    return d if d.is_finite() else None   # [BUGFIX recheck #4] กัน "nan"/"inf" (is_finite). หมายเหตุ: ค่ามหึมา-finite (เช่น 1e999) ผ่านที่นี่โดยตั้งใจ — ถูกกันตอน quantize ใน _money_q (H1/ADR-038)
 
 
 # ───────────── VAT tolerance (RESTORED — สูตรเดิมที่มีหลักฐานว่าพิสูจน์แล้ว) ─────────────
