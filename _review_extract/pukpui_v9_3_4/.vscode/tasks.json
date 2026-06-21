@@ -1,0 +1,106 @@
+{
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "dataDir",
+      "type": "promptString",
+      "description": "โฟลเดอร์ข้อมูล .xls/.xlsx จริง (เช่น /mnt/project — 148 ไฟล์ทางการ)",
+      "default": "${workspaceFolder}/data"
+    }
+  ],
+  "options": {
+    "cwd": "${workspaceFolder}",
+    "env": { "PYTHONHASHSEED": "0", "PUOPUY_AUDIT_DATE": "2026-06-02" }
+  },
+  "tasks": [
+    {
+      "label": "0. Bootstrap (สร้าง .venv Python 3.12 + ติดตั้ง deps ล็อก)",
+      "detail": "ครั้งแรกของเครื่อง — สร้าง virtualenv แล้วติดตั้ง requirements ตาม constraints (offline ได้ถ้า cache แล้ว)",
+      "type": "shell",
+      "command": "python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt -c constraints.txt",
+      "windows": {
+        "command": "py -3.12 -m venv .venv; .venv\\Scripts\\pip install -r requirements.txt -c constraints.txt"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "1. Doctor — ตรวจความพร้อมระบบ (เร็ว)",
+      "detail": "เช็ค Python/deps/env/hooks/fixture ว่าพร้อมรันให้ผล reproduce ได้ไหม",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} doctor.py",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "1b. Doctor --full (+ tripwire golden fixture)",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} doctor.py --full",
+      "problemMatcher": []
+    },
+    {
+      "label": "2. Invariant tripwire (golden fixture + pin) ~5s",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} INVARIANTS/check_invariants.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "3. CI เต็ม (gate+invariants+smoke+เทส+regression fixture)",
+      "type": "shell",
+      "command": "bash run_ci.sh",
+      "windows": { "command": "bash run_ci.sh" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "3b. CI + regression บนข้อมูลจริง (→ ae84d3f0)",
+      "type": "shell",
+      "command": "bash run_ci.sh '${input:dataDir}'",
+      "problemMatcher": []
+    },
+    {
+      "label": "4. รัน Audit จริง → รายงาน Excel (reports/)",
+      "detail": "รัน pipeline 13 agent + 30 lenses แบบไม่โต้ตอบ แล้วเขียนรายงาน Excel (ใช้วันที่จริง = production)",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} run_agents.py --data '${input:dataDir}' --report-dir reports",
+      "options": { "env": { "PUOPUY_AUDIT_DATE": "" } },
+      "problemMatcher": []
+    },
+    {
+      "label": "4b. รัน Audit (โหมดพิสูจน์ — ไม่เขียนรายงาน)",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} run_agents.py --data '${input:dataDir}' --no-report",
+      "options": { "env": { "PUOPUY_AUDIT_DATE": "" } },
+      "problemMatcher": []
+    },
+    {
+      "label": "5. Regression บนข้อมูลจริง (engine==agent → ae84d3f0)",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} regression_full.py . '${input:dataDir}'",
+      "problemMatcher": []
+    },
+    {
+      "label": "6. Coverage gate (line ≥90 / branch report)",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} coverage_gate.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "7. Verify parallel == serial (ข้อมูลจริง)",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} verify_parallel.py '${input:dataDir}' 4",
+      "problemMatcher": []
+    },
+    {
+      "label": "8. Format (black) + Lint (ruff) — ไฟล์ที่เปิดอยู่",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m black '${file}' && ${command:python.interpreterPath} -m ruff check '${file}'",
+      "problemMatcher": []
+    },
+    {
+      "label": "9. ติดตั้ง git pre-commit hook (กัน golden พัง)",
+      "type": "shell",
+      "command": "bash INVARIANTS/install_hooks.sh",
+      "problemMatcher": []
+    }
+  ]
+}
