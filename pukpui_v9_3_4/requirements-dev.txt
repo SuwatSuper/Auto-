@@ -1,0 +1,8 @@
+# requirements-dev.txt — QA toolchain สำหรับเครื่อง certify (gates 9-13 ใน run_ci.sh)
+# ติดตั้ง:  pip install -r requirements-dev.txt --break-system-packages
+# เครื่อง certify ต้องรัน:  PUOPUY_CI_STRICT=1 bash run_ci.sh <DATA_DIR>  (ห้ามข้าม gate)
+pip-audit
+coverage
+ruff
+black
+mypy
