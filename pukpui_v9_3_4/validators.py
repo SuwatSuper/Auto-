@@ -339,8 +339,11 @@ def detect_iv_period_mismatch(iv_number, iv_date):
         _mo = int(lead[4:6])
         if _cy is not None and 1 <= _mo <= 12:
             cy, mo, basis = _cy, _mo, _basis
-    # (b) ปี2หลัก+เดือน [L6] เลขรัน 4 หลักล้วนไม่มี prefix ('1505') เคยถูกตีเป็น ปี15/เดือน05 → DT004 false positive → ตี YYMM เฉพาะมี prefix หรือยาว≥5
-    if cy is None and len(lead) >= 4 and (prefix or len(lead) >= 5):
+    # (b) ปี2หลัก+เดือน [L6] เลขรัน 4 หลักล้วนไม่มี prefix ('1505') เคยถูกตีเป็น ปี15/เดือน05 → DT004 false positive
+    # [M·DT004/ADR-073] เดิม `prefix or len>=5` → เลขรัน 4 หลัก "มี prefix" (เช่น PO2501 = PO#2501) ถูกแยกเป็น
+    #   ปี25/เดือน01 → ฟ้องวันที่ขัดเลข IV ผิด. 4 หลักกำกวมเกินจะฟันธง YYMM (เป็น counter ก็ได้) → ขอ ≥5 หลัก.
+    #   แลกกับไม่ cross-check 4-หลัก-YYMM (FN เบา; DT001/DT002/sheet-date ยังจับวันที่). golden-neutral (DT004=0 ใน corpus).
+    if cy is None and len(lead) >= 5:
         _cy, _basis = _ivp_year2_to_ce(int(lead[:2]))
         _mo = int(lead[2:4])
         if _cy is not None and 1 <= _mo <= 12:

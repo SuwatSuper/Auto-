@@ -41,9 +41,15 @@ def has_hidden_chars(s: Any) -> list[str]:
     if '\ufeff' in s: out.append('BOM (Byte-Order Mark — header ของไฟล์ unicode)')
     return out
 
+_THAI_ARABIC_DIGITS = str.maketrans('๐๑๒๓๔๕๖๗๘๙', '0123456789')  # [C-2/ADR-074] เลขไทย → อารบิก
+
+
 def clean_tax_id(s: Any) -> str:
     """ตัดอักขระทั้งหมดที่ไม่ใช่ตัวเลข + รองรับ Excel quirks
-    v5.8b: handle float (.0 suffix), int, apostrophe prefix"""
+    v5.8b: handle float (.0 suffix), int, apostrophe prefix
+    [C-2/ADR-074] แปลงเลขไทย ๐-๙ → อารบิกก่อน strip — เดิม re.sub(\\D) แบบ Unicode รับเลขไทยเป็น "หลัก"
+    แต่ไม่แปลง → ผ่าน TAX001/002 ว่า valid แต่เทียบ master อารบิกไม่ตรง → TAX003 ฟ้อง "อันตราย" ผิด
+    + TAX005/008 (anti-fraud สวมเลข) พลาด. แปลงจุดเดียวที่นี่ ครอบทุกกฎเลขภาษี."""
     if s is None: return ''
     # v5.8b: ถ้าเป็น numeric → แปลงเป็น int ก่อน (ตัด .0 จาก xlrd float)
     if isinstance(s, float):
@@ -60,7 +66,8 @@ def clean_tax_id(s: Any) -> str:
     t = t.replace('\xa0','').replace('\u200b','').replace('\ufeff','').replace('\u3000','')
     for dash in ['–','—','−','‐']:
         t = t.replace(dash, '-')
-    return re.sub(r'\D', '', t)
+    t = t.translate(_THAI_ARABIC_DIGITS)   # [C-2/ADR-074] เลขไทย → อารบิก ก่อน strip
+    return re.sub(r'[^0-9]', '', t)        # ASCII digits เท่านั้น (กันเลข Unicode อื่นหลุดเป็น "หลัก")
 
 def _taxid_checksum_ok(digits: Any) -> bool:
     """v7: ตรวจ checksum เลขประจำตัวผู้เสียภาษี/บัตรประชาชนไทย 13 หลัก (mod 11)

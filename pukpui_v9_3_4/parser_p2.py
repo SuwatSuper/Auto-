@@ -10,6 +10,7 @@ import parser_p1 as _up
 _rx.reexport(_up, globals(), exclude=('Decimal', 'ROUND_HALF_UP', '_RATE_MARKERS',
                                       '_rightmost_num_has_decimal', '_row_has_rate_marker'))
 del _rx, _up
+import math   # [C-1/ADR-069] guard non-finite ในเส้น _tor_scan_* (กัน inf/NaN ไหลเข้า bill money)
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation  # [F2/ADR-020] money-math: VAT ด้วย Decimal+HALF_UP
 from puopuy_units import _money_q   # [F-1] ปัดเงิน HALF_UP แหล่งเดียว (แทน round() ในการเติม/derive ยอด)
 from parser_guards import (   # [F4 ceiling 11.06.69] ชั้นปราการ input + iv last-resort (ซอยตามเพดาน 600)
@@ -444,7 +445,9 @@ def _tor_scan_subtotal(df, result, nrows, ncols, last_item_row):
         if not re.search(r'\([^)]*(แสน|หมื่น|พัน|ร้อย|สิบ)[^)]*\)', str(v0)): continue
         v11 = df.iat[r, 11] if ncols > 11 else None
         if not pd.isna(v11):
-            try: result['subtotal'] = float(str(v11).replace(',', ''))
+            try:
+                _fv = float(str(v11).replace(',', ''))
+                if math.isfinite(_fv): result['subtotal'] = _fv   # [C-1/ADR-069] กัน inf/NaN เข้า bill money
             except (ValueError, TypeError): pass
         break
 
@@ -458,7 +461,9 @@ def _tor_scan_vat(df, result, nrows, ncols, last_item_row):
         if not (0.05 <= rate <= 0.10): continue
         v11 = df.iat[r, 11] if ncols > 11 else None
         if not pd.isna(v11):
-            try: result['vat'] = float(str(v11).replace(',', ''))
+            try:
+                _fv = float(str(v11).replace(',', ''))
+                if math.isfinite(_fv): result['vat'] = _fv   # [C-1/ADR-069] กัน inf/NaN เข้า bill money
             except (ValueError, TypeError): pass
         break
 
@@ -471,6 +476,8 @@ def _tor_scan_total(df, result, nrows, ncols, last_item_row):
         try:
             fv = float(str(v).replace(',', ''))
         except (ValueError, TypeError):
+            continue
+        if not math.isfinite(fv):   # [C-1/ADR-069] เซลล์ "inf"/"1e400"/เลขยาวมาก → ข้าม (กัน VAT006/007 crash เงียบ)
             continue
         # [L5] is not None (เดิม truthiness): vat/subtotal == 0.0 ไม่ควรปิด guard dedup
         if result['vat'] is not None and abs(fv - result['vat']) < 1: continue

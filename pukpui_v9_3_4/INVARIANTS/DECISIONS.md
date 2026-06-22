@@ -1263,3 +1263,40 @@ guard รันเฉพาะตอน "จะ flag" (mismatch) เท่าน
 **rebaseline:** ไม่มี. **Priority:** MEDIUM (environmental hardening — กันงานล่มตอน deploy/cron).
 
 > **หมายเหตุ audit 5-year 2026-06-22 (เปิดไว้ รอเจ้าของสั่ง):** **M-1 / `r_dt003` (rules_engine_rules_a.py:532 `yr>2030`)** = ระเบิดเวลาในกรอบ 5 ปี: ตั้งแต่ ค.ศ. 2031 (พ.ศ. 2574) บิลปกติทุกใบติด NOTE "digit-swap ของตัวเอง"/"ปีคลุมเครือ" (reproduce แล้ว; เคยบันทึก v9.3.1 "Validators-M1"). เป็น **golden-sensitive** (แตะ logic กฎ) → **STOP-AND-ASK + regression 148 ไฟล์ก่อนแก้** (คาด golden-neutral เพราะ corpus ≤2026 ไม่แตะแบนด์ >2030). ยังไม่แก้ในรอบนี้ — รออนุมัติ. รายละเอียด: `AUDIT_5YEAR_READINESS_pukpui_v9_3_4_TH.md`.
+
+---
+
+### ADR-064..076 — แก้บั๊ก "กฎที่เปิดใช้งาน" (deep audit รอบ 2026-06-22) · Tor อนุมัติ "แก้ทั้งหมด"
+**วันที่:** 2026-06-22 · **สถานะ:** ACCEPTED, IMPLEMENTED (โค้ด+เทส) · **สั่งโดย:** Tor ("แก้เลยครับผม แก้ทั้งหมด และส่งระบบที่สมบูรณ์")
+**ขอบเขต:** deep audit เฉพาะกฎ `enabled:True` 57 ตัว (5 สายขนาน + verify ซ้ำ) → พบ + แก้ตามนี้. ทุกข้อ reproduce ก่อน-หลัง.
+**พิสูจน์ (เท่าที่ cloud env ทำได้):** fixture `b5c415bb` **ไม่ขยับ** · `check_invariants` 4/4 · `test_golden_single_source` PASS · `run_ci.sh` (no-data) exit 0 + เทสใหม่ `[3x14f]` (+`[3x14e]`) · ทุกไฟล์ ≤600 LOC.
+
+| ADR | รหัส | ไฟล์ | แก้ | corpus 148 |
+|---|---|---|---|---|
+| 064 | **M-1 DT003** | rules_engine_rules_a.py | `yr>2030` → `yr>audit_today().year+1` (ขอบเขตตามเวลา) กันฟ้องบิลปีปัจจุบันเป็น digit-swap ตัวเอง ตั้งแต่ ค.ศ.2031 | golden-neutral (DT003=0) |
+| 065 | **CMP003** | rules_engine_rules_a.py | brand blacklist substring → ขอบคำละติน (`(?<![A-Za-z0-9])…(?![A-Za-z0-9])`) กัน CP∈CPF/Tops∈Laptops | golden-neutral (CMP003=0) |
+| 066 | **BR001/BR004** | rules_engine_rules_a.py | `'สำนัก' in` → `'สำนักงานใหญ่'/'สนญ'` เต็มคำ กัน "สาขา สำนัก…" ถูกตีเป็นสนญ. | golden-neutral (BR001=0) |
+| 067 | **DOC001** | rules_engine_rules_a.py | +guard `1≤int(sheet)≤31` (สอดคล้องเส้น `apply_sheet_date_crosscheck`) กันชีตเลข >31 ตีเป็น "วัน" | golden-neutral (corpus มีแต่ชีต "6"=วันจริง) |
+| 068 | **ADDR002** | rules_engine_rules_a.py | ต่างแค่เว้นวรรค (พระราม4 vs พระราม 4) → ไม่ฟ้องสะกดผิด (สอดคล้อง ADDR001) | golden-neutral (ADDR002=0) |
+| 069 | **C-1 VAT006/007** | rules_engine_rules_c.py + parser_p2.py | กัน `_D()=None` (เงิน non-finite) ก่อนคำนวณ (เลน TypeError หลุด except → ข้ามกฎ CRITICAL เงียบ) + `math.isfinite` ใน `_tor_scan_*` | golden-neutral (VAT006/007=0; corpus ไม่มี non-finite) |
+| 070 | **ITM016** | rules_engine_rules_c.py | dedup key +qty +amount → รายการแยกจริง (qty ต่าง) ไม่ฟ้องซ้ำ | **เปลี่ยน corpus** (ITM016=10, FP 4 บิล) → **rebaseline** |
+| 071 | **ADDR005** | rules_engine_rules_c.py | ตัดส่วน "โทร/แฟกซ์" ก่อนหาไปรษณีย์ กันเลข 5 หลักท้าย (เบอร์โทร) ถูกตีเป็น zip | golden-neutral (ADDR005=0) |
+| 072 | **DOC003** | rules_engine_rules_c.py | บิลไม่มีวันที่ (None==None) → ไม่ฟ้องซ้ำ (DT005 จับ missing-date แล้ว) | golden-neutral (DOC003=0) |
+| 073 | **DT004** | validators.py | YYMM จากเลขนำ ต้อง ≥5 หลัก (เดิม prefix+4หลัก เช่น PO2501 ถูกตีเป็น ปี25/ด.01) | golden-neutral (DT004=0) |
+| 074 | **C-2 เลขภาษีไทย** | puopuy_core.py | `clean_tax_id` แปลงเลขไทย ๐-๙ → อารบิก ก่อน strip (ครอบ TAX001/003/005/007/008) | golden-neutral (ไม่มีเลขไทยใน corpus) |
+| 075 | **ITM004** | config_base.py | ตัด `0-9` จาก lookaround SPELLING (เลขติดไทย "5นิ้ว" ไม่ใช่ "อังกฤษ+ไทย") | **เปลี่ยน corpus** (ITM004=814, INFO/filtered) → **rebaseline** |
+| 076 | **ITM010** | config_base.py | กัน "วาว"/ประกายวาว/วาววับ ถูกเดาเป็น "วาล์ว" (ยังจับ บอลวาว/เกจวาว) | golden-neutral ("วาว" legit=0 ใน corpus) |
+
+**ITM009 (dormant):** กฎ `enabled` แต่ `product_master.json` ไม่มีในแพ็ก → คืน `[]` เสมอ. **ไม่แก้โค้ด** (กฎถูกต้อง ทำงานเมื่อมีไฟล์ data) — เป็น "ขาด data file ทางเลือก" ไม่ใช่บั๊กโค้ด. บันทึกไว้ให้เจ้าของเติม data หรือคงไว้ dormant.
+
+**⚠️ REBALINE REQUIRED (เครื่องเจ้าของเท่านั้น — cloud นี้ไม่มี corpus + เป็น Python 3.11):**
+ADR-070 (ITM016) + ADR-075 (ITM004) **เปลี่ยนผลตรวจ corpus 148 ไฟล์จริง** (ลบ false-positive) → golden `ae84d3f0` **จะเปลี่ยน** = ตั้งใจ (ผลถูกขึ้น). ที่เหลือ (064-069,071-074,076) golden-neutral (0 occurrence ใน baseline.json). เจ้าของต้องรันบน **Python 3.12 + /mnt/project**:
+```
+export PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 PUOPUY_OFFLINE=1
+python3 regression_full.py . /mnt/project        # จะ MISMATCH ae84d3f0 (คาดไว้ — ITM004/ITM016 เปลี่ยน)
+# ตรวจ diff ทุกบิลว่าเปลี่ยน "เพราะ ITM004/ITM016 ลบ FP" เท่านั้น (ไม่มี regression อื่น)
+python3 golden_master.py . /mnt/project baseline.json --write   # เขียน baseline ใหม่ (ดู MAINTENANCE/REBUILD_STATUS)
+python3 test_golden_single_source.py             # มันจะบอก operational surface ที่ต้องอัปค่า hash ใหม่
+bash run_ci.sh /mnt/project                       # ต้อง exit 0 บน golden ใหม่
+```
+**rebaseline:** **จำเป็น** (เฉพาะ ITM004+ITM016). **Priority:** C-1/C-2 = HIGH (FN/FP บนกฎ CRITICAL) · CMP003/BR/ITM016/DOC001/DT004 = MEDIUM (FP เลน fix) · ที่เหลือ = LOW.

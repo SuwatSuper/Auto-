@@ -63,8 +63,11 @@ def r_cmp002(b,m,c):
 
 def r_cmp003(b,m,c):
     if not b['company']: return []
+    comp = b['company']
     for br in BRAND_BLACKLIST:
-        if br.lower() in b['company'].lower():
+        # [M·CMP003/ADR-065] เดิม substring ดิบ → 'CP'∈"CPF Trading", 'Tops'∈"Laptops" ฟ้องผิด.
+        #   แบรนด์ทั้งหมดเป็นอักษรละติน → match แบบขอบคำ (ไม่ติดตัวอักษร/ตัวเลขละตินอื่น) กัน FP.
+        if re.search(r'(?<![A-Za-z0-9])' + re.escape(br) + r'(?![A-Za-z0-9])', comp, re.IGNORECASE):
             return [f"พบชื่อแบรนด์ '{br}'"]
     return []
 
@@ -268,6 +271,10 @@ def r_addr002(b,m,c):
         expected = (m.get('address_parts') or {}).get(field)
         if not expected or expected in bv: continue
         for w in re.findall(pat, bv):
+            # [M·ADDR002/ADR-068] ต่างแค่ "เว้นวรรค" ไม่ใช่สะกดผิด (สอดคล้อง ADDR001 ที่ strip space):
+            #   master เก็บถนน 2 token ("พระราม 4") แต่ regex นี้คว้า token เดียว ("พระราม4") → เดิม fuzz~93% ฟ้องผิด.
+            if w.replace(' ', '') == (expected or '').replace(' ', ''):
+                break
             score = fuzz.ratio(w, expected)
             if 70 < score < 100:
                 issues.append(f"{label} อาจสะกดผิด: '{w}' (~{score}%) ควรเป็น '{expected}'"); break
@@ -356,7 +363,9 @@ def r_tax006(b,m,c):
     return [f"checksum หลักที่ 13 ไม่ผ่าน: {t} — เลขภาษีน่าจะพิมพ์ผิด/ไม่ถูกต้อง"]
 
 def r_br001(b,m,c):
-    if 'สำนัก' in (b.get('branch') or ''):
+    # [M·BR/ADR-066] เดิม substring 'สำนัก' → label สาขาที่มีคำนี้ (เช่น "สาขา สำนักงานพระราม9")
+    #   ถูกตีเป็นสนญ. → ฟ้อง "ควร 00000" ผิด ทั้งที่ branch_no ถูก. แก้เป็น "สำนักงานใหญ่"/"สนญ" เต็มคำ.
+    if 'สำนักงานใหญ่' in (b.get('branch') or '') or 'สนญ' in (b.get('branch') or ''):
         if b['branch_no'] != '00000':
             return [f"สำนักงานใหญ่ ควร 00000 แต่={b['branch_no'] or 'ไม่มี'}"]
         return []
@@ -379,7 +388,7 @@ def _branch_key(branch_no, branch_label):
     if re.match(r'^\d{5}$', bn):
         return bn
     lbl = str(branch_label or '').strip()
-    if 'สำนัก' in lbl or 'สนญ' in lbl:
+    if 'สำนักงานใหญ่' in lbl or 'สนญ' in lbl:   # [M·BR/ADR-066] เต็มคำ กัน "สาขา สำนัก..." ถูกตีเป็นสนญ.
         return '00000'
     mb = _BR004_NO_RE.search(lbl)
     if mb:
@@ -416,7 +425,9 @@ def r_doc001(b,m,c):
     """
     if not b['iv_date']: return []
     sd = str(b['sheet']).lstrip('0')
-    if not (sd.isdigit() and int(sd) != b['iv_date'].day):
+    # [M·DOC001/ADR-067] เพิ่ม guard ช่วงวัน 1–31 (สอดคล้องเส้นพี่น้อง apply_sheet_date_crosscheck [V-F3]):
+    #   เดิมชื่อชีตเลขล้วน >31 ("32"/"100"/"2026" = สรุป/ปี/ดัชนี) ถูกตีเป็น "วัน" แล้วฟ้องไม่ตรง iv_date ผิด.
+    if not (sd.isdigit() and 1 <= int(sd) <= 31 and int(sd) != b['iv_date'].day):
         return []
     # --- [ADR-058] 2-signal guard (รันเฉพาะตอนจะ flag เท่านั้น → cost ~O(bills) แค่เคสหายาก) ---
     n_int = int(sd)
@@ -529,7 +540,13 @@ def r_dt003(b,m,c):
         def _is_digit_swap_of(y, ref):
             return sorted(str(y)) == sorted(str(ref))
         current_year_be = audit_today().year + 543
-        if yr > 2030 and yr < 2500:
+        current_ce = audit_today().year
+        # [M-1/ADR-064] เดิม hardcode `yr > 2030` = ระเบิดเวลา: พอเวลาจริงถึง ค.ศ. 2031 บิลปกติทุกใบ
+        #   (iv_date เป็น ค.ศ. แล้ว) เข้าแบรนช์นี้ → `_is_digit_swap_of(yr+543, current_year_be)` ที่ yr+543==current_year_be
+        #   เป็นจริงเสมอ → ฟ้อง "digit swap ของตัวเอง"/"ปีคลุมเครือ" ผิดทุกใบตั้งแต่ปีที่ 5. แก้ให้ขอบเขต "ตามเวลา"
+        #   เหมือนแบรนช์ พ.ศ. (current+1) → บิลปีปัจจุบัน/ปีหน้า ไม่เข้า. golden-neutral (corpus ≤2026 + audit 2026
+        #   → yr ไม่เกิน current_ce+1 ทั้งก่อน/หลัง).
+        if yr > current_ce + 1 and yr < 2500:
             # [BUGFIX recheck #9] parser แปลง พ.ศ.→ค.ศ. (−543) แล้ว → digit-swap ของ "ปีปัจจุบัน" จึงมาตกที่ ค.ศ. band นี้
             #   (เดิม logic digit-swap อยู่ใน band 2500-2600 ที่ไม่มีทางถึงหลังแปลง → ตาย). เช็ก (yr+543) แทน
             if _is_digit_swap_of(yr + 543, current_year_be):

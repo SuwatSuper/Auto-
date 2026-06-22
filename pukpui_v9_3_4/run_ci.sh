@@ -103,6 +103,7 @@ run "[3x14b] bughunt recheck (IV dup ข้ามหลัก/VAT004/ANTI_PREFIX
 run "[3x14c] re-audit 2026-06-20 (F1/F2/L1-L3/L4/P3/P4/A-C1/A-M1/A-L3/REP-C1/C2/M1)" "$PY" test_recheck_20260620.py
 run "[3x14d] re-audit 2026-06-21 (P-MED2 label-row≠item/ITM016 + V-F3 DOC001 sheet day.month sanity)" "$PY" test_recheck_20260621.py
 run "[3x14e] 5-year hardening (ADR-061 .bak stub-aware/ADR-062 report retention/ADR-063 utf8 console)" "$PY" test_recheck_5year.py
+run "[3x14f] enabled-rules fixes 2026-06-22 (ADR-064..076: M-1/C-1/C-2/CMP003/BR/ITM016/DOC001/DT004/ADDR/ITM004/010)" "$PY" test_recheck_rules_20260622.py
 run "[3x7] package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)" "$PY" test_package_integrity.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
 run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py

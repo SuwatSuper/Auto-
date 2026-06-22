@@ -53,12 +53,19 @@ def r_vat006(b,m,c):
     items_sum = sum((_D(i['amount']) for i in b['items']
                      if isinstance(i.get('amount'), (int, float))), Decimal('0'))
     if items_sum <= 0: return []
+    # [C-1/ADR-069] เงิน non-finite (inf/NaN จากเซลล์ "inf"/"1e400"/เลขยาว ≥309 หลัก ผ่านเส้น _tor_scan_*)
+    #   → _D()=None → เดิม None/Decimal เป็น TypeError (ไม่ใช่ ArithmeticError) หลุด except → run_rules กลืน
+    #   เป็น SYS-VAT006 → กฎถูกข้ามเงียบ (false-negative). กัน None ก่อนคำนวณ (เลียน VAT001 ที่ทำถูกอยู่แล้ว).
+    tot_d = _D(tot)
+    if tot_d is None:
+        return []
     try:                                              # [L1] ห่อ quantize เหมือน r_itm001/018: ยอด >10²⁷ → InvalidOperation
-        expected_inclusive = (_D(tot) / Decimal('1.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        expected_inclusive = (tot_d / Decimal('1.07')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     except ArithmeticError:
         return []
-    if (abs(items_sum - expected_inclusive) < Decimal('1') and isinstance(sub, (int, float))
-        and abs(items_sum - _D(sub)) > Decimal('1')):
+    sub_d = _D(sub) if isinstance(sub, (int, float)) and not isinstance(sub, bool) else None
+    if (abs(items_sum - expected_inclusive) < Decimal('1') and sub_d is not None
+        and abs(items_sum - sub_d) > Decimal('1')):
         return [f"อาจเป็น VAT Included: items_sum={items_sum:,.2f} = total÷1.07={expected_inclusive:,.2f}"]
     return []
 
@@ -74,6 +81,10 @@ def r_vat007(b,m,c):
     items_sum = sum((_D(i['amount']) for i in b['items']
                      if isinstance(i.get('amount'), (int, float))), Decimal('0'))
     sub_d = _D(sub); vat_d = _D(vat)
+    # [C-1/ADR-069] เงิน non-finite → _D=None → เดิม Decimal<=None เป็น TypeError หลุด except → VAT007 (CRITICAL)
+    #   ถูกข้ามเงียบ (false-negative). กัน None ก่อนเทียบ.
+    if sub_d is None or vat_d is None:
+        return []
     if items_sum <= sub_d: return []
     discount = items_sum - sub_d
     try:                                              # [L1] ห่อ quantize: ยอด >10²⁷ → InvalidOperation (⊂ ArithmeticError)
@@ -140,7 +151,10 @@ def r_addr005(b, m, c):
         #   ใช้ lookaround เช็ก "ไม่ติดตัวเลขอื่น" แทน → เจอเลข 5 หลักเดี่ยวๆ แม้ติดอักษรไทย และไม่จับ 5 หลักกลางเลขยาว
         # [BUGFIX recheck #6] ใช้เลข 5 หลัก "ตัวท้ายสุด" เป็นไปรษณีย์ (สอดคล้อง _addr_parse_smart ที่ใช้ zips[-1])
         #   เดิม re.search คว้าตัวแรก → เลขบ้าน/ห้อง 5 หลักที่นำหน้าไปรษณีย์ถูกตีเป็นไปรษณีย์ → false positive
-        zips = re.findall(r'(?<!\d)(\d{5})(?!\d)', addr)
+        # [L·ADDR005/ADR-071] ตัดส่วน "เบอร์โทร/แฟกซ์" ก่อนหาไปรษณีย์ — กันเลข 5 หลักท้าย (เช่น "โทร 99999")
+        #   ถูกเลือกเป็นไปรษณีย์แทนเลขจริง (zips[-1]). ไม่มี keyword โทร → ใช้ทั้งที่อยู่เหมือนเดิม (golden-neutral).
+        addr_for_zip = re.split(r'โทร|โทรศัพท์|tel|fax|แฟกซ์|มือถือ', addr, maxsplit=1, flags=re.IGNORECASE)[0]
+        zips = re.findall(r'(?<!\d)(\d{5})(?!\d)', addr_for_zip)
         if not zips:
             return ['ไม่พบรหัสไปรษณีย์ 5 หลักในที่อยู่']
         code = int(zips[-1])
@@ -292,6 +306,10 @@ def r_doc003(b, m, c):
             return d.date() if hasattr(d, 'date') else d   # เทียบเฉพาะ "วัน" (None==None ถือว่าตรง)
 
         this_date = _dkey(b)
+        # [L·DOC003/ADR-072] ไม่มีวันที่ → guard "รีเซ็ตเลขข้ามงวด" (None!=None=False) ล่ม → ฟ้องซ้ำหลอก.
+        #   ยืนยัน "งวดเดียวกัน" ไม่ได้ → ไม่ฟ้อง (DT005 จับ missing-date อยู่แล้ว → ไม่เสียสัญญาณ).
+        if this_date is None:
+            return []
         dups = []
         for ob in all_bills:
             if ob is b:
@@ -355,10 +373,15 @@ def r_itm016(b, m, c):
         seen = {}
         dupes = []
         for it in b['items']:
+            # [M·ITM016/ADR-070] เดิม key=(ชื่อ,หน่วย,ราคา/หน่วย) ไม่รวม qty/amount → รายการแยกจริง
+            #   (สินค้าเดียวกัน ราคา/หน่วยเท่ากัน แต่ qty ต่าง = คนละบรรทัด) ถูกฟ้อง "รายการซ้ำ" ผิด.
+            #   เพิ่ม qty+amount → ฟ้องเฉพาะบรรทัดที่ "เหมือนกันทุกค่า" (= ซ้ำจริง).
             key = (
                 normalize_text(it.get('name', '') or ''),
                 (it.get('unit') or '').strip(),
                 it.get('price'),
+                it.get('qty'),
+                it.get('amount'),
             )
             if key[0] == '':
                 continue
