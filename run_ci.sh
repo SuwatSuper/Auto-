@@ -108,6 +108,18 @@ run "[3x7] package integrity (deliverable zip — ชื่อไฟล์ไท
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
 run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py
 run "[3z2] monolith surface contract (26-name getattr API, de-star P1)" "$PY" test_monolith_surface.py
+# ── [ADR-081] เทสที่เคยเป็น "orphan" (มีไฟล์ + ถูก pytest/coverage_gate รัน แต่ run_ci.sh ไม่เคยรันเป็น step) ──
+#   บทเรียน: test_rules_typo_branch.py พัง (ขัด golden ADR-075) เงียบ ๆ เพราะ run_ci.sh ไม่รัน + coverage_gate
+#   กลืน exit code. ดึงเข้า gate หลักให้ "ความจริง == pytest job ใน ci.yml" (กัน hidden failure ซ้ำ).
+run "[3za] rules typo branch (r_itm004/r_itm010 emit + ADR-075 FP guard)" "$PY" test_rules_typo_branch.py
+run "[3zb] validators branch (เก็บกิ่ง advisory/coverage)" "$PY" test_validators_branch.py
+run "[3zc] validators missing-checks (DT005/IV005/DT006/IV006)" "$PY" test_validators_missing_checks.py
+run "[3zd] address full coverage (เทียบ master ครบ field)" "$PY" test_addr_full_coverage.py
+run "[3ze] unit detection ext (จับหน่วยเพิ่ม)" "$PY" test_unit_detection_ext.py
+run "[3zf] fix round2 (ตรึง M-1 + T-1)" "$PY" test_fix_round2.py
+run "[3zg] fix TNT trio (เคส TNT/เถ้าแก่เนี้ย)" "$PY" test_fix_tnt_trio.py
+run "[3zh] report consistency (Excel == Notepad)" "$PY" test_report_consistency.py
+run "[3zi] report summary fixes (ชื่อเข้ม CMP006 + ที่อยู่)" "$PY" test_report_summary_fixes.py
 run "[4] mesh contract"          "$PY" test_mesh_contract.py
 run "[4b] vendor report (.txt รายผู้ขาย)" "$PY" test_vendor_report.py
 run "[4c] real cases (false-positive ที่ลูกค้ารายงาน)" "$PY" test_realcases_v9_2.py

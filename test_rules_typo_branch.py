@@ -3,7 +3,8 @@
 
 บริบท (coverage gate [10]): rules_engine_rules_b มีกิ่ง "ตรวจพบแล้วฟ้อง" ของกฎ typo ที่
 fixture สะอาดไม่ trigger:
-  • r_itm004 — SPELLING_PATTERNS (อังกฤษติดกัน 'WARMWHITE', เลข+หน่วยติดกัน '5นิ้ว', ไทย+อังกฤษติดกัน)
+  • r_itm004 — SPELLING_PATTERNS (อังกฤษติดกัน 'WARMWHITE', อังกฤษ+ไทยติดกัน 'ABCนิ้ว')
+    หมายเหตุ [ADR-075]: เลข+หน่วยไทยติดกัน ('5นิ้ว'/'60x30มม.') = เขียนไทยปกติ → "ไม่" ฟ้อง (golden 08e6abfd)
   • r_itm010 — THAI_TYPO_PATTERNS (สระ/วรรณยุกต์ซ้อน เช่น 'าา')
 
 เทสนี้ป้อนชื่อสินค้าที่ "จุดชนวน" กิ่ง emit จริง + เคสสะอาด (ต้องไม่ฟ้อง) — ยืนยันพฤติกรรม
@@ -57,8 +58,15 @@ print("=" * 64)
 print("\n[A] r_itm004 ตรวจการเว้นวรรค/ติดกัน")
 out = B.r_itm004({"items": [_it(1, "WARMWHITE LED")]}, None, {})
 check(any("WARM WHITE" in x for x in out), "WARMWHITE → ฟ้องควรเว้นวรรค")
+# [ADR-075/ADR-081] เลข+หน่วยไทยติดกัน ("5นิ้ว") = การเขียนไทยปกติ → ต้อง "ไม่" ฟ้อง
+#   (UNIT_OK guard + ตัด 0-9 ออกจาก lookaround). ตรงกับ golden 08e6abfd + test_recheck_rules_20260622.py:84
+#   เดิมเทสนี้ assert "len>0 (ฟ้อง)" ค้างจากก่อน ADR-075 → ขัด golden + ขัด recheck test (บั๊กเทสที่ run_ci.sh
+#   ไม่ได้รันเป็น step จึงไม่ถูกจับ; coverage_gate รันแต่กลืน exit code).
 out2 = B.r_itm004({"items": [_it(1, "ท่อ 5นิ้ว")]}, None, {})
-check(len(out2) > 0, "เลข+หน่วยไทยติดกัน (5นิ้ว) → ฟ้อง")
+check(out2 == [], "เลข+หน่วยไทยติดกัน (5นิ้ว) → ไม่ฟ้อง (ADR-075 เขียนไทยปกติ)")
+# อักษรอังกฤษ+ไทยจริง (ไม่ใช่เลข) ยังต้องฟ้อง — เก็บกิ่ง emit ของ lookaround pattern
+out2b = B.r_itm004({"items": [_it(1, "ABCนิ้ว")]}, None, {})
+check(len(out2b) > 0, "อังกฤษ+ไทยติดกัน (ABCนิ้ว) → ฟ้อง (เก็บกิ่ง emit)")
 out3 = B.r_itm004({"items": [_it(1, "สกรูเหล็ก")]}, None, {})
 check(out3 == [], "ชื่อสะอาด → ไม่ฟ้อง")
 
