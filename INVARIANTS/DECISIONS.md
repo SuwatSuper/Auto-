@@ -1349,3 +1349,18 @@ bash run_ci.sh /mnt/project                       # ต้อง exit 0 บน g
 5. **pin `ci.yml`** `runs-on: ubuntu-latest` → **`ubuntu-24.04`** (2 จุด: บรรทัด 16, 96) กัน image drift ข้ามปี.
 **พิสูจน์ (เทสต์จริง):** สร้าง fresh venv → `pip install --no-index --require-hashes` สำเร็จ (hash ผ่านครบ 21 แพ็ก, numpy 2.2.6, ไม่มี pythainlp) → `regression_full.py . /mnt/project` ใน frozen venv = engine==agent==baseline = **`08e6abfd`** ✅. doc-sync/CI/make_release เขียวครบ.
 **ผล:** rebuild ได้เอง offline ถึง 2030+ (venv หรือ Docker). ข้อจำกัด: wheelhouse เป็น linux x86_64/cp312 — Windows/macOS native ต้องสร้าง wheelhouse แยก (หรือใช้ Docker = แนะนำ).
+
+---
+
+### ADR-080 — close-out doc-drift: sync `ae84d3f0`/`ba9deda0` ที่ตกค้าง → `08e6abfd` (3 surface) + ปิดช่อง guard
+**วันที่:** 2026-06-23 · **สถานะ:** ACCEPTED, IMPLEMENTED · **สั่งโดย:** Tor ("ลุยตามคำสั่ง และ ส่งระบบที่สมบูรณ์") · **โซน:** 🟢 เขียว (golden-neutral — แตะเฉพาะ doc/comment/label + test guard)
+**บริบท (root cause):** ADR-077 rebaseline `ae84d3f0`→`08e6abfd` "ครบทุก OPERATIONAL_SURFACES" — แต่พื้นผิว 3 ตัวที่ **อ้าง hash แต่ไม่เคยอยู่ใน `test_golden_single_source.OPERATIONAL_SURFACES`** จึงไม่โดน CI จับและถูกข้ามไป:
+- `CLAUDE.md` (cold-start contract, สำคัญที่สุด) — §0.4/§1.1/§5/§7.1/§8 ค้าง `ae84d3f0` (6 จุด) → session อนาคตอ่าน §8 แล้วรัน baseline check คาดหวัง `ae84d3f0` → ได้ `08e6abfd` → สรุปผิดว่า "ระบบเพี้ยน หยุด".
+- `run_ci.sh` (comment บรรทัด 6 + step-name [7]) ค้าง `ba9deda0` → gate ทำงานถูก (อ่าน `baseline.json` จริง) แต่ comment ลวงคนอ่าน.
+- `test_date_parse_characterization.py` (characterization label 3 จุด) ค้าง `ae84d3f0` — ทั้งที่ CLAUDE.md §6 ระบุ "characterization label" เป็น rebaseline surface (label เท่านั้น; CASES ตรงพฤติกรรมปัจจุบันแล้ว → เทสยังเขียว 36/36).
+**สิ่งที่ทำ (surgical):**
+1. แทน `ae84d3f0`→`08e6abfd` ใน CLAUDE.md (6) + test_date_parse_characterization.py (3); `ba9deda0`→`08e6abfd` ใน run_ci.sh (2).
+2. `requirements.txt` (ADR-060 note): เขียนใหม่ให้ชี้ golden ปัจจุบัน `08e6abfd` (= baseline.json._sha256) + คงบันทึกประวัติว่าพิสูจน์ครั้งแรก 2026-06-22 ตอน golden ยังเป็น `ae84d3f0` (provenance — เหมือน GOLDEN.md จึงไม่เข้า guard).
+3. **เพิ่ม `CLAUDE.md` + `run_ci.sh` + `test_date_parse_characterization.py` เข้า `OPERATIONAL_SURFACES`** ของ `test_golden_single_source.py` → ครั้งหน้า rebaseline ลืมอัปไฟล์ใดไฟล์หนึ่ง = CI แดงทันที (ปิด root cause ถาวร).
+**พิสูจน์ (golden-neutral):** ไม่มีโค้ด engine/leaf/parser/rule ถูกแตะ. `check_invariants.py` → fixture `b5c415bb` ✅ (engine==agent==baseline) · `test_golden_single_source.py` → PASS (สแกน 08e6abfd + 3 surface ใหม่, no retired) ✅ · `test_date_parse_characterization.py` → 36/36 ✅ · `test_reachability.py` → ✅.
+**ข้อจำกัดสภาพแวดล้อม (โปร่งใส):** รอบนี้ทำบน cloud ที่ **ไม่มี corpus 148 ไฟล์** → ยืนยัน corpus golden `08e6abfd` ได้จาก **ไฟล์** (`baseline.json._sha256`) เท่านั้น ไม่ได้ re-run `regression_full.py . /mnt/project`. การแก้ทั้งหมดเป็น doc/comment/label/test-guard ซึ่ง **ไม่แตะ execution path ของ golden โดยโครงสร้าง** → golden ขยับไม่ได้. fixture (3 บิล รันได้จริง) ยืนยัน engine ไม่ขยับ.

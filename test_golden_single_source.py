@@ -31,6 +31,9 @@ OPERATIONAL_SURFACES = [
     'Makefile',                  # [drift-fix 2026-06] help text เคยค้าง ec61907f/d8bcde85 — ปิดช่องที่เคยทำ drift
     '.github/workflows/ci.yml',  # [drift-fix 2026-06] comment/step-name ต้องชี้ค่าปัจจุบัน (เคยค้าง 81 ไฟล์/ec61907f)
     'MAINTENANCE.md',            # [drift-fix 2026-06] how-to-maintain ต้องชี้ค่าปัจจุบัน ไม่ใช่ f1ac8421
+    'CLAUDE.md',                 # [ADR-080] cold-start contract — เคยค้าง ae84d3f0 (golden ปลดระวาง) แต่ "ไม่อยู่ใน guard" → session อนาคตหลงเชื่อ §8 ว่าระบบเพี้ยน. เพิ่มเข้า coverage กัน drift ซ้ำ
+    'run_ci.sh',                 # [ADR-080] gate runner — comment [7]/usage เคยค้าง ba9deda0 (gate อ่าน baseline.json จริงจึงไม่พัง แต่ comment ลวงคนอ่าน)
+    'test_date_parse_characterization.py',  # [ADR-080] characterization label — CLAUDE.md §6 ระบุเป็น rebaseline surface แต่ไม่อยู่ใน guard → label ค้าง ae84d3f0 หลัง rebaseline ADR-064..076
 ]
 # หมายเหตุ: regression_full.py / verify_golden.py / golden_master.py จงใจ "ไม่" อยู่ใน list นี้ —
 #   มันคือ verifier ที่ "อ่าน" baseline.json ตอน runtime (ไม่ได้ hardcode ค่า hash ไว้ในตัว) →

@@ -4,7 +4,7 @@
 
 ที่มา: บั๊ก ADR-052 (P4 เปลี่ยน ^anchor→re.search → ที่อยู่ "2/12-2/13" ถูกอ่านเป็น 1970) หลุด
 ออกมาได้เพราะ "ไม่มีเทสที่ล็อกว่าที่อยู่ต้องไม่เป็นวันที่". เทสนี้ตรึงพฤติกรรมทุกสาขา (datetime/serial/
-Thai-month/2-digit/4-digit/leap/adversarial/null) ด้วยค่าที่ถูกต้อง ณ golden ae84d3f0 — ใครแก้
+Thai-month/2-digit/4-digit/leap/adversarial/null) ด้วยค่าที่ถูกต้อง ณ golden 08e6abfd — ใครแก้
 parse_date_any แล้วสาขาใดเพี้ยน เทสนี้แดงทันที (ไม่ต้องรอ golden hash บนคลังใหญ่).
 
 รันเดี่ยว:  python3 test_date_parse_characterization.py   (exit 0 = ผ่าน)
@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore')
 from datetime import datetime
 from puopuy_dates import parse_date_any
 
-# (ชื่อเคส, input, ค่าที่ต้องได้ '%Y-%m-%d' หรือ None) — ล็อก ณ golden ae84d3f0
+# (ชื่อเคส, input, ค่าที่ต้องได้ '%Y-%m-%d' หรือ None) — ล็อก ณ golden 08e6abfd
 CASES = [
     # --- datetime objects ---
     ('dt_ce_passthru',   datetime(2026, 5, 2),  '2026-05-02'),   # ค.ศ. ปกติ → คงเดิม
@@ -88,7 +88,7 @@ def main() -> int:
         for f in fails:
             print('  -', f)
         return 1
-    print(f'✅ PASS {len(CASES)}/{len(CASES)} — ทุกสาขาตรึงตรง golden ae84d3f0')
+    print(f'✅ PASS {len(CASES)}/{len(CASES)} — ทุกสาขาตรึงตรง golden 08e6abfd')
     # tripwire ย่อ: เคสบั๊กเดิมต้องไม่กลับมา
     assert parse_date_any('2/12-2/13 หมู่ที่ 3') is None, 'REGRESSION ADR-052: ที่อยู่ถูกอ่านเป็นวันที่!'
     return 0

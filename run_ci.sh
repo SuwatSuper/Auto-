@@ -3,7 +3,7 @@
 #
 # ใช้:
 #   bash run_ci.sh                 # gate+smoke+pinned+mesh+agents+regression(fixture)
-#   bash run_ci.sh /path/to/data   # + regression เต็มบนข้อมูลจริง (baseline ba9deda0…) ถ้าระบุ data dir
+#   bash run_ci.sh /path/to/data   # + regression เต็มบนข้อมูลจริง (baseline 08e6abfd… = baseline.json._sha256) ถ้าระบุ data dir
 #
 # ต้องรันจากโฟลเดอร์ระบบ (ที่มี config.py). ทุกขั้นตั้ง PYTHONHASHSEED=0 เพื่อ reproduce hash.
 set -u
@@ -157,7 +157,7 @@ if "$PY" -m mypy --version >/dev/null 2>&1; then
 else _strict_skip "[13] mypy" "pip install mypy --break-system-packages"; fi
 
 if [ -n "$REAL_DATA" ]; then
-  run "[7] regression (ข้อมูลจริง 148 ไฟล์, baseline ba9deda0…)" \
+  run "[7] regression (ข้อมูลจริง 148 ไฟล์, baseline 08e6abfd…)" \
       "$PY" regression_full.py . "$REAL_DATA"
   run "[8] agent contracts (ข้อมูลจริง — เช็คเลข baseline ครบ)" \
       "$PY" test_agents.py . "$REAL_DATA"
