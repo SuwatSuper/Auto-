@@ -1387,3 +1387,11 @@ bash run_ci.sh /mnt/project                       # ต้อง exit 0 บน g
 เทสนี้ถูกบังคับใน `ci.yml` gate job (ติดตั้ง mypy + standalone loop) แต่ `run_ci.sh` ไม่รัน → local เขียวหลอก. (หมายเหตุ: ระดับ error ขึ้นกับเวอร์ชัน mypy — บนเครื่องนี้ mypy 2.1.0 จับครบ; เติม annotation ให้ผ่าน "ทุกเวอร์ชัน mypy" = robust.)
 **สิ่งที่ทำ (surgical):** เติม annotation: `_df_safe(df: Any) -> Any` · inner `_c(v: Any) -> Any` · `_money_q(x: Any) -> float | None` · `_be_serial() -> datetime | None` (ชนิดตรงสัญญาใน docstring เดิม) + เพิ่ม `test_typing_leaf.py` เป็น step `[3zj]` ใน run_ci.sh (self-skip ถ้าไม่มี mypy).
 **พิสูจน์ (golden-neutral):** `from __future__ import annotations` มีครบทุกโมดูล → annotation ไม่ถูก evaluate. `check_invariants.py` (เต็ม) → fixture `b5c415bb` engine==agent==baseline ✅ (puopuy_units/_money_q + puopuy_dates เป็น golden-path แต่ fixture ไม่ขยับ) · `test_typing_leaf.py` → ✅ (mypy 0 error, 4 โมดูล) · `test_date_parse_characterization.py` → 36/36 ✅.
+
+---
+
+### ADR-083 — รวมเอกสารส่งมอบเป็น FINAL ฉบับเดียว (เลิกความสับสน "อันไหนคือฉบับจริง")
+**วันที่:** 2026-06-23 · **สถานะ:** ACCEPTED, IMPLEMENTED · **สั่งโดย:** Tor ("ส่งระบบที่สมบูรณ์ มาทางแชทนี้") · **โซน:** 🟢 เขียว (doc-only)
+**บริบท (seed finding §5.3):** มีเอกสารส่งมอบซ้ำซ้อน/ล้าสมัย 2 ฉบับที่อ้าง golden ปลดระวาง — `_ส่งมอบ_ระบบสมบูรณ์_v9_3_4_TH.md` (`ba9deda0`, snapshot 20 มิ.ย.) + `_ส่งมอบ_v9_3_4_ADR060_20260622_TH.md` (`ae84d3f0`) — ทั้งคู่บอกตัวเองว่า "จุดเริ่มต้นเดียวที่ต้องอ่าน" → session อนาคตหยิบผิดฉบับ.
+**สิ่งที่ทำ:** (1) สร้าง `_ส่งมอบ_FINAL_5YR_08e6abfd_TH.md` = จุดเริ่มต้นเดียว (golden `08e6abfd` ปัจจุบัน, ผล gate, สรุป ADR-080..083, รายการค้างให้ Tor, ข้อจำกัด env, วิธี reproduce 5 ปี). (2) ใส่ banner "⚠️ SUPERSEDED → ชี้ FINAL" ที่ **หัว** เอกสารเก่า 2 ฉบับ โดย **ไม่แตะ body** (คง `ba9deda0`/`ae84d3f0` เป็นหลักฐานประวัติ — ห้ามเขียนทับ ตามกฎ ledger).
+**พิสูจน์:** doc-only ไม่แตะโค้ด/baseline. เอกสาร FINAL + เอกสารเก่าไม่อยู่ใน `OPERATIONAL_SURFACES` (เป็น narrative/historical) → doc-sync ไม่กระทบ. `test_golden_single_source.py` → PASS.
