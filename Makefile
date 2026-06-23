@@ -19,7 +19,7 @@ help:
 	@echo "  make regression      - regression engine==agent บน fixture (hash b5c415bb)"
 	@echo "  make coverage        - coverage gate (line ≥90% + branch ≥85%; override: BRANCH_MIN=NN)"
 	@echo "  make ci              - รันด่านทั้งหมด (gate+smoke+pinned+mesh+agents+regression+coverage)"
-	@echo "  make regression-real DATA=<dir> - regression เต็มบนข้อมูลจริง (baseline 853ce4ab, 148 ไฟล์)"
+	@echo "  make regression-real DATA=<dir> - regression เต็มบนข้อมูลจริง (baseline 587db268, 148 ไฟล์)"
 	@echo "  make agents-real DATA=<dir>     - สัญญา agent + เช็คเลข baseline (ต้องมี 148 ไฟล์)"
 	@echo "  make baseline-fixture - สร้าง baseline ของ fixture ใหม่ (เมื่อแก้ fixture โดยตั้งใจ)"
 

@@ -11,7 +11,7 @@
 
 ```bash
 python3 -c "import json;print(json.load(open('baseline.json'))['_sha256'])"
-# ปัจจุบัน: 853ce4ab...  (golden ทางการ: 148 ไฟล์ /mnt/project, 1056 บิล)
+# ปัจจุบัน: 587db268...  (golden ทางการ: 148 ไฟล์ /mnt/project, 1056 บิล)
 ```
 
 ยืนยันบนข้อมูลจริง (ต้องได้ค่าเดียวกันนี้ทั้ง 3 บรรทัด):
@@ -26,7 +26,8 @@ PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 regression_full.py . <โ�
 
 | hash (prefix) | คืออะไร | ตรวจด้วย |
 |---|---|---|
-| **`853ce4ab`** | ✅ **golden ปัจจุบัน** — 148 ไฟล์ / 1056 บิล — rebaseline 2026-06-23 (ADR-084: whitelist `'สวิตซ์'` → ลบ 3× ITM011 fuzzy ซ/ช; ITM004 เว้นวรรคคงไว้) · path-independent (ADR-037) | `regression_full.py . <data>` |
+| **`587db268`** | ✅ **golden ปัจจุบัน** — 148 ไฟล์ / 1056 บิล — rebaseline 2026-06-23 (ADR-087 F1: ITM005 `_kw_in_name('สี')`+คำบอกสีล้วน exclusion → ลบ false-positive −64 [สวิตช์/สายไฟ/ท่อ/กระเบื้อง/ซิลิโคน], recall คงเดิม [สีจริงไม่หลุด], collateral 0) · path-independent (ADR-037) | `regression_full.py . <data>` |
+| `853ce4ab` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-23 (ADR-087 — F1 ITM005 สีล้วน exclusion) — ปลดระวาง · rebaseline ADR-084 (whitelist `'สวิตซ์'`) · path-independent (ADR-037) | — |
 | `08e6abfd` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-23 (ADR-084 — สวิตซ์ whitelist) — ปลดระวาง · path-independent (ADR-037) · rebaseline 2026-06-22 (ADR-064..076 deep audit: M-1 r_dt003 ระเบิดเวลา ค.ศ.2031 + ลด false-positive ITM004 ["5นิ้ว"/"60x30มม."=เขียนไทยปกติ] · ITM010 "วาว" [ประกายวาว] · ITM016 dup-key+qty/amount · DT004 4-หลักกำกวม · non-finite money guard [inf/NaN] · ADDR005 ตัดเบอร์โทร · DOC003 ไม่มีวันที่) · ฐาน 148 ไฟล์ ADR-048 | `regression_full.py . <data>` |
 | `ae84d3f0` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-22 (ADR-064..076 — M-1 time-bomb fix + FP-reduction batch ITM004/ITM010/ITM016/DT004/ADDR005/DOC003 + non-finite guard) — ปลดระวาง | — |
 | `c50fec27` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-21 (ADR-058 — DOC001 SHORT-format FP guard; ลบ TNT_69_03 "2" + TSH_69_039 "1") — ปลดระวาง | — |

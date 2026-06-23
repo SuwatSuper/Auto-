@@ -57,12 +57,29 @@ def main():
     _check(not contradictions, f"ไม่มีคำที่อยู่ทั้ง CONSTRUCTION_DICT และ typo-pattern (เจอ: {contradictions})")
 
     print()
-    print('=== [C] characterization _kw_in_name (root cause ITM005 — safety net การแก้อนาคต) ===')
-    # ล็อกพฤติกรรม "ปัจจุบัน" (ก่อนแก้ ITM005). ถ้า ADR-085 ถูกทำในอนาคต ค่าเหล่านี้จะเปลี่ยน → ผู้แก้ต้องอัปเทสนี้พร้อม ADR.
-    _check(_kw_in_name('สี', 'BLสวิตซ์ทางเดียว 3 ปุ่ม สีดำ') is True,
-           "[known ITM005 bug] 'สีดำ' ขึ้นต้นคำ → _kw_in_name('สี')=True (FP สวิตช์→หน่วยสี)")
+    print('=== [C] characterization _kw_in_name (ITM005 sniper — ADR-087 lock) ===')
+    # ADR-087 (F1): kw=='สี' + คำบอกสีล้วน = คำขยาย ไม่ใช่สินค้าสี → ITM005 ไม่คาดหน่วยแกลลอน.
+    #   ตรึงทั้ง "ตัด FP" (สวิตช์/สายไฟ/สีล้วน → False) และ "recall คงเดิม" (สีจริง → True).
+    #   ถ้าใครจะแก้ ITM005/_kw_in_name ต่อ ค่าเหล่านี้จะเปลี่ยน → ต้องอัปเทสนี้พร้อม ADR ใหม่.
+    # --- ตัด false-positive (สินค้าไม่ใช่สี + คำบอกสี) → ต้องเป็น False ---
+    _check(_kw_in_name('สี', 'BLสวิตซ์ทางเดียว 3 ปุ่ม สีดำ') is False,
+           "[ADR-087 FIXED] 'สวิตช์...สีดำ' → False (เลิก FP หน่วยสี)")
+    _check(_kw_in_name('สี', 'YAZAKI THW 1 x 2.5 สีน้ำตาล') is False,
+           "[ADR-087] สายไฟ '...สีน้ำตาล' → False (เลิก FP)")
+    _check(_kw_in_name('สี', 'กระเบื้องเคลือบบุผนัง สีเรียบ 8\"x8\"') is False,
+           "[ADR-087] กระเบื้อง 'สีเรียบ' → False (เลิก FP)")
+    _check(_kw_in_name('สี', 'สีน้ำเงิน') is False,
+           "[ADR-087] 'สีน้ำเงิน' (สีล้วน) → False — token ยาวกั้นก่อน 'น้ำ'")
+    # --- recall คงเดิม (สีจริง) → ต้องยังเป็น True ---
     _check(_kw_in_name('สี', 'สีรองพื้น TOA สีขาว') is True,
-           "สีจริง 'สีรองพื้น' → True (ถูกต้อง)")
+           "[recall] สีจริง 'สีรองพื้น' → True (ไม่หลุด)")
+    _check(_kw_in_name('สี', 'สีน้ำ TOA 1 แกลลอน') is True,
+           "[recall] 'สีน้ำ' (สีจริง) → True — จงใจไม่ใส่ 'น้ำ' ใน _SI_COLOR_ADJ")
+    _check(_kw_in_name('สี', 'สีน้ำมันเบเยอร์ 1 แกลลอน') is True,
+           "[recall] 'สีน้ำมัน' (สีจริง) → True")
+    _check(_kw_in_name('สี', 'สีอะคริลิค 75ML') is True,
+           "[recall] 'สีอะคริลิค' (สีจริง) → True")
+    # --- guard เดิมไม่ถอย ---
     _check(_kw_in_name('สี', 'เหล็กสี่เหลี่ยม 50x50') is False,
            "'สี่' (สี+วรรณยุกต์) → False (กันถูก)")
     _check(_kw_in_name('สี', 'ลวดเชื่อมสีเงิน') is False,

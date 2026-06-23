@@ -52,7 +52,7 @@ Python ตรง 3.12 · deps ตรงล็อก · `PYTHONHASHSEED=0` · pre
 ---
 
 ## 5) ยืนยัน golden จริง (148 ไฟล์ `/mnt/project`) — Task `3b` / `5`
-ครั้งแรกที่นำชุดข้อมูลทางการมา ให้ยืนยันว่าได้ hash `853ce4ab…`:
+ครั้งแรกที่นำชุดข้อมูลทางการมา ให้ยืนยันว่าได้ hash `587db268…`:
 `Run Task → "5. Regression บนข้อมูลจริง"` → ใส่ path โฟลเดอร์ /mnt/project (148 ไฟล์)
 ต้องเห็น `engine == agent == baseline ✅`.
 

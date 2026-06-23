@@ -10,7 +10,7 @@
 - `hooks/pre-commit` (ติดตั้งผ่าน `INVARIANTS/install_hooks.sh`) — บล็อก commit ถ้า invariant แตก
 - `golden_master.py` / `verify_golden.py` / `regression_full.py` — golden เต็มบนข้อมูลจริง 148 ไฟล์ (`/mnt/project`)
 
-> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-084 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`853ce4ab…`** (= `baseline.json._sha256` = แหล่งความจริงเดียวของค่า hash) · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
+> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-087 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`587db268…`** (= `baseline.json._sha256` = แหล่งความจริงเดียวของค่า hash · rebaseline 2026-06-23 ADR-087 F1: ITM005 สีล้วน exclusion · golden เดิมปลดระวาง ดู GOLDEN.md/ledger) · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
 
 ---
 
@@ -40,7 +40,7 @@
 
 | ชุดข้อมูล | จำนวนไฟล์ | golden `_sha256` | สถานะการพิสูจน์ |
 |---|---|---|---|
-| **ข้อมูลจริง (ทางการ) — `/mnt/project`** | 148 | `853ce4ab…` (= `baseline.json._sha256`) | ผู้ใช้รันยืนยันบนเครื่องตน · engine==agent==baseline (1056 บิล) · rebaseline ADR-084 (สวิตซ์ whitelist) |
+| **ข้อมูลจริง (ทางการ) — `/mnt/project`** | 148 | `587db268…` (= `baseline.json._sha256`) | ผู้ใช้รันยืนยันบนเครื่องตน · engine==agent==baseline (1056 บิล) · rebaseline ADR-087 (F1: ITM005 'สี'+สีล้วน exclusion → −64 FP, recall คงเดิม) |
 | fixture (in-repo) | 1 ไฟล์ | `b5c415bbd7bf58bac4328fec1c868325e0955f423d01e9695ba50015fc2f02eb` | ยืนยันใน CI/pre-commit (เร็ว ~3s, ไม่ต้องมีข้อมูลจริง) · [ADR-086: แก้ค้าง d8bcde85] |
 
 **กฎ:** การเปลี่ยน golden ของ "ข้อมูลจริง 148 ไฟล์ (`/mnt/project`)" ทำได้ก็ต่อเมื่อ **ผู้ใช้สั่งโดยตรง**
@@ -1404,3 +1404,34 @@ bash run_ci.sh /mnt/project                       # ต้อง exit 0 บน g
 **พิสูจน์:** `regression_full . /mnt/project` → golden **`853ce4ab` ไม่ขยับ** (golden-neutral ยืนยัน) · doc-sync เขียว (รวม surface ใหม่) · test_typo_decisions_lock PASS · run_ci.sh เขียวครบ.
 **ผลต่อคุณภาพ:** Consistency: drift ปิดถาวร + การตัดสินถูกตรึงเป็นเทส · Maintainability: surface coverage ครบขึ้น + มี safety net ก่อนแตะ guard ร่วม (`_kw_in_name`) ทำให้รอบแก้ ITM005 (ADR-085) ในอนาคตปลอดภัยขึ้น.
 **หมายเหตุ:** ไม่ได้แก้ F1(ITM005, golden-affecting) / F3-full(registry refactor) / F5(decoupling) ในนี้ — เป็นงาน risk-bearing ที่ขัด "Stability-first + no-rewrite" ก่อนล็อก 5 ปี → ทำเป็นรอบ deliberate แยกถ้า Tor อนุมัติเฉพาะตัว.
+
+---
+
+### ADR-087 — REBASELINE: golden `853ce4ab` → `587db268` (F1 SNIPER: ITM005 'สี'+คำบอกสีล้วน exclusion — Tor อนุมัติ)
+**วันที่:** 2026-06-23 · **สถานะ:** ACCEPTED, IMPLEMENTED · **สั่งโดย:** Tor (อนุมัติ: "apply + rebaseline" ขอบเขตตามที่พิสูจน์พอดี) · **superseded:** ADR-085 (known-limitation → แก้แล้ว)
+**บริบท:** ADR-085 บันทึก ITM005 paint-unit false-positive เป็น accepted known-limitation (เลื่อนแก้). รอบนี้ทำ F1 แบบ deliberate + พิสูจน์ระดับเซลล์ครบ → Tor อนุมัติให้ apply.
+
+**ปัญหา (เดิม):** ITM005 (289 occ = 45% ของ issue ทั้งระบบ) ฟ้องเกิน. `_kw_in_name('สี', name)` (rules_engine_base.py) จับ 'สี' ที่ขึ้นต้นคำ แล้วถือเป็นสินค้าหมวด "สีทาบ้าน" → คาดหน่วย `[แกลลอน,กระป๋อง,ลิตร]`. แต่ **สินค้าไม่ใช่สี** จำนวนมากมีคำบอกสีต่อท้าย (สวิตช์ **สีดำ**, สายไฟ THW **สีน้ำตาล**, กระเบื้อง **สีเรียบ**, ซิลิโคน **สีขาว**) → ฟ้องว่า "หน่วยควรเป็นแกลลอน" = ไร้เหตุผล = alert fatigue.
+
+**Root cause:** `_kw_in_name` กัน 'สี่'(สี+วรรณยุกต์) และ 'สี' กลางคำได้ แต่ปล่อย 'สีดำ/สีขาว/สีเรียบ' ที่ขึ้นต้นหลังช่องว่าง → นับเป็นหมวดสี.
+
+**ทางแก้ (surgical, scoped):** เพิ่ม `_SI_COLOR_ADJ` (config.py) = คำบอกสีล้วน/ผิว (ขาว,ดำ,แดง,เขียว,ฟ้า,เหลือง,น้ำเงิน,น้ำตาล,เทา,ส้ม,ม่วง,ชมพู,ทอง,เงิน,ครีม,เรียบ,อ่อน,เข้ม,ใส,บรอนซ์,เนื้อ,รุ้ง,ธรรมชาติ,อะลูมิเนียม,อลูมิเนียม,ไอวอรี่,เบจ). ใน `_kw_in_name` เมื่อ `kw=='สี'` ขึ้นต้นคำ + ข้อความถัดไป startswith คำใน `_SI_COLOR_ADJ` → ข้าม match นี้ (เป็น "คำขยายบอกสี" ไม่ใช่สินค้าสี). **จงใจไม่ใส่ token 'น้ำ'** → 'สีน้ำ'/'สีน้ำมัน' (สีจริง) ยัง match; ใช้ 'น้ำเงิน'/'น้ำตาล' (ยาวกว่า) แทน. ไม่มี token ใดเป็น prefix ของคำ paint-type (สีรองพื้น/สีย้อม/สีอะคริลิค/สีกันสนิม/สีสเปรย์/สีโป๊ว) → **สีจริงไม่หลุด**.
+
+**Blast radius:** call site เดียวจริง = `rules_engine_rules_b.py:163` (r_itm005). references ใน rules_a/c เป็น re-export shim (ไม่เรียก). → กระทบเฉพาะ ITM005.
+
+**DELTA (พิสูจน์จริง: simulate ในสำเนาแยก → regen baseline → diff ระดับเซลล์ บน corpus 148/1056):**
+- golden: `853ce4ab` → **`587db268`**
+- **ITM005: 289 → 225 (−64 net)** · flag หาย 72, ใน 8 ตัวถูก re-flag ด้วยหน่วยที่ถูกต้องขึ้น (ตู้คอนซูเมอร์→`[ตู้,ใบ]`, เต้ารับ→`[ตัว,ชุด]`, ท่อหด→`[เส้น,ท่อน]`) แทน "แกลลอน"
+- **กฎอื่นนอก ITM005 เปลี่ยน = 0** (collateral ศูนย์) · typos 51→51 · n_bills 1056 · fixture `b5c415bb` ไม่ขยับ (3 บิล fixture ไม่มี 'สี')
+
+**พิสูจน์ FP ทุกตัว (cell-level, 64 net ที่หาย):** ทั้งหมดเป็นสินค้า **ไม่ใช่สี** + คำบอกสี → สายไฟ YAZAKI THW (~30: ขด/ม้วน/เมตร), ท่อ/ท่ออ่อน/HDPE/PVC/EMT, ราง/รางวายเวย์/รางเดินสายไฟ, กระเบื้องเคลือบ "สีเรียบ"(×6), กาว/ซิลิโคน/ยาแนว "สีขาว/เทา/ใส", สวิตช์/เต้ารับ/ข้อต่อ MC4, เกรียงโบกปูน, ถุงมือ "สีน้ำตาล", grille 4-ASD, ผงวุ้น(อาหาร). เดิมทุกตัวถูกบอก "หน่วยควรเป็นแกลลอน" → FP ชัดเจน.
+**พิสูจน์ recall ไม่ตก (0):** สีจริงทุกตัวใน corpus ยัง match ครบ — `สีอะคริลิค`, `สีสเปรย์ TOA`, `สีรองพื้น (TOA/ออลคอนกรีต/กันสนิม)`, `สีน้ำมัน TOA`, `สีผสมอาหาร` — **ไม่มี flag ของ error/สีจริงตัวใดหาย**.
+
+**สิ่งที่ทำ (rebaseline ครบ surface):**
+1. โค้ด: `config.py` (+`_SI_COLOR_ADJ`) · `rules_engine_base.py` (`_kw_in_name` + import).
+2. `baseline.json` regenerate → `587db268` (engine==agent==baseline ✅).
+3. `test_typo_decisions_lock.py` [C]: flip characterization 'สวิตช์...สีดำ' True→**False** [ADR-087 FIXED] + เพิ่ม recall-lock (สีน้ำ/สีน้ำมัน/สีรองพื้น/สีอะคริลิค → True) + FP-lock (สายไฟ/กระเบื้อง/สีน้ำเงิน → False).
+4. `RETIRED_PREFIXES` (test_golden_single_source.py): + `853ce4ab`.
+5. OPERATIONAL_SURFACES `853ce4ab`→`587db268`: tasks/launch.json, _SESSION_HANDOFF, QUICKSTART, Makefile, ci.yml, MAINTENANCE, CLAUDE.md, run_ci.sh, DECISIONS banner+§1. `GOLDEN.md`: `587db268`=✅ปัจจุบัน · `853ce4ab`→⏮️ปลดระวาง. ledger ประวัติ (ADR-084 ฯลฯ) คง `853ce4ab` ไว้ตาม append-only.
+**พิสูจน์ gate:** regression_full (engine==agent==baseline=`587db268`) ✅ · check_invariants (fixture `b5c415bb`) ✅ · test_golden_single_source (doc-sync `587db268`) ✅ · test_typo_decisions_lock ✅ · run_ci.sh exit 0 ✅.
+**ขอบเขต/หมายเหตุ:** ตั้งใจ "ไม่" แตะ FP กำกวมที่ไม่ใช่ 'สี'+สีล้วน (สีผสมอาหาร/สีเปรย์หล่อลื่น) — เสี่ยง recall, อยู่นอกขอบเขตที่อนุมัติ. ย้อนได้ด้วย revert + rebaseline กลับ (`853ce4ab` ใน RETIRED + git history initial import).

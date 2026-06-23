@@ -13,7 +13,7 @@
 2. **"ถูกต้อง" ของระบบนี้ = golden hash** — ไม่ใช่ความเห็นของคุณ (Claude), ไม่ใช่ linter, ไม่ใช่ "น่าจะดีกว่า".
 3. **ลำดับความสำคัญ (ห้ามสลับ):** `Stability > Reliability > Maintainability > Consistency > Predictability > Scalability > Performance > Features`. **Features = ห้ามเพิ่ม** เว้นแต่ Tor สั่งชัดเจน.
 4. **golden ปัจจุบัน (แหล่งจริง = ไฟล์ ไม่ใช่ค่าที่จำ):**
-   - corpus  : `853ce4ab…`  (= `baseline.json._sha256`, 148 ไฟล์ `/mnt/project`, 1056 บิล)
+   - corpus  : `587db268…`  (= `baseline.json._sha256`, 148 ไฟล์ `/mnt/project`, 1056 บิล)
    - fixture : `b5c415bb…`  (= `tests/fixtures/baseline_fixture.json._sha256`, 3 บิล)
    - **เชื่อค่าใน `baseline.json` เสมอ ไม่เชื่อเลขที่จำมาจาก session ก่อน.**
 
@@ -30,7 +30,7 @@
    ▼
 bills (list of dict)  ──►  rules_engine (~56 กฎ r_*)  ──►  ติด issues[] ให้แต่ละบิล
    │
-   ├─►  golden_master/regression_full ──► hash ผลตรวจ = "853ce4ab" (oracle)
+   ├─►  golden_master/regression_full ──► hash ผลตรวจ = "587db268" (oracle)
    │
    └─►  ชั้นรายงาน (advisory — ไม่กระทบ hash):
           • build_consolidated_report.py → Error Report .xlsx (4 ชีต: ภาพรวม/ต้องแก้/ขึ้นกับ master/ข้อสังเกต)
@@ -141,13 +141,13 @@ find . -name __pycache__ -type d -exec rm -rf {} + ; find . -name '*.pyc' -delet
 # determinism env — ตั้งทุกครั้ง (ขาดตัวใด hash เพี้ยน)
 export PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 PUOPUY_OFFLINE=1
 
-python3 regression_full.py . /mnt/project baseline.json   # 1) golden corpus → engine==agent==baseline=853ce4ab
+python3 regression_full.py . /mnt/project baseline.json   # 1) golden corpus → engine==agent==baseline=587db268
 python3 INVARIANTS/check_invariants.py                     # 2) fixture b5c415bb + pins
 python3 test_golden_single_source.py                       # 3) doc-sync
 bash run_ci.sh /mnt/project                                # 4) เต็ม (ทุกเทส + parallel==serial + canary) ต้อง exit 0
 python3 make_release.py <pkg_dir> /mnt/project <out.zip>   # 5) แพ็ก (เฉพาะเมื่อได้รับอนุมัติ release)
 ```
-> ข้อ 1 ไม่ได้ `853ce4ab` ตั้งแต่เปิด session = **หยุด แจ้ง Tor ห้ามแก้อะไร** (env/ไฟล์เพี้ยน ต้องสืบก่อน).
+> ข้อ 1 ไม่ได้ `587db268` ตั้งแต่เปิด session = **หยุด แจ้ง Tor ห้ามแก้อะไร** (env/ไฟล์เพี้ยน ต้องสืบก่อน).
 
 ---
 
@@ -167,7 +167,7 @@ python3 make_release.py <pkg_dir> /mnt/project <out.zip>   # 5) แพ็ก (�
 
 ### 7.1 Input Validation — ดักบั๊กจากไฟล์ Excel (ไฟล์ใหม่จะเสียแบบใหม่เสมอ)
 - แยก 2 เคสก่อน (forensic-first): **(A) parser ล่ม/อ่านเซลล์ผิด** → harden กันล่ม; ถ้า **golden 148 ไฟล์เท่าเดิม** = **golden-neutral แก้ได้ (พิสูจน์ + 1 ADR)** ← ช่องที่ทำให้ดักบั๊ก input ไม่ตัน. **(B) กฎควรจับ/ไม่ควรจับเพิ่ม** → เปลี่ยนผลตรวจ = **STOP-AND-ASK**.
-- บังคับพิสูจน์: หลังเพิ่ม guard รัน `golden_master` → corpus **ต้องได้ `853ce4ab` เป๊ะ**. กลไก/แพตเทิร์น: `parser_guards.py` · `file_guard.py` · `log_system_issue()` (กฎ crash → ชีต System Issues ไม่ปนผล) · `_failed_files` (ข้ามไฟล์เสีย ที่เหลือยังครบ) · money-serial guard (ADR-055) · DOC001 guard (ADR-057/058). เทส: `test_input_hardening.py`, `test_parser_negative.py`, `test_bughunt_hardening.py`.
+- บังคับพิสูจน์: หลังเพิ่ม guard รัน `golden_master` → corpus **ต้องได้ `587db268` เป๊ะ**. กลไก/แพตเทิร์น: `parser_guards.py` · `file_guard.py` · `log_system_issue()` (กฎ crash → ชีต System Issues ไม่ปนผล) · `_failed_files` (ข้ามไฟล์เสีย ที่เหลือยังครบ) · money-serial guard (ADR-055) · DOC001 guard (ADR-057/058). เทส: `test_input_hardening.py`, `test_parser_negative.py`, `test_bughunt_hardening.py`.
 
 ### 7.2 Resource Management — ทรัพยากรเครื่องระยะยาว (รัน 5 ปีไม่ให้เครื่องพัง)
 - RAM / memory fragmentation / cache โตไม่จำกัด / temp / master = **เกือบทั้งหมด golden-neutral** (เปลี่ยน "วิธีรัน" ไม่ใช่ "ผลลัพธ์") → **แก้ได้ ไม่ต้องปลดล็อก**.
@@ -185,7 +185,7 @@ python3 make_release.py <pkg_dir> /mnt/project <out.zip>   # 5) แพ็ก (�
 
 ## 8 · Session start checklist (ทำทุกครั้งที่เปิด Claude Code บน repo นี้)
 1. อ่าน **ข้อ 1** (แผนที่) ถ้ายังไม่รู้จักระบบ → แล้วอ่าน `GOLDEN.md` + banner `INVARIANTS/DECISIONS.md`.
-2. ยืนยัน baseline (ข้อ 5.0–5.1): ล้าง pycache → `regression_full` → **ต้องได้ `853ce4ab`**. ไม่ได้ = **หยุด แจ้ง Tor**.
+2. ยืนยัน baseline (ข้อ 5.0–5.1): ล้าง pycache → `regression_full` → **ต้องได้ `587db268`**. ไม่ได้ = **หยุด แจ้ง Tor**.
 3. ทำงานโหมด **LOCKED**: อ่าน/สืบได้เสมอ · แก้ที่ขยับ golden = **STOP-AND-ASK** (ข้อ 3).
 4. ก่อนพูดว่า "เสร็จ": ผ่าน gate ครบ (ข้อ 5) + (ถ้าแก้) 1 ADR + rebaseline ครบ surface.
 

@@ -2,8 +2,8 @@ name: puopuy-ci
 
 # ด่าน CI (offline) — รันชุดเทส + golden gate + invariants ทุกครั้งที่ push/PR
 #   เป้าหมาย: จับ regression ก่อน merge (เทสเป็นสคริปต์ standalone ไม่ใช่ pytest)
-#   หมายเหตุ: ชุด golden 148 ไฟล์จริง (853ce4ab) ไม่อยู่ใน repo → CI ตรวจได้แค่
-#             fixture (b5c415bb) + invariants + เทสหน่วย. การยืนยัน 853ce4ab ทำในเครื่องที่มีไฟล์จริง.
+#   หมายเหตุ: ชุด golden 148 ไฟล์จริง (587db268) ไม่อยู่ใน repo → CI ตรวจได้แค่
+#             fixture (b5c415bb) + invariants + เทสหน่วย. การยืนยัน 587db268 ทำในเครื่องที่มีไฟล์จริง.
 
 on:
   push:

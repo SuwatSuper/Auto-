@@ -33,7 +33,7 @@ from rapidfuzz import fuzz
 
 # ค่าคงที่/ตาราง/เกณฑ์ทั้งหมด (CFG, RULES thresholds, dict ฯลฯ)
 from config import (CFG, COMPANY_PREFIXES, COMPANY_PREFIX_RE,  # [F3] explicit — เฉพาะที่ base ใช้เอง
-                    PRODUCT_CATEGORIES, _AMBIG_SHORT_KW, _THAI_MARKS)
+                    PRODUCT_CATEGORIES, _AMBIG_SHORT_KW, _THAI_MARKS, _SI_COLOR_ADJ)
 
 # core layer (พิสูจน์แล้วว่าผลเดิม)
 from puopuy_core import (to_conf01, normalize_text, has_hidden_chars, clean_tax_id,
@@ -127,6 +127,10 @@ def _kw_in_name(kw, name):
       (สี+่=สี่) และ 'กระดาษกาวรองทาสี' (สี เป็นท้ายคำกริยา 'ทา') → ฟ้องหน่วยผิดเป็นหน่วยสี
     หลักการ: คำยาว/เฉพาะ → substring เดิมปลอดภัยพอ; คำสั้นกำกวม → ต้องอยู่ "ต้นคำ"
       (ขึ้นต้นชื่อ หรือ หลังช่องว่าง) และต้องไม่ตามด้วยสระ/วรรณยุกต์ (กลายเป็นคำอื่น)
+    [F1/ADR-087]: kw=='สี' + คำบอกสีล้วน (สีดำ/สีขาว/สีเรียบ/สีน้ำตาล…) = "สีขยายความ
+      สินค้า" ไม่ใช่สินค้า "สีทาบ้าน" → ข้าม match นี้ (กัน ITM005 false-positive ของ
+      สวิตช์/สายไฟ/กระเบื้อง/ซิลิโคน). ยังจับ สีน้ำ/สีน้ำมัน/สีรองพื้น/สีอะคริลิค (สีจริง)
+      เพราะ token paint-type ไม่อยู่ใน _SI_COLOR_ADJ (recall คงเดิม — พิสูจน์เซลล์ใน ADR-087).
     """
     if not kw or not name or kw not in name:
         return False
@@ -138,6 +142,10 @@ def _kw_in_name(kw, name):
             continue
         prev = name[mt.start() - 1] if mt.start() > 0 else ''
         if mt.start() == 0 or prev == ' ':  # อยู่ต้นคำเท่านั้น → ถือว่าเป็นสินค้าประเภทนั้นจริง
+            if kw == 'สี':                 # [F1/ADR-087] กัน 'สี'+คำบอกสี = คำขยาย ไม่ใช่สินค้าสี
+                rest = name[mt.end():]
+                if any(rest.startswith(c) for c in _SI_COLOR_ADJ):
+                    continue
             return True
     return False
 

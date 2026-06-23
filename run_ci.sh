@@ -3,7 +3,7 @@
 #
 # ใช้:
 #   bash run_ci.sh                 # gate+smoke+pinned+mesh+agents+regression(fixture)
-#   bash run_ci.sh /path/to/data   # + regression เต็มบนข้อมูลจริง (baseline 853ce4ab…) ถ้าระบุ data dir
+#   bash run_ci.sh /path/to/data   # + regression เต็มบนข้อมูลจริง (baseline 587db268…) ถ้าระบุ data dir
 #
 # ต้องรันจากโฟลเดอร์ระบบ (ที่มี config.py). ทุกขั้นตั้ง PYTHONHASHSEED=0 เพื่อ reproduce hash.
 set -u
@@ -83,7 +83,8 @@ run "[3w0b] รายงานลูกค้า C1+C2 (ระบุไฟล์
 run "[3w2] Ultra Agent (ตรวจทาน-ยืนยันด้วยหลักฐานอิสระ)" "$PY" test_ultra_agent.py
 # ── structural tripwires (ไม่ใช้ข้อมูลจริง — กัน drift เชิงโครงสร้าง/แหล่งความจริง) ──
 run "[3x] golden single-source (doc↔baseline.json sync)" "$PY" test_golden_single_source.py
-run "[3x-typo] typo decisions lock (ADR-084) + _kw_in_name characterization (ADR-085 safety net)" "$PY" test_typo_decisions_lock.py
+run "[3x-typo] typo decisions lock (ADR-084) + _kw_in_name characterization (ADR-085/087 safety net)" "$PY" test_typo_decisions_lock.py
+run "[3x-itm005] ITM005 precision characterization (ADR-087 F1 sniper — FP cut + recall lock)" "$PY" test_itm005_precision.py
 run "[3x2] FIELD_CODES coverage (แดชบอร์ดเห็นทุกกฎ — กัน false-clean)" "$PY" test_field_codes_coverage.py
 run "[3x2b] rule status (A2 — active/disabled/unavailable + เหตุผล ไม่หลอกตา)" "$PY" test_rule_status.py
 run "[3x3] date 2-digit year (พ.ศ./ค.ศ. ไม่ขัดกัน)" "$PY" test_date_2digit_year.py
@@ -158,7 +159,7 @@ if "$PY" -m mypy --version >/dev/null 2>&1; then
 else _strict_skip "[13] mypy" "pip install mypy --break-system-packages"; fi
 
 if [ -n "$REAL_DATA" ]; then
-  run "[7] regression (ข้อมูลจริง 148 ไฟล์, baseline 853ce4ab…)" \
+  run "[7] regression (ข้อมูลจริง 148 ไฟล์, baseline 587db268…)" \
       "$PY" regression_full.py . "$REAL_DATA"
   run "[8] agent contracts (ข้อมูลจริง — เช็คเลข baseline ครบ)" \
       "$PY" test_agents.py . "$REAL_DATA"
