@@ -1375,3 +1375,15 @@ bash run_ci.sh /mnt/project                       # ต้อง exit 0 บน g
 1. `test_rules_typo_branch.py`: แก้ assert "5นิ้ว → ไม่ฟ้อง (`==[]`)" ให้ตรง golden/ADR-075/recheck + เพิ่มเคส **positive จริง** `"ABCนิ้ว"` (อังกฤษ+ไทย — ไม่ใช่เลข) assert ฟ้อง เพื่อคงการเก็บกิ่ง emit ของ lookaround pattern (ไม่ลด coverage). อัป docstring ให้ตรงพฤติกรรมจริง.
 2. `run_ci.sh`: เพิ่ม **9 orphan ที่ผ่าน** เป็น step ([3za]–[3zi]) → "ความจริงของ run_ci.sh == pytest job" กัน hidden-failure ซ้ำ (`test_rules_typo_branch`, `test_validators_branch`, `test_validators_missing_checks`, `test_addr_full_coverage`, `test_unit_detection_ext`, `test_fix_round2`, `test_fix_tnt_trio`, `test_report_consistency`, `test_report_summary_fixes`). `test_typing_leaf` ดึงเข้าใน ADR-082 (หลังแก้ annotation) · `test_cmp004` ยังไม่ดึง (รอ Tor).
 **พิสูจน์ (golden-neutral):** ไม่แตะ engine/rule. `test_rules_typo_branch.py` → 7/7 ✅ · 9 orphan ที่ wire → ผ่านครบ · `check_invariants.py --fast` fixture `b5c415bb` ✅ · `bash -n run_ci.sh` syntax OK.
+
+---
+
+### ADR-082 — leaf typing gate: เติม annotation 4 ฟังก์ชัน leaf ให้ผ่าน `--disallow-untyped-defs` + wire test_typing_leaf
+**วันที่:** 2026-06-23 · **สถานะ:** ACCEPTED, IMPLEMENTED · **สั่งโดย:** Tor ("ลุยตามคำสั่ง และ ส่งระบบที่สมบูรณ์") · **โซน:** 🟢 เขียว (golden-neutral — annotation เป็น string ใต้ `from __future__ import annotations` ไม่ถูก eval ตอนรัน)
+**บั๊กที่พบ (forensic, orphan triage):** `test_typing_leaf.py` (รัน mypy `--disallow-untyped-defs --disallow-incomplete-defs` บน leaf 4 โมดูล) **fail** — 4 ฟังก์ชันขาด annotation:
+- `core_utils._df_safe(df)` + inner `_c(v)` — ไม่มี annotation เลย
+- `puopuy_units._money_q(x: Any)` — ขาด return type
+- `puopuy_dates._be_serial()` (inner) — ขาด return type
+เทสนี้ถูกบังคับใน `ci.yml` gate job (ติดตั้ง mypy + standalone loop) แต่ `run_ci.sh` ไม่รัน → local เขียวหลอก. (หมายเหตุ: ระดับ error ขึ้นกับเวอร์ชัน mypy — บนเครื่องนี้ mypy 2.1.0 จับครบ; เติม annotation ให้ผ่าน "ทุกเวอร์ชัน mypy" = robust.)
+**สิ่งที่ทำ (surgical):** เติม annotation: `_df_safe(df: Any) -> Any` · inner `_c(v: Any) -> Any` · `_money_q(x: Any) -> float | None` · `_be_serial() -> datetime | None` (ชนิดตรงสัญญาใน docstring เดิม) + เพิ่ม `test_typing_leaf.py` เป็น step `[3zj]` ใน run_ci.sh (self-skip ถ้าไม่มี mypy).
+**พิสูจน์ (golden-neutral):** `from __future__ import annotations` มีครบทุกโมดูล → annotation ไม่ถูก evaluate. `check_invariants.py` (เต็ม) → fixture `b5c415bb` engine==agent==baseline ✅ (puopuy_units/_money_q + puopuy_dates เป็น golden-path แต่ fixture ไม่ขยับ) · `test_typing_leaf.py` → ✅ (mypy 0 error, 4 โมดูล) · `test_date_parse_characterization.py` → 36/36 ✅.

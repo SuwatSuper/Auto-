@@ -120,6 +120,7 @@ run "[3zf] fix round2 (ตรึง M-1 + T-1)" "$PY" test_fix_round2.py
 run "[3zg] fix TNT trio (เคส TNT/เถ้าแก่เนี้ย)" "$PY" test_fix_tnt_trio.py
 run "[3zh] report consistency (Excel == Notepad)" "$PY" test_report_consistency.py
 run "[3zi] report summary fixes (ชื่อเข้ม CMP006 + ที่อยู่)" "$PY" test_report_summary_fixes.py
+run "[3zj] typing leaf (mypy: leaf utility annotate ครบ — self-skip ถ้าไม่มี mypy)" "$PY" test_typing_leaf.py
 run "[4] mesh contract"          "$PY" test_mesh_contract.py
 run "[4b] vendor report (.txt รายผู้ขาย)" "$PY" test_vendor_report.py
 run "[4c] real cases (false-positive ที่ลูกค้ารายงาน)" "$PY" test_realcases_v9_2.py
