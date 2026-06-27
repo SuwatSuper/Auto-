@@ -1941,3 +1941,37 @@ post-fix unit check: bool/inf item → คืน `[]` (ไม่ครัช) ; 
 
 **ที่มา:** deep bug-hunt 2026-06-27 (lane rules B/C). จัดชั้น §7.1 (harden กันครัช, golden-neutral,
 พิสูจน์ + 1 ADR — ไม่ต้องปลดล็อก). เป็นการขยาย logic ป้องกันชุดเดียวกับ ADR-069 ให้ครบทุก call site.
+
+
+## ADR-110 — [§7.1 input-hardening / scale] province_in_address: substring match → word-boundary match (กัน ADDR006 false-positive ชื่อจังหวัดสั้น) — golden-neutral (อนุมัติโดยเจ้าของ 2026-06-27)
+
+**บริบท:** `thai_postal.province_in_address` เดิมจับชื่อจังหวัดด้วย substring ดิบ
+(`[pv for pv in PROVINCE_POSTAL_PREFIXES if pv in addr]`) → ชื่อจังหวัดสั้น (เลย/ตาก/น่าน/ตรัง/ตราด/แพร่)
+match กลางคำอื่นได้ → `r_addr006` (postal↔province mismatch) **false-positive**.
+
+**หลักฐาน forensic (reproduce ก่อนแก้):**
+```
+"บริษัท เลยกว่าใคร จำกัด … กรุงเทพ 10250" → จับจังหวัด "เลย"  (จาก "เลยกว่า")   ❌
+"… ตากสิน ธนบุรี กรุงเทพ"                  → จับจังหวัด "ตาก"  (จาก "ตากสิน")    ❌
+"ร้านน่านฟ้า … กรุงเทพ"                    → จับจังหวัด "น่าน" (จาก "น่านฟ้า")   ❌
+```
+
+**คำตัดสินเจ้าของ (Tor, 2026-06-27):** simulate บน corpus แล้ว — ADDR006 ฟ้อง **0×**, เคสจังหวัดกำกวม 0
+→ **delta = 0 → golden-NEUTRAL** (ไม่ใช่ golden-moving, ไม่ต้อง rebaseline). อนุมัติให้แก้ —
+เป็น latent bug ที่จะเกิดตอน scale ไปข้อมูลจริง (หลายพันบริษัท) ที่ชื่อบริษัท/ถนน/ตำบลมีคำพ้อง.
+
+**ตัดสิน (surgical):** เพิ่ม `_province_word_match(pv, addr)` — จับเฉพาะเมื่อ pv มี "ขอบ" จริง:
+- ขอบหน้า OK: ต้นสตริง / อักขระหน้าไม่ใช่ตัวต่อคำไทย (`[ก-ฮะ-ฺเ-๎]`) / นำหน้าด้วย `จังหวัด`|`จ.`
+- ขอบหลัง OK: ท้ายสตริง / อักขระหลังไม่ใช่ตัวต่อคำไทย (เว้นวรรค/เลข/เครื่องหมาย)
+- ทุก occurrence อยู่กลางคำอื่น → ถือว่าไม่พบ (conservative: false-negative ดีกว่า false-positive §4)
+`province_in_address` เปลี่ยนจาก `pv in addr` → `_province_word_match(pv, addr)` (caller เดียว = postal_province_mismatch).
+**ไม่แตะ** `PROVINCE_POSTAL_PREFIXES` (POSTAL-2 over-broad prefix ยังคงไว้ — แยกเรื่อง, ยังไม่อนุมัติ).
+
+**ผลกระทบ golden:** **ไม่ขยับ** — ADDR006 ฟ้อง 0× ทั้งก่อน/หลัง. พิสูจน์: `golden_master . corpus` =
+`31013a31` ก่อน=หลัง · `regression_full` engine==agent==baseline · full `run_ci.sh corpus` (strict) เขียวครบ.
+post-fix unit: FP (เลยกว่า/ตากสิน/น่านฟ้า) → None ✅ ; TP (จังหวัดเลย/จ.ตาก/น่าน+zip) → จับได้ ✅ ;
+mismatch จริง (เลย+50000) → ยังฟ้อง ✅ (recall ไม่ถอย).
+
+**ตรึง:** `test_addr_province_boundary.py` เพิ่มใน `run_ci.sh` [3c4b].
+
+**ที่มา:** deep bug-hunt 2026-06-27 (lane units/postal + rules B/C: POSTAL-1/ADDR006-PROV-SUBSTR).

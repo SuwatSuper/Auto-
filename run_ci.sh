@@ -47,6 +47,7 @@ run "[3c2] vat002 tolerance 0.50 (ADR-005)" "$PY" test_vat002_tolerance.py
 run "[3c2b] vat itemsum guard (ADR-109 — bool/non-finite item ไม่ครัชเงียบ)" "$PY" test_vat_itemsum_guard.py
 run "[3c3] TAX008 (B1 — เลขภาษีเดียวชื่อต่าง, ไม่พึ่ง master)" "$PY" test_tax008.py
 run "[3c4] ADDR006 (B2 — ไปรษณีย์↔จังหวัด, ไม่พึ่ง master)" "$PY" test_addr006.py
+run "[3c4b] ADDR province word-boundary (ADR-110 — กัน substring FP)" "$PY" test_addr_province_boundary.py
 run "[3c5] BR004 (B3 — เทียบสาขากับ master)" "$PY" test_br004.py
 run "[3c6] IV007 (D1 — เลขใบกำกับขยะ absolute validity)" "$PY" test_iv007.py
 run "[3c7] IV parser guard (D2 — ไม่คว้าเศษ float เป็นเลขเอกสาร)" "$PY" test_iv_parser_guard.py

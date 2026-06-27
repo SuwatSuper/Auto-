@@ -102,12 +102,46 @@ _ADDR006_SKIP_PROVINCES = frozenset({'กรุงเทพมหานคร'})
 _BKK_HINTS = ('กรุงเทพ', 'กทม')
 _ZIP_RE = re.compile(r'(?<!\d)(\d{5})(?!\d)')
 
+# [ADR-110] อักขระไทยที่ "ต่อคำ" (พยัญชนะ ก-ฮ + สระ/วรรณยุกต์) — ใช้ตรวจ word-boundary ของชื่อจังหวัด
+#   กัน substring false-positive: ชื่อจังหวัดสั้น (เลย/ตาก/น่าน/ตรัง/ตราด/แพร่) ที่บังเอิญเป็นส่วนของคำอื่น
+#   (เช่น "เลยกว่า"→เลย, "ตากสิน"→ตาก, "น่านฟ้า"→น่าน). ไทยไม่มีเว้นวรรค → ใช้ "อักขระข้างเคียง
+#   ไม่ใช่ตัวต่อคำ" เป็นขอบ. ครอบคลุม U+0E01–0E2E (พยัญชนะ), 0E30–0E3A (สระล่าง/หลัง), 0E40–0E4E (สระหน้า/มาร์ก).
+_THAI_WORD_CHAR = re.compile(r'[ก-ฮะ-ฺเ-๎]')
+# คำนำหน้าจังหวัดที่มัก "ติดกัน" ไม่มีเว้นวรรค (จังหวัดเลย / จ.เลย) → ถือว่าขอบหน้า OK แม้ตามด้วยอักขระไทย
+_PROV_INDICATORS = ('จังหวัด', 'จ.')
+
+
+def _province_word_match(pv, addr):
+    """[ADR-110] True ถ้า pv ปรากฏใน addr แบบ 'เป็นคำ' (มีขอบ ไม่ใช่ substring กลางคำอื่น).
+
+    ขอบหน้า OK เมื่อ: อยู่ต้นสตริง / อักขระหน้าไม่ใช่ตัวต่อคำไทย / นำหน้าด้วย 'จังหวัด'|'จ.'.
+    ขอบหลัง OK เมื่อ: อยู่ท้ายสตริง / อักขระหลังไม่ใช่ตัวต่อคำไทย (เว้นวรรค/ตัวเลข/เครื่องหมาย).
+    conservative: ถ้าทุก occurrence อยู่กลางคำอื่น → ถือว่าไม่พบ (false-negative ดีกว่า false-positive).
+    """
+    start = 0
+    n = len(addr)
+    while True:
+        i = addr.find(pv, start)
+        if i < 0:
+            return False
+        j = i + len(pv)
+        before_ok = (i == 0) or (not _THAI_WORD_CHAR.match(addr[i - 1])) \
+            or any(addr[:i].endswith(p) for p in _PROV_INDICATORS)
+        after_ok = (j >= n) or (not _THAI_WORD_CHAR.match(addr[j]))
+        if before_ok and after_ok:
+            return True
+        start = i + 1
+
 
 def province_in_address(addr):
-    """คืนชื่อจังหวัดเดียวที่พบในที่อยู่ ; None ถ้าไม่พบ หรือพบหลายจังหวัด (กำกวม → conservative)."""
+    """คืนชื่อจังหวัดเดียวที่พบในที่อยู่ ; None ถ้าไม่พบ หรือพบหลายจังหวัด (กำกวม → conservative).
+
+    [ADR-110] จับแบบ word-boundary (ดู _province_word_match) ไม่ใช่ substring ดิบ — กัน false-positive
+    ชื่อจังหวัดสั้นที่เป็นส่วนของคำอื่น. golden-neutral บน corpus (ADDR006 ฟ้อง 0× ทั้งก่อน/หลัง — พิสูจน์ golden_master).
+    """
     if not addr:
         return None
-    found = [pv for pv in PROVINCE_POSTAL_PREFIXES if pv in addr]
+    found = [pv for pv in PROVINCE_POSTAL_PREFIXES if _province_word_match(pv, addr)]
     return found[0] if len(found) == 1 else None
 
 
