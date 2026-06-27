@@ -7,3 +7,5 @@ __pycache__/
 .coverage.json
 .ruff_cache/
 .mypy_cache/
+snapshot.json
+_rel_engine.json

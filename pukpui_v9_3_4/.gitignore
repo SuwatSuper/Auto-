@@ -9,3 +9,4 @@ _f1_*.json
 .mypy_cache/
 .coverage
 .coverage.json
+snapshot.json
