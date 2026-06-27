@@ -1,0 +1,9 @@
+# Local Python virtualenv (build tool for running pukpui — not part of the system)
+.venv312/
+.venv/
+__pycache__/
+*.pyc
+.coverage
+.coverage.json
+.ruff_cache/
+.mypy_cache/
