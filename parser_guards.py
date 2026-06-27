@@ -157,8 +157,17 @@ def _pb_iv_lastresort(df, result, row_start, header_end, ncols):
         tok = cands[0][3]
         result['iv_number'] = tok
         result['iv_number_raw'] = tok
-    except Exception:
-        return                                       # fallback ห้ามทำให้ parser ล้ม
+    except Exception as e:
+        # [ADR-111] fallback ห้ามทำให้ parser ล้ม — แต่ "ห้ามเงียบสนิท": ทิ้งร่องรอย SYS ให้ตามได้
+        #   (สอดคล้อง mandate diagnostics: เลิก except:pass ที่มองไม่เห็น). logger ห้ามทำให้ล้มซ้ำ.
+        try:
+            from diagnostics import log_system_issue
+            log_system_issue(code='SYS-IVLAST', severity='WARNING', category='ระบบ',
+                             name='iv last-resort ล้ม (ข้าม ไม่กระทบผลตรวจ)',
+                             detail=f'{type(e).__name__}: {e}', echo=False)
+        except Exception:
+            pass
+        return
 
 
 def apply_iv_lastresort_if_needed(df, result, row_start, header_end, ncols):

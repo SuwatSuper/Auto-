@@ -77,6 +77,7 @@ run "[3t] perf canary (algorithmic blowup guard)" "$PY" test_perf_budget.py
 run "[3u] parallel merge — non-empty system_issues" "$PY" test_parallel_merge_nonempty.py
 run "[3u2] parallel merge contract (#3 exc-key/#4a file=None/#cap config)" "$PY" test_parallel_merge_contract.py
 run "[3v] issue consolidator (Agent ยุบรหัส→ข้อสรุป)" "$PY" test_issue_consolidator.py
+run "[3v2] report lane/aspect (ADR-111 — CMP005 must-fix + ITM019/020 หน่วย)" "$PY" test_report_lane_aspect.py
 run "[3w] super ultra viewer (label คน + บล็อกบริษัท)" "$PY" test_super_ultra_viewer.py
 run "[3w1] honesty รายผู้ขาย (A1 — 'ตรง'=เทียบ master จริง ; รองรับบริษัทใหม่)" "$PY" test_honesty_per_bill.py
 run "[3w1b] SYS-* summary (A5 — silent skip กฎ crash มองเห็นได้ท้ายการรัน)" "$PY" test_sys_summary.py

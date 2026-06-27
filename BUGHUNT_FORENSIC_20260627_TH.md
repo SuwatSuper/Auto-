@@ -171,3 +171,43 @@ ADR ใหม่                     → ADR-109 (append-only)
 **Gate สุดท้าย:** `regression_full . corpus` = engine==agent==baseline==**31013a31** · full **strict** `run_ci.sh corpus`
 เขียวครบ (0 ล้มเหลว, 0 skip — รวม coverage≥90/branch≥85, ruff/black/mypy, pip-audit, parallel==serial,
 iv-cell-truth) · แพ็ก deliverable แตกจาก zip จริง → regression = 31013a31.
+
+
+---
+
+## 9 · รอบ "ทำทั้งหมด + เช็ค 5 ปี" (เจ้าของสั่ง 2026-06-27) — ผลสรุป
+
+### 9.1 แก้เพิ่ม (ADR-111 · golden-neutral, report/diagnostics layer)
+- **REPORT-1:** ถอด CMP005 ออกจาก `MASTER_DEPENDENT` (เป็นการตรวจโครงสร้างชื่อ ไม่พึ่ง master) → must-fix ไม่ถูกกลบ
+- **REPORT-4:** เพิ่ม ITM019/ITM020 เข้ากลุ่ม `_ITM_ASPECT['หน่วย']` → สรุปปัญหาบอกด้าน "หน่วย" ถูกต้อง (74 spot/corpus)
+- **PG-PARSER-3:** `_pb_iv_lastresort` log `SYS-IVLAST` แทน except เงียบ (observability)
+- พิสูจน์: `golden_master . corpus` = `31013a31` ก่อน=หลัง · locked report/parser tests ผ่าน · pin `test_report_lane_aspect.py` [3v2]
+
+### 9.2 finding ที่ "พิจารณาแล้วไม่แก้" (เหตุผลเชิงวิศวกรรม — กันทำระบบแย่ลง)
+| finding | เหตุผลที่ไม่แก้ |
+|---|---|
+| DOC003-EMPTYTAX | การแก้สร้าง **false-negative** (พลาดใบซ้ำจริง) ซึ่ง §4 ถือว่าอันตรายกว่า → คงเดิม |
+| ADDR004 denylist / POSTAL-2 | การเติม denylist/หด prefix = **เดาข้อมูล** (ขัด "ห้ามเดา") · dormant → roadmap |
+| DATE-1 (ปี 2 หลักกำกวม) | dormant · พฤติกรรม strptime ปัจจุบันยอมรับได้ · เคสต้นเรื่อง ADR-052 ไม่กระทบ |
+| REPORT-2 / IVP-1 | เคารพขอบเขตที่ ADR-098 / ADR-073 ตั้งใจไว้ (เป็น policy เจ้าของ) |
+| parse-core (seq cap 50 ฯลฯ) | **FREEZE** + พิสูจน์ dormant บน corpus (Phase D) |
+
+### 9.3 Deep-pass 6 เลนที่ค้าง (Phase C) — guard tests เขียวครบ
+`test_mesh_contract` · `test_parallel_merge_contract` · `test_reachability` · `test_reset_completeness` ·
+`test_code_tables_consistency` · `test_stub_marker` (kill-safe master) — **ผ่านทั้งหมด** · ไม่พบบั๊ก golden-moving ใหม่
+
+### 9.4 ใบรับรองความปลอดภัย 5 ปี (Phase D — พิสูจน์เชิงประจักษ์)
+| มิติ | วิธีพิสูจน์ | ผล |
+|---|---|---|
+| **Determinism** | รัน audit เต็ม corpus 3 รอบในโปรเซสเดียว | ทุกรอบ = `31013a31` เหมือนกันเป๊ะ ✅ |
+| **Memory (5-yr)** | วัด RSS ข้ามรอบ | run2→run3 = **+0.1MB** (ไม่มี leak) ✅ |
+| **File handles** | hot path parse 1000s ไฟล์/วัน | ใช้ `with`/pandas จัดการเอง (ไม่รั่ว) ✅ |
+| **Date horizon** | จำลอง audit-clock ปี 2027–2056 | บิลปีปัจจุบัน/ปีหน้า flags=0 · far-future ยังฟ้อง (ไม่มี time-bomb) ✅ |
+| **Env-lock** | `version_gate.py` | บังคับ Python 3.12 + deps pin ✅ |
+| **Kill-safe master** | `test_stub_marker` (ADR-039/040/049) | ผ่าน (กันข้อมูลหายถาวร) ✅ |
+| **Offline / parallel** | `test_offline_audit` · `verify_parallel` [8c] | zero outbound · parallel==serial ✅ |
+| **parse-core dormancy** | scan corpus | max items/bill = **18** (≪50) → ไม่มีเคสจริงพัง ✅ |
+
+**สรุปรอบนี้:** ระบบ **ปลอดภัยสำหรับใช้งานต่อเนื่อง ≥5 ปี** (จริง ๆ horizon วันที่ถึง พ.ศ.2599/ค.ศ.2056) ·
+golden `31013a31` ไม่ขยับ · บั๊ก golden-safe ที่เจอแก้หมดแล้ว (ADR-109/110/111) · ที่เหลือเป็น dormant/นโยบาย
+ที่บันทึกเหตุผลครบ. **ตรวจ "พันบริษัท/วัน" ได้โดยผลตรวจ reproduce เป๊ะ + ไม่มี memory leak.**

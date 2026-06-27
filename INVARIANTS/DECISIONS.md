@@ -1975,3 +1975,41 @@ mismatch จริง (เลย+50000) → ยังฟ้อง ✅ (recall �
 **ตรึง:** `test_addr_province_boundary.py` เพิ่มใน `run_ci.sh` [3c4b].
 
 **ที่มา:** deep bug-hunt 2026-06-27 (lane units/postal + rules B/C: POSTAL-1/ADDR006-PROV-SUBSTR).
+
+
+## ADR-111 — [report/diagnostics layer · golden-neutral] CMP005 lane + ITM019/020 aspect + iv-lastresort SYS-trail
+
+**บริบท:** deep-pass 2026-06-27 (เจ้าของสั่ง "ทำทั้งหมด เช็คทุกอย่าง ปลอดภัย 5 ปี"). 3 จุดชั้นรายงาน/วินิจฉัย
+ที่ไม่กระทบ golden แต่ทำให้ "การจัดกลุ่ม/การมองเห็น" คลาดเคลื่อน:
+
+1. **CMP005 จัดเป็น MASTER_DEPENDENT ผิด** — `r_cmp005` ตรวจ "โครงสร้างชื่อ" ล้วน
+   ('บริษัท'→ต้องมี 'จำกัด' · 'บมจ'→ต้องมี 'มหาชน' · 'หจก'→ไม่ลงท้าย 'จำกัด' เฉย ๆ) ไม่อ่าน master เลย
+   → เดิมอยู่ใน `issue_consolidator.MASTER_DEPENDENT` → must-fix เชิงโครงสร้างถูกกลบลงเลน "ขึ้นกับ master"
+   (ผู้ใช้มองข้ามได้). **แก้:** ถอด CMP005 ออก → ลงเลน "ต้องแก้".
+2. **ITM019/ITM020 ตกกลุ่ม aspect** — เป็นปัญหา "หน่วย" (ITM019 หน่วยสะกดผิด/ขาด · ITM020 ทั้งบิลไม่มีหน่วย)
+   แต่ไม่อยู่ใน `_ITM_ASPECT['หน่วย']` → สรุปปัญหาขึ้น "รายการ" ทั่วไป (เสียรายละเอียด 74 spot/corpus).
+   **แก้:** เพิ่ม ITM019/ITM020 เข้ากลุ่ม 'หน่วย'.
+3. **iv last-resort กลืน exception เงียบ** — `parser_guards._pb_iv_lastresort` เดิม `except: return` ไม่มีร่องรอย
+   (ขัด mandate diagnostics). **แก้:** log `SYS-IVLAST` (lazy import, ห่อ try กันล้มซ้ำ) ก่อน return.
+
+**ผลกระทบ golden:** **ไม่ขยับ** — ทั้งหมดเป็น report/diagnostics layer (issue_consolidator อ่านอย่างเดียว ;
+parser_guards except เป็น dormant บน corpus). พิสูจน์: `golden_master . corpus` = `31013a31` ก่อน=หลัง ·
+locked report tests (issue_consolidator / report_c1_c2 / super_ultra_viewer / report_consistency) +
+parser-guard tests (pb_iv_lastresort / iv_money_misread) ผ่านครบ. CMP005 ฟ้อง 0× บน corpus → report-neutral ด้วย.
+
+**ตรึง:** `test_report_lane_aspect.py` เพิ่มใน `run_ci.sh` [3v2].
+
+**ที่มา:** deep bug-hunt lane reporting (REPORT-1/REPORT-4) + parser-guards (PG-PARSER-3).
+
+**หมายเหตุ — finding ที่ "พิจารณาแล้วไม่แก้" (เหตุผลเชิงวิศวกรรม, กันทำระบบแย่ลง):**
+- **DOC003-EMPTYTAX:** การเพิ่ม guard `if not this_tax: return []` จะสร้าง **false-negative** (พลาดใบซ้ำจริงเมื่อ
+  ไม่มีเลขภาษี) ซึ่ง §4 ถือว่าอันตรายกว่า false-positive → **ไม่แก้** (พฤติกรรมเดิมจับ anomaly ในไฟล์เดียวกัน
+  [iv+วันที่+ไฟล์ตรง] คุ้มกว่า).
+- **ADDR004 denylist / POSTAL-2 prefix:** การ "เติม denylist" หรือ "หด prefix" = เดาข้อมูล (ขัดหลัก "ห้ามเดา") ·
+  dormant (ADDR004/ADDR006=0) → เก็บเป็น roadmap (รื้อเมื่อมี source ข้อมูลยืนยัน).
+- **DATE-1 (ปี 2 หลักกำกวม):** dormant (corpus 66-69) · พฤติกรรม strptime ปัจจุบัน (เดา 20YY) ยอมรับได้ ·
+  เคสต้นเรื่อง ADR-052 (เศษที่อยู่) ไม่กระทบ → **ไม่แก้** (กันเปลี่ยน policy วันที่โดยไม่จำเป็น).
+- **REPORT-2/IVP-1:** เคารพขอบเขตที่ ADR-098 (ITM011 demote เฉพาะ precision/vendor) + ADR-073 (4-หลักกำกวม)
+  ตั้งใจไว้ → ไม่ขยายเอง (เป็น policy เจ้าของ).
+- **parse-core §6 (seq cap 50 / merge_continuation / excel-serial):** **FREEZE** ตามคำสั่งเจ้าของ — รื้อเฉพาะเมื่อ
+  มีเคสจริงพังบนข้อมูลจริง (ดู Phase D ตรวจ corpus แล้วไม่พบเคสพังจริง).

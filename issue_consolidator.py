@@ -41,7 +41,10 @@ CODE_FAMILY = {
 }
 
 # รหัสที่ "ขึ้นกับ master-data" — ถ้า master ไม่ครบจะ false positive (คัดออกก่อนได้)
-MASTER_DEPENDENT = {"CMP001", "CMP003", "CMP004", "CMP005", "TAX003", "TAX005", "ADDR003"}
+# [ADR-111] ถอด CMP005 ออก — r_cmp005 ตรวจ "โครงสร้างชื่อ" ล้วน ('บริษัท'→ต้องมี 'จำกัด' ฯลฯ)
+#   ไม่อ่าน master เลย → จัดเป็น MASTER_DEPENDENT ผิด ทำให้ must-fix เชิงโครงสร้างถูกกลบลงเลน "ขึ้นกับ master".
+#   golden/report-neutral บน corpus (CMP005 ฟ้อง 0×). ดู INVARIANTS/DECISIONS.md §ADR-111.
+MASTER_DEPENDENT = {"CMP001", "CMP003", "CMP004", "TAX003", "TAX005", "ADDR003"}
 
 # รหัสเลน "ข้อสังเกต" (review) — ไม่ใช่ must-fix
 # [ADR-059] เลิก hardcode → derive จาก code_labels.MAP (source of truth เดียวกับ viewer)
@@ -77,7 +80,7 @@ REVIEW_ONLY = (_MAP_SOFT | frozenset(_CFG_REVIEW_CODES)) or _REVIEW_ONLY_FALLBAC
 # กลุ่มย่อยของ ITM → ใช้สรุปว่า "รายการนี้มีปัญหาด้านไหน" (รหัสที่สอดคล้องกัน)
 _ITM_ASPECT = {
     "ชื่อ/สะกด":   {"ITM003", "ITM004", "ITM007", "ITM010", "ITM011", "ITM012"},
-    "หน่วย":       {"ITM005", "ITM006", "ITM015"},
+    "หน่วย":       {"ITM005", "ITM006", "ITM015", "ITM019", "ITM020"},  # [ADR-111] ITM019/020 เป็นเรื่องหน่วย
     "จำนวน/ราคา":  {"ITM001", "ITM008", "ITM017", "ITM018"},
     "ลำดับ":       {"ITM002", "ITM013", "ITM014"},
     "ซ้ำ":         {"ITM016"},
