@@ -96,7 +96,7 @@ def _D(x: Any) -> Decimal | None:
 VAT_RATE = Decimal('0.07')              # อัตราภาษีมูลค่าเพิ่ม 7% (สูตร: VAT = _money_q(subtotal × VAT_RATE))
 
 
-def _money_q(x: Any):
+def _money_q(x: Any) -> float | None:
     """[F-1 · OBJ-CONSISTENCY] ปัดเงินเป็น 2 ตำแหน่ง (สตางค์) แบบ ROUND_HALF_UP — แหล่งความจริงเดียว.
     คืน float (คงชนิดที่เก็บ). None/แปลงไม่ได้ → None.
 

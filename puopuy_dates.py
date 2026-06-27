@@ -45,7 +45,7 @@ def parse_date_any(v: Any) -> datetime | None:
         #   float ดิบมา. golden-safe: corpus ปัจจุบัน pandas ส่ง cell นี้เป็น datetime → สาขานี้ไม่ทำงานบน golden
         #   (พิสูจน์: hash ไม่ขยับหลังเพิ่ม). รับเฉพาะผลปี ค.ศ. 2015–2056 (เกณฑ์เดียวกับ _ivp_year4_to_ce) → reject ขยะ.
         if xlrd is not None and 200000 < v < 300000:
-            def _be_serial():
+            def _be_serial() -> "datetime | None":
                 d = xlrd.xldate_as_datetime(v, 0)
                 if d.year > 2400:
                     d = d.replace(year=d.year - 543)

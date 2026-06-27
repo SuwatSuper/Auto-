@@ -25,12 +25,12 @@ except Exception:
     _XL_ILLEGAL = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
 
 
-def _df_safe(df):
+def _df_safe(df: Any) -> Any:
     """[L4 2026-06-20] เตรียม DataFrame ก่อน to_excel (full-mode report): sanitize อักขระควบคุม (\\x07) ใน
     เซลล์ข้อความ (กัน IllegalCharacterError = export คืน False) + coerce float NaN/±inf → 0 (กัน `or 0`
     ปล่อย nan เป็นเซลล์ว่าง). คลีนสตริง/เลขจำกัดไม่เปลี่ยน → report-determinism ไม่ขยับ.
     (วางที่ leaf นี้ ไม่ใช่ reporting_p0 เพื่อคงไฟล์นั้น ≤600 LOC ตาม invariant F4)."""
-    def _c(v):
+    def _c(v: Any) -> Any:
         if isinstance(v, str):
             return _XL_ILLEGAL.sub('', v)
         if isinstance(v, float) and not math.isfinite(v):

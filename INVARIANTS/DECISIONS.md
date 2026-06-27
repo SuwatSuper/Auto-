@@ -2013,3 +2013,31 @@ parser-guard tests (pb_iv_lastresort / iv_money_misread) ผ่านครบ. 
   ตั้งใจไว้ → ไม่ขยายเอง (เป็น policy เจ้าของ).
 - **parse-core §6 (seq cap 50 / merge_continuation / excel-serial):** **FREEZE** ตามคำสั่งเจ้าของ — รื้อเฉพาะเมื่อ
   มีเคสจริงพังบนข้อมูลจริง (ดู Phase D ตรวจ corpus แล้วไม่พบเคสพังจริง).
+
+
+## ADR-112 — [typing gate / 5-year forward-compat] leaf modules type-annotations ครบ + ตรึง test_typing_leaf ใน run_ci.sh — golden-neutral
+
+**บริบท (เจอรอบ "fix lint first" 2026-06-27):** `test_typing_leaf.py` (ด่าน mypy บังคับ "ชั้น leaf utility ต้อง
+type-annotated ครบ" — เดิมบังคับเฉพาะ GitHub CI, **ไม่อยู่ใน run_ci.sh**) **ล้มเหลว** ภายใต้ mypy รุ่นปัจจุบัน:
+```
+core_utils.py:28 (_df_safe) / :33 (_c) — missing type annotation
+puopuy_units.py:99 (_money_q) — missing return type
+puopuy_dates.py:48 (_be_serial) — missing return type
+```
+mypy รุ่นใหม่เข้มกว่ารุ่นที่เคยพิสูจน์ → ฟังก์ชัน leaf 4 ตัวที่ไม่มี return annotation ครบหลุดออกมา.
+เป็น "lint/type debt" ที่ซ่อนเพราะด่านนี้ไม่ได้รันใน run_ci.sh (รันเฉพาะ GitHub CI).
+
+**ตัดสิน (surgical, type-only):** เติม annotation ให้ครบ 4 จุด:
+- `core_utils._df_safe(df: Any) -> Any` + nested `_c(v: Any) -> Any`
+- `puopuy_units._money_q(x: Any) -> float | None`
+- `puopuy_dates._be_serial() -> "datetime | None"`
++ เพิ่ม `test_typing_leaf.py` เข้า `run_ci.sh` [3o2] → local CI = GitHub CI (ด่าน type ไม่หลุดอีก).
+
+**ผลกระทบ golden:** **ไม่ขยับ** — ทั้ง 3 โมดูลมี `from __future__ import annotations` → annotation เป็น string
+ไม่ถูก eval ตอน runtime → **runtime-neutral 100%**. พิสูจน์: `golden_master . corpus` = `31013a31` ก่อน=หลัง ·
+modules import OK · `test_typing_leaf.py` = ✅ PASS (4 โมดูล) · full strict `run_ci.sh` เขียวครบ.
+
+**คุณค่า 5 ปี:** ทำให้ด่าน type ผ่านภายใต้ mypy รุ่นใหม่ (forward-compat) + ดึงด่านมาไว้ใน run_ci.sh
+ให้จับ regression ตั้งแต่ local (เดิมรู้ตอน GitHub CI เท่านั้น). ตรง mandate "ปลอดภัยใช้งานยาว 5 ปี".
+
+**ที่มา:** เจ้าของสั่ง "แก้ lint ก่อน" → full test-suite sweep พบ test_typing_leaf ล้ม (ด่านนอก run_ci.sh).
