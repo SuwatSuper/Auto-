@@ -59,19 +59,37 @@ from thai_text import find_similar_in_thai_dict, predict_category, pythainlp_spe
 
 # ===== match_company (ใช้เฉพาะ run_rules) =====
 
+# [ADR-119/PERF-F3] normalize ชื่อ master เป็น cost คงที่ต่อ run แต่เดิม match_company (เรียกต่อบิล)
+#   re-normalize master "ทั้งก้อน ×2 รอบ" ทุกบิล → O(บิล × master) ของ normalize_text. master ใหญ่
+#   (mission: หลายพันบริษัท) → ช้ามากใน production (golden test ใช้ master ว่างจึงซ่อน cost นี้).
+#   แก้: precompute (key, norm_name, norm_alt, m) ครั้งเดียวต่อ master (cache fingerprint = (id,len)
+#   แบบเดียวกับ _XBILL_IDX_CACHE/ADR-103) → เรียกซ้ำต่อบิล = O(1) lookup. pure precompute: ค่า/ลำดับ/
+#   tie-break เท่าเดิมเป๊ะ → byte-identical (golden-neutral, มี test equivalence คุม).
+_MATCH_MASTER_CACHE = {'fp': None, 'rows': None}
+
+
+def _match_master_rows(master):
+    fp = (id(master), len(master))
+    if _MATCH_MASTER_CACHE['fp'] != fp:
+        rows = []
+        for key, m in master.items():
+            if not isinstance(m, dict):               # ข้าม record ที่ไม่ใช่ dict (กัน master JSON พัง) — เหมือนเดิม
+                continue
+            rows.append((key, normalize_text(m.get('name', '')), normalize_text(m.get('name_alt', '')), m))
+        _MATCH_MASTER_CACHE.update(fp=fp, rows=rows)
+    return _MATCH_MASTER_CACHE['rows']
+
+
 def match_company(bill_company, master):
     bc = normalize_text(bill_company)
     if not bc: return None, None, 0
-    for key, m in master.items():
-        if not isinstance(m, dict): continue          # v6: ข้าม record ที่ไม่ใช่ dict (กัน master JSON พัง)
-        mn = normalize_text(m.get('name', ''))            # v6: .get กัน KeyError ถ้า master ขาดคีย์
-        ma = normalize_text(m.get('name_alt', ''))
+    rows = _match_master_rows(master)                 # normalize master ครั้งเดียวต่อ run (เดิมทำซ้ำทุกบิล)
+    for key, mn, ma, m in rows:
         if key in bc or (mn and mn in bc) or (ma and ma in bc):   # v6: guard ค่าว่าง — '' in bc เป็น True เสมอ (เคยจับผิด)
             return key, m, 100
     best_key, best_score = None, 0
-    for key, m in master.items():
-        if not isinstance(m, dict): continue
-        score = max(fuzz.partial_ratio(bc, normalize_text(m.get('name', ''))),
+    for key, mn, ma, m in rows:
+        score = max(fuzz.partial_ratio(bc, mn),
                     fuzz.partial_ratio(bc, key))
         if score > best_score: best_score = score; best_key = key
     if best_score >= CFG['FUZZY_NAME_THRESHOLD']:

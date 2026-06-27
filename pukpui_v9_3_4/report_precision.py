@@ -181,7 +181,7 @@ if len(COUNCIL) != 10:  # [F-4] เดิม assert (หายภายใต้
     raise RuntimeError(f"COUNCIL ต้องมี 10 ตัว (พบ {len(COUNCIL)}) — โครงสร้างเพี้ยน")
 
 
-def council_review(entry, bill=None, fixlist=(), master_present=True):
+def council_review(entry, bill=None, fixlist=(), master_present=True, sib=None):
     """ลงคะแนนสภา 10 ผู้ตรวจต่อ 1 จุด → tier ('clear'|'soft') + เหตุผล.
 
     กติกาตัดสิน (precision-first สำหรับรีพอร์ตลูกค้า):
@@ -189,8 +189,11 @@ def council_review(entry, bill=None, fixlist=(), master_present=True):
       • มี CONFIRM และมี RECHECK ปนกัน         → clear เฉพาะถ้า consensus ยืนยัน, ไม่งั้น soft
       • ไม่มี CONFIRM (มีแต่ RECHECK/ABSTAIN)   → soft
       • ไม่มีผู้ตรวจเกี่ยวเลย → ใช้ความชัดของรหัส (_STRUCTURAL=clear, อื่น=soft)
+    [ADR-119/PERF-F5] รับ sib (sibling_codes) ที่ precompute มาได้ — เดิมสแกน fixlist ทั้งก้อนต่อ entry
+      = O(F²) ต่อกลุ่มบริษัท. ถ้าไม่ส่งมา คงคำนวณเดิม (backward-compatible). ผล sib เท่าเดิมเป๊ะ.
     """
-    sib = {e.get("code") for e in (fixlist or [entry]) if _point_key(e) == _point_key(entry)}
+    if sib is None:
+        sib = {e.get("code") for e in (fixlist or [entry]) if _point_key(e) == _point_key(entry)}
     ctx = {"sibling_codes": sib, "master_present": master_present}
     votes = {}
     for name, fn in COUNCIL:
@@ -224,9 +227,15 @@ def council_review(entry, bill=None, fixlist=(), master_present=True):
 def annotate_tiers(fixlist, bill_lookup=None, master_present=True):
     """ติด entry['tier'] + entry['council'] ให้ทุกจุดใน fixlist (in-place) แล้วคืน fixlist."""
     bl = bill_lookup or {}
+    # [ADR-119/PERF-F5] precompute point_key → set(codes) ครั้งเดียว (เดิม council_review สแกน fixlist
+    #   ทั้งก้อนต่อ entry = O(F²) ต่อกลุ่มบริษัท). ผล sib เท่าเดิมเป๊ะ (สมาชิกชุด = code ที่ point_key ตรงกัน).
+    _pk_codes = {}
+    for e in fixlist:
+        _pk_codes.setdefault(_point_key(e), set()).add(e.get("code"))
     for e in fixlist:
         bill = bl.get((e.get("file", ""), e.get("sheet", ""))) if bl else None
-        res = council_review(e, bill=bill, fixlist=fixlist, master_present=master_present)
+        res = council_review(e, bill=bill, fixlist=fixlist, master_present=master_present,
+                             sib=_pk_codes.get(_point_key(e)))
         e["tier"] = res["tier"]
         e["council"] = res
     return fixlist

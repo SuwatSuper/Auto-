@@ -402,7 +402,12 @@ def _cell_to_num(v):
                 หมายเหตุ: ตัวแปลง "วันที่" / "เลขภาษี 13 หลัก" เป็นคนละตัว (เฉพาะทาง) โดยตั้งใจ
     """
     if isinstance(v, (int, float)) and not isinstance(v, bool):
-        f = float(v)
+        # [ADR-119/F2] int ใหญ่เกิน ~1.8e308 (≥309 หลัก) → float() โยน OverflowError (ไม่ใช่ ValueError/
+        #   TypeError → เดิมหลุด crash). ดักให้คืน None เหมือนค่าที่แปลงไม่ได้ตัวอื่น. corpus=0 (xls=double).
+        try:
+            f = float(v)
+        except (OverflowError, ValueError):
+            return None
         # v6.x: กัน NaN ; [BUGHUNT v9.3.1] กัน ±inf ด้วย (เดิม f!=f จับแค่ NaN, inf หลุดผ่าน →
         #   _D(inf)*0.07 ระเบิด InvalidOperation ปลายน้ำ). isfinite ครอบทั้ง NaN/inf จุดเดียว.
         return f if math.isfinite(f) else None
@@ -412,9 +417,13 @@ def _cell_to_num(v):
     if len(s) >= 3 and s[0] == '(' and s[-1] == ')':
         _inner = s[1:-1].strip()
         if re.fullmatch(r'\d+(?:\.\d+)?', _inner):
-            return -float(_inner)
+            # [ADR-119/F1] สาขา string สมมาตรกับ numeric (บรรทัดบน): สตริงตัวเลขยาว ≥309 หลัก → float()=inf
+            #   เดิมหลุดผ่านเข้าเป็นยอดเงิน inf เงียบ (ไม่ฟ้อง/ไม่ครัช → ยอดบริษัทเพี้ยน). กัน non-finite จุดเดียว.
+            f = -float(_inner)
+            return f if math.isfinite(f) else None
     if _NUM_FULL_RE.fullmatch(s):
-        return float(s)
+        f = float(s)
+        return f if math.isfinite(f) else None
     return None
 
 def _dic_find_amt(M, ncols, seq_col, item_rows):

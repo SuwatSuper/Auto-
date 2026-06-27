@@ -252,11 +252,15 @@ def _strip_thai_marks(s):
     return _THAI_MARKS_RE.sub('', s)
 
 def _label_in_text(s, labels):
-    """v5.8 refactor: helper ลด nesting — เช็ค label ใน s ตัวเดียว"""
+    """v5.8 refactor: helper ลด nesting — เช็ค label ใน s ตัวเดียว
+    [ADR-119/PERF-F6] strip s ครั้งเดียวต่อ call (เดิม _strip_thai_marks(s) ถูกเรียกซ้ำต่อ label
+    ~1.27M ครั้ง/corpus) + strip label ครั้งเดียวต่อ label. ผล boolean เท่าเดิม (test_label_amounts_equiv คุม)."""
+    s_stripped = _strip_thai_marks(s)
     for lab in labels:
         ll = lab.lower()
         if ll in s: return True
-        if len(ll) >= 4 and _strip_thai_marks(ll) and _strip_thai_marks(ll) in _strip_thai_marks(s):
+        ll_stripped = _strip_thai_marks(ll)
+        if len(ll) >= 4 and ll_stripped and ll_stripped in s_stripped:
             return True
     return False
 

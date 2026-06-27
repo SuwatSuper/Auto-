@@ -57,6 +57,7 @@ run "[3c9] BS-2 VAT011 ใบมียอดแต่ VAT=0 (ADR-115)"      "$PY
 run "[3c10] BS-3 TAX009 ชื่อเดียวเลขภาษีต่าง (ADR-116)"  "$PY" test_bs3_tax009_samename.py
 run "[3c11] BS-4 DT006 วันผิดปฏิทินเส้น TOR (ADR-117)"   "$PY" test_bs4_dt006_tor_calendar.py
 run "[3c12] re-bughunt fixes — viewer grouping clean_tax_id (ADR-118)" "$PY" test_adr118_viewer_grouping.py
+run "[3c13] whole-system audit fixes (ADR-119: inf/overflow/addr-zip/match-memo/xlsx-sanitize)" "$PY" test_adr119_audit_fixes.py
 run "[3d] verification agent"    "$PY" test_verification_agent.py
 run "[3d2] verification lens pin"  "$PY" test_verification_lens_pin.py
 run "[3d3] verification lens unit" "$PY" test_verification_lenses_unit.py

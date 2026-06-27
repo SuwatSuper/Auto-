@@ -51,6 +51,9 @@ TESTS = [
     ["test_tax008.py"], ["test_addr006.py"], ["test_br004.py"], ["test_iv007.py"],
     # [BS-1..4] กฎ/พาธใหม่ — ครอบ branch ของ r_vat011/r_tax009 (rules_c) + _tor_try_date (parser_p2)
     ["test_bs2_vat011_zero.py"], ["test_bs3_tax009_samename.py"], ["test_bs4_dt006_tor_calendar.py"],
+    # [ADR-119] audit fixes — ครอบ branch ใหม่: _cell_to_num inf/overflow (parser_p0a), ADDR001 lookaround
+    #   (rules_a), r_iv001/r_tax008/match_company precompute path (rules_a/c/base)
+    ["test_adr119_audit_fixes.py"],
     ["test_units_extra.py"], ["test_validators.py"], ["test_validators_extra.py"],
     ["test_validators_coverage.py"], ["test_validators_branch.py"],
     ["test_validators_missing_checks.py"],   # DT005/IV005/DT006/IV006 emit+skip+idempotent branches

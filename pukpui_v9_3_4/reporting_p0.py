@@ -582,11 +582,14 @@ def _xlsx_sheet_system_issues(writer):
     """ชีต System Issues (กฎพัง/parse fail — แยกจากผลตรวจบิล)."""
     # v8.5 [FIX-SYS]: system-issue (กฎพัง/parse fail) แยกชีตของตัวเอง — ไม่ปนผลตรวจบิล
     if _SYSTEM_ISSUES:
-        pd.DataFrame([{'Severity':s.get('severity','INFO'),'Code':s.get('code','SYS'),
+        # [ADR-119/R1] ห่อ _df_safe เหมือนทุกชีตพี่น้อง (511..579) — detail/file/sheet มาจาก str(exc)+ชื่อไฟล์
+        #   Excel ดิบ (log_system_issue) อาจมี control char ที่ openpyxl ปฏิเสธ → IllegalCharacterError
+        #   ทำ workbook ทั้งเล่มหาย (ทุกชีตใช้ writer context เดียว). เดิมชีตนี้จุดเดียวที่ตกหล่น sanitizer.
+        _df_safe(pd.DataFrame([{'Severity':s.get('severity','INFO'),'Code':s.get('code','SYS'),
             'หมวด':s.get('category','SYSTEM'),'รายการ':s.get('name',''),
             'ไฟล์':s.get('file',''),'ชีต':s.get('sheet',''),
             'รายละเอียด':s.get('detail','')} for s in _SYSTEM_ISSUES]
-            ).to_excel(writer, sheet_name='System Issues', index=False)
+            )).to_excel(writer, sheet_name='System Issues', index=False)
 
 
 # OBJ-MAINT: auto-export ทุกชื่อ (รวม _ และ import) → from-import * cascade ครบ

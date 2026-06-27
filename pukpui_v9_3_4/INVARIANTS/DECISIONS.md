@@ -2202,3 +2202,71 @@ TAX008/TAX009 normalize 66 ชื่อ corpus ไม่ขยับ ; กฎใ
 เพิ่ม `test_adr118_viewer_grouping.py` (run_ci [3c12]).
 
 **ที่มา:** เจ้าของสั่ง "รีเช็คบั๊ก ร้าย/กลาง/ต่ำ + แก้ + ส่งระบบใหม่". workflow adversarial 16 agents.
+
+
+---
+
+# ── รอบ whole-system audit (perf + robustness + resource + correctness ทุกมิติ) 2026-06-27 — ADR-119 ──
+> เจ้าของสั่ง "รีเช็คและแก้ทุกอย่าง บั๊ก ร้าย/กลาง/ต่ำ + มิติ performance + ทุกอย่างที่มีปัญหา". กระจาย 5 subagents
+> (perf / robustness-crash / resource-5yr / rules-validators / parser-determinism-report). แก้เฉพาะ golden-neutral
+> (พิสูจน์ corpus delta=0 + 3 ชั้น) ; bug ที่ golden-moving = รายงานให้เคาะ (ไม่แก้เอง).
+
+
+## ADR-119 — [whole-system audit] perf (cross-bill quadratic) + robustness (inf/overflow) + addr-zip + xlsx-sanitize — golden-neutral
+
+**บริบท:** รีเช็คทั้งระบบ. ผลสรุป: resource & determinism & parallel = สุขภาพดี (verify จริง). พบบั๊ก golden-neutral
+ที่ควรแก้หลายจุด (ด้านล่าง) + 1 จุด golden-moving (รายงาน ไม่แตะ) + 1 ข้อ ops (config).
+
+**[PERF·CRITICAL] cross-bill rules recompute normalize/clean ต่อคู่ในกลุ่ม → near-O(n²)/vendor (constant-factor fix).**
+- `r_tax008` (rules_engine_rules_c) + `r_iv001` (rules_engine_rules_a): ดัชนี xbill ลด scan เป็น O(group) แล้ว แต่
+  "ต่อ element ในกลุ่ม" ยัง recompute `clean_tax_id`/`_tax008_name`/`re.match` ทุกครั้ง → G² normalization/vendor
+  (ผู้ขายรายเดียวหลายบิล = เคสปกติ ; benchmark 8000 บิล/50 vendor: 23s → **4.8s ~5x**, byte-identical).
+- `match_company` (rules_engine_base): re-normalize master "ทั้งก้อน ×2 รอบ" ทุกบิล → O(บิล×master). golden test
+  ใช้ master ว่างจึงซ่อน cost (production โหลด master จริง = ช้ามาก).
+- **แก้:** precompute ต่อบิล/ต่อ master "ครั้งเดียวต่อ batch" (cache fingerprint = (id,len[,หัว,ท้าย]) แบบ
+  `_XBILL_IDX_CACHE`/ADR-103 + `_bs3_name_index`). pure precompute → ค่า/ลำดับ/tie-break/conflict เท่าเดิมเป๊ะ.
+- **golden-neutral (yes):** พิสูจน์ 3 ชั้น — `regression_full . corpus` = `31013a31` (engine==agent==baseline) ;
+  `verify_parallel corpus 8` serial==parallel ; รัน 2 รอบในโปรเซสเดียว digest เท่ากัน ; + equivalence test
+  (match_company old==new 120-master/63-bill = 0 mismatch). หมายเหตุ: เป็น constant-factor (ตัด recompute ใน loop)
+  ไม่ใช่เปลี่ยน complexity — loop ต่อกลุ่มยังเป็น G² แต่ body ถูกลง ; group size จริง (≤110 บิล/vendor ใน corpus) เล็กพอ.
+  canary repeated-vendor เพิ่มใน test_perf_budget [F4] กัน regression เชิงโครงสร้าง.
+
+**[ROBUSTNESS·CRITICAL F1] `_cell_to_num` สาขา string ปล่อย ±inf เข้ายอดเงินเงียบ.** (parser_p0a.py)
+สตริงตัวเลขยาว ≥309 หลัก (OCR/export เพี้ยน) → `float()` = inf หลุดเข้า total/subtotal/summary "ไม่ฟ้อง/ไม่ครัช"
+→ ยอดบริษัทเพี้ยน. สาขา **numeric** guard `math.isfinite` อยู่แล้ว (BUGHUNT v9.3.1) แต่สาขา **string** ตกหล่น.
+**แก้:** เพิ่ม `math.isfinite` ทั้ง 2 จุดของสาขา string (สมมาตรกับ numeric). **[F2]** + ดัก `OverflowError` ใน
+สาขา numeric (`float(int ใหญ่)` โยน ไม่ใช่ ValueError) → คืน None. **golden-neutral:** corpus longest numeric = 13 หลัก,
+huge int = 0 → dormant ; `31013a31` ไม่ขยับ. (input-hardening ตาม §7.1)
+
+**[RULES·MEDIUM] ADDR001 standalone ฟ้องปลอม "ไม่พบไปรษณีย์" เมื่อ zip ติดอักษรไทย.** (rules_engine_rules_a.py:253)
+`\b\d{5}\b` — `\b` ใช้กับขอบอักษรไทยไม่ติด → 'กรุงเทพฯ10110' หา zip ไม่เจอ → false ERROR บนเส้น default ที่ ship
+(master ว่าง ADR-102). โมดูลนี้แก้เคสนี้ที่ ADDR005 (ADR-071)/thai_postal แล้ว แต่ ADDR001 ตกหล่น.
+**แก้:** `(?<!\d)\d{5}(?!\d)` (ตรงกับ thai_postal._ZIP_RE) + รับคำย่อ 'กทม' (F1b — ให้ตรง ADDR004/005).
+**golden-neutral:** ADDR001 ยิง 0× บน corpus ก่อน/หลัง (ที่อยู่ corpus มีเว้นวรรคหน้า zip ทุกใบ).
+
+**[REPORT·MEDIUM R1/R2] xlsx เขียน control char ดิบ → IllegalCharacterError ทำ workbook ทั้งเล่มหาย.**
+(ก) `reporting_p0._xlsx_sheet_system_issues` (ชีต System Issues ขาด `_df_safe` จุดเดียว — พี่น้องทุกชีตมีครบ)
+(ข) `build_consolidated_report._write_sheet` (เขียน cell ดิบ ไม่ sanitize). detail/file มาจาก `str(exc)`/ชื่อ Excel ดิบ.
+**แก้:** ห่อ `_df_safe`/`_xls_safe` ก่อนเขียน. **golden-neutral:** advisory layer + corpus ไม่มี control char (เซฟผ่านอยู่แล้ว).
+
+**[PERF·LOW F5/F6] (golden-neutral):** (F5) `report_precision.council_review` สแกน fixlist ทั้งก้อนต่อ entry = O(F²)/กลุ่ม
+→ precompute `point_key→codes` ครั้งเดียวใน `annotate_tiers` (sib เท่าเดิม). (F6) `parser_p1._label_in_text` recompute
+`_strip_thai_marks(s)` ต่อ label (~1.27M ครั้ง) → strip s ครั้งเดียวต่อ call (boolean เท่าเดิม ; test_label_amounts_equiv คุม).
+
+**รายงานให้เจ้าของเคาะ (golden-MOVING — ไม่แตะ):**
+- **[PARSER P1]** `parser_p0a._dic_find_amt` threshold `amount > 100` ทำ qty/price/amount รายบรรทัดของบิล "ยอดต่อรายการ
+  < 100" หายเงียบ (detect amt_col=None). dormant บน corpus (B2B ยอด ≥100) แต่จะ silent-data-loss กับบิลค้าปลีกยอดน้อย.
+  แก้ = แตะ heuristic golden-path ทั้ง corpus → **STOP-AND-ASK + simulate delta + rebaseline** (ยังไม่ทำ).
+
+**ข้อ ops (ไม่ใช่ bug โค้ด):** report `audit_v58_*.xlsx` + โฟลเดอร์ `ตรวจแล้ว_*` สะสมใน 5 ปี เพราะ retention default `0`
+(prune มีอยู่แล้ว). แนะนำตั้ง env `PUKPUI_REPORT_RETENTION_DAYS=90` ใน production (เปิด default = เปลี่ยน ops ต้องเคาะ).
+
+**ตีตก (verify อิสระแล้ว — ไม่ใช่บั๊ก):** swallowed-exception guards ใน rules (defensive ถูก, มี ADR-069/109), type-defense
+ใน run_rules (parser ผลิตชนิดเพี้ยนไม่ได้), determinism (รัน seed 777 ยังได้ 31013a31), state-bleed (2 รอบเท่ากัน),
+master kill-safety (simulate kill → backup ครบ), memory (RSS flat 5 รอบ), cache unbounded (bounded ทุกตัว), r_br003 O(n²) (enabled=False).
+
+**ผลกระทบ golden:** **ไม่ขยับ `31013a31`** ทุกจุดที่แก้ — full strict CI เขียวครบ ; coverage parser/rules/validators/units ผ่าน
+(≥90 line/≥85 branch) ; make_release reproduce golden อิสระ ; parse-core §6 ไม่แตะ.
+**regression test:** เพิ่ม `test_adr119_audit_fixes.py` (run_ci [3c13]) + canary repeated-vendor ใน `test_perf_budget.py` [F4].
+
+**ที่มา:** เจ้าของสั่ง "รีเช็คและแก้ใขทุก ๆ อย่าง บั้ค ร้าย กลาง ต่ำ มิติ เพอร์ฟอรแมซ์". audit 5 subagents ขนาน.

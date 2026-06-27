@@ -92,6 +92,38 @@ print(f"  ⏱️  cross-bill run_rules: N={_XBN} {_t_n:.2f}s · 2N={_XBN * 2} {_
 _check(f"cross-bill sub-quadratic (ratio {_ratio:.2f} < 3.2 → ดัชนี xbill ทำงาน ไม่ใช่ O(n²))",
        _ratio < 3.2)
 
+# ── [ADR-119/PERF-F4] REPEATED-VENDOR canary: เคสจริง = ผู้ขายรายเดียวมีหลายบิล (กลุ่มใหญ่) ──
+#   blind spot เดิม: _xb_bills ใช้ tax/file distinct ทุกใบ (กลุ่มละ 1) → กฎ cross-bill ที่ "วนต่อกลุ่ม"
+#   ดูเป็น O(n) เสมอ. แต่จริง ผู้ขายรายเดียวมีหลายบิล → กลุ่มใหญ่ → ถ้ากฎ recompute clean_tax_id/
+#   normalize ต่อคู่ในกลุ่ม (เดิม r_tax008/r_iv001) = O(G²)/vendor. ดัชนี precompute ต่อบิล (ADR-119)
+#   ทำให้ ratio(2N/N) คง sub-quadratic แม้กลุ่มใหญ่. ถ้ามีคนถอด precompute → ratio พุ่งเข้า 4.
+def _xb_time_grouped(n, nv=25):
+    base = _xb_bills(n)
+    for i, b in enumerate(base):                 # ยุบให้เหลือ nv ผู้ขาย (กลุ่มละ n/nv) + ไฟล์เดียวกันต่อผู้ขาย
+        v = i % nv
+        t = f"{2000000000000 + v:013d}"
+        b["tax_id"] = b["tax_id_raw"] = t
+        b["company"] = b["company_raw"] = f"บริษัท เวนเดอร์{v} จำกัด"
+        b["file"] = b["filepath"] = f"G{v}.xls"
+    t0 = time.perf_counter()
+    with _ctx.redirect_stdout(_io.StringIO()):
+        for b in base:
+            _run_rules(b, {}, {"month": 5, "month_end": None, "year": 2025},
+                       unit_index={}, all_bills_ref=base)
+    return time.perf_counter() - t0
+
+
+_gt_n = _xb_time_grouped(_XBN)
+_gt_2n = _xb_time_grouped(_XBN * 2)
+_gratio = (_gt_2n / _gt_n) if _gt_n > 0 else 99.0
+print(f"  ⏱️  cross-bill (repeated vendors) run_rules: N={_XBN} {_gt_n:.2f}s · 2N={_XBN * 2} {_gt_2n:.2f}s · "
+      f"ratio={_gratio:.2f} (เชิงเส้น≈2 · O(n²)≈4)")
+# threshold 3.5 (margin เหนือ ~3.05 ที่วัดได้): precompute ต่อบิล (ADR-119) เป็น constant-factor (ตัด recompute
+#   clean_tax_id/normalize ใน loop ~5x) — loop ต่อกลุ่มยังเป็น G² แต่ body ถูกลง ; canary นี้จับ regression
+#   เชิงโครงสร้าง (ถอด precompute/ดัชนี → ทั้ง run_rules เอียง quadratic) ; byte-identity คุมด้วย golden + differential test.
+_check(f"cross-bill repeated-vendor ไม่ระเบิด (ratio {_gratio:.2f} < 3.5 → precompute/ดัชนีทำงาน)",
+       _gratio < 3.5)
+
 print("=" * 56)
 if _fail == 0:
     print("RESULT: ✅ perf canary ผ่าน (ไม่มี regression เชิงอัลกอริทึมระดับ catastrophic)")

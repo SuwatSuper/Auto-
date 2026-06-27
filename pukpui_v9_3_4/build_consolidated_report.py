@@ -30,6 +30,7 @@ if not os.path.isdir(DATA):
     DATA = os.path.join("tests", "fixtures")
 
 from golden_snapshot import MASTER, write_master_file
+from report_precision import _xls_safe   # [ADR-119/R2] sanitize control char ก่อนเขียนเซลล์ (กัน IllegalCharacterError)
 write_master_file("master_companies.json")
 import importlib
 app = importlib.import_module("ปุ้มปุ้ย_ultimate_v9_modular")
@@ -74,7 +75,9 @@ def _write_sheet(wb, title, rows):
         vals = [f["file"], f["sheet"], f["iv"], f["spot"], f["category"],
                 f["summary"], f["codes"], f["n_codes"], f["max_severity"], f["example"]]
         for ci, v in enumerate(vals, 1):
-            c = ws.cell(ri, ci, v); c.font = CELL; c.alignment = WRAP; c.border = BORDER
+            # [ADR-119/R2] ค่ามาจาก findings ← parser ← Excel (อาจมี control char) → sanitize ก่อนเขียน
+            #   มิฉะนั้น openpyxl โยน IllegalCharacterError ทำ consolidated_errors.xlsx เซฟไม่ออกทั้งไฟล์
+            c = ws.cell(ri, ci, _xls_safe(v)); c.font = CELL; c.alignment = WRAP; c.border = BORDER
         ws.cell(ri, 9).fill = SEV_FILL.get(f["max_severity"], SEV_FILL["INFO"])
     ws.freeze_panes = "A2"
     if rows:

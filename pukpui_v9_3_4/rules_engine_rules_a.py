@@ -250,9 +250,13 @@ def r_addr001(b,m,c):
     # standalone (ไม่มี master / address_parts) — คงพฤติกรรมเดิมเป๊ะ
     if not m or not m.get('address_parts'):
         issues = []
-        if not re.search(r'\b\d{5}\b', bv):
+        # [ADR-119] \b ใช้กับขอบอักษรไทยไม่ติด (ก-๙ เป็น word char) → zip ที่ติดชื่อจังหวัด เช่น
+        #   'กรุงเทพฯ10110' หาไม่เจอ → ฟ้อง "ไม่พบไปรษณีย์" ผิด. ใช้ lookaround เลขล้วน 5 หลัก ให้ตรงกับ
+        #   r_addr005/thai_postal._ZIP_RE (ADR-071 แก้เคสนี้ที่ ADDR005 แล้ว แต่ ADDR001 standalone ตกหล่น).
+        if not re.search(r'(?<!\d)\d{5}(?!\d)', bv):
             issues.append('ไม่พบรหัสไปรษณีย์ 5 หลัก')
-        if not any(kw in bv for kw in ['จังหวัด','เขต','อำเภอ','แขวง','ตำบล','กรุงเทพ']):
+        # [ADR-119] รับคำย่อ 'กทม' ให้ตรงกับ ADDR004/005 (เดิมรับแค่ 'กรุงเทพ' → ที่อยู่ 'กทม.' ฟ้องผิด)
+        if not any(kw in bv for kw in ['จังหวัด','เขต','อำเภอ','แขวง','ตำบล','กรุงเทพ','กทม']):
             issues.append('ไม่พบจังหวัด/เขต/อำเภอ/แขวง/ตำบล')
         return issues
     diff = _addr_smart_diff(b, m)
@@ -462,6 +466,27 @@ def r_doc002(b,m,c):
     """
     return []
 
+# [ADR-119/PERF-F2] precompute (vendor_key, iv_prefix) ต่อบิล ครั้งเดียวต่อ batch (cache fingerprint แบบ
+#   _XBILL_IDX_CACHE/ADR-103). เดิม r_iv001 recompute clean_tax_id+normalize_text+re.match ของบิลอื่นทุกครั้ง
+#   ที่วนกลุ่มไฟล์เดียวกัน → G²/file (ไฟล์มีหลายบิล = ปกติ) → O(n²). ดัชนีนี้ทำ inner loop เป็น O(1) lookup
+#   → vendor_key/prefix/ลำดับ/majority เท่าเดิมเป๊ะ (byte-identical, golden-neutral).
+def _iv001_vk_prefix(ob):
+    vk = clean_tax_id(ob.get('tax_id', '')) or normalize_text(ob.get('company', '')).upper()
+    iv = ob.get('iv_number')
+    mp = re.match(r'^([A-Za-z]+)', iv) if iv else None
+    return vk, (mp.group(1).upper() if mp else None)
+
+
+_IV001_IDX = {'fp': None, 'idx': {}}
+
+
+def _iv001_index(all_bills):
+    fp = (id(all_bills), len(all_bills), id(all_bills[0]), id(all_bills[-1])) if all_bills else None
+    if _IV001_IDX['fp'] != fp:
+        _IV001_IDX.update(fp=fp, idx={id(ob): _iv001_vk_prefix(ob) for ob in all_bills})
+    return _IV001_IDX['idx']
+
+
 def r_iv001(b,m,c):
     """v5.8j: ไม่ hardcode prefix จาก master
     ตรวจ consistency ภายในไฟล์/vendor แทน:
@@ -483,15 +508,16 @@ def r_iv001(b,m,c):
 
     same_vendor_file = []
     bv = clean_tax_id(b.get('tax_id','')) or normalize_text(b.get('company','')).upper()
+    idx = _iv001_index(all_bills_in_ctx)   # [PERF-F2] precompute (vendor_key, prefix) ต่อบิล (เดิม recompute ทุกคู่)
+    bfile = b.get('file')
     # [PERF/ADR-103] กฎนี้จำกัด "ไฟล์เดียวกัน" อยู่แล้ว → เดินเฉพาะกลุ่มไฟล์เดียวกัน (ดัชนี) แทน scan ทั้งหมด
-    scan = c.get('xbill_file_index', {}).get(b.get('file'), all_bills_in_ctx)
+    scan = c.get('xbill_file_index', {}).get(bfile, all_bills_in_ctx)
     for ob in scan:
-        if ob.get('file') != b.get('file'): continue
-        ov = clean_tax_id(ob.get('tax_id','')) or normalize_text(ob.get('company','')).upper()
+        if ob.get('file') != bfile: continue
+        ov, op = idx.get(id(ob)) or _iv001_vk_prefix(ob)   # [PERF-F2] O(1) lookup แทน recompute
         if ov != bv: continue
-        if not ob.get('iv_number'): continue
-        mp = re.match(r'^([A-Za-z]+)', ob['iv_number'])
-        if mp: same_vendor_file.append(mp.group(1).upper())
+        if op is None: continue            # ไม่มี iv_number / ไม่มี prefix ตัวอักษร — เหมือนเดิม
+        same_vendor_file.append(op)
 
     if len(same_vendor_file) < 2: return []  # ข้อมูลไม่พอตัดสิน
     prefix_counts = Counter(same_vendor_file)

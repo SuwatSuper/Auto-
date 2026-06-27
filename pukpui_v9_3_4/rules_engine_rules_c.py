@@ -229,6 +229,22 @@ def _tax008_same(a, b):
         return True
     return fuzz.token_sort_ratio(a, b) >= 85
 
+# [ADR-119/PERF-F1] precompute (clean_tax, _tax008_name) ต่อบิล "ครั้งเดียวต่อ batch" (cache fingerprint
+#   แบบ _bs3_name_index/_XBILL_IDX_CACHE). เดิม r_tax008 recompute clean_tax_id + _tax008_name ของบิลอื่น
+#   ทุกครั้งที่วนกลุ่มเลขภาษีเดียวกัน → G² normalization/vendor (ผู้ขายรายเดียวหลายบิล = เคสปกติ) → near-O(n²).
+#   ดัชนีนี้ทำให้ inner loop เป็น O(1) lookup → ค่า/ลำดับ/conflict เท่าเดิมเป๊ะ (byte-identical, golden-neutral).
+_TAX008_IDX = {'fp': None, 'idx': {}}
+
+
+def _tax008_index(all_bills):
+    fp = (id(all_bills), len(all_bills), id(all_bills[0]), id(all_bills[-1])) if all_bills else None
+    if _TAX008_IDX['fp'] != fp:
+        idx = {id(ob): (clean_tax_id(ob.get('tax_id', '')), _tax008_name(ob.get('company', '')))
+               for ob in all_bills}
+        _TAX008_IDX.update(fp=fp, idx=idx)
+    return _TAX008_IDX['idx']
+
+
 def r_tax008(b, m, c):
     """[B1] เลขภาษีเดียวกันแต่ชื่อบริษัทต่างกันจริง ข้ามบิล (internal consistency — ไม่พึ่ง master).
 
@@ -240,19 +256,21 @@ def r_tax008(b, m, c):
     all_bills = c.get('all_bills_for_iv_check', [])
     if not all_bills:
         return []
-    this_tax = clean_tax_id(b.get('tax_id', ''))
+    idx = _tax008_index(all_bills)                          # [PERF-F1] precompute ต่อบิล (clean_tax, name)
+    this_tax, this_name = idx.get(id(b)) or (clean_tax_id(b.get('tax_id', '')), _tax008_name(b.get('company', '')))
     if len(this_tax) != 13 or not this_tax.isdigit():       # เชื่อว่า "เลขเดียวกัน" เฉพาะเลขที่สมบูรณ์
         return []
-    this_name = _tax008_name(b.get('company', ''))
     if not this_name:
         return []
     conflicts = []
     # [PERF/ADR-103] เดินเฉพาะกลุ่มเลขภาษีเดียวกัน (ดัชนี) แทน scan all_bills ทั้งหมด — กลุ่มเรียงเดิม → ผลเท่าเดิม
     scan = c.get('xbill_tax_index', {}).get(this_tax, all_bills)
     for ob in scan:
-        if ob is b or clean_tax_id(ob.get('tax_id', '')) != this_tax:
+        if ob is b:
             continue
-        nm = _tax008_name(ob.get('company', ''))
+        ob_tax, nm = idx.get(id(ob)) or (clean_tax_id(ob.get('tax_id', '')), _tax008_name(ob.get('company', '')))
+        if ob_tax != this_tax:                              # [PERF-F1] ใช้ค่า precompute (เดิม recompute clean_tax_id)
+            continue
         if nm and not _tax008_same(this_name, nm) and nm not in conflicts:
             conflicts.append(nm)
     if not conflicts:
