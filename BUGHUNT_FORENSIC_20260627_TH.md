@@ -152,3 +152,22 @@ regression_full . corpus    → engine == agent == baseline == 31013a31  ✅
 run_ci.sh corpus            → ✅ ผ่านทั้งหมด (0 ล้มเหลว)
 ADR ใหม่                     → ADR-109 (append-only)
 ```
+
+
+---
+
+## 8 · ภาคผนวก — คำตัดสินเจ้าของ (Tor) 2026-06-27 + การแก้รอบสอง
+
+| ข้อ | เรื่อง | คำตัดสิน | สถานะ |
+|---|---|---|---|
+| 1 | ADDR substring (ADDR006/POSTAL-1) | simulate corpus → ADDR006 ฟ้อง 0×, กำกวม 0 → delta=0 → **golden-NEUTRAL** (latent bug ตอน scale) → **อนุมัติแก้** | ✅ **แก้แล้ว — ADR-110** (`_province_word_match` word-boundary) · golden 31013a31 คงเดิม · pin `test_addr_province_boundary.py` |
+| 2 | parse-core §6 (seq cap 50 / merge_continuation / excel-serial) | **FREEZE ห้ามแตะ** — invariant ที่ characterization test ล็อก, ไม่มีหลักฐาน bug จริง (เป็นจุดเสี่ยง) รื้อเฉพาะเมื่อมีเคสจริงพังบนข้อมูลจริง | ⏸️ คงไว้ (ตาม "ห้ามแตะแบบเดา" §6) |
+| 3 | 6 เลนที่ค้าง (mesh/golden-gov/registry/determinism/reachability) | มี guard test คุมใน CI แล้ว (test_mesh_contract / test_golden_single_source / test_reachability / test_reset_completeness / code_registry) → ไม่บล็อกการปิดจบ · deep-pass = optional | ⏭️ เลื่อนไป session หน้า (โควตา) |
+
+**สรุปการแก้ทั้งหมดที่ลงระบบ (golden-safe ทั้งคู่, golden 31013a31 ไม่ขยับ):**
+- **ADR-109** — r_vat006/r_vat007 `_safe_items_sum` (กัน bool/non-finite item → กฎ CRITICAL VAT007 ข้ามเงียบ)
+- **ADR-110** — province_in_address word-boundary (กัน ADDR006 substring false-positive)
+
+**Gate สุดท้าย:** `regression_full . corpus` = engine==agent==baseline==**31013a31** · full **strict** `run_ci.sh corpus`
+เขียวครบ (0 ล้มเหลว, 0 skip — รวม coverage≥90/branch≥85, ruff/black/mypy, pip-audit, parallel==serial,
+iv-cell-truth) · แพ็ก deliverable แตกจาก zip จริง → regression = 31013a31.
