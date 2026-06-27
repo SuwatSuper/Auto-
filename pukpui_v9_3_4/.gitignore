@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+master_companies.json
+.venv/
+dist/
+_f1_*.py
+_f1_*.json
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.json

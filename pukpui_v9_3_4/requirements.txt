@@ -1,0 +1,20 @@
+# ปุ้มปุ้ย v9 — เวอร์ชันที่พิสูจน์แล้ว (golden master baseline ทำบนชุดนี้)
+# ⚠️ Python 3.12 (ไลบรารีด้านล่างเทสต์บน 3.12). เวอร์ชันใหม่กว่ารันได้แต่ fingerprint อาจต่าง.
+#    ติดตั้ง: pip install -r requirements.txt
+
+pandas==2.2.2
+xlrd==2.0.1
+openpyxl==3.1.5
+rapidfuzz==3.10.1
+matplotlib==3.9.2
+plotly==5.24.1
+tqdm==4.67.1
+
+# ⚠️ pythainlp==5.0.5 — OPTIONAL (display/text เสริมเท่านั้น) · จงใจ "ไม่" auto-install
+#    golden master ถูกสร้าง + พิสูจน์ "โดยไม่มี pythainlp" — typo 51 ตัวมาจาก CONSTRUCTION_DICT
+#    ไม่ใช่ pythainlp (ดู CLAUDE.md landmine #6). ติดตั้งเข้าสาย golden/production แล้วเสี่ยง
+#    golden hash drift เงียบ. เชิงประจักษ์: golden ae84d3f0 reproduce ได้โดยไม่มี pythainlp
+#    (พิสูจน์ 2026-06-22 บน 148 ไฟล์จริง — engine==agent==baseline).  ← ADR-060
+#    ถ้าจำเป็นต้องใช้ feature ที่พึ่ง pythainlp จริง ให้ติดตั้งแยกเองโดยรู้ความเสี่ยง:
+#        pip install pythainlp==5.0.5
+#    (constraints.txt ยังตรึง 5.0.5 ไว้ให้ — มีผลเฉพาะเมื่อถูกติดตั้งแยก)
