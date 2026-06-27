@@ -44,14 +44,32 @@ def r_vat005(b,m,c):
     except Exception:
         return []
 
+def _safe_items_sum(b):
+    """[ADR-109] ผลรวม amount ของรายการ แบบกัน bool/None/non-finite — ต่อยอด ADR-069 (C-1) โดยตรง.
+    ADR-069 กัน inf/NaN/bool ให้ tot/sub/vat แล้ว แต่ "ตกหล่น" ที่ items aggregation:
+      • bool ⊂ int → ผ่าน isinstance((int,float)) → _D(bool)=None
+      • เซลล์ amount = inf/NaN (เช่น '1e400') → _D()=None
+    เดิม `sum(_D(...) ...)` เจอ None → Decimal+None = TypeError (ไม่ใช่ ArithmeticError) หลุด except ที่
+    ห่อแค่ quantize → run_rules กลืนเป็น SYS-VAT00x → กฎ CRITICAL VAT007 (ตรวจ VAT ก่อนหักส่วนลด) ถูกข้าม
+    เงียบ = false-negative. กัน bool + None ก่อนบวก (เลีย type-gate ที่ tot/sub/vat ทำถูกแล้ว).
+    golden-neutral: corpus ทุก amount เป็น number finite ไม่ใช่ bool → ลำดับ/ผลบวกเท่าเดิมเป๊ะ
+    (พิสูจน์ golden_master ก่อน/หลัง = 31013a31). ดู INVARIANTS/DECISIONS.md §ADR-109."""
+    s = Decimal('0')
+    for i in b['items']:
+        a = i.get('amount')
+        if isinstance(a, (int, float)) and not isinstance(a, bool):
+            d = _D(a)
+            if d is not None:
+                s += d
+    return s
+
 def r_vat006(b,m,c):
     # v5.8 FIX: เช็ก type ของ total/subtotal ให้เป็นตัวเลขก่อนคำนวณ
     # [F2/ADR-020] Decimal + ROUND_HALF_UP (Financial law: ห้าม float ในเส้นเงิน); type-gate/threshold/สตริง เดิมคงไว้ทุกตัว
     tot = b.get('total'); sub = b.get('subtotal')
     # [BUGFIX recheck] กัน bool (bool ⊂ int) — _D(bool)=None → None/Decimal ครัช → กฎถูก skip เงียบ
     if not isinstance(tot, (int, float)) or isinstance(tot, bool) or not b.get('items'): return []
-    items_sum = sum((_D(i['amount']) for i in b['items']
-                     if isinstance(i.get('amount'), (int, float))), Decimal('0'))
+    items_sum = _safe_items_sum(b)   # [ADR-109] กัน bool/None/non-finite item amount → ครัช → กฎข้ามเงียบ
     if items_sum <= 0: return []
     # [C-1/ADR-069] เงิน non-finite (inf/NaN จากเซลล์ "inf"/"1e400"/เลขยาว ≥309 หลัก ผ่านเส้น _tor_scan_*)
     #   → _D()=None → เดิม None/Decimal เป็น TypeError (ไม่ใช่ ArithmeticError) หลุด except → run_rules กลืน
@@ -78,8 +96,7 @@ def r_vat007(b,m,c):
             or not isinstance(vat, (int, float)) or isinstance(vat, bool)):
         return []
     if sub == 0: return []
-    items_sum = sum((_D(i['amount']) for i in b['items']
-                     if isinstance(i.get('amount'), (int, float))), Decimal('0'))
+    items_sum = _safe_items_sum(b)   # [ADR-109] กัน bool/None/non-finite item amount → ครัช → กฎข้ามเงียบ
     sub_d = _D(sub); vat_d = _D(vat)
     # [C-1/ADR-069] เงิน non-finite → _D=None → เดิม Decimal<=None เป็น TypeError หลุด except → VAT007 (CRITICAL)
     #   ถูกข้ามเงียบ (false-negative). กัน None ก่อนเทียบ.

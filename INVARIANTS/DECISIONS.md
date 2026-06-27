@@ -1904,3 +1904,40 @@ B: vendor_report _item_field_text ยุบ) เพิ่มใน `run_ci.sh` [
 
 **หมายเหตุ:** บรรทัด `หมายเหตุ : หน่วยสินค้าบางรายการไม่มีหน่วย (… N รายการ)` (company_unit_notes
 นับ "รายการ") คงไว้ — เป็นมุมมองระดับ item ส่วนสรุป ITM020 เป็นระดับ "บิล" ; ทั้งคู่ 1 บรรทัด.
+
+
+## ADR-109 — [§7.1 input-hardening] r_vat006/r_vat007: items_sum ครัชเงียบเมื่อ amount เป็น bool/non-finite → กฎ CRITICAL VAT007 ถูกข้าม (false-negative) — golden-neutral
+
+**บริบท (ต่อยอด ADR-069 โดยตรง):** ADR-069 (C-1) กันเงิน non-finite (inf/NaN) + bool ให้
+`tot`/`sub`/`vat` ใน r_vat006/r_vat007 แล้ว (`_D()=None → กัน None ก่อนคำนวณ`) — แต่ **ตกหล่น**
+ที่ "ผลรวม amount ของรายการ" (items_sum) ซึ่งใช้ตัวกรองคนละชั้น:
+```python
+items_sum = sum((_D(i['amount']) for i in b['items']
+                 if isinstance(i.get('amount'), (int, float))), Decimal('0'))
+```
+- `bool ⊂ int` → `isinstance(True,(int,float))` = True → ลอดตัวกรอง → `_D(True)=None` (โดยเจตนา: bool ไม่ใช่ตัวเลขเชิงบัญชี)
+- เซลล์ amount = inf/NaN (เช่น '1e400' ผ่านเส้น `_tor_scan_*`) → `_D()=None`
+→ `Decimal('0') + None` = **TypeError** (ไม่ใช่ ArithmeticError) ซึ่ง **หลุด** except ที่ห่อแค่ `quantize`
+→ `run_rules` กลืนเป็น `SYS-VAT006`/`SYS-VAT007` → **กฎ VAT007 (severity=CRITICAL: ตรวจ VAT คำนวณก่อนหักส่วนลด)
+ถูกข้ามเงียบทั้งบิล** = false-negative (อันตรายกว่า false-positive ตามกฎเหล็ก §4).
+
+**หลักฐาน forensic (reproduce ก่อนแก้):**
+```
+bool-item / r_vat006: ❌ CRASH TypeError: unsupported operand type(s) for +: 'decimal.Decimal' and 'NoneType'
+bool-item / r_vat007: ❌ CRASH TypeError ... ; inf-item / r_vat006|007: ❌ CRASH TypeError
+```
+(เรียกฟังก์ชันตรงด้วยบิลที่มี item amount = True หรือ float('inf')). corpus 1056 บิลไม่มี amount เป็น
+bool/non-finite → กฎจึงไม่เคยครัชบน corpus → **dormant 100%** (กับดักรอ input เพี้ยนในอนาคต/5 ปี).
+
+**ตัดสิน (surgical, golden-neutral):** เพิ่ม helper `_safe_items_sum(b)` ใน `rules_engine_rules_c.py`
+(เลีย type-gate ที่ tot/sub/vat ทำถูกแล้ว) — บวกเฉพาะ amount ที่ `isinstance((int,float))
+and not bool and _D() is not None`. ใช้แทน sum-generator ทั้งใน r_vat006 และ r_vat007.
+
+**ผลกระทบ golden:** **ไม่ขยับ** — corpus ทุก amount เป็น number finite ไม่ใช่ bool → ลำดับ/ผลบวก
+Decimal เท่าเดิมเป๊ะ. พิสูจน์: `golden_master . <out> corpus` = `31013a31...` ก่อน=หลัง ;
+`regression_full . corpus` = engine==agent==baseline=`31013a31` ; full `run_ci.sh corpus` เขียวครบ.
+post-fix unit check: bool/inf item → คืน `[]` (ไม่ครัช) ; VAT007 positive จริง (discount ก่อน VAT)
+ยังฟ้องเหมือนเดิม → ไม่กลบ true-positive (ลด false-negative ล้วน).
+
+**ที่มา:** deep bug-hunt 2026-06-27 (lane rules B/C). จัดชั้น §7.1 (harden กันครัช, golden-neutral,
+พิสูจน์ + 1 ADR — ไม่ต้องปลดล็อก). เป็นการขยาย logic ป้องกันชุดเดียวกับ ADR-069 ให้ครบทุก call site.

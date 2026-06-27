@@ -44,6 +44,7 @@ run "[3b4] iv≠money guard (F-MONEYIV)"          "$PY" test_iv_money_misread.py
 run "[3c] rules coverage"        "$PY" test_rules_coverage.py
 run "[3c-addr] smart address (ADDR001+003)" "$PY" test_addr_smart.py
 run "[3c2] vat002 tolerance 0.50 (ADR-005)" "$PY" test_vat002_tolerance.py
+run "[3c2b] vat itemsum guard (ADR-109 — bool/non-finite item ไม่ครัชเงียบ)" "$PY" test_vat_itemsum_guard.py
 run "[3c3] TAX008 (B1 — เลขภาษีเดียวชื่อต่าง, ไม่พึ่ง master)" "$PY" test_tax008.py
 run "[3c4] ADDR006 (B2 — ไปรษณีย์↔จังหวัด, ไม่พึ่ง master)" "$PY" test_addr006.py
 run "[3c5] BR004 (B3 — เทียบสาขากับ master)" "$PY" test_br004.py
