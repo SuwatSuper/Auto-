@@ -74,6 +74,7 @@ run "[3l] parser extra 2 (≥90% cov)"   "$PY" test_parser_extra2.py
 run "[3l2] v9.2 fixes (หน้าต่อ/บาทตัวอักษร/VATmarker/ITM008)" "$PY" test_v9_2_fixes.py
 run "[3r] crosscheck idempotency (call-once tripwire)" "$PY" test_crosscheck_idempotency.py
 run "[3s] typo sliding-window (>500 names)" "$PY" test_typo_window.py
+run "[3s2] rules typo branch (ADR-113 — r_itm004/r_itm010 emit, 5นิ้ว=ไม่ฟ้อง ADR-075)" "$PY" test_rules_typo_branch.py
 run "[3t] perf canary (algorithmic blowup guard)" "$PY" test_perf_budget.py
 run "[3u] parallel merge — non-empty system_issues" "$PY" test_parallel_merge_nonempty.py
 run "[3u2] parallel merge contract (#3 exc-key/#4a file=None/#cap config)" "$PY" test_parallel_merge_contract.py

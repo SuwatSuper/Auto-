@@ -2041,3 +2041,29 @@ modules import OK · `test_typing_leaf.py` = ✅ PASS (4 โมดูล) · ful
 ให้จับ regression ตั้งแต่ local (เดิมรู้ตอน GitHub CI เท่านั้น). ตรง mandate "ปลอดภัยใช้งานยาว 5 ปี".
 
 **ที่มา:** เจ้าของสั่ง "แก้ lint ก่อน" → full test-suite sweep พบ test_typing_leaf ล้ม (ด่านนอก run_ci.sh).
+
+
+## ADR-113 — [test hygiene] แก้เทส stale `test_rules_typo_branch.py` (ขัด ADR-075) + ดึงเข้า run_ci.sh — golden-neutral (test-only)
+
+**บริบท (full test-suite sweep รอบ "fix lint" 2026-06-27):** รันทุก `test_*.py` (96 ไฟล์) พบ 1 ไฟล์ล้ม:
+`test_rules_typo_branch.py` — ยืนยัน `r_itm004("ท่อ 5นิ้ว")` ต้อง "ฟ้อง" (len>0). **ขัดกับ ADR-075** ที่
+**จงใจ**ตัด false-positive: "เลขติดหน่วยไทย '5นิ้ว' = เขียนไทยปกติ ไม่ใช่ 'อังกฤษ+ไทยติดกัน'" (ADR-075
+ถึงขั้น rebaseline golden เพราะลบ FP นี้). เทสนี้ **เป็น orphan — ไม่อยู่ใน run_ci.sh** จึงไม่เคยถูกจับว่า
+stale หลัง ADR-075 เปลี่ยนพฤติกรรม.
+
+**พิสูจน์ว่าโค้ดถูก (เทสผิด ไม่ใช่โค้ดผิด):**
+```
+r_itm004 "ท่อ 5นิ้ว"   → ไม่ฟ้อง  (ADR-075: เขียนไทยปกติ) ✅
+r_itm004 "WARMWHITE"  → ฟ้อง (อังกฤษติดกัน) ✅
+r_itm004 "ท่อPVCสีขาว" → ฟ้อง (ไทย+อังกฤษติดกัน) ✅
+```
+
+**ตัดสิน (test-only):** อัปเทสให้ตรง ADR-075 — "5นิ้ว → ไม่ฟ้อง" + เพิ่มเคส "ท่อPVCสีขาว → ฟ้อง"
+(คงการครอบ emit-branch ของ r_itm004 ตามเจตนาเทสเดิม) + **ดึง `test_rules_typo_branch.py` เข้า run_ci.sh
+[3s2]** (เลิกเป็น orphan → กัน stale ซ้ำ).
+
+**ผลกระทบ golden:** **ไม่ขยับ** — แก้เฉพาะไฟล์เทส (ไม่แตะ engine/rule). `golden_master . corpus` = `31013a31`.
+full strict `run_ci.sh` เขียวครบ + full test-suite sweep = 96/0.
+
+**ที่มา:** เจ้าของสั่ง "fix lint + หาบั๊กทั้งหมด" → full-suite sweep (นอก run_ci.sh) พบ orphan stale test.
+รวมกับ ADR-112 (test_typing_leaf) = ปิดช่อง "เทส orphan ที่ไม่ถูกรันใน local CI" ทั้งสองตัว.
