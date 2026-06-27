@@ -35,6 +35,7 @@ from code_labels import (FIELD_ORDER, F_NAME, F_ADDR, F_TAX, F_BRANCH, F_DATE, F
                          clean_detail, action_for, NOTE, note_phrase, addr_summary,
                          field_summary, MASTER_FIELD_SHORT, apply_identity_honesty)
 from viewers import VIEWERS
+from puopuy_core import clean_tax_id   # [BS-1/ADR-118] canonical tax-id identity (full-width/เลขไทย → อารบิก) ตอนจัดกลุ่ม
 from puopuy_dates import _ivp_year2_to_ce, _ivp_year4_to_ce   # เดางวดจากเลขที่เอกสารเมื่อบิลไม่มีวันที่
 import report_precision as _precision   # [Precision Council] ตัดสิน tier ต่อจุด (advisory → golden ไม่ขยับ)
 
@@ -152,7 +153,9 @@ def build(bills, master_present=True, masters=None):
     groups = defaultdict(list)
     for b in bills:
         ml, _ = _month_label(b.get("iv_date"), b)
-        tid = (b.get("tax_id") or "").strip()
+        # [BS-1/ADR-118] clean ก่อนใช้เป็น identity — parser บางเส้นเก็บ tax_id เป็น full-width/เลขไทยดิบ
+        #   (engine re-clean อยู่แล้ว แต่ viewer เดิมใช้ดิบ → ผู้ขายเดียวกันถูกแยกเป็นคนละบล็อก/โชว์เลขเพี้ยน)
+        tid = clean_tax_id(b.get("tax_id") or "")
         comp0 = b.get("company") or b.get("company_raw") or "ไม่ทราบชื่อ"
         groups[(tid or _norm_company(comp0), ml)].append(b)
 

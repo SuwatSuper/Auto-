@@ -2153,6 +2153,52 @@ DT005 "ไม่มีวันที่" (มิสเลด เพราะว
 `result['_bad_date'] = s.strip()[:20]` → route เข้า **DT006 ที่มีอยู่** (ไม่สร้างกฎใหม่/ไม่ duplicate). **ไม่แตะ
 parse-core §6** (serial/merge — FREEZE) ; แตะเฉพาะ "การฟ้องวันที่ผิด" ตาม scope BS-4.
 
-**ผลกระทบ golden:** **ไม่ขยับ `31013a31`** — corpus calendar-invalid date = **0** (สแกนยืนยัน) ; วันที่ TOR ใน corpus parse ปกติ.
+**ผลกระทบ golden:** **ไม่ขยับ `31013a31`** — การแก้เส้น TOR เพิ่ม detection บน corpus = **0** ; วันที่ TOR ใน corpus parse ปกติ.
 พิสูจน์: `regression_full . corpus` ก่อน=หลัง. หลังแก้: `_tor_try_date('2026-04-31')`→ set `_bad_date` → DT006 ;
 `'2026-05-15'` → parse ปกติ ไม่ set. **regression test:** `test_bs4_dt006_tor_calendar.py` (run_ci [3c11]).
+> **แก้ไขความถูกต้อง (ADR-118):** ข้อความเดิม "corpus calendar-invalid date = 0" **คลาดเคลื่อน** — จริงมี **1 ใบ**
+> (`TSH_68_0112.xls` '40/12/2568') ที่ DT006 **เส้น PB** จับอยู่แล้วใน baseline ; ที่ถูกคือ "การแก้เส้น TOR เพิ่ม
+> detection บน corpus = 0" (golden ไม่ขยับ). คงข้อความเดิมไว้ตาม append-only + บันทึกแก้ที่นี่.
+
+
+---
+
+# ── รอบ re-bughunt (รีเช็คซ้ำ adversarial) 2026-06-27 — ADR-118 ──
+> เจ้าของสั่งรีเช็คบั๊ก ร้าย/กลาง/ต่ำ ของงาน BS-1..4 ซ้ำ. ใช้ workflow fan-out 6 มิติ + verify อิสระต่อ finding
+> (16 agents). พบ 10 findings → ยืนยันบั๊กจริง 5 (ตีตก 5 nitpick). **ทุกข้อ golden-neutral (corpus=0 ที่ trigger)**.
+
+
+## ADR-118 — [re-bughunt BS-1..4] ปิด false-positive/edge ที่รอบแรกพลาด — golden-neutral (corpus=0)
+
+**บริบท:** adversarial re-bughunt งาน ADR-114..117. พบ 5 บั๊กจริง — เด่นคือ "false-positive ที่ตัวแก้เองสร้าง"
+(ปรัชญาระบบรังเกียจสุด). ทุกข้อ corpus ที่ trigger = 0 → golden คง `31013a31`.
+
+**[F4·MEDIUM] BS-4 false-positive: ปี พ.ศ. ISO ที่ถูกต้อง + เซลล์มี trailing text → DT006 หลอก.**
+`_tor_try_date` (เส้น TOR) เดิม (ADR-117) ใช้ `pd.to_datetime(s)` ทั้งสตริง: (ก) ปี พ.ศ. 2560-2599 (ที่ regex `25[6-9]\d`
+ตั้งใจรับ) ทำ pandas Timestamp **overflow** (ปีสูงสุด ~2262) → โยน → ตั้ง `_bad_date` หลอกว่า "วันไม่มีจริง" ทั้งที่
+พ.ศ. ถูกต้อง (`2569-05-15` = 15 พ.ค. 2026) ; (ข) `re.match` ไม่ fullmatch → เซลล์มี trailing text → parse ผิด/โยน → `_bad_date` หลอก.
+**แก้:** จับ (ปี/เดือน/วัน) เป็น group → แปลง พ.ศ.→ค.ศ. **ก่อน** สร้าง `datetime(y,m,d)` ตรง ๆ (เลิก `pd.to_datetime`) →
+ตั้ง `_bad_date` เฉพาะ `ValueError` (ไม่มีจริงในปฏิทินจริง) ; parse เฉพาะส่วนวันที่ (ตัด trailing). corpus เส้น string = 0 ครั้ง → golden-neutral.
+
+**[F2·MEDIUM+F3·LOW] TAX008/TAX009 over-collapse ชื่อ '`สาขา`' (regex แชร์).** `_TAX008_BRANCH_RE = 'สาขา\S*'` (unanchored)
+กิน 'สาขา' กลางชื่อจริง (`บริษัท สาขาวิชาการ จำกัด` → ยุบ `บริษัทจำกัด`) → คนละนิติบุคคลยุบชนคีย์เดียว = **TAX009 false-positive**
+(ฟ้อง 'ชื่อเดียวเลขต่าง' ทั้งที่คนละบริษัท) + **TAX008 false-negative** (พลาดสวมเลข). พ่วง: `สาขา 00001` (มีเว้นวรรค) เหลือ residue
+`00001` ในชื่อ → TAX009 พลาดเคสผู้ขายเดียว. **แก้:** ตัด marker เฉพาะ (ก) ในวงเล็บ (รวมสาขาตั้งชื่อ) (ข) HQ keyword (ค) `สาขา[ที่] <เลข>`
+— ไม่กิน `สาขา<คำ>` กลางชื่อ. พิสูจน์: normalize 66 ชื่อใน corpus **ไม่ขยับเลย** (golden-neutral). กระทบ TAX008 (pre-existing) ด้วย แต่เป็นการ "เพิ่มความถูก".
+
+**[F1·MEDIUM] BS-1 ครึ่งทาง: viewer จัดกลุ่มผู้ขายด้วย tax_id ดิบ.** parser บางเส้น (`_tor_cell_company`/`_taxid_from_cell`)
+เก็บ tax_id เป็น full-width/เลขไทย "ดิบ" (Unicode `\d` รับ, `\D` ไม่ strip) ; engine **re-clean** ผ่าน `clean_tax_id` อยู่แล้ว
+(ผลตรวจไม่เพี้ยน) แต่ `super_ultra_viewer.build` ใช้ `tax_id` ดิบเป็น identity จัดกลุ่ม → ผู้ขายเดียวกัน tax_id ต่างฟอร์แมต
+ถูกแยกคนละบล็อก/โชว์เลขเพี้ยน. **แก้:** `super_ultra_viewer.py:155` ใช้ `clean_tax_id(tax_id)` เป็น canonical identity.
+viewer = ชั้น advisory (ไม่อยู่ใน golden path — grep ยืนยันไม่ถูก import โดย golden_master/regression_full) + corpus full-width=0 → golden-neutral.
+
+**ตีตก (verify อิสระแล้ว — ไม่ใช่บั๊ก):** (1) `report_precision` shadow `clean_tax_id` = fallback เฉพาะตอน engine โหลดไม่ได้ (ไม่ใช่ production).
+(2) `clean_tax_id` ไม่รับ Arabic-Indic/Devanagari — นอก scope (prompt ขอเฉพาะ full-width). (3) `_VAT011_MIN_SUBTOTAL` hardcode — เป็น named const ปรับได้ ไม่ใช่บั๊กพฤติกรรม.
+(4) VAT011 FIELD_LAYOUT vs MAP จัดช่องต่าง — VAT008 (พี่น้อง) ก็เป็นแบบเดียวกัน = cosmetic ในชั้น advisory. (5) มิติ golden/perf/integration — ไม่พบบั๊ก (parallel==serial, ไม่มี cache bleed).
+
+**ผลกระทบ golden:** **ไม่ขยับ `31013a31`** ทั้ง 5 จุด — พิสูจน์ `regression_full . corpus` engine==agent==baseline ก่อน=หลัง ทุกจุด ;
+TAX008/TAX009 normalize 66 ชื่อ corpus ไม่ขยับ ; กฎใหม่ยิง 0 บน corpus. full strict CI เขียวครบ.
+**regression test:** อัปเดต `test_bs3_tax009_samename.py` (+over-collapse/residue), `test_bs4_dt006_tor_calendar.py` (+พ.ศ./trailing),
+เพิ่ม `test_adr118_viewer_grouping.py` (run_ci [3c12]).
+
+**ที่มา:** เจ้าของสั่ง "รีเช็คบั๊ก ร้าย/กลาง/ต่ำ + แก้ + ส่งระบบใหม่". workflow adversarial 16 agents.

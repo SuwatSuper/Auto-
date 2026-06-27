@@ -351,18 +351,27 @@ def _tor_try_date(result, v, s):
     d = None
     if isinstance(v, datetime):
         d = v
-    elif re.match(r'^(25[6-9]\d|20[2-3]\d)[-/]\d{1,2}[-/]\d{1,2}', s):
-        try: d = pd.to_datetime(s).to_pydatetime()
-        except Exception:
-            # [BS-4/ADR-117] หน้าตาเป็นวันที่ (ISO ปี-เดือน-วัน) แต่ไม่มีจริงในปฏิทิน (เช่น 2026-04-31,
-            #   30 ก.พ.) → pd.to_datetime โยน → เดิม drop เงียบ → บิลตกไป DT005 "ไม่มีวันที่" (มิสเลด
-            #   เพราะวันที่ "มี" แต่ผิด). เก็บ _bad_date ให้ DT006 ("วันที่ไม่มีจริงในปฏิทิน") ฟ้องตรง
-            #   อาการ — mirror เส้น PB (parser_p1 _pb_scan_header). ไม่แตะ serial/merge §6. corpus=0 → golden-neutral.
-            d = None
-            if not result.get('_bad_date'):
-                result['_bad_date'] = s.strip()[:20]
+    else:
+        # [BS-4/ADR-118] จับ "ส่วนวันที่" เป็น group (ปี/เดือน/วัน) แล้วสร้าง datetime() ตรง ๆ —
+        #   เลิกใช้ pd.to_datetime(s) ทั้งสตริง ซึ่งมี 2 บั๊ก: (ก) ปี พ.ศ. 2560-2599 (regex 25xx) ทำ pandas
+        #   overflow (Timestamp ปีสูงสุด ~2262) → โยน → เดิมตั้ง _bad_date หลอกว่าวันผิด ทั้งที่ พ.ศ.ถูกต้อง
+        #   (false-positive DT006) ; (ข) re.match ไม่ fullmatch → เซลล์มี trailing text/2 วันที่ → parse บางส่วน/ผิด.
+        #   แปลง พ.ศ.→ค.ศ. ก่อนสร้าง date ; สร้างจาก group เท่านั้น (ตัด trailing). corpus เส้น string=0 → golden-neutral.
+        m = re.match(r'^(25[6-9]\d|20[2-3]\d)[-/](\d{1,2})[-/](\d{1,2})', s)
+        if m:
+            yy, mo, dy = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            if yy >= 2500:                      # ปีในสตริงเป็น พ.ศ. (regex 25xx) → ค.ศ. ก่อนสร้าง
+                yy -= 543
+            try:
+                d = datetime(yy, mo, dy)
+            except ValueError:
+                # [BS-4/ADR-117+118] ISO หน้าตาเป็นวันที่ แต่ "ไม่มีจริงในปฏิทิน" (2026-04-31, เดือน 13) →
+                #   เก็บ _bad_date ให้ DT006 ("วันที่ไม่มีจริงในปฏิทิน") ฟ้องตรงอาการ (เดิม drop เงียบ → DT005 มิสเลด).
+                #   ปี พ.ศ. ที่ถูกต้องแปลง ค.ศ. แล้ว → ไม่หลุดมาเส้นนี้ (กัน false-positive). ไม่แตะ serial/merge §6.
+                if not result.get('_bad_date'):
+                    result['_bad_date'] = s.strip()[:20]
     if not d: return False
-    if d.year >= 2500: d = d.replace(year=d.year - 543)
+    if d.year >= 2500: d = d.replace(year=d.year - 543)   # native datetime พ.ศ. (เส้น string แปลง ค.ศ. แล้ว → ไม่ซ้ำ)
     result['iv_date'] = d
     result['iv_date_str'] = d.strftime('%d/%m/%Y')
     return True

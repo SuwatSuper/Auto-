@@ -9,6 +9,9 @@
     → DT006 "วันที่ไม่มีจริงในปฏิทิน ต้องแก้". (ไม่แตะ — ครอบคลุมดีแล้ว.)
   • เส้น TOR (parser_p2 _tor_try_date) เป็น "รูที่เหลือ": วันที่ ISO ผิดปฏิทิน drop เงียบ →
     ตกไป DT005 "ไม่มีวันที่" (มิสเลด). [ADR-117] mirror เส้น PB: set _bad_date → DT006.
+  • [ADR-118] เส้น TOR แข็งขึ้น: แปลง พ.ศ.→ค.ศ. + parse เฉพาะส่วนวันที่ ก่อนตัดสิน → กัน false-positive
+    (พ.ศ. ISO ถูกต้อง / มี trailing text). หมายเหตุ: corpus มีวันผิดปฏิทิน 1 ใบ (TSH_68_0112 '40/12/2568')
+    ที่ DT006 "เส้น PB" จับอยู่แล้วใน baseline ; การแก้เส้น TOR เพิ่ม detection บน corpus = 0 → golden 31013a31 ไม่ขยับ.
 
 ตรึง: parse_date_any คืน None เฉพาะวันผิดปฏิทิน (valid/leap ยัง parse ได้) ;
       _tor_try_date set _bad_date เฉพาะ ISO ผิดปฏิทิน (valid ยัง parse) ;
@@ -46,6 +49,28 @@ r_bad = {"iv_date": None, "iv_date_str": ""}
 ret = _tor_try_date(r_bad, "2026-04-31", "2026-04-31")
 _check("_tor_try_date('2026-04-31') คืน False (ไม่ใช่วันที่จริง)", ret is False)
 _check("_tor_try_date ตั้ง _bad_date = '2026-04-31'", r_bad.get("_bad_date") == "2026-04-31")
+
+# 2b) [ADR-118 — กัน false-positive] ปี พ.ศ. ISO ที่ "ถูกต้อง" (2560-2599) ต้อง parse ได้ ห้ามตั้ง _bad_date
+#     (เดิมใช้ pd.to_datetime → Timestamp overflow ปี >2262 → โยน → ตั้ง _bad_date หลอกว่าวันผิด = false-positive)
+for ds, ce in [("2569-05-15", 2026), ("2570-12-31", 2027)]:
+    rp = {"iv_date": None, "iv_date_str": ""}
+    ok = _tor_try_date(rp, ds, ds)
+    _check(f"พ.ศ. ISO ถูกต้อง {ds} → parse ได้ (ปี ค.ศ. {ce}) ไม่ตั้ง _bad_date",
+           ok is True and rp.get("_bad_date") is None and rp.get("iv_date").year == ce)
+# พ.ศ. ISO ที่ผิดปฏิทินจริง (30 ก.พ.) → ยังตั้ง _bad_date
+rp2 = {"iv_date": None, "iv_date_str": ""}
+_tor_try_date(rp2, "2569-02-30", "2569-02-30")
+_check("พ.ศ. ISO 30 ก.พ. → ยังตั้ง _bad_date (จับวันผิดจริง)", rp2.get("_bad_date") == "2569-02-30")
+
+# 2c) [ADR-118 — กัน false-positive] เซลล์มี trailing text ต่อท้ายวันที่ → parse เฉพาะส่วนวันที่ ไม่ตั้ง _bad_date
+rt = {"iv_date": None, "iv_date_str": ""}
+ok_t = _tor_try_date(rt, "2026-05-15 ใบกำกับภาษี", "2026-05-15 ใบกำกับภาษี")
+_check("วันที่ + trailing text → parse ส่วนวันที่ได้ ไม่ตั้ง _bad_date (false-positive หาย)",
+       ok_t is True and rt.get("_bad_date") is None and rt.get("iv_date").year == 2026)
+# วันผิดปฏิทิน + trailing text → ยังตั้ง _bad_date
+rt2 = {"iv_date": None, "iv_date_str": ""}
+_tor_try_date(rt2, "2026-04-31 หมายเหตุ", "2026-04-31 หมายเหตุ")
+_check("วันผิด + trailing → ยังตั้ง _bad_date", bool(rt2.get("_bad_date")))
 # valid ISO → parse ได้ ไม่ตั้ง _bad_date
 r_ok = {"iv_date": None, "iv_date_str": ""}
 _check("_tor_try_date('2026-05-15') คืน True (วันถูก)", _tor_try_date(r_ok, "2026-05-15", "2026-05-15") is True)
