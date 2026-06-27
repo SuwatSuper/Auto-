@@ -211,3 +211,40 @@ iv-cell-truth) · แพ็ก deliverable แตกจาก zip จริง �
 **สรุปรอบนี้:** ระบบ **ปลอดภัยสำหรับใช้งานต่อเนื่อง ≥5 ปี** (จริง ๆ horizon วันที่ถึง พ.ศ.2599/ค.ศ.2056) ·
 golden `31013a31` ไม่ขยับ · บั๊ก golden-safe ที่เจอแก้หมดแล้ว (ADR-109/110/111) · ที่เหลือเป็น dormant/นโยบาย
 ที่บันทึกเหตุผลครบ. **ตรวจ "พันบริษัท/วัน" ได้โดยผลตรวจ reproduce เป๊ะ + ไม่มี memory leak.**
+
+
+---
+
+## 10 · รอบ "fix lint first + หาบั๊กทั้งหมด + 5 ปี" (เจ้าของสั่ง 2026-06-27, ครั้งที่ 2)
+
+### 10.1 Lint — สถานะ
+- โค้ดที่ผมแก้/เพิ่มทั้งหมด **ruff ผ่านสะอาด** (ภายใต้ pyproject config) · **enforced CI lint scope เขียว** (ruff/black/mypy)
+- **ไม่ mass-reformat golden-path 44 ไฟล์** (E701/E702 = compact style ที่ระบบจงใจ + CLAUDE.md §4 "ห้ามจัดระเบียบ" + pyproject ระบุ scope ชัด) — churn ใหญ่/เสี่ยงโดยไม่จำเป็น
+
+### 10.2 หาบั๊กเพิ่มด้วย full test-suite sweep (รันทุก test_*.py = 96 ไฟล์ ไม่ใช่แค่ชุด run_ci.sh)
+พบ **2 เทส orphan ที่ไม่อยู่ใน run_ci.sh จึงไม่เคยถูกจับ** (= ช่องโหว่จริงของระบบทดสอบ):
+| ADR | บั๊ก | แก้ |
+|---|---|---|
+| **112** | `test_typing_leaf.py` (ด่าน mypy leaf, GitHub-CI-only) **ล้ม** ใต้ mypy รุ่นใหม่ — 4 ฟังก์ชัน leaf ขาด return annotation | เติม annotation (runtime-neutral, `from __future__`) + **ดึงเข้า run_ci.sh [3o2]** |
+| **113** | `test_rules_typo_branch.py` (orphan) **stale** — ยืนยัน "5นิ้ว→ฟ้อง" ขัด ADR-075 ที่จงใจตัด FP | แก้เทสให้ตรง ADR-075 + **ดึงเข้า run_ci.sh [3s2]** |
+ทั้งคู่ **golden-neutral** (annotation lazy / test-only) → `golden_master . corpus` = `31013a31` ก่อน=หลัง
+
+### 10.3 ผลรวมหลังรอบนี้ (พิสูจน์เชิงประจักษ์)
+```
+golden_master . corpus      →  31013a31  (engine == agent == baseline)
+full test-suite sweep       →  96 / 96 ผ่าน  (0 ล้มเหลว — รวม orphan tests ทั้งหมด)
+run_ci.sh corpus (STRICT)   →  ✅ ผ่านทั้งหมด · 0 ล้มเหลว · 0 skip
+deliverable zip → แตก → regression = 31013a31 · test_typing_leaf + test_rules_typo_branch ✅
+```
+
+### 10.4 สรุปการแก้ทั้งหมดของ engagement (golden 31013a31 ไม่ขยับทุกตัว)
+| ADR | เรื่อง | ชนิด |
+|---|---|---|
+| 109 | r_vat006/007 กัน bool/non-finite item → VAT007 ไม่ถูกข้ามเงียบ | input-hardening (P1) |
+| 110 | province_in_address word-boundary → กัน ADDR006 substring FP | rule-hardening (อนุมัติ) |
+| 111 | CMP005 lane + ITM019/020 aspect + iv-lastresort SYS-trail | report/diagnostics |
+| 112 | leaf type annotations + ตรึง test_typing_leaf ใน run_ci.sh | typing/forward-compat |
+| 113 | แก้ stale test_rules_typo_branch + ดึงเข้า run_ci.sh | test hygiene |
+
+**สถานะ 5 ปี:** พร้อม — golden reproduce เป๊ะ · ไม่มี memory leak · date horizon ถึง พ.ศ.2599 ·
+type-gate ผ่านใต้ mypy รุ่นใหม่ · เทสทั้งระบบ 96/96 · orphan-test gap ปิดแล้ว.
