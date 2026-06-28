@@ -62,6 +62,7 @@ run "[3d2] verification lens pin"  "$PY" test_verification_lens_pin.py
 run "[3d3] verification lens unit" "$PY" test_verification_lenses_unit.py
 run "[3m] offline audit (zero outbound)" "$PY" test_offline_audit.py
 run "[3n] input hardening (untrusted file)" "$PY" test_input_hardening.py
+run "[3n2] fuzz matrix — 60 กฎรอด non-str/edge (GAP-A: ไม่ครัช→SYS→ข้ามกฎ=FN)" "$PY" test_fuzz_rules_robust.py
 run "[3o] validators coverage" "$PY" test_validators_coverage.py
 run "[3o2] typing leaf (ADR-112 — mypy leaf 4 โมดูล; skip ถ้าไม่มี mypy)" "$PY" test_typing_leaf.py
 run "[3p] parse canary (pin)" "$PY" test_parse_canary.py

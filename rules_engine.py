@@ -252,6 +252,14 @@ def run_rules(bill, master_companies, file_info, unit_index=None, all_bills_ref=
     for _k in ('company', 'tax_id', 'branch', 'branch_no', 'address', 'iv_number', 'sheet',
                'iv_date_str', 'company_raw', 'tax_id_raw', 'iv_number_raw'):
         bill.setdefault(_k, '')
+        # [GAP-A 2026-06-28] coerce ฟิลด์ "ข้อความระดับบิล" เป็น str — setdefault เติมเฉพาะคีย์ที่ "หาย"
+        #   แต่ถ้าคีย์มีอยู่และเป็น non-str (เซลล์ตัวเลขล้วน int/float, หรือ None) กฎที่เรียก re/.lower()/
+        #   `x in field` จะครัช → run_rules ดักเป็น SYS-* แล้ว "ข้ามกฎเงียบ" = false-negative (ตรวจไม่ได้
+        #   โผล่เป็น 'ตรง' หลอก). fuzz พบครัชจริง: BR001(branch)/CMP003(company)/IV001(iv_number)/
+        #   TAX004(tax_id_raw). corpus จริงทุกฟิลด์เป็น str เสมอ (สแกนยืนยัน 0 non-str/0 None) → no-op
+        #   → golden-NEUTRAL คง d8adc143. None→'' (ตรงกับ default ของ setdefault).
+        if not isinstance(bill[_k], str):
+            bill[_k] = '' if bill[_k] is None else str(bill[_k])
     bill.setdefault('iv_date', None)
     bill.setdefault('issues', [])
     # [F1 2026-06-20] บิลจาก parser มี item ครบ 7 คีย์เสมอ (seq/name/name_raw/qty/unit/price/amount)
@@ -263,6 +271,14 @@ def run_rules(bill, master_companies, file_info, unit_index=None, all_bills_ref=
             _it.setdefault('seq', None); _it.setdefault('name', ''); _it.setdefault('name_raw', '')
             _it.setdefault('qty', None); _it.setdefault('unit', ''); _it.setdefault('price', None)
             _it.setdefault('amount', None)
+            # [GAP-A 2026-06-28] coerce ฟิลด์ "ข้อความระดับรายการ" เป็น str — เซลล์ชื่อสินค้า/หน่วยที่เป็น
+            #   ตัวเลขล้วน (รหัส/โมเดล int/float) หรือช่องว่าง→None ทำ 7 กฎครัช: ITM003/004/005/007/011/
+            #   012/017 (re.findall/.lower()/len()/`in`) → SYS-* → ข้ามกฎ = false-negative. corpus จริง
+            #   ทุก item เป็น str เสมอ (สแกนยืนยัน 0 non-str) → no-op → golden-NEUTRAL คง d8adc143.
+            #   '12345' เป็น str แล้ว กฎ ITM007 ตรวจ "ชื่อสั้น" ได้ตามตรรกะ (ไม่ใช่ข้ามเงียบ).
+            for _tk in ('name', 'name_raw', 'unit'):
+                if not isinstance(_it[_tk], str):
+                    _it[_tk] = '' if _it[_tk] is None else str(_it[_tk])
     key, master, score = match_company(bill['company'], master_companies)
     # [MATCH-GUARD] กัน fuzzy ผูกข้ามบริษัท: partial_ratio ให้คะแนนสูงจากคำอุตสาหกรรมร่วม
     #   ("...คอนสตรัคชั่น จำกัด") → บิลของ "คนละนิติบุคคล" (เลขภาษี 13 หลักต่างจาก master ชัด ๆ)

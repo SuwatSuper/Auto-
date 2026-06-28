@@ -2267,3 +2267,51 @@ sync OPERATIONAL_SURFACES (.vscode×2 / CLAUDE.md / MAINTENANCE.md / Makefile / 
 `regression_full . corpus` = `d8adc143` (engine==agent==baseline ✅) · `INVARIANTS/check_invariants.py` (fixture `72cb832c` + pin ✅) ·
 `test_golden_single_source.py` (doc-sync ✅) · `PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · `make_release.py` + fresh-extract verify (zipfile) reproduce `d8adc143`.
 **git diff:** แตะเฉพาะ r_itm011/r_itm012 (extraction) + bookkeeping + test ใหม่ — parse-core §6 ไม่ขยับ.
+
+
+# ── รอบปิดช่องโหว่ + ทนทาน 5 ปี 2026-06-28 — ADR-120 ──
+> เจ้าของสั่ง "ปิดช่องโหว่ทุกกฎที่เปิด + เพิ่มความทนทานต่อข้อมูลแปลก 5 ปี + ปิดจบระบบ".
+> fuzz ทุกกฎที่เปิด (60 ตัว) ด้วยค่าขอบทุก field. งาน robustness = golden-NEUTRAL (corpus ไม่มีค่าขอบ).
+
+
+## ADR-120 — [GAP-A] กฎครัชเมื่อฟิลด์ข้อความเป็น non-string → SYS-* → ข้ามกฎ = false-negative — golden-neutral
+
+**วันที่:** 2026-06-28 · **สถานะ:** ACTIVE · **golden:** `d8adc143` **ไม่ขยับ** (robustness — corpus ไม่มีค่า non-str)
+**สั่งโดย:** เจ้าของ (Tor) — "ปิดช่องโหว่ทุกกฎ + ทนทาน 5 ปี" · **priority:** Stability/Reliability (กัน false-negative)
+
+### 1. Current risk + หลักฐาน (fuzz ทุกกฎ 60 ตัว)
+ใน 5 ปีจะเจอเซลล์: ชื่อสินค้า/ฟิลด์ข้อความเป็น **ตัวเลขล้วน** (รหัส/โมเดล int/float) หรือ **None** (ช่องว่าง).
+กฎที่เรียก `re.findall`/`.lower()`/`len()`/`x in field` บน non-str → **ครัช** → `run_rules` (rules_engine:~300)
+ดักเป็น `SYS-{code}` (INFO) แล้ว **"ข้ามกฎเงียบ"** → 'ตรวจไม่ได้' โผล่เป็น 'ตรง' หลอก = **false-negative** (ขัดปรัชญาระบบ).
+**fuzz พบครัชจริง 11 กฎ** (มากกว่าที่ list ให้ 7 ตัว — เจอเพิ่มจากการ fuzz เอง):
+- **item.name/name_raw/unit (7 กฎ):** ITM003·ITM004·ITM005·ITM007·ITM011·ITM012·ITM017
+- **bill text (4 กฎ — เจอเพิ่ม):** BR001(branch)·CMP003(company)·IV001(iv_number)·TAX004(tax_id_raw)
+
+### 2. Root cause (บรรทัด)
+`run_rules` มีชั้น data-hygiene (`setdefault`) แต่ **`setdefault` เติมเฉพาะคีย์ที่ "หาย"** — ถ้าคีย์ "มีอยู่แต่เป็น
+non-str" (int/float/None) จะหลุดเข้ากฎดิบ → ครัช. กฎเองอ่าน `it['name']`/`b['company']` ตรง ๆ ไม่ coerce.
+
+### 3. วิธีแก้ (surgical · golden-neutral · ไม่แตะ parse-core §6)
+ชั้น data-hygiene เดิมใน `run_rules` (rules_engine.py) — เพิ่ม coerce ฟิลด์ "ข้อความ" เป็น str ก่อนเข้ากฎ:
+- item: `name`·`name_raw`·`unit` ; bill: `company`·`company_raw`·`tax_id`·`tax_id_raw`·`address`·`branch`·`branch_no`·`iv_number`·`iv_number_raw`·`iv_date_str`·`sheet`
+- `None→''` (ตรง default ของ setdefault) ; non-str อื่น `→ str(v)`. **ไม่แตะฟิลด์ตัวเลข** (subtotal/vat/total/qty/price/amount ใช้ `_D()` robust อยู่แล้ว — fuzz ยืนยันไม่ครัช).
+**ไม่ใช่ §6 parse-core** (แก้ที่ชั้น normalize รายการก่อนกฎ — parser ไม่ขยับ).
+
+### 4. พิสูจน์ golden-neutral
+สแกน corpus จริง 148/1056: ฟิลด์ข้อความทุกตัว **เป็น str เสมอ** (0 non-str / 0 None) → coerce = **no-op** → golden คง `d8adc143`.
+`'12345'` (รหัส) เป็น str → กฎ **ตรวจได้ตามตรรกะ** (ITM007 ฟ้อง "ชื่อสั้น") ไม่ใช่ข้ามเงียบ → ปิด false-negative จริง.
+
+### 5. AUDIT robustness ครบ 60 กฎ (fuzz matrix)
+| ค่าที่ fuzz | ฟิลด์ | ก่อนแก้ | หลังแก้ |
+|---|---|---|---|
+| None/int/float/neg/0/huge/NaN/Inf/longstr/zero-width/full-width/emoji/bool/list | item ×7 + bill ×14 | **11 กฎครัช → SYS-*** | **0 SYS — 60 กฎรอดครบ** |
+ฟิลด์ตัวเลข (subtotal/vat/total/qty/price/amount) fuzz NaN/Inf/huge/neg = **ไม่ครัช** อยู่แล้ว (49 กฎไม่เคยครัช). SYS บน corpus = **0 คงเดิม**.
+
+### 6. Migration risk
+ต่ำสุด — coerce no-op บนข้อมูลจริง ; ไม่เพิ่ม/ลบ flag ใด ; ไม่แตะ parser/กฎ logic. ความเสี่ยงเดียวที่ปิด = false-negative เงียบ.
+
+### 7. ยืนยัน (gate ครบ)
+`regression_full . corpus` = `d8adc143` (engine==agent==baseline ✅) · SYS corpus = 0 · fixture `72cb832c` ✅ · doc-sync ✅ ·
+`PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · `make_release` fresh-extract reproduce `d8adc143`.
+**regression test:** `test_fuzz_rules_robust.py` (run_ci `[3n2]`) — 60 กฎ × fuzz matrix 462 cells = 0 SYS + detection คงอยู่ (พิสูจน์ tripwire: revert fix → SYS-CMP003/TAX004 โผล่ → test แดง).
+**git diff:** แตะเฉพาะ `rules_engine.py` (data-hygiene coerce) + `run_ci.sh` (wire) + test ใหม่ + ADR — parse-core §6 byte-identical.
