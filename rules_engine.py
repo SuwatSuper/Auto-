@@ -31,10 +31,10 @@ from rules_engine_rules_b import (   # [F3 de-star] explicit — ครอบ __
     r_vat001, r_vat002, r_vat003, r_vat004,
 )
 from rules_engine_rules_c import (   # [F3 de-star] explicit — ครอบ __all__ ∪ internal ∪ rules_engine.X attr
-    r_addr004, r_addr005, r_addr006, r_br003, r_cmp005,
+    r_addr004, r_addr005, r_addr006, r_addr007, r_addr010, r_br003, r_cmp005,
     r_doc003, r_dt004, r_itm016, r_itm018, r_iv007,
     r_tax007, r_tax008, r_tax009, r_vat005, r_vat006, r_vat007,
-    r_vat008, r_vat009, r_vat010, r_vat011,
+    r_vat008, r_vat009, r_vat010, r_vat011, r_vat012,
 )
 from config import (CONSTRUCTION_DICT, ITM012_MIN_WORD_LEN,  # [F3] explicit — config ที่ rules_engine ใช้
                     ITM012_SIM_THRESHOLD, PYTHAINLP_WHITELIST)
@@ -192,6 +192,8 @@ RULES = {
     'ADDR004':{'name':'กรุงเทพ vs ต่างจังหวัด format','severity':'WARNING','category':'ที่อยู่','check':r_addr004,'enabled':True},
     'ADDR005':{'name':'รหัสไปรษณีย์','severity':'INFO','category':'ที่อยู่','check':r_addr005,'enabled':True},
     'ADDR006':{'name':'ไปรษณีย์↔จังหวัด ไม่สอดคล้อง','severity':'WARNING','category':'ที่อยู่','check':r_addr006,'enabled':True},  # [B2] generalize ทุกจังหวัด (ไม่พึ่ง master) — เว้นกรุงเทพฯ (ADDR005 ดูแล). conservative: ฟ้องเฉพาะขัดกันชัด
+    'ADDR007':{'name':'ไปรษณีย์↔อำเภอ/เขต ไม่สอดคล้อง','severity':'WARNING','category':'ที่อยู่','check':r_addr007,'enabled':True},  # [ADR-122] เสริม ADDR006 ระดับอำเภอ (ตาราง 928 อำเภอ, ไม่พึ่ง master). conservative: ฟ้องเฉพาะ "รหัสเป็นของอำเภออื่นในจังหวัดเดียวกัน"
+    'ADDR010':{'name':'จังหวัดไม่ใช่ 1 ใน 77 (สะกดผิด/ปลอม)','severity':'WARNING','category':'ที่อยู่','check':r_addr010,'enabled':True},  # [ADR-122] จังหวัดในที่อยู่ต้องเป็นจังหวัดจริง (ไม่พึ่ง master). conservative
     'TAX007':{'name':'ประเภทนิติบุคคลจากหลักแรก','severity':'WARNING','category':'เลขภาษี','check':r_tax007,'enabled':True},
     'TAX008':{'name':'เลขภาษีเดียวชื่อต่าง (cross-bill)','severity':'CRITICAL','category':'เลขภาษี','check':r_tax008,'enabled':True},  # [B1] เลขภาษี 13 หลักตัวเดียวถูกใช้กับ "คนละบริษัทจริง" ข้ามบิล — ตรวจได้แม้ไม่มี master (จับสวมเลข/ปลอม). conservative: ฟ้องเฉพาะชื่อต่างชัด (เกณฑ์แนว CMP001)
     'TAX009':{'name':'ชื่อเดียวเลขภาษีต่าง (cross-bill)','severity':'WARNING','category':'เลขภาษี','check':r_tax009,'enabled':True},  # [BS-3/ADR-116] mirror TAX008 ทิศกลับ: ชื่อบริษัทเดียวกัน (ตรงชัด) ใช้เลขภาษี 13 หลัก ≥2 เลข → ผู้ขายรายเดียวพิมพ์เลขภาษีผิดบางใบ. conservative: ชื่อ normalize ตรงเป๊ะ + เลขครบ 13 หลัก. corpus=0 → golden-neutral
@@ -205,6 +207,7 @@ RULES = {
     'VAT008':{'name':'VAT เป็นศูนย์','severity':'INFO','category':'ยอดเงิน','check':r_vat008,'enabled':True},
     'VAT009':{'name':'Subtotal เป็นศูนย์/ไม่มี','severity':'ERROR','category':'ยอดเงิน','check':r_vat009,'enabled':True},
     'VAT011':{'name':'ใบมียอดแต่ VAT=0 (ยกเว้นจริง/ลืมคิด?)','severity':'INFO','category':'ยอดเงิน','check':r_vat011,'enabled':True},  # [BS-2/ADR-115] เติมรูที่ VAT008 เว้น (sub≈total → เดาว่ายกเว้น): subtotal≥1000 + VAT≈0 + total≈subtotal → REVIEW "ยกเว้นจริงหรือลืมคิด VAT?" (ไม่ใช่ ERROR — บางใบ zero-rated). corpus=0 → golden-neutral
+    'VAT012':{'name':'ยอดตัวอักษร↔ตัวเลข ไม่ตรง','severity':'ERROR','category':'ยอดเงิน','check':r_vat012,'enabled':True},  # [ADR-122] บาทตัวอักษร (ยอดรวมเป็นคำ) ≠ ยอดตัวเลข total — กันแก้เลขลืมแก้อักษร (ปลอมแปลง). conservative: แปลงไม่ได้/ไม่มี total_text → เงียบ. corpus=0 (ทุกใบตรง)
     'VAT010':{'name':'VAT ไม่ได้ตรวจจริง (ยอดถูกคำนวณเอง)','severity':'WARNING','category':'ยอดเงิน','check':r_vat010,'enabled':False},  # v9.1: ปิด/ลบการทำงานตามคำขอ — run_rules ข้ามกฎ enabled=False; r_vat010 เป็น pure check ไม่มี side-effect
 }
 

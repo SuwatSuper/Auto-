@@ -12,7 +12,7 @@ _rx.reexport(_up, globals(), exclude=('Decimal', 'ROUND_HALF_UP', '_RATE_MARKERS
 del _rx, _up
 import math   # [C-1/ADR-069] guard non-finite ในเส้น _tor_scan_* (กัน inf/NaN ไหลเข้า bill money)
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation  # [F2/ADR-020] money-math: VAT ด้วย Decimal+HALF_UP
-from puopuy_units import _money_q   # [F-1] ปัดเงิน HALF_UP แหล่งเดียว (แทน round() ในการเติม/derive ยอด)
+from puopuy_units import _money_q, baht_text_to_decimal   # [F-1] ปัดเงิน HALF_UP + [ADR-122] บาทอักษร→Decimal (VAT012)
 from parser_guards import (   # [F4 ceiling 11.06.69] ชั้นปราการ input + iv last-resort (ซอยตามเพดาน 600)
     apply_iv_lastresort_if_needed, get_files_via_drive, get_files_via_upload, _pb_iv_lastresort,
     reject_iv_equal_amount)   # [F-MONEYIV v9.3.1] กันยอดเงินถูกอ่านเป็นเลขที่เอกสาร
@@ -529,6 +529,44 @@ def _parse_tor_sheet(df, sheet_name, filename):
     _pb_finalize_amounts(result)   # [F-2/ADR-046] ติด amount_source/confidence เหมือน path ปกติ (เดิม TOR ข้าม → ไม่มี provenance)
     return result
 
+# [ADR-122] VAT012 enrichment — ดึง "บาทตัวอักษร (ยอดรวมเป็นคำ)" จากชีตมาแนบบิล เพื่อให้ VAT012
+#   เทียบ "ยอดตัวอักษร ↔ ยอดตัวเลข" (กันแก้เลขลืมแก้อักษร = ช่องปลอมแปลง). ทำที่ชั้น parse_sheet
+#   (มี df ครบ) แบบ ADDITIVE — ไม่แตะ seq/merge/serial core (§6). crash-safe (พังเงียบ→ไม่มี field).
+#   conservative: แนบเฉพาะ "1 บิล/ชีต" (corpus 100% เป็นแบบนี้) → กันแนบผิดบิลในชีตหลายบิล.
+def _grand_total_baht_text(df):
+    """หา 'บาทตัวอักษร' ที่ค่ามากสุดในชีต (= ยอดรวมเป็นคำ) → raw text หรือ None. crash-safe."""
+    try:
+        best = None  # (value, text)
+        M = df.to_numpy(dtype=object)
+        for r in range(M.shape[0]):
+            for cidx in range(M.shape[1]):
+                v = M[r, cidx]
+                if not isinstance(v, str):
+                    continue
+                s = v.strip()
+                if 'บาท' not in s or not _is_thai_amount_words(s):
+                    continue
+                val = baht_text_to_decimal(s)
+                if val is None:
+                    continue
+                if best is None or val > best[0]:
+                    best = (val, s)
+        return best[1] if best else None
+    except Exception:
+        return None
+
+def _maybe_attach_total_text(df, bills):
+    """แนบ bill['total_text'] (บาทตัวอักษรยอดรวม) เมื่อ '1 บิล/ชีต' + บิลมียอด total. ADDITIVE/crash-safe."""
+    try:
+        if len(bills) == 1 and bills[0].get('total') is not None and not bills[0].get('total_text'):
+            bt = _grand_total_baht_text(df)
+            if bt is not None:
+                bills[0]['total_text'] = bt
+    except Exception:
+        pass
+    return bills
+
+
 def parse_sheet(df, sheet_name, filename):
     nrows = df.shape[0]
 
@@ -536,7 +574,7 @@ def parse_sheet(df, sheet_name, filename):
     if _is_tor_format(df):
         b = _parse_tor_sheet(df, sheet_name, filename)
         if b and (b.get('items') or any(b.get(k) for k in ('subtotal','vat','total'))):
-            return [b]
+            return _maybe_attach_total_text(df, [b])
         return []
 
     vat_rows = _detect_vat_rows(df)
@@ -566,7 +604,7 @@ def parse_sheet(df, sheet_name, filename):
             b = _parse_block(df, sheet_name, filename, prev, nrows-1, len(vat_rows))
             if _is_real_bill(b):
                 bills.append(b)
-    return bills
+    return _maybe_attach_total_text(df, bills)
 
 # [BUG-3 FIX 11.06.69] SYS003 sheet-pattern: เดิม .isdigit() ไม่จับ '18 (2)' / '5.1' /
 #   '18#2' → ถ้าชีตหน้าต่อ parse ไม่ออก บิลหายเงียบไม่มี warning (dormant บน corpus

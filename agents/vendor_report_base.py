@@ -24,7 +24,7 @@ FIELD_LAYOUT: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     ("วันที่", ("DOC001", "DT")),
     ("เลขที่ iv", ("IV", "SEQ")),
     ("รายการสินค้า", ("ITM",)),
-    ("ยอดหลัง Vat", ("VAT002", "VAT003", "VAT004", "VAT007")),
+    ("ยอดหลัง Vat", ("VAT002", "VAT003", "VAT004", "VAT007", "VAT012")),
     ("ยอดก่อน vat", ("VAT001", "VAT005", "VAT006", "VAT008", "VAT009", "VAT011")),
 )
 

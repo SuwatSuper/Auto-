@@ -11,7 +11,7 @@
 
 ```bash
 python3 -c "import json;print(json.load(open('baseline.json'))['_sha256'])"
-# ปัจจุบัน: 0c575c61...  (golden ทางการ: 148 ไฟล์ /mnt/project, 1056 บิล — master ว่าง ไม่มีบริษัทฝัง)
+# ปัจจุบัน: 757751e7...  (golden ทางการ: 148 ไฟล์ /mnt/project, 1056 บิล — master ว่าง ไม่มีบริษัทฝัง)
 ```
 
 ยืนยันบนข้อมูลจริง (ต้องได้ค่าเดียวกันนี้ทั้ง 3 บรรทัด):
@@ -26,7 +26,8 @@ PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 regression_full.py . <โ�
 
 | hash (prefix) | คืออะไร | ตรวจด้วย |
 |---|---|---|
-| **`0c575c61`** | ✅ **golden ปัจจุบัน** — 148 ไฟล์ / 1056 บิล — rebaseline 2026-06-28 (ADR-121: เจ้าของอนุมัติเลิกฟ้อง "เจียร์" หลังค้นเน็ต [TOA เบอร์ 1 / HomePro ใช้ "เจียร์" มี ์ = มาตรฐานวงการ] → ลบ ITM010 pattern `เจียร์` + whitelist `แผ่นเจียร์` ใน ITM011 → ลบ **−6 flag** [TKH_69_0513 ×3 บิล], เพิ่ม 0, คำก้ำกึ่งอีก 4 คำ [แกลอน/อิฐบล็อค/พุ๊ก/คอนซูเมอร์] ยังฟ้อง · supersede ADR-084/090 เฉพาะ "เจียร์") · path-independent (ADR-037) | `regression_full.py . <data>` |
+| **`757751e7`** | ✅ **golden ปัจจุบัน** — 148 ไฟล์ / 1056 บิล — rebaseline 2026-06-28 (ADR-122: เจ้าของอนุมัติเพิ่มกฎตรวจ 3 ตัวปิด blind-spot — **VAT012** บาทอักษร↔ตัวเลข [กันแก้เลขลืมแก้อักษร, corpus +0] · **ADDR010** จังหวัดไม่ใช่ 1 ใน 77 [+1 'สมุทปราการ'] · **ADDR007** ไปรษณีย์↔อำเภอ [+5 JRN_69_054 'บ่อวิน'+20230=ศรีราชา ไม่ใช่เมืองชลบุรี] + field `total_text` ; +6 flag ทั้งหมด TP, fuzz 63 กฎไม่ครัช) · path-independent (ADR-037) | `regression_full.py . <data>` |
+| `0c575c61` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-122 — เพิ่มกฎ VAT012/ADDR010/ADDR007 + total_text) — ปลดระวาง · เคยเป็น golden ของ ADR-121 (เลิกฟ้อง "เจียร์" −6) · path-independent (ADR-037) | — |
 | `d8adc143` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-121 — เลิกฟ้อง "เจียร์") — ปลดระวาง · เคยเป็น golden ของ ADR-119 (BUG-1 ตัด FP "บสังกะสี" คลาสตัดคำ −1) + ADR-120 (GAP-A กฎครัช non-str → false-negative, golden-neutral) · path-independent (ADR-037) | — |
 | `31013a31` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-119 — ตัด FP "บสังกะสี" คลาสตัดคำ) — ปลดระวาง · rebaseline 2026-06-27 (ADR-104/105/106: ITM020 +52 + ITM019 +9 + P2 ZWNJ/header unit-data-quality) · path-independent (ADR-037) | — |
 | `9aded0ad` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-27 (ADR-104/105/106 — เพิ่ม ITM020 + P2 unit-data-quality) — ปลดระวาง · rebaseline 2026-06-26 (ADR-102: ลบบริษัทตัวอย่าง ฉี อัน ออกจาก `golden_snapshot.MASTER` → master ว่าง `{}` · CMP006 −50) · path-independent (ADR-037) | — |
@@ -43,7 +44,8 @@ PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 regression_full.py . <โ�
 | `ba9deda0` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-20 (ADR-055 — money-serial 43600→date misread ใน _pb_scan_header; แทน DT004+DOC001+IV004(false) ด้วย DT006 ต้นตอ) — ปลดระวาง | — |
 | `ddd06191` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-19 (ADR-051 — DT001 "012": int("012")=12 อ่านเป็น ธ.ค.ผิด บิลเป็น ม.ค. → ลบ false positive 22; ITM007/ITM015→advisory) — ปลดระวาง | — |
 | `df91493f` | ⏮️ golden 106 ไฟล์ **ก่อน** rebaseline 2026-06-19 (ADR-048 — corpus 106→148, BR สํา nikhahit, TKH discount qty misread) — ปลดระวาง | — |
-| **`72cb832c`** | ✅ **fixture golden ปัจจุบัน** (3 บิล, เร็ว — ไม่ต้องใช้ข้อมูลจริง) — rebaseline 2026-06-26 (ADR-102: ลบ master ฉี อัน → master ว่าง ; findings เท่าเดิม CMP006=0 issue=1, เปลี่ยนเฉพาะ field master_present) | `INVARIANTS/check_invariants.py` |
+| **`ad0c9dad`** | ✅ **fixture golden ปัจจุบัน** (3 บิล, เร็ว — ไม่ต้องใช้ข้อมูลจริง) — rebaseline 2026-06-28 (ADR-122: เพิ่ม field total_text + ADDR010 flag จังหวัด 'ทดสอบ'/'สาม' [ชื่อ synthetic ในเทส = ไม่ใช่จังหวัดจริง → ฟ้องถูก]) | `INVARIANTS/check_invariants.py` |
+| `72cb832c` | ⏮️ fixture golden **ก่อน** rebaseline 2026-06-28 (ADR-122 — total_text + ADDR010 synthetic) — ปลดระวาง · เคย rebaseline 2026-06-26 (ADR-102 — ลบ master ฉี อัน) | — |
 | `b5c415bb` | ⏮️ fixture golden **ก่อน** rebaseline 2026-06-26 (ADR-102 — ลบ master ฉี อัน → master ว่าง) — ปลดระวาง · rebaseline ADR-058 (ชีต 2/4/6 เลิกฟ้อง DOC001) | — |
 | `269ddaed` | ⏮️ fixture golden **ก่อน** rebaseline 2026-06-21 (ADR-058 — SHORT-format DOC001 guard) — ปลดระวาง | — |
 | `fff69fc6` | report hash (รายงาน Excel, normalize timestamp) | `verify_report_det.py` |

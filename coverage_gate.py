@@ -44,6 +44,7 @@ TESTS = [
     ["test_rules_coverage.py"], ["test_rules_extra.py"], ["test_rules_extra2.py"],
     ["test_rules_typo_branch.py"],   # r_itm004/r_itm010 typo emit branches (rules_b)
     ["test_fuzz_rules_robust.py"],   # [ADR-120 GAP-A] ครอบ branch coerce non-str ใน run_rules (data-hygiene)
+    ["test_adr122_new_rules.py"],    # [ADR-122] ครอบ branch ของ r_vat012/r_addr010/r_addr007 + baht converter
     # [ADR-088] เพิ่มเทส characterization ที่มีอยู่แล้ว (ADR-084/087) เข้า measurement —
     #   exercise _kw_in_name color-exclusion (line 142/144) + r_itm005 branches ที่ fixture ไม่ถึง.
     #   ไม่ใช่เทสปั้นเพื่อคะแนน: เป็นเทสจริงที่เขียนไว้แล้ว แค่ coverage_gate ไม่ได้รวมตอนวัด.

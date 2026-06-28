@@ -8,9 +8,9 @@
    ทุกการแก้ "engine/leaf" ต้องผ่าน:
    ```
    PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 \
-     python3 regression_full.py . tests/fixtures tests/fixtures/baseline_fixture.json   # 72cb832c… (fixture)
-     python3 golden_master.py . /tmp/x.json /mnt/project                                # 0c575c61… (148 ไฟล์ ทางการ)
-     python3 regression_full.py . <106-ไฟล์จริง>                                         # 0c575c61… (ทางการ)
+     python3 regression_full.py . tests/fixtures tests/fixtures/baseline_fixture.json   # ad0c9dad… (fixture)
+     python3 golden_master.py . /tmp/x.json /mnt/project                                # 757751e7… (148 ไฟล์ ทางการ)
+     python3 regression_full.py . <106-ไฟล์จริง>                                         # 757751e7… (ทางการ)
    ```
 2. **ออฟไลน์เป็นค่าตั้งต้น.** เน็ตเปิดได้เฉพาะตั้งใจผ่าน `PUOPUY_ALLOW_NETWORK=1` (ดู `offline_guard.py`).
 3. **ห้ามเพิ่มฟีเจอร์** เว้นแต่ได้รับอนุญาตชัดเจน. งานคุณภาพ (เสถียร/น่าเชื่อถือ/บำรุงรักษา) มาก่อน.

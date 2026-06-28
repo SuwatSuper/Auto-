@@ -10,7 +10,7 @@
 - `hooks/pre-commit` (ติดตั้งผ่าน `INVARIANTS/install_hooks.sh`) — บล็อก commit ถ้า invariant แตก
 - `golden_master.py` / `verify_golden.py` / `regression_full.py` — golden เต็มบนข้อมูลจริง 148 ไฟล์ (`/mnt/project`)
 
-> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-121 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`0c575c61…`** (= `baseline.json._sha256` = แหล่งความจริงเดียวของค่า hash · rebaseline 2026-06-28 ADR-121 (เจ้าของอนุมัติเลิกฟ้อง "เจียร์" หลังค้นเน็ต: TOA เบอร์ 1 / HomePro ใช้ "เจียร์" มี ์ = มาตรฐานวงการ → ลบ ITM010 pattern + whitelist `แผ่นเจียร์` ใน ITM011 → ลบ **−6 flag** [TKH_69_0513 ×3 บิล, ITM010×3+ITM011×3], เพิ่ม 0 · supersede ADR-084/090 เฉพาะ "เจียร์") · ก่อนหน้า rebaseline 2026-06-28 ADR-120 (GAP-A robustness — golden-neutral) + ADR-119 (BUG-1 ตัด FP "บสังกะสี" + ROBUST GAP-A) → golden เดิมปลดระวาง ดู GOLDEN.md/ledger · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
+> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-122 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`757751e7…`** (corpus) · fixture = **`ad0c9dad…`** (= `baseline.json._sha256` / `baseline_fixture.json._sha256` = แหล่งความจริงเดียว · rebaseline 2026-06-28 ADR-122 (เจ้าของอนุมัติเพิ่มกฎตรวจ 3 ตัว: **VAT012** บาทอักษร↔ตัวเลข [กันแก้เลขลืมแก้อักษร] · **ADDR010** จังหวัดไม่ใช่ 1 ใน 77 [+1 'สมุทปราการ'→สมุทรปราการ] · **ADDR007** ไปรษณีย์↔อำเภอ [+5 JRN_69_054: 'บ่อวิน'+20230 = ศรีราชา ไม่ใช่เมืองชลบุรี] + เพิ่ม field `total_text` (บาทอักษร) ที่ parser ; corpus +6 flag ทั้งหมด TP, fixture +2 ADDR010 [จังหวัด 'ทดสอบ'/'สาม' = synthetic] ; fuzz 63 กฎไม่ครัช) · ก่อนหน้า rebaseline 2026-06-28 ADR-121 (เลิกฟ้อง "เจียร์") / ADR-120 (GAP-A) / ADR-119 (FP บสังกะสี) → golden เดิมปลดระวาง ดู GOLDEN.md/ledger · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
 
 ---
 
@@ -40,8 +40,8 @@
 
 | ชุดข้อมูล | จำนวนไฟล์ | golden `_sha256` | สถานะการพิสูจน์ |
 |---|---|---|---|
-| **ข้อมูลจริง (ทางการ) — `/mnt/project`** | 148 | `0c575c61…` (= `baseline.json._sha256`) | ผู้ใช้รันยืนยันบนเครื่องตน · engine==agent==baseline (1056 บิล) · rebaseline ADR-121 (เลิกฟ้อง "เจียร์" −6, เจ้าของอนุมัติ) / ADR-120 (GAP-A robustness) / ADR-119 (FP "บสังกะสี" −1), FP=0 |
-| fixture (in-repo) | 1 ไฟล์ | `72cb832c9b667e796b86a78ec5e1b0556c9f19b50d15d7756df1cbd0a58e1f0a` | ยืนยันใน CI/pre-commit (เร็ว ~3s, ไม่ต้องมีข้อมูลจริง) · [ADR-086: แก้ค้าง d8bcde85] |
+| **ข้อมูลจริง (ทางการ) — `/mnt/project`** | 148 | `757751e7…` (= `baseline.json._sha256`) | ผู้ใช้รันยืนยันบนเครื่องตน · engine==agent==baseline (1056 บิล) · rebaseline ADR-122 (เพิ่มกฎ VAT012/ADDR010/ADDR007 + field total_text → +6 flag TP) / ADR-121 (เลิกฟ้อง "เจียร์") / ADR-119/120, FP=0 |
+| fixture (in-repo) | 1 ไฟล์ | `ad0c9dad6fb31bc28251605c1dbad9bf165299d19d11c4752e743477fa6c0749` | ยืนยันใน CI/pre-commit (เร็ว ~3s, ไม่ต้องมีข้อมูลจริง) · rebaseline ADR-122 (total_text + ADDR010 synthetic) · [ADR-086] |
 
 **กฎ:** การเปลี่ยน golden ของ "ข้อมูลจริง 148 ไฟล์ (`/mnt/project`)" ทำได้ก็ต่อเมื่อ **ผู้ใช้สั่งโดยตรง**
 เท่านั้น และต้องบันทึก ADR ใหม่อธิบายเหตุผล + regen baseline ด้วย `golden_master.py`.
@@ -2364,3 +2364,47 @@ sync OPERATIONAL_SURFACES (.vscode×2 / CLAUDE.md / MAINTENANCE.md / Makefile / 
 `regression_full . corpus` = `0c575c61` (engine==agent==baseline ✅) · `INVARIANTS/check_invariants.py` (fixture `72cb832c` + pin ✅) ·
 `test_golden_single_source.py` (doc-sync ✅) · `PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · `make_release.py` + fresh-extract reproduce `0c575c61`.
 **git diff:** แตะ `config_base.py` (2 บรรทัด) + bookkeeping + 2 เทส — parse-core §6 + rule logic byte-identical.
+
+
+# ── รอบเพิ่มกฎตรวจปิด blind-spot 2026-06-28 — ADR-122 ──
+> เจ้าของสั่ง "เพิ่มกฎตรวจ 3 ตัว (บาทอักษร↔ตัวเลข / ไปรษณีย์↔อำเภอ / จังหวัดปลอม) — ห้ามครัช + หาบั๊กแก้ก่อนส่ง".
+> golden-MOVING (เพิ่ม detection จริง — เจ้าของอนุมัติชัดเจน). corpus +6 flag (TP ทั้งหมด) + field total_text.
+
+
+## ADR-122 — [เพิ่มกฎ] VAT012 + ADDR010 + ADDR007 (ปิด detection blind-spot) — rebaseline `0c575c61…`→`757751e7…`
+
+**วันที่:** 2026-06-28 · **สถานะ:** ACTIVE · **golden:** corpus `0c575c61…`→`757751e7…` · fixture `72cb832c…`→`ad0c9dad…`
+**สั่งโดย:** เจ้าของ (Tor) — หลังถามว่า "กฎที่เปิดอยู่มี blind-spot อะไร" → อนุมัติเพิ่ม 3 กฎที่พบ
+**priority:** เพิ่มความครอบคลุมการตรวจ (detection) — additive, conservative (false-negative ดีกว่า false-positive)
+
+### 1. บริบท — ปิด 3 blind-spot ที่ยืนยันด้วย probe
+| กฎใหม่ | ตรวจอะไร | corpus |
+|---|---|---|
+| **VAT012** (ERROR) | ยอด "ตัวอักษร (บาทอักษร)" ≠ ยอดตัวเลข total — กันแก้เลขลืมแก้อักษร (ปลอมแปลง) | +0 (ทุกใบตรง) |
+| **ADDR010** (WARNING) | จังหวัดในที่อยู่ไม่ใช่ 1 ใน 77 จังหวัดจริง (สะกดผิด/ปลอม) | **+1** TP |
+| **ADDR007** (WARNING) | รหัสไปรษณีย์ ↔ อำเภอ/เขต ไม่สอดคล้อง (เสริม ADDR006 ระดับจังหวัด) | **+5** TP |
+
+### 2. หลักฐาน TP (forensic เทียบเซลล์จริง)
+- **ADDR010** TSH_69_054: เซลล์ "จังหวัดสมุทปราการ" — ตก ร (จริง = "สมุทรปราการ") → ฟ้อง "ใกล้ สมุทรปราการ".
+- **ADDR007** JRN_69_054 (×5 บิล): เซลล์ "ตำบลบ่อวิน **อำเภอเมืองชลบุรี** จังหวัดชลบุรี 20230" — แต่ บ่อวิน + รหัส 20230 อยู่ใน **อำเภอศรีราชา** (ไม่ใช่เมืองชลบุรี) → ฟ้อง "รหัส 20230 = ศรีราชา". (พบบั๊กจริงในข้อมูลลูกค้า)
+
+### 3. วิธีทำ (additive · ไม่แตะ seq/merge/serial §6 · ไม่แตะ rule logic เดิม)
+- **converter** `puopuy_units.baht_text_to_decimal` (คำเลขไทย→Decimal, รองรับสตางค์/ถ้วน) — พิสูจน์แปลง 801 บาทอักษรจริงใน corpus ครบ 100% (0 mis-parse).
+- **parser** `parse_sheet._maybe_attach_total_text` — ดึงบาทอักษรยอดรวมแนบ `bill['total_text']` เฉพาะ "1 บิล/ชีต" (corpus 100%). ADDITIVE/crash-safe (try/except). 872 บิลได้ total_text.
+- **data** `thai_district.py` — ตาราง (จังหวัด→อำเภอ→รหัส) 928 อำเภอ จาก thailand-geography-data (ชื่อจังหวัดตรง thai_postal 100%). `thai_postal`: `invalid_province_in_address` (ADDR010) + `district_postal_mismatch` (ADDR007).
+- **rules** `rules_engine_rules_c`: `r_vat012`/`r_addr010`/`r_addr007` (try/except, conservative — แปลง/ดึงไม่ได้ → เงียบ).
+- **register** ครบ: RULES (enabled) / code_labels.MAP / vendor_report_base.FIELD_LAYOUT / config.FIELD_CODES / ultra_agent / code_registry (derive).
+
+### 4. Delta (exact 148/1056) + bug hunt
+**corpus:** ADDR010 +1 · ADDR007 +5 · VAT012 +0 · field total_text บน 872 บิล. ไม่มีกฎเดิมขยับ (collateral 0).
+**fixture:** total_text + ADDR010 +2 (จังหวัด "ทดสอบ"/"สาม" = ชื่อ synthetic ในเทส = ไม่ใช่จังหวัดจริง → ฟ้องถูกต้อง).
+**bug hunt (ร้าย/กลาง/ต่ำ):** (กลาง) helper จังหวัด/อำเภอ ครัชเมื่อ addr เป็น non-str → **แก้** coerce str ต้นฟังก์ชัน ; (ร้าย) ยืนยันไม่มี — fuzz 63 กฎ × 462 cell = 0 SYS, adversarial converter/helper/rule = 0 crash.
+
+### 5. Migration risk
+ต่ำ-กลาง — เพิ่มกฎใหม่ (เปิด/ปิดได้) + field ใหม่ ไม่แตะ logic เดิม/parse-core. ความเสี่ยง FP คุมด้วย conservative design (พิสูจน์ corpus FP=0: ทุก flag เป็น TP, converter แปลง 801 บาทอักษรครบ).
+
+### 6. ยืนยัน (gate ครบ)
+`regression_full . corpus` = `757751e7` (engine==agent==baseline ✅) · fixture `ad0c9dad` ✅ · doc-sync ✅ · code-table consistency ✅ ·
+`PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · coverage ผ่าน · `make_release` reproduce `757751e7`.
+**regression test:** `test_adr122_new_rules.py` (run_ci `[3c4c]` + coverage) — 25 เคส ฟ้อง/เงียบถูก + 0 crash. fuzz `[3n2]` 63 กฎ.
+**git diff:** เพิ่ม `thai_district.py` ( data) ; แตะ `puopuy_units`/`thai_postal`/`rules_engine*`/`parser_p2` (additive) + register + bookkeeping — seq/merge/serial §6 byte-identical.

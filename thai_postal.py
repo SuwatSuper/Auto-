@@ -168,3 +168,118 @@ def postal_province_mismatch(addr):
     if any(z[:2] in valid for z in zips):
         return None
     return (province, zips[0], zips[0][:2])
+
+
+# ── [ADR-122] ADDR010 — จังหวัดที่ระบุในที่อยู่ "ไม่ใช่ 1 ใน 77 จังหวัดจริง" (สะกดผิด/ปลอม) ──
+# ตัวย่อ/ชื่อไม่เป็นทางการที่ "ถูกต้อง" (ไม่ใช่ typo) — กัน false-positive
+_PROVINCE_ALIASES = frozenset({
+    'กรุงเทพ', 'กรุงเทพฯ', 'กทม', 'กทม.', 'กรุงเทพมหานครฯ',
+    'อยุธยา', 'ศรีอยุธยา', 'บางกอก',
+})
+# token จับชื่อจังหวัดหลังคำนำหน้า 'จังหวัด'/'จ.' (Thai run ยาว 2-20 ตัว)
+_PROV_TOKEN_RE = re.compile(r'(?:จังหวัด|จ\.)\s*([ก-๙]{2,20})')
+
+
+def invalid_province_in_address(addr):
+    """ตรวจว่าที่อยู่ระบุ 'จังหวัด X' ที่ X ไม่ใช่จังหวัดจริง (สะกดผิด/ปลอม) — ไม่พึ่ง master.
+
+    คืน (token, suggestion|None) เมื่อพบจังหวัดที่ไม่ถูกต้อง ; None (เงียบ) เมื่อ:
+      - ที่อยู่มีจังหวัดจริงอยู่แล้ว (province_in_address เจอ word-boundary)  → ถูก
+      - ดึง token 'จังหวัด X' ไม่ได้ / X สั้น < 3 ตัว                        → ข้อมูลไม่พอ
+      - X เป็นตัวย่อ/ชื่อไม่เป็นทางการที่ยอมรับได้ (กรุงเทพ/อยุธยา ฯลฯ)       → ถูก
+      - X เป็น prefix/ส่วนของจังหวัดจริง หรือจังหวัดจริงเป็น prefix ของ X     → ถูก (ตัดท้ายเกิน)
+    conservative (false-negative ดีกว่า false-positive): ฟ้องเฉพาะกรณีชัด.
+    """
+    if not isinstance(addr, str):          # [ADR-122 hardening] กันครัชเมื่อ addr เป็น non-str (int/list/None)
+        addr = '' if addr is None else str(addr)
+    if not addr:
+        return None
+    # มีจังหวัดจริงในที่อยู่ (word-boundary) → ถูกต้อง ไม่ต้องตรวจ
+    if province_in_address(addr) is not None:
+        return None
+    m = _PROV_TOKEN_RE.search(addr)
+    if not m:
+        return None
+    tok = m.group(1).strip()
+    if len(tok) < 3 or tok in _PROVINCE_ALIASES:
+        return None
+    # ยอมรับถ้า token "ตรง/ใกล้ชิด" จังหวัดจริง — แต่กัน 'จังหวัด+คำเกิน' (เช่น สุโขทัยธานี = สุโขทัย+ธานี)
+    for pv in PROVINCE_POSTAL_PREFIXES:
+        if tok == pv:
+            return None
+        if tok.startswith(pv) and len(tok) - len(pv) <= 1:   # จังหวัด + วรรณยุกต์/ฯ (เชียงใหม่ฯ) → ถูก
+            return None
+        if pv.startswith(tok) and len(pv) - len(tok) <= 2:   # จังหวัดถูกตัดท้ายเล็กน้อย → conservative ถือว่าถูก
+            return None
+    for al in _PROVINCE_ALIASES:
+        if tok == al or (tok.startswith(al) and len(tok) - len(al) <= 1):
+            return None
+    # X ไม่ตรงจังหวัดจริงเลย → หา "ใกล้เคียงสุด" (typo) เพื่อแนะนำ
+    try:
+        from rapidfuzz import process, fuzz
+        best = process.extractOne(tok, list(PROVINCE_POSTAL_PREFIXES.keys()),
+                                  scorer=fuzz.ratio, score_cutoff=70)
+        suggestion = best[0] if best else None
+    except Exception:
+        suggestion = None
+    return (tok, suggestion)
+
+
+# ── [ADR-122] ADDR007 — รหัสไปรษณีย์ ↔ อำเภอ/เขต ไม่สอดคล้อง (เสริม ADDR006 ระดับจังหวัด) ──
+_DISTRICT_TOKEN_RE = re.compile(r'(?:อำเภอ|อ\.|เขต|ข\.)\s*([ก-๙]{2,25})')
+
+
+def district_postal_mismatch(addr):
+    """ตรวจ 'รหัสไปรษณีย์ ↔ อำเภอ/เขต' ไม่สอดคล้อง — ไม่พึ่ง master. conservative สุด (กัน FP).
+
+    คืน (district_token, postal, ชื่ออำเภอที่รหัสนี้เป็นจริง) เฉพาะเมื่อ "มั่นใจว่าผิดอำเภอ" =
+      - ดึงจังหวัด (word-boundary) + อำเภอ (อำเภอ/อ./เขต/ข.) + รหัสไปรษณีย์ที่ prefix ตรงจังหวัด ได้ครบ
+      - (จังหวัด, อำเภอ) อยู่ในตาราง DISTRICT_POSTAL  และรหัสนั้น "ไม่อยู่ในชุดของอำเภอนั้น"
+      - แต่รหัสนั้น "อยู่ในอำเภออื่นของจังหวัดเดียวกัน" (= รหัสจริงแต่คนละอำเภอ → ผิดชัด)
+    คืน None ทุกกรณีอื่น (ดึงไม่ครบ / อำเภอไม่รู้จัก / รหัสไม่อยู่ในจังหวัดเลย → ปล่อย ADDR006/typo).
+    """
+    if not isinstance(addr, str):          # [ADR-122 hardening] กันครัชเมื่อ addr เป็น non-str
+        addr = '' if addr is None else str(addr)
+    if not addr:
+        return None
+    province = province_in_address(addr)
+    if province is None or province in _ADDR006_SKIP_PROVINCES:
+        # หมายเหตุ: กรุงเทพฯ เว้น (ADDR005/006 ดูแลโซน) — เขต กทม. รหัส 10xxx ตรวจแยกได้ภายหลังถ้าต้องการ
+        if province is None:
+            return None
+    try:
+        from thai_district import DISTRICT_POSTAL
+    except Exception:
+        return None
+    dz = DISTRICT_POSTAL.get(province)
+    if not dz:
+        return None
+    zips = _ZIP_RE.findall(addr)
+    valid_pref = PROVINCE_POSTAL_PREFIXES.get(province, ())
+    prov_zips = [z for z in zips if z[:2] in valid_pref]
+    if len(prov_zips) != 1:                       # ไม่มี/หลายรหัสจังหวัด → กำกวม → เงียบ
+        return None
+    zip5 = prov_zips[0]
+    m = _DISTRICT_TOKEN_RE.search(addr)
+    if not m:
+        return None
+    tok = m.group(1).strip()
+    if len(tok) < 2:
+        return None
+    # จับคู่ token อำเภอกับอำเภอจริง (exact ก่อน ; ไม่งั้น prefix ที่ "ไม่กำกวม" = มีตัวเดียว)
+    matched = None
+    if tok in dz:
+        matched = tok
+    else:
+        cands = [d for d in dz if d.startswith(tok) or tok.startswith(d)]
+        if len(cands) == 1:
+            matched = cands[0]
+    if matched is None:                           # อำเภอไม่รู้จัก/กำกวม → เงียบ
+        return None
+    if zip5 in dz[matched]:                        # รหัสตรงอำเภอ → ถูก
+        return None
+    # รหัสนี้เป็นของ "อำเภออื่น" ในจังหวัดเดียวกันไหม → มั่นใจว่าผิดอำเภอ
+    others = [d for d, zs in dz.items() if d != matched and zip5 in zs]
+    if not others:                                # รหัสไม่อยู่อำเภอใดเลย (P.O.box/typo) → เงียบ (กัน FP)
+        return None
+    return (tok, zip5, others[0])

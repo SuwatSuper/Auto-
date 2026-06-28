@@ -189,3 +189,83 @@ def extract_unit_hint(name: Any) -> str:
         if rx.search(s):
             return hint
     return ''
+
+
+# ── [ADR-122] VAT012 — แปลง "ยอดเงินเป็นตัวอักษรไทย (บาทตัวอักษร)" → Decimal ─────────────────
+#   ใช้เทียบกับยอดตัวเลข (กันแก้เลขแต่ลืมแก้ตัวอักษร = ช่องปลอมแปลง). conservative สุด:
+#   แปลงไม่สะอาด/มีเศษคำแปลก → คืน None (กฎ VAT012 จะ "เงียบ" ไม่ฟ้อง → ไม่มี false-positive).
+_THAI_DIGIT = {'ศูนย์': 0, 'หนึ่ง': 1, 'สอง': 2, 'สาม': 3, 'สี่': 4, 'ห้า': 5,
+               'หก': 6, 'เจ็ด': 7, 'แปด': 8, 'เก้า': 9, 'เอ็ด': 1, 'ยี่': 2}
+_THAI_SCALE = {'สิบ': 10, 'ร้อย': 100, 'พัน': 1000, 'หมื่น': 10000, 'แสน': 100000}
+# longest-first เพื่อ tokenize ถูก (ยี่ ต้องลองก่อน, เอ็ด ก่อน เ-)
+_THAI_NUM_TOKENS = sorted(list(_THAI_DIGIT) + list(_THAI_SCALE) + ['ล้าน'], key=len, reverse=True)
+
+
+def _thai_words_to_int(s: Any) -> "int | None":
+    """แปลง 'คำเลขไทย' → int. คืน None ถ้ามี 'เศษที่ไม่ใช่คำเลข' (กัน mis-parse ชื่อสินค้า/ของแปลก)."""
+    if s is None:
+        return None
+    s = str(s).strip()
+    s = re.sub(r'[\s\(\)\-,\.]', '', s)        # ตัด whitespace/วงเล็บ/จุลภาค/จุด
+    if not s:
+        return None
+    result = 0      # ผลรวมก้อนล้านที่ commit แล้ว
+    current = 0     # ก้อนปัจจุบัน (< ล้าน)
+    last_digit = 0  # หลักหน่วยที่ค้างรอ scale
+    seen = False
+    i, n = 0, len(s)
+    while i < n:
+        for tok in _THAI_NUM_TOKENS:
+            if s.startswith(tok, i):
+                seen = True
+                if tok == 'ล้าน':
+                    current += last_digit
+                    if current == 0:           # 'ล้าน' ต้องมีค่านำหน้า — ไม่งั้นผิดรูป
+                        return None
+                    result += current * 1000000
+                    current = 0; last_digit = 0
+                elif tok in _THAI_SCALE:
+                    d = last_digit if last_digit else 1   # 'สิบ' เดี่ยว = 1×10
+                    current += d * _THAI_SCALE[tok]
+                    last_digit = 0
+                else:                          # digit word
+                    last_digit = _THAI_DIGIT[tok]
+                i += len(tok)
+                break
+        else:
+            return None                        # เจออักขระที่ไม่ใช่คำเลข → ไม่สะอาด → ยอมแพ้ (เงียบ)
+    if not seen:
+        return None
+    current += last_digit
+    return result + current
+
+
+def baht_text_to_decimal(s: Any) -> "Decimal | None":
+    """แปลง 'บาทตัวอักษร' (เช่น 'หกหมื่นแปดพันสี่ร้อยแปดสิบบาทถ้วน') → Decimal(68480.00).
+    รองรับสตางค์ ('...บาทห้าสิบสตางค์' → .50) + 'ถ้วน' (=.00). คืน None ถ้าแปลงไม่สะอาด/ไม่มี 'บาท'.
+    """
+    if not s:
+        return None
+    s = str(s).strip()
+    if 'บาท' not in s:
+        return None                            # ต้องมี 'บาท' จึงมั่นใจว่าเป็นยอดเงิน (กัน mis-parse)
+    baht_part, _, rest = s.partition('บาท')
+    baht = _thai_words_to_int(baht_part)
+    if baht is None:
+        return None
+    satang: int = 0
+    rest = rest.replace('ถ้วน', '').strip()
+    if 'สตางค์' in rest:
+        sat_part = rest.split('สตางค์')[0]
+        sat_val = _thai_words_to_int(sat_part)
+        if sat_val is None or not (0 <= sat_val <= 99):
+            return None
+        satang = sat_val
+        rest = ''                              # ใช้ส่วน สตางค์ แล้ว
+    elif rest:
+        # มีเศษหลัง 'บาท' ที่ไม่ใช่ 'ถ้วน'/'สตางค์' → ไม่สะอาด → เงียบ
+        return None
+    try:
+        return Decimal(baht) + (Decimal(satang) / Decimal(100))
+    except (InvalidOperation, ValueError):
+        return None

@@ -17,8 +17,61 @@ from rules_engine_base import (   # [F3 de-star] explicit re-export shim (split-
     statistics, timedelta, to_conf01, unicodedata,
     validate_company_prefix,
 )  # noqa: F401  (re-export ขึ้น chain — หลายชื่อไม่ได้ใช้ภายในไฟล์นี้)
-from thai_postal import postal_province_mismatch  # [B2] ตาราง prefix ไปรษณีย์→จังหวัด (data-driven)
+from thai_postal import (postal_province_mismatch,        # [B2] ตาราง prefix ไปรษณีย์→จังหวัด (data-driven)
+                         invalid_province_in_address,    # [ADR-122] ADDR010 จังหวัดไม่ใช่ 1 ใน 77
+                         district_postal_mismatch)        # [ADR-122] ADDR007 ไปรษณีย์↔อำเภอ
+from puopuy_units import baht_text_to_decimal             # [ADR-122] VAT012 บาทอักษร→Decimal
 from core_utils import iv_digits_garbage, iv_amount_fragment  # [D1/D2] เลขใบกำกับขยะ (single-source ใช้ร่วม parser guard)
+
+
+def r_vat012(b, m, c):
+    """[ADR-122] บาทตัวอักษร (ยอดรวมเป็นคำ) ↔ ยอดตัวเลข — กันแก้เลขแล้วลืมแก้ตัวอักษร (ช่องปลอมแปลง).
+    conservative: ไม่มี total_text / แปลงไม่ได้ / ไม่มี total → เงียบ. ฟ้องเมื่อต่าง > 0.50 บาท.
+    """
+    tt = b.get('total_text')
+    tot = b.get('total')
+    if not tt or tot is None:
+        return []
+    val = baht_text_to_decimal(tt)
+    if val is None:
+        return []
+    td = _D(tot)
+    if td is None:
+        return []
+    diff = abs(val - td)
+    if diff <= Decimal('0.50'):                  # ยอมเศษปัด/สตางค์
+        return []
+    return [f'ยอดเป็นตัวอักษร "{str(tt)[:40]}" = {val:,.2f} ≠ ยอดตัวเลข {td:,.2f} '
+            f'(ต่าง {diff:,.2f}) — ตรวจว่าแก้ตัวเลขแล้วลืมแก้ตัวอักษรหรือกลับกัน']
+
+
+def r_addr010(b, m, c):
+    """[ADR-122] จังหวัดในที่อยู่ไม่ใช่ 1 ใน 77 จังหวัดจริง (สะกดผิด/ปลอม) — ไม่พึ่ง master."""
+    try:
+        res = invalid_province_in_address(b.get('address', '') or '')
+    except Exception:
+        return []
+    if not res:
+        return []
+    tok, sug = res
+    if sug:
+        return [f'จังหวัด "{tok}" ไม่ใช่ชื่อจังหวัดที่ถูกต้อง — ใกล้เคียง "{sug}" (ตรวจการสะกด/พื้นที่)']
+    return [f'จังหวัด "{tok}" ไม่ใช่ 1 ใน 77 จังหวัดของไทย (ตรวจการสะกด/ที่อยู่)']
+
+
+def r_addr007(b, m, c):
+    """[ADR-122] รหัสไปรษณีย์ ↔ อำเภอ/เขต ไม่สอดคล้อง (เสริม ADDR006 ระดับจังหวัด) — ไม่พึ่ง master.
+    conservative: รหัส/อำเภอ ดึงไม่ได้ หรือไม่มีในตารางอ้างอิง → เงียบ (ไม่ FP).
+    """
+    try:
+        res = district_postal_mismatch(b.get('address', '') or '')
+    except Exception:
+        return []
+    if not res:
+        return []
+    district, postal, expected = res
+    exp = f' (รหัสนี้คือพื้นที่ {expected})' if expected else ''
+    return [f'รหัสไปรษณีย์ {postal} ไม่สอดคล้องกับ "{district}" ในที่อยู่{exp} — ตรวจที่อยู่/รหัสไปรษณีย์']
 
 def r_vat005(b,m,c):
     try:

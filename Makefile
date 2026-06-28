@@ -16,10 +16,10 @@ help:
 	@echo "  make pinned          - ตรึง 3 จุด APPROX"
 	@echo "  make mesh            - สัญญา mesh (Tier-2 ไม่เพี้ยนเงียบ)"
 	@echo "  make agents          - สัญญา agent บน fixture"
-	@echo "  make regression      - regression engine==agent บน fixture (hash 72cb832c)"
+	@echo "  make regression      - regression engine==agent บน fixture (hash ad0c9dad)"
 	@echo "  make coverage        - coverage gate (line ≥90% + branch ≥85%; override: BRANCH_MIN=NN)"
 	@echo "  make ci              - รันด่านทั้งหมด (gate+smoke+pinned+mesh+agents+regression+coverage)"
-	@echo "  make regression-real DATA=<dir> - regression เต็มบนข้อมูลจริง (baseline 0c575c61, 148 ไฟล์)"
+	@echo "  make regression-real DATA=<dir> - regression เต็มบนข้อมูลจริง (baseline 757751e7, 148 ไฟล์)"
 	@echo "  make agents-real DATA=<dir>     - สัญญา agent + เช็คเลข baseline (ต้องมี 148 ไฟล์)"
 	@echo "  make baseline-fixture - สร้าง baseline ของ fixture ใหม่ (เมื่อแก้ fixture โดยตั้งใจ)"
 
