@@ -11,7 +11,7 @@
 
 ```bash
 python3 -c "import json;print(json.load(open('baseline.json'))['_sha256'])"
-# ปัจจุบัน: 757751e7...  (golden ทางการ: 148 ไฟล์ /mnt/project, 1056 บิล — master ว่าง ไม่มีบริษัทฝัง)
+# ปัจจุบัน: 23b315e8...  (golden ทางการ: 148 ไฟล์ /mnt/project, 1056 บิล — master ว่าง ไม่มีบริษัทฝัง)
 ```
 
 ยืนยันบนข้อมูลจริง (ต้องได้ค่าเดียวกันนี้ทั้ง 3 บรรทัด):
@@ -26,7 +26,8 @@ PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 regression_full.py . <โ�
 
 | hash (prefix) | คืออะไร | ตรวจด้วย |
 |---|---|---|
-| **`757751e7`** | ✅ **golden ปัจจุบัน** — 148 ไฟล์ / 1056 บิล — rebaseline 2026-06-28 (ADR-122: เจ้าของอนุมัติเพิ่มกฎตรวจ 3 ตัวปิด blind-spot — **VAT012** บาทอักษร↔ตัวเลข [กันแก้เลขลืมแก้อักษร, corpus +0] · **ADDR010** จังหวัดไม่ใช่ 1 ใน 77 [+1 'สมุทปราการ'] · **ADDR007** ไปรษณีย์↔อำเภอ [+5 JRN_69_054 'บ่อวิน'+20230=ศรีราชา ไม่ใช่เมืองชลบุรี] + field `total_text` ; +6 flag ทั้งหมด TP, fuzz 63 กฎไม่ครัช) · path-independent (ADR-037) | `regression_full.py . <data>` |
+| **`23b315e8`** | ✅ **golden ปัจจุบัน** — 148 ไฟล์ / 1056 บิล — rebaseline 2026-06-28 (ADR-123: เจ้าของอนุมัติเคลียร์คำ "ตรวจตาเพิ่ม/ก้ำกึ่ง" ให้ขาด — หลัก "คำผิดในรายการสินค้า ต้องเป็นคำที่ผิดแน่ๆ เท่านั้น" · **กลุ่ม B เลิกฟ้อง** [ทับศัพท์หลายรูปใช้จริง: แกลอน·อิฐบล็อค·ตู้คอนซูเมอร์·พุ๊ก/พุ๊กเคมี·อะครีลิค·อีพ๊อกซี่·แป๊ป/แป็ป] → ลบ pattern ITM010/ITM004 + whitelist : −34 flag · **กลุ่ม A คงฟ้อง(รีเช็ค)** เพิ่ม ITM010 `(?<!เ)หล็กฉาก`→เหล็กฉาก : +1 flag [TKH_69_06 #12] · net −33 · word-spelling "ตรวจตาเพิ่ม" บน corpus 2→0 · fuzz 107 pattern ไม่ครัช) · path-independent (ADR-037) | `regression_full.py . <data>` |
+| `757751e7` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-123 — เคลียร์คำก้ำกึ่ง: กลุ่ม B เลิกฟ้อง −34 + กลุ่ม A หล็กฉาก +1) — ปลดระวาง · เคยเป็น golden ของ ADR-122 (เพิ่มกฎ VAT012/ADDR010/ADDR007 + total_text) · path-independent (ADR-037) | — |
 | `0c575c61` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-122 — เพิ่มกฎ VAT012/ADDR010/ADDR007 + total_text) — ปลดระวาง · เคยเป็น golden ของ ADR-121 (เลิกฟ้อง "เจียร์" −6) · path-independent (ADR-037) | — |
 | `d8adc143` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-121 — เลิกฟ้อง "เจียร์") — ปลดระวาง · เคยเป็น golden ของ ADR-119 (BUG-1 ตัด FP "บสังกะสี" คลาสตัดคำ −1) + ADR-120 (GAP-A กฎครัช non-str → false-negative, golden-neutral) · path-independent (ADR-037) | — |
 | `31013a31` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-119 — ตัด FP "บสังกะสี" คลาสตัดคำ) — ปลดระวาง · rebaseline 2026-06-27 (ADR-104/105/106: ITM020 +52 + ITM019 +9 + P2 ZWNJ/header unit-data-quality) · path-independent (ADR-037) | — |

@@ -44,24 +44,24 @@ def main():
     # คำที่ Tor อนุมัติ "ยกเว้น (whitelist)" → ต้องอยู่ใน CONSTRUCTION_DICT (fuzzy เลิกฟ้อง)
     for w in ('สวิตซ์', 'สวิตซ์ทางเดียว', 'สวิตซ์สองทาง', 'สวิตซ์สามทาง'):
         _check(w in CONSTRUCTION_DICT, f"'สวิตซ์' whitelisted: {w!r} อยู่ใน CONSTRUCTION_DICT")
-    # คำที่ Tor ตัดสิน "คงไว้ (ฟ้องต่อ)" → ต้องยังเป็น typo-pattern target
-    # [ADR-121] ถอด 'เจียร์' ออก — เจ้าของอนุมัติเลิกฟ้อง (TOA/HomePro ใช้ "เจียร์" มี ์ = มาตรฐานวงการ)
-    #   หลังค้นเน็ต → supersede ADR-084/090. 'พุ๊ก' ยัง "คงไว้" (มาตรฐาน = พุก).
-    for w in ('พุ๊ก',):
-        _check(any(w in core for core in pattern_cores), f"'{w}' คงไว้: ยังเป็น typo-pattern target")
     # [ADR-121] 'เจียร์' ต้อง "ไม่" เป็น typo-pattern target อีก (ลบแล้ว) + 'แผ่นเจียร์' อยู่ใน WHITELIST
     _check(not any('เจียร์' == core for core in pattern_cores),
            "'เจียร์' เลิกฟ้อง (ADR-121): ไม่เป็น typo-pattern target แล้ว")
     _check('แผ่นเจียร์' in PYTHAINLP_WHITELIST,
            "'แผ่นเจียร์' อยู่ใน PYTHAINLP_WHITELIST (ADR-121 — ITM011 fuzzy เลิกฟ้อง)")
-    # แกลอน/มั้วน = typo จริง คงไว้
-    for w in ('มั้วน', 'แกนลอน'):
+    # [ADR-123 2026-06-28] เคลียร์คำก้ำกึ่ง — supersede ADR-084/090 สำหรับกลุ่ม B:
+    #   เจ้าของหลัก "คำผิดในรายการสินค้า ต้องเป็นคำที่ผิดแน่ๆ เท่านั้น" → ทับศัพท์หลายรูปใช้จริง = เลิกฟ้อง.
+    #   'พุ๊ก' (เดิม ADR-084 คงไว้) + 'อิฐบล็อค' (เดิม ADR-090 คงไว้ฟ้อง ITM011) → ย้ายเข้า whitelist.
+    for w in ('พุ๊ก', 'พุ๊กเคมี', 'แกลอน', 'อิฐบล็อค', 'ตู้คอนซูเมอร์',
+              'อะครีลิค', 'อีพ๊อกซี่', 'แป๊ป', 'แป็ป'):
+        _check(w in PYTHAINLP_WHITELIST, f"'{w}' เลิกฟ้อง (ADR-123 กลุ่ม B): อยู่ใน PYTHAINLP_WHITELIST")
+    # กลุ่ม B ต้อง "ไม่" เป็น typo-pattern target อีก (ลบ pattern ITM010/ITM004 แล้ว)
+    for w in ('พุ๊ก', 'ครีลิ', 'อีพ๊อก'):
+        _check(not any(w == core for core in pattern_cores),
+               f"'{w}' ลบจาก typo-pattern แล้ว (ADR-123 กลุ่ม B)")
+    # กลุ่ม A = typo จริง คงไว้ (รวม 'หล็กฉาก' ที่ ADR-123 เพิ่มเป็น ITM010 รีเช็ค)
+    for w in ('มั้วน', 'แกนลอน', 'หล็กฉาก'):
         _check(any(w in core for core in pattern_cores), f"'{w}' typo จริง: ยังเป็น typo-pattern target")
-    # [ADR-090] Tor ตัดสิน 2026-06-24 "คงไว้ทั้ง Cat B": พุ๊ก/เจียร์ (re-confirm ADR-084 ด้านบน) +
-    #   'อิฐบล็อค' (ใหม่). อิฐบล็อค ฟ้องผ่าน ITM011 fuzzy (~87% ใกล้ 'อิฐบล็อก') ไม่ใช่ dict-pattern →
-    #   "คงไว้" = ต้อง 'อิฐบล็อค' ไม่อยู่ใน CONSTRUCTION_DICT (ถ้าใส่ = fuzzy เลิกฟ้อง = เผลอ suppress).
-    _check('อิฐบล็อค' not in CONSTRUCTION_DICT,
-           "'อิฐบล็อค' คงไว้ (ADR-090): ต้องไม่อยู่ใน CONSTRUCTION_DICT (ฟ้อง ITM011 fuzzy ต่อ)")
 
     print()
     print('=== [B] consistency: คำใน dict (ถือว่าถูก) ต้องไม่เป็น literal typo-pattern target (กัน ปี๊ป-class) ===')

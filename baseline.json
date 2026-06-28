@@ -1,5 +1,5 @@
 {
- "_sha256": "757751e778354efc9484239bdb1a22bb0b7b18db4b20699a825578d8ea128887",
+ "_sha256": "23b315e809b6a2d095f2192a68dfc11e789a69b0b8d9f55ed994b70788517301",
  "all_bills": [
   {
    "address": "98/959 หมู่ที่ 11 ถนน บางกรวย-ไทรน้อย ตำบลบางบัวทอง อำเภอบางบัวทอง จังหวัดนนทบุรี 11110",
@@ -2676,15 +2676,7 @@
     "year": 2569
    },
    "filepath": "EKS_69_05.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#2: \"แป็ป\" → \"แป๊บ\" [พบ: \"แป็ป\"] ใน \"เหล็กแป็ปกลมดำ 4นิ้ว หนา 3.2 มม. ยาว 6 เ\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 360000.0,
@@ -23452,43 +23444,7 @@
     "year": 2569
    },
    "filepath": "KTV_69_056.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM004",
-     "detail": "#3: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา)",
-     "name": "คำสะกด pattern",
-     "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM004",
-     "detail": "#4: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม TOA รุ่น 2010 ขนาด 5 แก)",
-     "name": "คำสะกด pattern",
-     "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#3: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#4: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม TOA รุ่น 2010 ขนาด 5 แก\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#3: \"แกลอน\" ใกล้เคียง \"แกลลอน\" (~90%) — อาจสะกดผิด",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 27750.0,
@@ -24184,21 +24140,7 @@
     {
      "category": "รายการสินค้า",
      "code": "ITM010",
-     "detail": "#2: \"แป๊ป\" → \"แป๊บ\" [พบ: \"แป๊ป\"] ใน \"แป๊ปแบนการาไนช์ 3*1 1/2*1.4\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
      "detail": "#2: \"การาไนช์\" → \"กัลวาไนซ์\" (galvanized) [พบ: \"การาไนช์\"] ใน \"แป๊ปแบนการาไนช์ 3*1 1/2*1.4\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#3: \"แป๊ป\" → \"แป๊บ\" [พบ: \"แป๊ป\"] ใน \"แป๊ปแบนการาไนช์ 3*11/2*1.4\"",
      "name": "Thai char-pattern typo",
      "severity": "WARNING"
     },
@@ -28977,13 +28919,6 @@
      "detail": "#5 \"BL ตู้คอนซูเมอร์ ยูนิต 8+4 ช่อ\" — หน่วย=ชิ้น อาจไม่เหมาะ (ปกติใช้ ['ตู้', 'ใบ']) [soft]",
      "name": "หน่วย keyword",
      "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#5: \"ตู้คอนซูเมอร์\" ใกล้เคียง \"ตู้คอนซูมเมอร์\" (~96%) — สะกดผิดชัดเจน",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
     }
    ],
    "items": [
@@ -29598,13 +29533,6 @@
      "detail": "#5 \"BL ตู้คอนซูเมอร์ ยูนิต 8+4 ช่อ\" — หน่วย=ชิ้น อาจไม่เหมาะ (ปกติใช้ ['ตู้', 'ใบ']) [soft]",
      "name": "หน่วย keyword",
      "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#5: \"ตู้คอนซูเมอร์\" ใกล้เคียง \"ตู้คอนซูมเมอร์\" (~96%) — สะกดผิดชัดเจน",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
     }
    ],
    "items": [
@@ -32320,13 +32248,6 @@
      "category": "รายการสินค้า",
      "code": "ITM010",
      "detail": "#4: \"แกนลอน\" → \"แกลลอน\" [พบ: \"แกนลอน\"] ใน \"สีอีพ็อกซี่ 1/4 แกนลอน TOA รัสเทค (10026\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#5: \"อีพ๊อกซี่\" → \"อีพ็อกซี่\" (epoxy, ๊→็) [พบ: \"อีพ๊อก\"] ใน \"สีอีพ๊อกซี่ทาพื้นชนิดปรับระดับทีโอเอ\"",
      "name": "Thai char-pattern typo",
      "severity": "WARNING"
     }
@@ -38096,15 +38017,7 @@
     "year": 2569
    },
    "filepath": "SHS_69_04_เพ__ม_2.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#2: \"แป๊ป\" → \"แป๊บ\" [พบ: \"แป๊ป\"] ใน \"แป๊ปกล่องสแตนเลส 50*25*1.2mm\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 35400.0,
@@ -40163,13 +40076,6 @@
     {
      "category": "รายการสินค้า",
      "code": "ITM010",
-     "detail": "#1: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"สีน้ำอะครีลิกกึ่งเงา G-142 เบเยอร์ชิลด์ \"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
      "detail": "#7: \"เปอร์ตแลนด์\" → \"ปอร์ตแลนด์\" (Portland, ยืนยันราชบัณฑิต/SCG) [พบ: \"เปอร์ตแลนด์\"] ใน \"ปูนเปอร์ตแลนด์ 50 กก.\"",
      "name": "Thai char-pattern typo",
      "severity": "WARNING"
@@ -40751,13 +40657,6 @@
      "detail": "#5 \"ปูน TPI 299\" — หน่วย=ตัน อาจไม่เหมาะ (ปกติใช้ ['ถุง', 'กก.']) [soft]",
      "name": "หน่วย keyword",
      "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#4: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"สีน้ำอะครีลิก # 142-4 นาโนโปรชิลด์ (Grag\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
     }
    ],
    "items": [
@@ -43828,15 +43727,7 @@
     "year": 2569
    },
    "filepath": "STC_69_05.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#1: \"แป็ป\" → \"แป๊บ\" [พบ: \"แป็ป\"] ใน \"เหล็กแป็ปกลมดำ 4นิ้ว หนา 3.2 มม. ยาว 6 เ\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 90000.0,
@@ -54607,13 +54498,6 @@
     },
     {
      "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#8: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"สีน้ำอะครีลิกกึ่งเงา G-142 เบเยอร์ชิลด์ \"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
      "code": "ITM015",
      "detail": "#5 \"เหล็กฉาก 25 x 25 x 3 มม.\" — ใช้หน่วย ['PCS.', 'เส้น'] ในชุดเดียวกัน",
      "name": "ชื่อเดียวกันใช้หน่วยต่าง",
@@ -54923,15 +54807,7 @@
     "year": 2569
    },
    "filepath": "TKH_69_05_2.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#8: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"สีน้ำอะครีลิก # 142-4 นาโนโปรชิลด์ (Grag\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 14625.0,
@@ -55463,13 +55339,6 @@
      "detail": "#4 \"ใบตัดเหล็ก 16 นิ้ว MAKITA รุ่น\" — หน่วย=แผ่น อาจไม่เหมาะ (ปกติใช้ ['ใบ', 'แพ็ค']) [soft]",
      "name": "หน่วย keyword",
      "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#3: \"อีพ๊อกซี่\" → \"อีพ็อกซี่\" (epoxy, ๊→็) [พบ: \"อีพ๊อก\"] ใน \"สีอีพ๊อกซี่ Base D สูตรน้ำ 5L\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
     }
    ],
    "items": [
@@ -55823,13 +55692,6 @@
      "detail": "#3 \"ใบตัดเหล็ก 16 นิ้ว MAKITA รุ่น\" — หน่วย=แผ่น อาจไม่เหมาะ (ปกติใช้ ['ใบ', 'แพ็ค']) [soft]",
      "name": "หน่วย keyword",
      "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#2: \"อีพ๊อกซี่\" → \"อีพ็อกซี่\" (epoxy, ๊→็) [พบ: \"อีพ๊อก\"] ใน \"สีอีพ๊อกซี่ Base D สูตรน้ำ 5L\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
     }
    ],
    "items": [
@@ -56046,15 +55908,7 @@
     "year": 2569
    },
    "filepath": "TKH_69_05_เพ__ม_2.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#1: \"อีพ๊อกซี่\" → \"อีพ็อกซี่\" (epoxy, ๊→็) [พบ: \"อีพ๊อก\"] ใน \"สีอีพ๊อกซี่ Base D สูตรน้ำ 5L\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 51480.0,
@@ -56383,6 +56237,13 @@
      "detail": "#14 \"สีรองพื้นกันสนิมเรดเลดไออน\" — หน่วย=แกนลอน อาจไม่เหมาะ (ปกติใช้ ['แกลลอน', 'กระป๋อง']) [soft]",
      "name": "หน่วย keyword",
      "severity": "INFO"
+    },
+    {
+     "category": "รายการสินค้า",
+     "code": "ITM010",
+     "detail": "#12: \"หล็กฉาก\" → \"เหล็กฉาก\" [พบ: \"หล็กฉาก\"] ใน \"หล็กฉาก 3 มม. มอก. ขนาด 1 1/2 x 1 1/2 นิ\"",
+     "name": "Thai char-pattern typo",
+     "severity": "WARNING"
     },
     {
      "category": "รายการสินค้า",
@@ -68040,27 +67901,6 @@
    "issues": [
     {
      "category": "รายการสินค้า",
-     "code": "ITM004",
-     "detail": "#3: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา)",
-     "name": "คำสะกด pattern",
-     "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#3: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#3: \"แกลอน\" ใกล้เคียง \"แกลลอน\" (~90%) — อาจสะกดผิด",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
      "code": "ITM019",
      "detail": "#4 \"ทินเนอร์(ปี๊ป)ป้ายเขียว HERO\" — หน่วย \"ปี๊ป\" สะกด/รูปไม่มาตรฐาน ควรเป็น \"ปี๊บ\"",
      "name": "หน่วยสินค้าผิด/ขาดหาย (ตรวจเพิ่ม)",
@@ -68399,30 +68239,9 @@
     },
     {
      "category": "รายการสินค้า",
-     "code": "ITM004",
-     "detail": "#3: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา)",
-     "name": "คำสะกด pattern",
-     "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
      "code": "ITM010",
      "detail": "#1: \"ปลายสว่าง\" → \"ปลายสว่าน\" [พบ: \"สกรูปลายสว่าง\"] ใน \"สกรูปลายสว่างหัวเตเปอร์\"",
      "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#3: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#3: \"แกลอน\" ใกล้เคียง \"แกลลอน\" (~90%) — อาจสะกดผิด",
-     "name": "Fuzzy Thai dict",
      "severity": "WARNING"
     }
    ],
@@ -69078,13 +68897,6 @@
     {
      "category": "รายการสินค้า",
      "code": "ITM004",
-     "detail": "#3: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา)",
-     "name": "คำสะกด pattern",
-     "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM004",
      "detail": "#14: น่าจะ \"ปลายสว่าน\" (สกรูปลายสว่างหัวเตเปอร์)",
      "name": "คำสะกด pattern",
      "severity": "INFO"
@@ -69113,22 +68925,8 @@
     {
      "category": "รายการสินค้า",
      "code": "ITM010",
-     "detail": "#3: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
      "detail": "#14: \"ปลายสว่าง\" → \"ปลายสว่าน\" [พบ: \"สกรูปลายสว่าง\"] ใน \"สกรูปลายสว่างหัวเตเปอร์\"",
      "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#3: \"แกลอน\" ใกล้เคียง \"แกลลอน\" (~90%) — อาจสะกดผิด",
-     "name": "Fuzzy Thai dict",
      "severity": "WARNING"
     },
     {
@@ -73829,13 +73627,6 @@
      "severity": "INFO"
     },
     {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#1: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"ซุปเปอร์ชิลด์ สีน้ำอะครีลิค ชนิดเนียน / \"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
      "category": "ที่อยู่",
      "code": "ADDR010",
      "detail": "จังหวัด \"สมุทปราการ\" ไม่ใช่ชื่อจังหวัดที่ถูกต้อง — ใกล้เคียง \"สมุทรปราการ\" (ตรวจการสะกด/พื้นที่)",
@@ -74930,22 +74721,7 @@
     "year": 2569
    },
    "filepath": "TSH_69_05__1.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#8: \"พุ๊ก\" → \"พุก\" [พบ: \"พุ๊ก\"] ใน \"พุ๊กเคมี + สตัด M16\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#8: \"พุ๊กเคมี\" ใกล้เคียง \"พุกเคมี\" (~93%) — อาจสะกดผิด",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 6606.0,
@@ -75397,15 +75173,7 @@
     "year": 2569
    },
    "filepath": "TSH_69_06.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#2: \"อิฐบล็อค\" ใกล้เคียง \"อิฐบล็อก\" (~87%) — ใกล้เคียง (ตรวจสอบ)",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 12500.0,
@@ -75500,13 +75268,6 @@
      "code": "DT002",
      "detail": "วันที่ 05/06/2026 เป็น future",
      "name": "ไม่ใช่ future",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#2: \"อิฐบล็อค\" ใกล้เคียง \"อิฐบล็อก\" (~87%) — ใกล้เคียง (ตรวจสอบ)",
-     "name": "Fuzzy Thai dict",
      "severity": "WARNING"
     }
    ],
@@ -82510,15 +82271,7 @@
       "year": 2569
      },
      "filepath": "EKS_69_05.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#2: \"แป็ป\" → \"แป๊บ\" [พบ: \"แป็ป\"] ใน \"เหล็กแป็ปกลมดำ 4นิ้ว หนา 3.2 มม. ยาว 6 เ\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 360000.0,
@@ -103286,43 +103039,7 @@
       "year": 2569
      },
      "filepath": "KTV_69_056.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM004",
-       "detail": "#3: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา)",
-       "name": "คำสะกด pattern",
-       "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM004",
-       "detail": "#4: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม TOA รุ่น 2010 ขนาด 5 แก)",
-       "name": "คำสะกด pattern",
-       "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#3: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#4: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม TOA รุ่น 2010 ขนาด 5 แก\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#3: \"แกลอน\" ใกล้เคียง \"แกลลอน\" (~90%) — อาจสะกดผิด",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 27750.0,
@@ -104018,21 +103735,7 @@
       {
        "category": "รายการสินค้า",
        "code": "ITM010",
-       "detail": "#2: \"แป๊ป\" → \"แป๊บ\" [พบ: \"แป๊ป\"] ใน \"แป๊ปแบนการาไนช์ 3*1 1/2*1.4\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
        "detail": "#2: \"การาไนช์\" → \"กัลวาไนซ์\" (galvanized) [พบ: \"การาไนช์\"] ใน \"แป๊ปแบนการาไนช์ 3*1 1/2*1.4\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#3: \"แป๊ป\" → \"แป๊บ\" [พบ: \"แป๊ป\"] ใน \"แป๊ปแบนการาไนช์ 3*11/2*1.4\"",
        "name": "Thai char-pattern typo",
        "severity": "WARNING"
       },
@@ -108811,13 +108514,6 @@
        "detail": "#5 \"BL ตู้คอนซูเมอร์ ยูนิต 8+4 ช่อ\" — หน่วย=ชิ้น อาจไม่เหมาะ (ปกติใช้ ['ตู้', 'ใบ']) [soft]",
        "name": "หน่วย keyword",
        "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#5: \"ตู้คอนซูเมอร์\" ใกล้เคียง \"ตู้คอนซูมเมอร์\" (~96%) — สะกดผิดชัดเจน",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
       }
      ],
      "items": [
@@ -109432,13 +109128,6 @@
        "detail": "#5 \"BL ตู้คอนซูเมอร์ ยูนิต 8+4 ช่อ\" — หน่วย=ชิ้น อาจไม่เหมาะ (ปกติใช้ ['ตู้', 'ใบ']) [soft]",
        "name": "หน่วย keyword",
        "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#5: \"ตู้คอนซูเมอร์\" ใกล้เคียง \"ตู้คอนซูมเมอร์\" (~96%) — สะกดผิดชัดเจน",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
       }
      ],
      "items": [
@@ -112154,13 +111843,6 @@
        "category": "รายการสินค้า",
        "code": "ITM010",
        "detail": "#4: \"แกนลอน\" → \"แกลลอน\" [พบ: \"แกนลอน\"] ใน \"สีอีพ็อกซี่ 1/4 แกนลอน TOA รัสเทค (10026\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#5: \"อีพ๊อกซี่\" → \"อีพ็อกซี่\" (epoxy, ๊→็) [พบ: \"อีพ๊อก\"] ใน \"สีอีพ๊อกซี่ทาพื้นชนิดปรับระดับทีโอเอ\"",
        "name": "Thai char-pattern typo",
        "severity": "WARNING"
       }
@@ -117930,15 +117612,7 @@
       "year": 2569
      },
      "filepath": "SHS_69_04_เพ__ม_2.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#2: \"แป๊ป\" → \"แป๊บ\" [พบ: \"แป๊ป\"] ใน \"แป๊ปกล่องสแตนเลส 50*25*1.2mm\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 35400.0,
@@ -119997,13 +119671,6 @@
       {
        "category": "รายการสินค้า",
        "code": "ITM010",
-       "detail": "#1: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"สีน้ำอะครีลิกกึ่งเงา G-142 เบเยอร์ชิลด์ \"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
        "detail": "#7: \"เปอร์ตแลนด์\" → \"ปอร์ตแลนด์\" (Portland, ยืนยันราชบัณฑิต/SCG) [พบ: \"เปอร์ตแลนด์\"] ใน \"ปูนเปอร์ตแลนด์ 50 กก.\"",
        "name": "Thai char-pattern typo",
        "severity": "WARNING"
@@ -120585,13 +120252,6 @@
        "detail": "#5 \"ปูน TPI 299\" — หน่วย=ตัน อาจไม่เหมาะ (ปกติใช้ ['ถุง', 'กก.']) [soft]",
        "name": "หน่วย keyword",
        "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#4: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"สีน้ำอะครีลิก # 142-4 นาโนโปรชิลด์ (Grag\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
       }
      ],
      "items": [
@@ -123662,15 +123322,7 @@
       "year": 2569
      },
      "filepath": "STC_69_05.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#1: \"แป็ป\" → \"แป๊บ\" [พบ: \"แป็ป\"] ใน \"เหล็กแป็ปกลมดำ 4นิ้ว หนา 3.2 มม. ยาว 6 เ\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 90000.0,
@@ -134441,13 +134093,6 @@
       },
       {
        "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#8: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"สีน้ำอะครีลิกกึ่งเงา G-142 เบเยอร์ชิลด์ \"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
        "code": "ITM015",
        "detail": "#5 \"เหล็กฉาก 25 x 25 x 3 มม.\" — ใช้หน่วย ['PCS.', 'เส้น'] ในชุดเดียวกัน",
        "name": "ชื่อเดียวกันใช้หน่วยต่าง",
@@ -134757,15 +134402,7 @@
       "year": 2569
      },
      "filepath": "TKH_69_05_2.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#8: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"สีน้ำอะครีลิก # 142-4 นาโนโปรชิลด์ (Grag\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 14625.0,
@@ -135297,13 +134934,6 @@
        "detail": "#4 \"ใบตัดเหล็ก 16 นิ้ว MAKITA รุ่น\" — หน่วย=แผ่น อาจไม่เหมาะ (ปกติใช้ ['ใบ', 'แพ็ค']) [soft]",
        "name": "หน่วย keyword",
        "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#3: \"อีพ๊อกซี่\" → \"อีพ็อกซี่\" (epoxy, ๊→็) [พบ: \"อีพ๊อก\"] ใน \"สีอีพ๊อกซี่ Base D สูตรน้ำ 5L\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
       }
      ],
      "items": [
@@ -135657,13 +135287,6 @@
        "detail": "#3 \"ใบตัดเหล็ก 16 นิ้ว MAKITA รุ่น\" — หน่วย=แผ่น อาจไม่เหมาะ (ปกติใช้ ['ใบ', 'แพ็ค']) [soft]",
        "name": "หน่วย keyword",
        "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#2: \"อีพ๊อกซี่\" → \"อีพ็อกซี่\" (epoxy, ๊→็) [พบ: \"อีพ๊อก\"] ใน \"สีอีพ๊อกซี่ Base D สูตรน้ำ 5L\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
       }
      ],
      "items": [
@@ -135880,15 +135503,7 @@
       "year": 2569
      },
      "filepath": "TKH_69_05_เพ__ม_2.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#1: \"อีพ๊อกซี่\" → \"อีพ็อกซี่\" (epoxy, ๊→็) [พบ: \"อีพ๊อก\"] ใน \"สีอีพ๊อกซี่ Base D สูตรน้ำ 5L\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 51480.0,
@@ -136217,6 +135832,13 @@
        "detail": "#14 \"สีรองพื้นกันสนิมเรดเลดไออน\" — หน่วย=แกนลอน อาจไม่เหมาะ (ปกติใช้ ['แกลลอน', 'กระป๋อง']) [soft]",
        "name": "หน่วย keyword",
        "severity": "INFO"
+      },
+      {
+       "category": "รายการสินค้า",
+       "code": "ITM010",
+       "detail": "#12: \"หล็กฉาก\" → \"เหล็กฉาก\" [พบ: \"หล็กฉาก\"] ใน \"หล็กฉาก 3 มม. มอก. ขนาด 1 1/2 x 1 1/2 นิ\"",
+       "name": "Thai char-pattern typo",
+       "severity": "WARNING"
       },
       {
        "category": "รายการสินค้า",
@@ -147874,27 +147496,6 @@
      "issues": [
       {
        "category": "รายการสินค้า",
-       "code": "ITM004",
-       "detail": "#3: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา)",
-       "name": "คำสะกด pattern",
-       "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#3: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#3: \"แกลอน\" ใกล้เคียง \"แกลลอน\" (~90%) — อาจสะกดผิด",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
        "code": "ITM019",
        "detail": "#4 \"ทินเนอร์(ปี๊ป)ป้ายเขียว HERO\" — หน่วย \"ปี๊ป\" สะกด/รูปไม่มาตรฐาน ควรเป็น \"ปี๊บ\"",
        "name": "หน่วยสินค้าผิด/ขาดหาย (ตรวจเพิ่ม)",
@@ -148233,30 +147834,9 @@
       },
       {
        "category": "รายการสินค้า",
-       "code": "ITM004",
-       "detail": "#3: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา)",
-       "name": "คำสะกด pattern",
-       "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
        "code": "ITM010",
        "detail": "#1: \"ปลายสว่าง\" → \"ปลายสว่าน\" [พบ: \"สกรูปลายสว่าง\"] ใน \"สกรูปลายสว่างหัวเตเปอร์\"",
        "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#3: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#3: \"แกลอน\" ใกล้เคียง \"แกลลอน\" (~90%) — อาจสะกดผิด",
-       "name": "Fuzzy Thai dict",
        "severity": "WARNING"
       }
      ],
@@ -148912,13 +148492,6 @@
       {
        "category": "รายการสินค้า",
        "code": "ITM004",
-       "detail": "#3: แกลลอน (ขาด ล) (สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา)",
-       "name": "คำสะกด pattern",
-       "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM004",
        "detail": "#14: น่าจะ \"ปลายสว่าน\" (สกรูปลายสว่างหัวเตเปอร์)",
        "name": "คำสะกด pattern",
        "severity": "INFO"
@@ -148947,22 +148520,8 @@
       {
        "category": "รายการสินค้า",
        "code": "ITM010",
-       "detail": "#3: \"แกลอน\" → \"แกลลอน\" [พบ: \"แกลอน\"] ใน \"สีรองพื้นกันสนิม Kobe ขนาด 5 แกลอน สีเทา\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
        "detail": "#14: \"ปลายสว่าง\" → \"ปลายสว่าน\" [พบ: \"สกรูปลายสว่าง\"] ใน \"สกรูปลายสว่างหัวเตเปอร์\"",
        "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#3: \"แกลอน\" ใกล้เคียง \"แกลลอน\" (~90%) — อาจสะกดผิด",
-       "name": "Fuzzy Thai dict",
        "severity": "WARNING"
       },
       {
@@ -153663,13 +153222,6 @@
        "severity": "INFO"
       },
       {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#1: \"อะครีลิค/อะครีลิก\" → \"อะคริลิค\" (acrylic, ครี→คริ) [พบ: \"ครีลิ\"] ใน \"ซุปเปอร์ชิลด์ สีน้ำอะครีลิค ชนิดเนียน / \"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
        "category": "ที่อยู่",
        "code": "ADDR010",
        "detail": "จังหวัด \"สมุทปราการ\" ไม่ใช่ชื่อจังหวัดที่ถูกต้อง — ใกล้เคียง \"สมุทรปราการ\" (ตรวจการสะกด/พื้นที่)",
@@ -154764,22 +154316,7 @@
       "year": 2569
      },
      "filepath": "TSH_69_05__1.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#8: \"พุ๊ก\" → \"พุก\" [พบ: \"พุ๊ก\"] ใน \"พุ๊กเคมี + สตัด M16\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#8: \"พุ๊กเคมี\" ใกล้เคียง \"พุกเคมี\" (~93%) — อาจสะกดผิด",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 6606.0,
@@ -155231,15 +154768,7 @@
       "year": 2569
      },
      "filepath": "TSH_69_06.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#2: \"อิฐบล็อค\" ใกล้เคียง \"อิฐบล็อก\" (~87%) — ใกล้เคียง (ตรวจสอบ)",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 12500.0,
@@ -155334,13 +154863,6 @@
        "code": "DT002",
        "detail": "วันที่ 05/06/2026 เป็น future",
        "name": "ไม่ใช่ future",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#2: \"อิฐบล็อค\" ใกล้เคียง \"อิฐบล็อก\" (~87%) — ใกล้เคียง (ตรวจสอบ)",
-       "name": "Fuzzy Thai dict",
        "severity": "WARNING"
       }
      ],

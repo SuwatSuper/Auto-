@@ -48,7 +48,7 @@
       "env": { "PYTHONHASHSEED": "0", "PUOPUY_AUDIT_DATE": "2026-06-02" }
     },
     {
-      "name": "✅ Regression บนข้อมูลจริง (ต้องได้ 757751e7)",
+      "name": "✅ Regression บนข้อมูลจริง (ต้องได้ 23b315e8)",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/regression_full.py",

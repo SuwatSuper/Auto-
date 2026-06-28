@@ -10,7 +10,7 @@
 - `hooks/pre-commit` (ติดตั้งผ่าน `INVARIANTS/install_hooks.sh`) — บล็อก commit ถ้า invariant แตก
 - `golden_master.py` / `verify_golden.py` / `regression_full.py` — golden เต็มบนข้อมูลจริง 148 ไฟล์ (`/mnt/project`)
 
-> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-122 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`757751e7…`** (corpus) · fixture = **`ad0c9dad…`** (= `baseline.json._sha256` / `baseline_fixture.json._sha256` = แหล่งความจริงเดียว · rebaseline 2026-06-28 ADR-122 (เจ้าของอนุมัติเพิ่มกฎตรวจ 3 ตัว: **VAT012** บาทอักษร↔ตัวเลข [กันแก้เลขลืมแก้อักษร] · **ADDR010** จังหวัดไม่ใช่ 1 ใน 77 [+1 'สมุทปราการ'→สมุทรปราการ] · **ADDR007** ไปรษณีย์↔อำเภอ [+5 JRN_69_054: 'บ่อวิน'+20230 = ศรีราชา ไม่ใช่เมืองชลบุรี] + เพิ่ม field `total_text` (บาทอักษร) ที่ parser ; corpus +6 flag ทั้งหมด TP, fixture +2 ADDR010 [จังหวัด 'ทดสอบ'/'สาม' = synthetic] ; fuzz 63 กฎไม่ครัช) · ก่อนหน้า rebaseline 2026-06-28 ADR-121 (เลิกฟ้อง "เจียร์") / ADR-120 (GAP-A) / ADR-119 (FP บสังกะสี) → golden เดิมปลดระวาง ดู GOLDEN.md/ledger · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
+> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-123 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`23b315e8…`** (corpus) · fixture = **`ad0c9dad…`** (= `baseline.json._sha256` / `baseline_fixture.json._sha256` = แหล่งความจริงเดียว · rebaseline 2026-06-28 ADR-123 (เจ้าของอนุมัติเคลียร์คำ "ตรวจตาเพิ่ม/ก้ำกึ่ง" ให้ขาด — หลัก "คำผิดในรายการสินค้า ต้องเป็นคำที่ผิดแน่ๆ เท่านั้น": **กลุ่ม B เลิกฟ้อง** [ทับศัพท์หลายรูปใช้จริง: แกลอน/อิฐบล็อค/ตู้คอนซูเมอร์/พุ๊ก·พุ๊กเคมี/อะครีลิค/อีพ๊อกซี่/แป๊ป·แป็ป → ลบ pattern ITM010/ITM004 + whitelist : **−34 flag**] · **กลุ่ม A คงฟ้อง(รีเช็ค)** [+ ITM010 `(?<!เ)หล็กฉาก`→เหล็กฉาก **+1 flag** TKH_69_06 #12] · net **−33** · word-spelling "ตรวจตาเพิ่ม" บน corpus **2→0** · fixture `ad0c9dad` **ไม่ขยับ** · fuzz 107 pattern ไม่ครัช) · ก่อนหน้า rebaseline 2026-06-28 ADR-122 (เพิ่มกฎ VAT012/ADDR010/ADDR007 + total_text) / ADR-121 (เลิกฟ้อง "เจียร์") / ADR-120 (GAP-A) / ADR-119 (FP บสังกะสี) → golden เดิมปลดระวาง ดู GOLDEN.md/ledger · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
 
 ---
 
@@ -40,7 +40,7 @@
 
 | ชุดข้อมูล | จำนวนไฟล์ | golden `_sha256` | สถานะการพิสูจน์ |
 |---|---|---|---|
-| **ข้อมูลจริง (ทางการ) — `/mnt/project`** | 148 | `757751e7…` (= `baseline.json._sha256`) | ผู้ใช้รันยืนยันบนเครื่องตน · engine==agent==baseline (1056 บิล) · rebaseline ADR-122 (เพิ่มกฎ VAT012/ADDR010/ADDR007 + field total_text → +6 flag TP) / ADR-121 (เลิกฟ้อง "เจียร์") / ADR-119/120, FP=0 |
+| **ข้อมูลจริง (ทางการ) — `/mnt/project`** | 148 | `23b315e8…` (= `baseline.json._sha256`) | ผู้ใช้รันยืนยันบนเครื่องตน · engine==agent==baseline (1056 บิล) · rebaseline ADR-123 (เคลียร์คำก้ำกึ่ง: กลุ่ม B เลิกฟ้อง −34 + กลุ่ม A หล็กฉาก +1 = net −33) / ADR-122 (เพิ่มกฎ VAT012/ADDR010/ADDR007 + field total_text → +6) / ADR-121 (เลิกฟ้อง "เจียร์") / ADR-119/120, FP=0 |
 | fixture (in-repo) | 1 ไฟล์ | `ad0c9dad6fb31bc28251605c1dbad9bf165299d19d11c4752e743477fa6c0749` | ยืนยันใน CI/pre-commit (เร็ว ~3s, ไม่ต้องมีข้อมูลจริง) · rebaseline ADR-122 (total_text + ADDR010 synthetic) · [ADR-086] |
 
 **กฎ:** การเปลี่ยน golden ของ "ข้อมูลจริง 148 ไฟล์ (`/mnt/project`)" ทำได้ก็ต่อเมื่อ **ผู้ใช้สั่งโดยตรง**
@@ -2408,3 +2408,39 @@ sync OPERATIONAL_SURFACES (.vscode×2 / CLAUDE.md / MAINTENANCE.md / Makefile / 
 `PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · coverage ผ่าน · `make_release` reproduce `757751e7`.
 **regression test:** `test_adr122_new_rules.py` (run_ci `[3c4c]` + coverage) — 25 เคส ฟ้อง/เงียบถูก + 0 crash. fuzz `[3n2]` 63 กฎ.
 **git diff:** เพิ่ม `thai_district.py` ( data) ; แตะ `puopuy_units`/`thai_postal`/`rules_engine*`/`parser_p2` (additive) + register + bookkeeping — seq/merge/serial §6 byte-identical.
+
+---
+
+## ADR-123 — [คำก้ำกึ่ง] เคลียร์ "ตรวจตาเพิ่ม/ก้ำกึ่ง" ให้ขาด — ฟ้องเฉพาะคำผิดแน่ๆ — rebaseline `757751e7…`→`23b315e8…`
+
+**วันที่:** 2026-06-28 · **สถานะ:** ACTIVE · **golden:** corpus `757751e7…`→`23b315e8…` · fixture `ad0c9dad…` **ไม่ขยับ**
+**สั่งโดย:** เจ้าของ (Tor) — prompt "เคลียร์คำตรวจตาเพิ่ม/ก้ำกึ่งให้ขาด" + หลักเด็ดขาด **"คำผิดในรายการสินค้า ต้องเป็นคำที่ผิดแน่ๆ เท่านั้น"** (ทับศัพท์ก้ำกึ่งหลายรูป = อย่าฟ้อง) · เจ้าของให้ลิสต์กลุ่ม A/B รายคำมาเอง
+**priority:** ความน่าเชื่อถือรายงาน (precision-first) — ลด "ระบบดูไม่มั่นใจ" + รบกวนผู้ใช้. supersede ADR-084 ('พุ๊ก' คงไว้) / ADR-090 ('อิฐบล็อค' คงไว้) สำหรับกลุ่ม B.
+
+### 1. บริบท — "ตรวจตาเพิ่ม (รายการสินค้า) … ก้ำกึ่ง" = ITM011 fuzzy ที่ Precision Council ไม่ confirm
+report_precision: **ITM010** (pattern deterministic + คำถูกเทียบ) → CLEAR (รีเช็ค) · **ITM011** (fuzzy พจนานุกรม) → SOFT (ตรวจตาเพิ่ม) เว้นมี ITM010 หนุน. เป้า = คำผิดแน่ → ITM010 (รีเช็ค) ; ทับศัพท์หลายรูป → whitelist (เงียบ).
+
+### 2. คำตัดสินเจ้าของ (ไล่เซลล์จริง xlrd ยืนยันทุกคำ)
+**🟢 กลุ่ม B — ทับศัพท์หลายรูปใช้จริง → เลิกฟ้อง (ลบ pattern ITM010/ITM004 + whitelist ITM011):**
+แกลอน[gallon] · อิฐบล็อค[block] · ตู้คอนซูเมอร์/คอนซูเมอร์[consumer unit] · พุ๊ก·พุ๊กเคมี[wall plug] · อะครีลิค[acrylic] · อีพ๊อกซี่[epoxy] · แป๊ป·แป็ป[steel pipe]. ทุกคำยืนยันเซลล์จริง + เป็นทับศัพท์ราชบัณฑิตมีรูปหนึ่งแต่การค้า/ช่างใช้อีกรูปแพร่หลาย.
+**🔴 กลุ่ม A — ผิดแน่ → คงฟ้อง (ITM010 รีเช็ค):** เพิ่ม `(?<!เ)หล็กฉาก`→"เหล็กฉาก" (ตก เ, TKH_69_06 #12 ยืนยันเซลล์ ; `(?<!เ)` กัน FP ทับ "เหล็กฉาก" ที่ถูก 43 เซลล์). คำกลุ่ม A อื่น (มั้วน/เเป๊ป/วาวล์/สมาร์ม/ทองเหลอง/ลายเสอ/แกนลอน/การาไนช์/เปอร์ตแลนด์/สีเปรย์/ปลายสว่าง ฯลฯ) **มี ITM010 อยู่แล้ว** = ฟ้องครบเหมือนเดิม (recall ไม่ถอย).
+
+### 3. วิธีทำ (surgical — แตะ `config_base.py` ที่เดียว)
+- **ลบ pattern** ITM010 (`แกลอน`/`พุ๊ก`/`แป๊ป`/`แป็ป`/`ครีลิ`/`อีพ๊อก`) + ITM004 (`แกลอน`).
+- **เพิ่ม pattern** ITM010 `(?<!เ)หล็กฉาก` (negative lookbehind กัน FP).
+- **เพิ่ม whitelist** PYTHAINLP_WHITELIST: แกลอน·อิฐบล็อค·ตู้คอนซูเมอร์·คอนซูเมอร์·พุ๊กเคมี·พุ๊ก·อะครีลิค·อีพ๊อกซี่·แป๊ป·แป็ป (→ ITM011 fuzzy เลิกจับ). คง ITM011 fuzzy layer ไว้จับคำใหม่อนาคต.
+
+### 4. Delta (exact 148/1056) + bug hunt
+**REMOVED −34:** ITM010 −20 (แกลอน×5·ครีลิ×5·อีพ๊อก×5·แป็ป/แป๊ป×4·พุ๊ก×1) · ITM004 −5 (แกลอน) · ITM011 −9 (อิฐบล็อค×2·แกลอน×4·ตู้คอนซูเมอร์×2·พุ๊กเคมี×1). **ADDED +1:** ITM010 หล็กฉาก (TKH_69_06 #12). **net −33** · ไม่มีกฎอื่นขยับ (collateral 0).
+**ผล precision:** word-spelling "ตรวจตาเพิ่ม" บน corpus **2→0** (เดิม อิฐบล็อค[TSH_69_06]·ตู้คอนซูเมอร์[SEE] = ITM011-only). มั้วน×6·หล็กฉาก×1 ที่เหลือ → co-located ITM010 = CLEAR (รีเช็ค) ไม่ใช่ก้ำกึ่ง.
+**recall:** กลุ่ม A 20 คำยังฟ้องครบ (พิสูจน์ ITM010/ITM004). **FP=0:** เหล็กฉาก/แกลลอน/อะคริลิก/อีพ็อกซี่/แป๊บ/บล็อก ที่ถูก ไม่ฟ้อง.
+**bug hunt (ร้าย/กลาง/ต่ำ):** ร้าย=0 (lookbehind ถูกทุกบริบท · ไม่ครัช · recall คง · Group B เงียบ) · กลาง=0 (whitelist exact-token ไม่ substring-suppress · fuzz 107 pattern compile+run 0 crash) · ต่ำ = อัปเทส lock เท่านั้น.
+
+### 5. Migration risk
+ต่ำ — แตะ config เดียว (pattern/whitelist) ไม่แตะ logic/parse-core §6. ความเสี่ยง = whitelist กว้างไป (suppress คำผิด) → คุมด้วย exact-token match (ไม่ใช่ substring) + ทุกคำอยู่ในลิสต์กลุ่ม B ที่เจ้าของอนุมัติ. ITM011 fuzzy layer ยังอยู่ (คำใหม่อนาคตยังขึ้นตรวจตาเพิ่มได้).
+
+### 6. ยืนยัน (gate ครบ)
+`regression_full . corpus` = `23b315e8` (engine==agent==baseline ✅) · fixture `ad0c9dad` **ไม่ขยับ** ✅ · `check_invariants` ✅ · doc-sync ✅ ·
+`PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · coverage ผ่าน · `make_release` + fresh-extract reproduce `23b315e8`.
+**regression test:** `test_adr123_borderline_clear.py` (53 เคส: กลุ่ม A ฟ้อง · กลุ่ม B เงียบ · FP=0 · lookbehind · หล็กฉาก→CLEAR · ไม่ครัช). อัป `test_typo_decisions_lock.py` (พุ๊ก/อิฐบล็อค → whitelist) + `test_itm011_wordcut_fp.py` (recall check อิฐบล็อค→หล็กฉาก).
+**git diff:** แตะ `config_base.py` (pattern/whitelist) + 3 เทส + bookkeeping (baseline.json/RETIRED_PREFIXES/GOLDEN.md/DECISIONS banner+row+ADR + 9 surface) — seq/merge/serial §6 byte-identical.

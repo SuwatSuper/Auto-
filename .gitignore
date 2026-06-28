@@ -24,3 +24,6 @@ audit_system_issues.jsonl
 company_summary_ฉบับแก้แล้ว.txt
 company_summary_ฉบับแก้แล้ว.xlsx
 ตัวอย่างผลลัพธ์ใหม่_company_summary.txt
+
+# golden rebaseline backups (local only — ห้าม commit)
+*.json.*.bak

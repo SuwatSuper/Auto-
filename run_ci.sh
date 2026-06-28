@@ -3,7 +3,7 @@
 #
 # ใช้:
 #   bash run_ci.sh                 # gate+smoke+pinned+mesh+agents+regression(fixture)
-#   bash run_ci.sh /path/to/data   # + regression เต็มบนข้อมูลจริง (baseline 757751e7…) ถ้าระบุ data dir
+#   bash run_ci.sh /path/to/data   # + regression เต็มบนข้อมูลจริง (baseline 23b315e8…) ถ้าระบุ data dir
 #
 # ต้องรันจากโฟลเดอร์ระบบ (ที่มี config.py). ทุกขั้นตั้ง PYTHONHASHSEED=0 เพื่อ reproduce hash.
 set -u
@@ -49,6 +49,7 @@ run "[3c3] TAX008 (B1 — เลขภาษีเดียวชื่อต่
 run "[3c4] ADDR006 (B2 — ไปรษณีย์↔จังหวัด, ไม่พึ่ง master)" "$PY" test_addr006.py
 run "[3c4b] ADDR province word-boundary (ADR-110 — กัน substring FP)" "$PY" test_addr_province_boundary.py
 run "[3c4c] ADR-122 กฎใหม่ VAT012/ADDR010/ADDR007 (บาทอักษร↔ตัวเลข, จังหวัดปลอม, ไปรษณีย์↔อำเภอ)" "$PY" test_adr122_new_rules.py
+run "[3c4d] ADR-123 เคลียร์ก้ำกึ่ง (กลุ่ม A ฟ้องรีเช็ค / กลุ่ม B เงียบ / FP=0 / lookbehind หล็กฉาก)" "$PY" test_adr123_borderline_clear.py
 run "[3c5] BR004 (B3 — เทียบสาขากับ master)" "$PY" test_br004.py
 run "[3c6] IV007 (D1 — เลขใบกำกับขยะ absolute validity)" "$PY" test_iv007.py
 run "[3c7] IV parser guard (D2 — ไม่คว้าเศษ float เป็นเลขเอกสาร)" "$PY" test_iv_parser_guard.py
@@ -190,7 +191,7 @@ if "$PY" -m mypy --version >/dev/null 2>&1; then
 else _strict_skip "[13] mypy" "pip install mypy --break-system-packages"; fi
 
 if [ -n "$REAL_DATA" ]; then
-  run "[7] regression (ข้อมูลจริง 148 ไฟล์, baseline 757751e7…)" \
+  run "[7] regression (ข้อมูลจริง 148 ไฟล์, baseline 23b315e8…)" \
       "$PY" regression_full.py . "$REAL_DATA"
   run "[8] agent contracts (ข้อมูลจริง — เช็คเลข baseline ครบ)" \
       "$PY" test_agents.py . "$REAL_DATA"
