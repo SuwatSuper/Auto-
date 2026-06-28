@@ -10,7 +10,7 @@
 - `hooks/pre-commit` (ติดตั้งผ่าน `INVARIANTS/install_hooks.sh`) — บล็อก commit ถ้า invariant แตก
 - `golden_master.py` / `verify_golden.py` / `regression_full.py` — golden เต็มบนข้อมูลจริง 148 ไฟล์ (`/mnt/project`)
 
-> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-119 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`d8adc143…`** (= `baseline.json._sha256` = แหล่งความจริงเดียวของค่า hash · rebaseline 2026-06-28 ADR-119 (BUG-1 FP "ตัดคำกลางคำ": `r_itm011`/`r_itm012` ดึง Thai run ทั้งก้อนแล้วเก็บเฉพาะท่อนแรก `run[:20]` → ลบ ITM011 **"บสังกะสี"** ×1 [KNT_69_012 ชีต 13.2 #3 — เซลล์จริง "ข้อต่อสามทางเกลียว**ชุบสังกะสี**DN25" สะกดถูก, regex 20-ตัวเดิมตัดเป็น "ชุ|บสังกะสี"], เพิ่ม 0, recall typo จริงคงครบ; **BUG-2 "หล็กฉาก" พิสูจน์ว่าไม่ใช่ FP** — เซลล์ต้นฉบับ TKH_69_06 r13 สะกด "หล็กฉาก" ตก เ จริง [แถวข้างเคียงสะกด "เหล็กฉาก" ถูก] = typo จริง คงฟ้อง) · ก่อนหน้า rebaseline 2026-06-27 ADR-104/105/106 (ITM020/ITM019 หน่วย → golden เดิมปลดระวาง ดู GOLDEN.md/ledger) · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
+> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-121 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`0c575c61…`** (= `baseline.json._sha256` = แหล่งความจริงเดียวของค่า hash · rebaseline 2026-06-28 ADR-121 (เจ้าของอนุมัติเลิกฟ้อง "เจียร์" หลังค้นเน็ต: TOA เบอร์ 1 / HomePro ใช้ "เจียร์" มี ์ = มาตรฐานวงการ → ลบ ITM010 pattern + whitelist `แผ่นเจียร์` ใน ITM011 → ลบ **−6 flag** [TKH_69_0513 ×3 บิล, ITM010×3+ITM011×3], เพิ่ม 0 · supersede ADR-084/090 เฉพาะ "เจียร์") · ก่อนหน้า rebaseline 2026-06-28 ADR-120 (GAP-A robustness — golden-neutral) + ADR-119 (BUG-1 ตัด FP "บสังกะสี" + ROBUST GAP-A) → golden เดิมปลดระวาง ดู GOLDEN.md/ledger · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
 
 ---
 
@@ -40,7 +40,7 @@
 
 | ชุดข้อมูล | จำนวนไฟล์ | golden `_sha256` | สถานะการพิสูจน์ |
 |---|---|---|---|
-| **ข้อมูลจริง (ทางการ) — `/mnt/project`** | 148 | `d8adc143…` (= `baseline.json._sha256`) | ผู้ใช้รันยืนยันบนเครื่องตน · engine==agent==baseline (1056 บิล) · rebaseline ADR-119 (BUG-1 ตัด FP "บสังกะสี" คลาสตัดคำ −1) / ADR-104/105/106 (ITM020/ITM019 หน่วย), FP=0 |
+| **ข้อมูลจริง (ทางการ) — `/mnt/project`** | 148 | `0c575c61…` (= `baseline.json._sha256`) | ผู้ใช้รันยืนยันบนเครื่องตน · engine==agent==baseline (1056 บิล) · rebaseline ADR-121 (เลิกฟ้อง "เจียร์" −6, เจ้าของอนุมัติ) / ADR-120 (GAP-A robustness) / ADR-119 (FP "บสังกะสี" −1), FP=0 |
 | fixture (in-repo) | 1 ไฟล์ | `72cb832c9b667e796b86a78ec5e1b0556c9f19b50d15d7756df1cbd0a58e1f0a` | ยืนยันใน CI/pre-commit (เร็ว ~3s, ไม่ต้องมีข้อมูลจริง) · [ADR-086: แก้ค้าง d8bcde85] |
 
 **กฎ:** การเปลี่ยน golden ของ "ข้อมูลจริง 148 ไฟล์ (`/mnt/project`)" ทำได้ก็ต่อเมื่อ **ผู้ใช้สั่งโดยตรง**
@@ -2315,3 +2315,52 @@ non-str" (int/float/None) จะหลุดเข้ากฎดิบ → ค�
 `PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · `make_release` fresh-extract reproduce `d8adc143`.
 **regression test:** `test_fuzz_rules_robust.py` (run_ci `[3n2]`) — 60 กฎ × fuzz matrix 462 cells = 0 SYS + detection คงอยู่ (พิสูจน์ tripwire: revert fix → SYS-CMP003/TAX004 โผล่ → test แดง).
 **git diff:** แตะเฉพาะ `rules_engine.py` (data-hygiene coerce) + `run_ci.sh` (wire) + test ใหม่ + ADR — parse-core §6 byte-identical.
+
+
+# ── รอบเลิกฟ้องคำก้ำกึ่ง (ค้นเน็ตยืนยัน) 2026-06-28 — ADR-121 ──
+> เจ้าของ (จบบัญชี ไม่ใช่นักภาษาไทย) สั่งให้ "ค้นเน็ตหาคำสะกดที่ถูก แล้วตัดสินให้" แทนการถามรายคำ.
+> ค้น 5 คำก้ำกึ่งที่ค้างจาก ADR-119 §7 → 4 คำ "ระบบถูก คงฟ้อง", 1 คำ (เจียร์) "FP เลิกฟ้อง". golden-MOVING.
+
+
+## ADR-121 — [คำก้ำกึ่ง] เลิกฟ้อง "เจียร์" (มาตรฐานวงการ) — rebaseline `d8adc143…`→`0c575c61…`
+
+**วันที่:** 2026-06-28 · **สถานะ:** ACTIVE · **golden:** `d8adc143…` → `0c575c61…` (corpus 148/1056) · fixture `72cb832c` **ไม่ขยับ**
+**สั่งโดย:** เจ้าของ (Tor) — "เราจบบัญชี ไม่ได้จบครูภาษาไทย ทำไมไม่ค้นเน็ต" → อนุมัติ "เอา" (เลิกฟ้องเจียร์) หลังเห็นหลักฐาน
+**priority:** false-positive reduction (คำก้ำกึ่ง — supersede การตัดสิน "คงไว้" เดิมของ ADR-084/090 เฉพาะ "เจียร์")
+
+### 1. บริบท — ค้นเน็ตตัดสิน 5 คำก้ำกึ่ง (ADR-119 §7 ค้าง)
+เจ้าของเป็นนักบัญชี ไม่ถนัดตัดสินการสะกด → มอบให้ค้นเน็ต (ราชบัณฑิตยสภา + การใช้จริงในวงการ) แล้วตัดสิน:
+| คำในบิล | ระบบแนะ | ผลค้น | ตัดสิน |
+|---|---|---|---|
+| แกลอน | แกลลอน | ราชบัณฑิตฯ = **แกลลอน** | ✅ คงฟ้อง (ระบบถูก) |
+| อิฐบล็อค | อิฐบล็อก | ราชบัณฑิตฯ = **บล็อก** (คำมักเขียนผิด) | ✅ คงฟ้อง (ระบบถูก) |
+| พุ๊กเคมี | พุกเคมี | มาตรฐาน/วงการ = **พุก** | ✅ คงฟ้อง (ระบบถูก) |
+| ตู้คอนซูเมอร์ | ตู้คอนซูมเมอร์ | วงการใช้ **คอนซูมเมอร์** | 🟡 คงฟ้อง (เพี้ยนจากวงการ) |
+| **แผ่นเจียร์** | แผ่นเจียร | **TOA เบอร์ 1 + HomePro ใช้ "เจียร์" (มี ์)** | ❌ **เลิกฟ้อง (FP)** |
+→ มีคำเดียว (เจียร์) ที่ระบบฟ้องผิด: "เจียร์" (มี ์) เป็นสะกดมาตรฐานวงการจริง (เรซิบอน แผ่นเจียร์ ของ TOA).
+
+### 2. Root cause (2 จุดฟ้อง "เจียร์")
+(ก) `config_base.py` THAI_TYPO_PATTERNS มี `(r'เจียร์', '"เจียร์" → "เจียร"')` → **ITM010** ฟ้อง ×3 ;
+(ข) `แผ่นเจียร์` ไม่อยู่ใน PYTHAINLP_WHITELIST → **ITM011** fuzzy ใกล้ `แผ่นเจียร` (~94%) ×3.
+
+### 3. วิธีแก้ (config — owner-approved · ไม่แตะกฎ logic/parser)
+(ก) ลบ pattern `(r'เจียร์', ...)` ออกจาก THAI_TYPO_PATTERNS (ปิด ITM010) ;
+(ข) เพิ่ม `'แผ่นเจียร์'` ใน PYTHAINLP_WHITELIST (ปิด ITM011 fuzzy — pattern เดียวกับ ADR-056 'กระเบื้องพื้น').
+
+### 4. Delta (วัด exact 148/1056 · simulate ก่อน rebaseline)
+**ลบ 6 · เพิ่ม 0** = ITM010 "เจียร์"→"เจียร" ×3 + ITM011 "แผ่นเจียร์"~"แผ่นเจียร" ×3 (TKH_69_0513: CB69050429/669/796).
+`typos 51→51 · dup 1→1 · iv_seq 14→14 · iv_date 3→3 · filename 14→14` ไม่ขยับ. **คำก้ำกึ่งอีก 4 คำ (แกลอน/อิฐบล็อค/พุ๊ก/คอนซูเมอร์) ยังฟ้องครบ** (recall).
+
+### 5. Migration risk
+ต่ำ — แตะ config 2 บรรทัด (ไม่แตะ rule logic/parser) ; supersede ADR-084/090 เฉพาะคำ "เจียร์" (ADR เก่าเก็บไว้เป็นหลักฐาน append-only).
+ความเสี่ยงเดียว = ถ้า "เจียร" (ไม่มี ์) โผล่ในอนาคตจะไม่ถูกจับโดย ITM010 pattern อีก — แต่ทั้งสองรูปใช้จริงในวงการ (ยอมรับได้).
+
+### 6. rebaseline + bookkeeping (ครบทุก surface)
+backup `baseline.json` เดิม → `/tmp/baseline.d8adc143.bak`. regenerate `baseline.json` = `0c575c61…` (engine==agent==baseline).
+sync OPERATIONAL_SURFACES (.vscode×2 / CLAUDE.md / MAINTENANCE.md / Makefile / QUICKSTART / _SESSION_HANDOFF / run_ci.sh / ci.yml / DECISIONS banner+row → `0c575c61` ; README/version_gate/orchestrator/constraints ใช้ neutral ref) ·
+เพิ่ม `d8adc143` ใน RETIRED_PREFIXES · GOLDEN.md current=`0c575c61` + ledger `d8adc143` · อัปเดต `test_typo_decisions_lock.py` (ถอด "เจียร์" จากลิสต์ "คงไว้") + `test_itm011_wordcut_fp.py` (เปลี่ยน recall check เจียร์→อิฐบล็อค).
+
+### 7. ยืนยัน (gate ครบ)
+`regression_full . corpus` = `0c575c61` (engine==agent==baseline ✅) · `INVARIANTS/check_invariants.py` (fixture `72cb832c` + pin ✅) ·
+`test_golden_single_source.py` (doc-sync ✅) · `PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · `make_release.py` + fresh-extract reproduce `0c575c61`.
+**git diff:** แตะ `config_base.py` (2 บรรทัด) + bookkeeping + 2 เทส — parse-core §6 + rule logic byte-identical.

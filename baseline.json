@@ -1,5 +1,5 @@
 {
- "_sha256": "d8adc14302415417390cce44f5c852162e9b12f4676190097470670fb796f314",
+ "_sha256": "0c575c614fbce67beebb7f691d384afa393fe124bf6cfa0f1bc10c77ac8c8fc3",
  "all_bills": [
   {
    "address": "98/959 หมู่ที่ 11 ถนน บางกรวย-ไทรน้อย ตำบลบางบัวทอง อำเภอบางบัวทอง จังหวัดนนทบุรี 11110",
@@ -52518,20 +52518,6 @@
    "issues": [
     {
      "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#5: \"เจียร์\" → \"เจียร\" [พบ: \"เจียร์\"] ใน \"แผ่นเจียร์ MAKITA รุ่น A36 ขนาด 4 นิ้ว\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#5: \"แผ่นเจียร์\" ใกล้เคียง \"แผ่นเจียร\" (~94%) — อาจสะกดผิด",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
      "code": "ITM019",
      "detail": "#3 \"ทินเนอร์(ปี๊ป)ป้ายเขียว HERO\" — หน่วย \"ปี๊ป\" สะกด/รูปไม่มาตรฐาน ควรเป็น \"ปี๊บ\"",
      "name": "หน่วยสินค้าผิด/ขาดหาย (ตรวจเพิ่ม)",
@@ -52641,22 +52627,7 @@
     "year": 2569
    },
    "filepath": "TKH_69_0513.xls",
-   "issues": [
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#5: \"เจียร์\" → \"เจียร\" [พบ: \"เจียร์\"] ใน \"แผ่นเจียร์ SUMO ขนาด 7 นิ้ว\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#5: \"แผ่นเจียร์\" ใกล้เคียง \"แผ่นเจียร\" (~94%) — อาจสะกดผิด",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
-    }
-   ],
+   "issues": [],
    "items": [
     {
      "amount": 23000.0,
@@ -52749,20 +52720,6 @@
      "detail": "#7 \"ตะปูคอนกรีตขาว PAN SIAM รุ่น C\" — หน่วย=แพ็ค อาจไม่เหมาะ (ปกติใช้ ['คิว', 'ลบ.ม.']) [soft]",
      "name": "หน่วย keyword",
      "severity": "INFO"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM010",
-     "detail": "#1: \"เจียร์\" → \"เจียร\" [พบ: \"เจียร์\"] ใน \"แผ่นเจียร์ MAKITA รุ่น A36 ขนาด 4 นิ้ว\"",
-     "name": "Thai char-pattern typo",
-     "severity": "WARNING"
-    },
-    {
-     "category": "รายการสินค้า",
-     "code": "ITM011",
-     "detail": "#1: \"แผ่นเจียร์\" ใกล้เคียง \"แผ่นเจียร\" (~94%) — อาจสะกดผิด",
-     "name": "Fuzzy Thai dict",
-     "severity": "WARNING"
     }
    ],
    "items": [
@@ -131476,20 +131433,6 @@
      "issues": [
       {
        "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#5: \"เจียร์\" → \"เจียร\" [พบ: \"เจียร์\"] ใน \"แผ่นเจียร์ MAKITA รุ่น A36 ขนาด 4 นิ้ว\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#5: \"แผ่นเจียร์\" ใกล้เคียง \"แผ่นเจียร\" (~94%) — อาจสะกดผิด",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
        "code": "ITM019",
        "detail": "#3 \"ทินเนอร์(ปี๊ป)ป้ายเขียว HERO\" — หน่วย \"ปี๊ป\" สะกด/รูปไม่มาตรฐาน ควรเป็น \"ปี๊บ\"",
        "name": "หน่วยสินค้าผิด/ขาดหาย (ตรวจเพิ่ม)",
@@ -131599,22 +131542,7 @@
       "year": 2569
      },
      "filepath": "TKH_69_0513.xls",
-     "issues": [
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#5: \"เจียร์\" → \"เจียร\" [พบ: \"เจียร์\"] ใน \"แผ่นเจียร์ SUMO ขนาด 7 นิ้ว\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#5: \"แผ่นเจียร์\" ใกล้เคียง \"แผ่นเจียร\" (~94%) — อาจสะกดผิด",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
-      }
-     ],
+     "issues": [],
      "items": [
       {
        "amount": 23000.0,
@@ -131707,20 +131635,6 @@
        "detail": "#7 \"ตะปูคอนกรีตขาว PAN SIAM รุ่น C\" — หน่วย=แพ็ค อาจไม่เหมาะ (ปกติใช้ ['คิว', 'ลบ.ม.']) [soft]",
        "name": "หน่วย keyword",
        "severity": "INFO"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM010",
-       "detail": "#1: \"เจียร์\" → \"เจียร\" [พบ: \"เจียร์\"] ใน \"แผ่นเจียร์ MAKITA รุ่น A36 ขนาด 4 นิ้ว\"",
-       "name": "Thai char-pattern typo",
-       "severity": "WARNING"
-      },
-      {
-       "category": "รายการสินค้า",
-       "code": "ITM011",
-       "detail": "#1: \"แผ่นเจียร์\" ใกล้เคียง \"แผ่นเจียร\" (~94%) — อาจสะกดผิด",
-       "name": "Fuzzy Thai dict",
-       "severity": "WARNING"
       }
      ],
      "items": [

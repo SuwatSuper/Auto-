@@ -10,9 +10,9 @@ PYTHON=python3 bash run_ci.sh /mnt/project     # รันทั้งชุด 
 ```
 
 ## 1) ค่าคงที่ที่ต้องไม่ขยับ (Golden / Invariants)
-- **golden hash จริง (148 ไฟล์ `/mnt/project`) = `d8adc143`** · **fixture = `72cb832c…`** (เต็ม: `72cb832c9b667e796b86a78ec5e1b0556c9f19b50d15d7756df1cbd0a58e1f0a`)
+- **golden hash จริง (148 ไฟล์ `/mnt/project`) = `0c575c61`** · **fixture = `72cb832c…`** (เต็ม: `72cb832c9b667e796b86a78ec5e1b0556c9f19b50d15d7756df1cbd0a58e1f0a`)
 - คงเส้น: `engine_hash == agent_hash == baseline_hash` เสมอ (ชั้น agent/advisory ห้ามเปลี่ยนผลตรวจหลัก)
-- คอร์ปัสทางการ = **148 ไฟล์ (`/mnt/project`)** → golden `d8adc143…` (engine==agent==baseline). สาย 81 ไฟล์ปลดระวาง (ดู ADR-019).
+- คอร์ปัสทางการ = **148 ไฟล์ (`/mnt/project`)** → golden `0c575c61…` (engine==agent==baseline). สาย 81 ไฟล์ปลดระวาง (ดู ADR-019).
 
 ## 2) กฎโดเมนที่ล็อก (ground truth — นักบัญชี)
 - **VAT = 7% เป๊ะ**: `vat == round(subtotal × 0.07, 2)` (ROUND_HALF_UP) ยอมต่างแค่ปัดเศษ ≤ 0.50 — **ห้ามใช้ "แถบ %"**

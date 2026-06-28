@@ -52,7 +52,7 @@
       "problemMatcher": []
     },
     {
-      "label": "3b. CI + regression บนข้อมูลจริง (→ d8adc143)",
+      "label": "3b. CI + regression บนข้อมูลจริง (→ 0c575c61)",
       "type": "shell",
       "command": "bash run_ci.sh '${input:dataDir}'",
       "problemMatcher": []
@@ -73,7 +73,7 @@
       "problemMatcher": []
     },
     {
-      "label": "5. Regression บนข้อมูลจริง (engine==agent → d8adc143)",
+      "label": "5. Regression บนข้อมูลจริง (engine==agent → 0c575c61)",
       "type": "shell",
       "command": "${command:python.interpreterPath} regression_full.py . '${input:dataDir}'",
       "problemMatcher": []

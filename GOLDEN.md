@@ -11,7 +11,7 @@
 
 ```bash
 python3 -c "import json;print(json.load(open('baseline.json'))['_sha256'])"
-# ปัจจุบัน: d8adc143...  (golden ทางการ: 148 ไฟล์ /mnt/project, 1056 บิล — master ว่าง ไม่มีบริษัทฝัง)
+# ปัจจุบัน: 0c575c61...  (golden ทางการ: 148 ไฟล์ /mnt/project, 1056 บิล — master ว่าง ไม่มีบริษัทฝัง)
 ```
 
 ยืนยันบนข้อมูลจริง (ต้องได้ค่าเดียวกันนี้ทั้ง 3 บรรทัด):
@@ -26,7 +26,8 @@ PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02 python3 regression_full.py . <โ�
 
 | hash (prefix) | คืออะไร | ตรวจด้วย |
 |---|---|---|
-| **`d8adc143`** | ✅ **golden ปัจจุบัน** — 148 ไฟล์ / 1056 บิล — rebaseline 2026-06-28 (ADR-119: BUG-1 ตัด FP คลาส "ตัดคำกลางคำ" — `r_itm011`/`r_itm012` ดึง Thai run ทั้งก้อนแล้วเก็บเฉพาะท่อนแรก `run[:20]` → ลบ ITM011 **"บสังกะสี"** ×1 [KNT_69_012 — เซลล์ "ชุบสังกะสี" ถูก แต่ regex 20-ตัวเดิมตัดเป็น "ชุ\|บสังกะสี"], เพิ่ม 0, recall typo จริงคงครบ · BUG-2 "หล็กฉาก" พิสูจน์แล้วเป็น typo จริง คงฟ้อง) · path-independent (ADR-037) | `regression_full.py . <data>` |
+| **`0c575c61`** | ✅ **golden ปัจจุบัน** — 148 ไฟล์ / 1056 บิล — rebaseline 2026-06-28 (ADR-121: เจ้าของอนุมัติเลิกฟ้อง "เจียร์" หลังค้นเน็ต [TOA เบอร์ 1 / HomePro ใช้ "เจียร์" มี ์ = มาตรฐานวงการ] → ลบ ITM010 pattern `เจียร์` + whitelist `แผ่นเจียร์` ใน ITM011 → ลบ **−6 flag** [TKH_69_0513 ×3 บิล], เพิ่ม 0, คำก้ำกึ่งอีก 4 คำ [แกลอน/อิฐบล็อค/พุ๊ก/คอนซูเมอร์] ยังฟ้อง · supersede ADR-084/090 เฉพาะ "เจียร์") · path-independent (ADR-037) | `regression_full.py . <data>` |
+| `d8adc143` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-121 — เลิกฟ้อง "เจียร์") — ปลดระวาง · เคยเป็น golden ของ ADR-119 (BUG-1 ตัด FP "บสังกะสี" คลาสตัดคำ −1) + ADR-120 (GAP-A กฎครัช non-str → false-negative, golden-neutral) · path-independent (ADR-037) | — |
 | `31013a31` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-28 (ADR-119 — ตัด FP "บสังกะสี" คลาสตัดคำ) — ปลดระวาง · rebaseline 2026-06-27 (ADR-104/105/106: ITM020 +52 + ITM019 +9 + P2 ZWNJ/header unit-data-quality) · path-independent (ADR-037) | — |
 | `9aded0ad` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-27 (ADR-104/105/106 — เพิ่ม ITM020 + P2 unit-data-quality) — ปลดระวาง · rebaseline 2026-06-26 (ADR-102: ลบบริษัทตัวอย่าง ฉี อัน ออกจาก `golden_snapshot.MASTER` → master ว่าง `{}` · CMP006 −50) · path-independent (ADR-037) | — |
 | `d0330308` | ⏮️ golden 148 ไฟล์ **ก่อน** rebaseline 2026-06-26 (ADR-102 — ลบ master ฉี อัน → master ว่าง) — ปลดระวาง · rebaseline 2026-06-24 (ADR-095: completeness check — อ่าน token len=2 ครบ + singleton ที่ค้าง → `สึตำ→สีดำ`·`เปือย→เปลือย`·`เหลือง-ตำ→เหลือง-ดำ` +4 flag, FP=0) · path-independent (ADR-037) | — |

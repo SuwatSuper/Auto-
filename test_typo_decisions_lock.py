@@ -35,7 +35,7 @@ def _literal_core(rx):
 
 
 def main():
-    from config_base import CONSTRUCTION_DICT, THAI_TYPO_PATTERNS
+    from config_base import CONSTRUCTION_DICT, PYTHAINLP_WHITELIST, THAI_TYPO_PATTERNS
     from rules_engine_base import _kw_in_name
 
     pattern_cores = [_literal_core(rx) for rx, _ in THAI_TYPO_PATTERNS]
@@ -45,8 +45,15 @@ def main():
     for w in ('สวิตซ์', 'สวิตซ์ทางเดียว', 'สวิตซ์สองทาง', 'สวิตซ์สามทาง'):
         _check(w in CONSTRUCTION_DICT, f"'สวิตซ์' whitelisted: {w!r} อยู่ใน CONSTRUCTION_DICT")
     # คำที่ Tor ตัดสิน "คงไว้ (ฟ้องต่อ)" → ต้องยังเป็น typo-pattern target
-    for w in ('พุ๊ก', 'เจียร์'):
+    # [ADR-121] ถอด 'เจียร์' ออก — เจ้าของอนุมัติเลิกฟ้อง (TOA/HomePro ใช้ "เจียร์" มี ์ = มาตรฐานวงการ)
+    #   หลังค้นเน็ต → supersede ADR-084/090. 'พุ๊ก' ยัง "คงไว้" (มาตรฐาน = พุก).
+    for w in ('พุ๊ก',):
         _check(any(w in core for core in pattern_cores), f"'{w}' คงไว้: ยังเป็น typo-pattern target")
+    # [ADR-121] 'เจียร์' ต้อง "ไม่" เป็น typo-pattern target อีก (ลบแล้ว) + 'แผ่นเจียร์' อยู่ใน WHITELIST
+    _check(not any('เจียร์' == core for core in pattern_cores),
+           "'เจียร์' เลิกฟ้อง (ADR-121): ไม่เป็น typo-pattern target แล้ว")
+    _check('แผ่นเจียร์' in PYTHAINLP_WHITELIST,
+           "'แผ่นเจียร์' อยู่ใน PYTHAINLP_WHITELIST (ADR-121 — ITM011 fuzzy เลิกฟ้อง)")
     # แกลอน/มั้วน = typo จริง คงไว้
     for w in ('มั้วน', 'แกนลอน'):
         _check(any(w in core for core in pattern_cores), f"'{w}' typo จริง: ยังเป็น typo-pattern target")
