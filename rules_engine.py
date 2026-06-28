@@ -239,7 +239,14 @@ def run_rules(bill, master_companies, file_info, unit_index=None, all_bills_ref=
     # [M4 ROBUSTNESS] บิลจาก parser มีคีย์เหล่านี้เสมอ (parser_p2:167/397) → setdefault = no-op
     #   กับบิลจริง (golden ไม่ขยับ). กันบิลภายนอก/บางส่วนที่ขาดคีย์ ทำกฎที่อ้าง b['items']/b['subtotal']
     #   ตรง ๆ พังเงียบเป็น SYS-* แล้ว "ข้ามการตรวจ" (กฎไม่ได้รัน) แทนที่จะรันได้.
-    bill.setdefault('items', [])
+    # [GAP-B 2026-06-28] coerce 'items' ให้เป็น list เสมอ (ไม่ใช่แค่ setdefault คีย์ที่หาย):
+    #   ถ้า items "มีอยู่แต่เป็น non-list" (None/int/str — บิลภายนอก/บางส่วน/ไฟล์เพี้ยนอนาคต) บรรทัด
+    #   `for _it in bill['items']` ด้านล่าง (อยู่ "นอก" try ของกฎ) จะครัช → run_rules โยน → bumper
+    #   ที่ pukpui_modular_funcs ดักแล้ว "ข้ามทั้งบิล" = false-negative (ทั้งใบไม่ถูกตรวจ โผล่เป็น 'ตรง'
+    #   หลอก). เป็นพี่น้องของ GAP-A (ADR-120 coerce ฟิลด์ข้อความ) แต่ครั้งนี้คือ "ตัว container".
+    #   corpus จริงทุกบิล items เป็น list เสมอ → no-op → golden-NEUTRAL คง 23b315e8.
+    if not isinstance(bill.get('items'), list):
+        bill['items'] = []
     bill.setdefault('subtotal', None)
     bill.setdefault('vat', None)
     bill.setdefault('total', None)

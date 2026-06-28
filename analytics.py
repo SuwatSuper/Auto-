@@ -139,6 +139,16 @@ def compute_bill_confidence(b):
 
 
 # ═══════════════════ unit index (FAITHFUL — contract จาก r_itm015) ═══════════════════
+def _safe_items(b):
+    """[GAP-B 2026-06-28] คืน list ของ item-dict เสมอ — กัน bill['items'] ที่ "มีอยู่แต่เป็น non-list"
+    (None/int/str — บิลภายนอก/บางส่วน/ไฟล์เพี้ยนอนาคต) หรือสมาชิก non-dict ทำ build_unit_index/
+    wht_candidates ครัช. ฟังก์ชันชั้น analytics รัน"ก่อน/นอก" run_rules → ไม่มี per-rule try ดัก →
+    ครัชจะลามขึ้น. `or []` เดิมกัน None/falsy ได้ แต่ไม่กัน truthy-non-list (เช่น items=5). corpus
+    จริงทุกบิล items เป็น list-of-dict → no-op → golden-NEUTRAL คง 23b315e8."""
+    its = b.get('items')
+    return [it for it in its if isinstance(it, dict)] if isinstance(its, list) else []
+
+
 def build_unit_index(all_bills):
     """รวม index ของหน่วยที่ใช้ต่อ "ชื่อสินค้า" ข้ามทุกบิล.
 
@@ -148,7 +158,7 @@ def build_unit_index(all_bills):
     from collections import defaultdict
     idx = defaultdict(set)
     for b in (all_bills or []):
-        for it in (b.get('items') or []):
+        for it in _safe_items(b):
             name = it.get('name')
             unit = it.get('unit')
             if name and unit:
@@ -175,7 +185,7 @@ def addon_check_withholding(bills):
     for b in (bills or []):
         service_names = []
         service_amt = 0.0
-        for it in (b.get('items') or []):
+        for it in _safe_items(b):
             nm = normalize_text(it.get('name'))
             if not nm:
                 continue

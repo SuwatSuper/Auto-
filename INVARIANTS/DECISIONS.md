@@ -10,7 +10,7 @@
 - `hooks/pre-commit` (ติดตั้งผ่าน `INVARIANTS/install_hooks.sh`) — บล็อก commit ถ้า invariant แตก
 - `golden_master.py` / `verify_golden.py` / `regression_full.py` — golden เต็มบนข้อมูลจริง 148 ไฟล์ (`/mnt/project`)
 
-> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-123 ท้ายไฟล์):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`23b315e8…`** (corpus) · fixture = **`ad0c9dad…`** (= `baseline.json._sha256` / `baseline_fixture.json._sha256` = แหล่งความจริงเดียว · rebaseline 2026-06-28 ADR-123 (เจ้าของอนุมัติเคลียร์คำ "ตรวจตาเพิ่ม/ก้ำกึ่ง" ให้ขาด — หลัก "คำผิดในรายการสินค้า ต้องเป็นคำที่ผิดแน่ๆ เท่านั้น": **กลุ่ม B เลิกฟ้อง** [ทับศัพท์หลายรูปใช้จริง: แกลอน/อิฐบล็อค/ตู้คอนซูเมอร์/พุ๊ก·พุ๊กเคมี/อะครีลิค/อีพ๊อกซี่/แป๊ป·แป็ป → ลบ pattern ITM010/ITM004 + whitelist : **−34 flag**] · **กลุ่ม A คงฟ้อง(รีเช็ค)** [+ ITM010 `(?<!เ)หล็กฉาก`→เหล็กฉาก **+1 flag** TKH_69_06 #12] · net **−33** · word-spelling "ตรวจตาเพิ่ม" บน corpus **2→0** · fixture `ad0c9dad` **ไม่ขยับ** · fuzz 107 pattern ไม่ครัช) · ก่อนหน้า rebaseline 2026-06-28 ADR-122 (เพิ่มกฎ VAT012/ADDR010/ADDR007 + total_text) / ADR-121 (เลิกฟ้อง "เจียร์") / ADR-120 (GAP-A) / ADR-119 (FP บสังกะสี) → golden เดิมปลดระวาง ดู GOLDEN.md/ledger · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
+> ⚡ **สถานะปัจจุบัน (ล่าสุด — ดู ADR-124 ท้ายไฟล์ · ADR-124 = GAP-B hardening golden-NEUTRAL ไม่ขยับ hash):** corpus ทางการ = **148 ไฟล์ `/mnt/project` (1056 บิล)** · golden = **`23b315e8…`** (corpus) · fixture = **`ad0c9dad…`** (= `baseline.json._sha256` / `baseline_fixture.json._sha256` = แหล่งความจริงเดียว · rebaseline 2026-06-28 ADR-123 (เจ้าของอนุมัติเคลียร์คำ "ตรวจตาเพิ่ม/ก้ำกึ่ง" ให้ขาด — หลัก "คำผิดในรายการสินค้า ต้องเป็นคำที่ผิดแน่ๆ เท่านั้น": **กลุ่ม B เลิกฟ้อง** [ทับศัพท์หลายรูปใช้จริง: แกลอน/อิฐบล็อค/ตู้คอนซูเมอร์/พุ๊ก·พุ๊กเคมี/อะครีลิค/อีพ๊อกซี่/แป๊ป·แป็ป → ลบ pattern ITM010/ITM004 + whitelist : **−34 flag**] · **กลุ่ม A คงฟ้อง(รีเช็ค)** [+ ITM010 `(?<!เ)หล็กฉาก`→เหล็กฉาก **+1 flag** TKH_69_06 #12] · net **−33** · word-spelling "ตรวจตาเพิ่ม" บน corpus **2→0** · fixture `ad0c9dad` **ไม่ขยับ** · fuzz 107 pattern ไม่ครัช) · ก่อนหน้า rebaseline 2026-06-28 ADR-122 (เพิ่มกฎ VAT012/ADDR010/ADDR007 + total_text) / ADR-121 (เลิกฟ้อง "เจียร์") / ADR-120 (GAP-A) / ADR-119 (FP บสังกะสี) → golden เดิมปลดระวาง ดู GOLDEN.md/ledger · สาย 81 ไฟล์ และ 106-เก่า **ปลดระวางแล้ว** (ค่า hash เดิมก่อน F2-cont อยู่ใน ADR-018/ADR-019/ADR-021 + เอกสารที่ลงวันที่) — เลข hash ในเอกสารอดีตคือ "หลักฐาน" เก็บไว้ ห้ามแก้
 
 ---
 
@@ -2444,3 +2444,38 @@ report_precision: **ITM010** (pattern deterministic + คำถูกเที�
 `PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · coverage ผ่าน · `make_release` + fresh-extract reproduce `23b315e8`.
 **regression test:** `test_adr123_borderline_clear.py` (53 เคส: กลุ่ม A ฟ้อง · กลุ่ม B เงียบ · FP=0 · lookbehind · หล็กฉาก→CLEAR · ไม่ครัช). อัป `test_typo_decisions_lock.py` (พุ๊ก/อิฐบล็อค → whitelist) + `test_itm011_wordcut_fp.py` (recall check อิฐบล็อค→หล็กฉาก).
 **git diff:** แตะ `config_base.py` (pattern/whitelist) + 3 เทส + bookkeeping (baseline.json/RETIRED_PREFIXES/GOLDEN.md/DECISIONS banner+row+ADR + 9 surface) — seq/merge/serial §6 byte-identical.
+
+---
+
+## ADR-124 — [GAP-B robustness] run_rules/analytics coerce `items`→list (กัน false-negative "ข้ามทั้งบิล") — golden-neutral
+
+**วันที่:** 2026-06-28 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus 148/1056 เท่าเดิม) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — "รีเช็คบั๊ก ร้าย/กลาง/ต่ำ + แก้ + ส่งระบบที่ทำงานได้ 5 ปี"
+**priority:** เสถียรภาพ/เชื่อถือได้ 5 ปี (§7.1 input-hardening) — false-negative อันตรายกว่า false-positive
+
+### 1. บั๊ก (กลาง) — พี่น้องของ GAP-A (ADR-120) แต่เป็น "ตัว container"
+**อาการ:** ถ้า `bill['items']` "มีอยู่แต่เป็น non-list" (None/int/str — บิลภายนอก/บางส่วน/ไฟล์เพี้ยนอนาคต) บรรทัด `for _it in bill['items']` ใน `run_rules` (rules_engine.py) อยู่ **"นอก"** try ของกฎ → โยน `TypeError` → bumper ที่ `pukpui_modular_funcs.py:226-237` ดักแล้ว `log_system_issue('SYS001', 'run_rules ล้มทั้งบิล — ข้ามบิลนี้')` = **ทั้งใบไม่ถูกตรวจเลย** (โผล่เป็น 'ตรง' หลอก = false-negative). หนักกว่า GAP-A (ข้ามกฎเดียว) เพราะข้าม **ทั้งบิล**.
+**reproduce (forensic):** ป้อนบิล adversarial ผ่าน `run_rules` → uncaught crash 3 เคส: `items=None`/`items=int`/บิล all-None. ตัว container เป็นช่องเดียวที่ครัช"นอก try" (สมาชิก non-dict ถูกดักด้วย per-rule try → SYS, ไม่ลามทั้งบิล).
+**ทำไมหลุดมา:** `bill.setdefault('items', [])` เติมเฉพาะคีย์ที่ "หาย" ไม่ coerce present-but-non-list. ADR-120 coerce ฟิลด์ **ข้อความ** เป็น str แต่ไม่แตะ **container** `items`. test contract `test_rules_coverage.py` ("run_rules ไม่ throw บนบิลทุกแบบ") มีช่องโหว่: ทดสอบ `items=[]` แต่ไม่เคยทดสอบ `items=None`/non-list.
+
+### 2. หลักฐานว่าเป็นบั๊กจริง (ไม่ใช่ทฤษฎี)
+- มี test "สัญญา" `test_rules_coverage.py:159` ยืนยัน **"run_rules ไม่ throw บนบิลทุกแบบ"** — `items=None`/`int` ละเมิดสัญญานี้.
+- guards M4/M5/GAP-A ใส่ `setdefault` ไว้สำหรับ **"บิลภายนอก/บางส่วน"** อยู่แล้ว = ยอมรับว่าบิล non-parser เข้า run_rules ได้ → บิลภายนอกที่ `items=None` คือช่องที่เหลือ.
+- จุดเดียวกันคลาสเดียว: `analytics.build_unit_index`/`wht_candidates` (analytics.py:151/178) ใช้ `(b.get('items') or [])` — กัน None/falsy ได้ แต่ **ไม่กัน** truthy-non-list (เช่น `items=5`) + สมาชิก non-dict ; รัน "ก่อน/นอก" run_rules → ครัชลามขึ้น.
+
+### 3. วิธีทำ (surgical · golden-neutral)
+- `rules_engine.run_rules`: แทน `bill.setdefault('items', [])` ด้วย `if not isinstance(bill.get('items'), list): bill['items'] = []` (วางก่อนลูป item coercion).
+- `analytics.py`: helper `_safe_items(b)` คืน list-of-dict เสมอ (isinstance container + filter สมาชิก non-dict) → ใช้ใน `build_unit_index` + `wht_candidates`.
+- **conservative:** non-list → `[]` (ไม่เดา). บิลถูก "ตรวจจริง" ด้วย items ว่าง (เช็ค company/tax/total/iv/date/addr ได้) แทนที่จะถูก **ข้ามทั้งใบ**.
+
+### 4. พิสูจน์ golden-neutral + delta
+**golden:** `golden_master . corpus` = `23b315e8` เป๊ะ ก่อน/หลัง (corpus ทุกบิล items เป็น list-of-dict เสมอ → coercion เป็น no-op). **delta corpus = 0** (ไม่มีบิลไหนเปลี่ยน).
+**robustness:** ป้อน adversarial ผ่าน run_rules ใหม่ → **uncaught crash 3→0**. บิล `items=None` + tax_id ขยะ → ยังฟ้อง TAX (พิสูจน์ "ตรวจจริง" ไม่ข้ามทั้งบิล).
+
+### 5. Migration risk
+ต่ำมาก — coerce ค่าที่ "ไม่ควรเกิดบน corpus" (พิสูจน์ no-op). ไม่แตะ logic กฎ/parse-core §6. ไม่ขยับ golden → ไม่ต้อง rebaseline.
+
+### 6. ยืนยัน (gate ครบ)
+`regression_full . corpus` = `23b315e8` (engine==agent==baseline ✅) · fixture `ad0c9dad` ✅ · `check_invariants` ✅ · doc-sync ✅ (golden ไม่ขยับ) · `PUOPUY_CI_STRICT=1 run_ci.sh corpus` เขียวครบ · coverage ทุกกลุ่ม ≥90% · `make_release` reproduce `23b315e8`.
+**regression test:** `test_gap_b_items_coerce.py` (20 เคส: ไม่ throw ทุก non-list + บิลถูกตรวจจริง + coerce→list) + เพิ่มเคส `items=None/int/str/tuple` ใน `test_rules_coverage.py` (ปิดช่องโหว่ test contract).
+**git diff:** แตะ `rules_engine.py` (1 coercion) + `analytics.py` (helper + 2 call-site) + 2 เทส + register CI/coverage — golden-neutral ไม่มี bookkeeping hash. parse-core §6 byte-identical.

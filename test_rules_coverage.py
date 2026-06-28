@@ -137,6 +137,13 @@ bills = [
     make_bill(items=[], subtotal=None, vat=None, total=None),
     # 9) บริษัทไม่อยู่ใน master เลย
     make_bill(company='บริษัท อื่น ไม่รู้จัก จำกัด', tax_id='9999999999999'),
+    # 10) [GAP-B] items "มีอยู่แต่เป็น non-list" (บิลภายนอก/บางส่วน/ไฟล์เพี้ยน) — เดิม run_rules ครัช
+    #     "นอก try" ที่ `for _it in bill['items']` → bumper ข้ามทั้งบิล = false-negative. ต้องไม่ throw.
+    make_bill(items=None),
+    make_bill(items=5),
+    make_bill(items='เหล็กเส้น'),
+    make_bill(items=({'seq': 1, 'name': 'เหล็ก', 'name_raw': 'เหล็ก', 'qty': 1.0,
+                      'unit': 'เส้น', 'price': 10.0, 'amount': 10.0},)),  # tuple ไม่ใช่ list
 ]
 
 file_info = {'month': 5, 'month_end': None, 'year': 2025}   # month_end: int|None ตามที่ parse_filename ให้จริง

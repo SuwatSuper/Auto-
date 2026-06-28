@@ -44,6 +44,7 @@ TESTS = [
     ["test_rules_coverage.py"], ["test_rules_extra.py"], ["test_rules_extra2.py"],
     ["test_rules_typo_branch.py"],   # r_itm004/r_itm010 typo emit branches (rules_b)
     ["test_fuzz_rules_robust.py"],   # [ADR-120 GAP-A] ครอบ branch coerce non-str ใน run_rules (data-hygiene)
+    ["test_gap_b_items_coerce.py"],  # [ADR-124 GAP-B] ครอบ branch coerce items→list ใน run_rules (กันข้ามทั้งบิล)
     ["test_adr122_new_rules.py"],    # [ADR-122] ครอบ branch ของ r_vat012/r_addr010/r_addr007 + baht converter
     ["test_adr123_borderline_clear.py"],  # [ADR-123] ครอบ branch ITM010 emit (หล็กฉาก) + ITM011 whitelist-skip (กลุ่ม B)
     # [ADR-088] เพิ่มเทส characterization ที่มีอยู่แล้ว (ADR-084/087) เข้า measurement —
