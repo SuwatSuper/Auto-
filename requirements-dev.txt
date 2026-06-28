@@ -1,0 +1,13 @@
+# requirements-dev.txt — QA toolchain สำหรับเครื่อง certify (gates 9-13 ใน run_ci.sh)
+# ติดตั้ง:  pip install -r requirements-dev.txt --break-system-packages
+# เครื่อง certify ต้องรัน:  PUOPUY_CI_STRICT=1 bash run_ci.sh <DATA_DIR>  (ห้ามข้าม gate)
+#
+# [ADR-088] PIN version ทั้งหมด — QA gate ต้อง reproducible เหมือน runtime deps.
+#   เหตุ: tool เหล่านี้เคย unpinned → coverage gate ขยับ (rules_engine branch 85.3%↔84.5%
+#   ตาม coverage version) + ruff/black rule เปลี่ยนข้าม version = gate pass/fail ไม่นิ่งข้าม 5 ปี.
+#   ค่าที่ pin = version ที่ทุก gate ผ่านจริง (verify 2026-06-24). bump = deliberate + re-verify.
+pip-audit==2.10.1
+coverage==7.14.3
+ruff==0.15.19
+black==26.5.1
+mypy==2.1.0

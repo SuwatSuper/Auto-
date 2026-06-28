@@ -1,0 +1,113 @@
+name: puopuy-ci
+
+# ด่าน CI (offline) — รันชุดเทส + golden gate + invariants ทุกครั้งที่ push/PR
+#   เป้าหมาย: จับ regression ก่อน merge (เทสเป็นสคริปต์ standalone ไม่ใช่ pytest)
+#   หมายเหตุ: ชุด golden 148 ไฟล์จริง (d8adc143) ไม่อยู่ใน repo → CI ตรวจได้แค่
+#             fixture (72cb832c) + invariants + เทสหน่วย. การยืนยัน d8adc143 ทำในเครื่องที่มีไฟล์จริง.
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONHASHSEED: "0"
+      PUOPUY_AUDIT_DATE: "2026-06-02"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -c constraints.txt pandas xlrd openpyxl rapidfuzz numpy coverage
+          # [typing gate] mypy ทำให้ test_typing_leaf.py บังคับจริงใน standalone loop
+          #   (ชั้น leaf utility ต้อง type-annotated ครบ — ไม่มี mypy = test SKIP)
+          pip install mypy
+
+      - name: Version gate (blocking — danger=fail, aux/optional missing=warn)
+        # [B1-FIX] เดิม `|| true` ทำให้ด่านนี้เป็นแค่ของประดับ. version_gate FAIL เฉพาะเคสอันตราย
+        #   (core/python/numpy major-minor-missing) เท่านั้น — aux/optional ที่ไม่ได้ติดตั้ง = WARN
+        #   จึงผ่านปกติบน 3.12+pinned. เอา `|| true` ออก = ด่านนี้กันของจริงแล้ว.
+        run: python version_gate.py
+
+      - name: Invariants (4/4)
+        run: python INVARIANTS/check_invariants.py
+
+      - name: Fixture golden (ต้องได้ 72cb832c)
+        run: python regression_full.py . tests/fixtures tests/fixtures/baseline_fixture.json
+
+      - name: Unit + advisory tests (standalone)
+        run: |
+          fail=0
+          for t in test_*.py; do
+            echo "── $t"
+            python "$t" || fail=1
+          done
+          exit $fail
+
+      - name: Coverage gate (line ≥90% + branch ≥85%)
+        # [B4-FIX] เดิมรันเฉพาะ local (run_ci.sh) — ย้ายเข้า GitHub CI ให้ coverage ตกแล้ว CI แดงจริง
+        # [drift-fix 2026-06] เดิม GitHub CI บังคับแค่ line; run_ci.sh บังคับ branch ≥85 อยู่แล้ว →
+        #   ตั้ง PUOPUY_COV_BRANCH_MIN=85 ให้ GitHub CI "เข้ม=local" (branch coverage เป็นเกตจริง ไม่ใช่รายงานเฉย ๆ)
+        env:
+          PUOPUY_COV_BRANCH_MIN: "85"
+        run: python coverage_gate.py
+
+      - name: Parse canary (fixture rate — กัน parse ถอยหลังเงียบ)
+        # [B4-FIX] เดิมไม่อยู่ใน GitHub CI — เพิ่มเพื่อจับ parse-rate regression ตั้งแต่ใน CI
+        run: python parse_canary.py tests/fixtures --baseline tests/fixtures/canary_baseline_fixture.json
+
+      - name: Merged-cell integrity (real_cases — ค่าวิกฤตไม่หายจาก merge)
+        # [#1] guard: parser ต้องจับ ยอด/VAT/รวม/เลขภาษี ครบแม้ไฟล์มี merged cells หนัก
+        #   (พิสูจน์ด้วย reconciliation ต่อบิล + taxid). จับ regression ถ้า parser อนาคตทำค่าหาย.
+        run: python diagnose_merged_cells.py tests/real_cases
+
+      - name: Package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)
+        # guard: package.sh ต้องผลิต zip ที่ตั้ง UTF-8 flag ถูก (โมดูลหลักชื่อไทยไม่หายตอน unzip)
+        #   + ไม่มี cache/secret หลุด. กัน regression แบบ git-archive ที่เคยทำแพ็กพังเงียบ.
+        run: python test_package_integrity.py
+
+      - name: Reachability guard (A1+A2 — ไม่มี floating module / CI ไม่เขียวบนโค้ดตาย)
+        # keystone: ทุกโมดูล non-test ต้อง reachable จาก entrypoint/tool ; ทุกเทสต้องผูก production.
+        #   floating module / เทสบนโค้ดตาย = merge ไม่ผ่านตั้งแต่ใน CI (static AST, hash ไม่ขยับ).
+        run: python test_reachability.py
+
+      - name: Report determinism (A3 — รายงาน Excel นิ่ง บน fixtures)
+        # gate: build รายงานคลีน 2 รอบ แล้ว REPORT_DET_HASH ต้องตรงกัน (ไม่มี timestamp/order leak).
+        run: python test_report_det.py
+
+      - name: Reset completeness (A4 — parse 2 รอบในโปรเซสเดียว ผลเท่ากัน)
+        # gate: pipeline idempotent ข้ามรอบใน session เดียว (reset_run_state ล้าง cache ครบ — ไม่ bleed).
+        run: python test_reset_completeness.py
+
+  # [#2] job แยก (รันขนานกับ gate — ไม่หน่วง gate หลัก): พิสูจน์ว่า `pytest` ใช้งานได้จริง
+  #   conftest.py รันแต่ละสคริปต์เป็น subprocess → collection ไม่ครัช + ทุกเทสผ่านผ่าน pytest ด้วย
+  #   (เดิม pytest ครัชทันทีเพราะ module-level sys.exit). กัน regression ของ tooling นี้.
+  pytest:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONHASHSEED: "0"
+      PUOPUY_AUDIT_DATE: "2026-06-02"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned deps + pytest
+        run: |
+          python -m pip install --upgrade pip
+          pip install -c constraints.txt pandas xlrd openpyxl rapidfuzz numpy coverage pytest
+      - name: Pytest must collect (no crash) then pass via subprocess collector
+        run: |
+          python -m pytest --collect-only -q   # ด่านตรง: collection ต้องไม่ครัช (บั๊กเดิม)
+          python -m pytest                      # ทุกสคริปต์รันเป็น subprocess (เหมือน run_ci.sh)
