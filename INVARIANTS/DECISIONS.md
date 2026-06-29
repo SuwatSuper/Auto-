@@ -2972,3 +2972,80 @@ if province is None or province in _ADDR006_SKIP_PROVINCES:
 ### 6. ยืนยัน (gate ครบ)
 `test_adr140_bkk_skip.py` (กรุงเทพฯ → None เว้นจริง · province None/ว่าง → None · non-BKK ไม่ครัช) — register `run_ci.sh [3c4c2]`. golden=`23b315e8` ✅ · addr tests ✅.
 **git diff:** `thai_postal.py` (dead-guard fix ใน district_postal_mismatch) + `test_adr140_bkk_skip.py` (ใหม่) + `run_ci.sh` ([3c4c2]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+# ── Pass 3 (adversarial review ของงานตัวเอง) 2026-06-29 — ADR-141 ──
+
+## ADR-141 — [แก้ ADR-127] เอา ADDR001 ออกจาก MASTER_DEPENDENT (มี standalone path = active จริง) — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **supersede:** ADR-127 (เฉพาะการจัด ADDR001) · **golden:** `23b315e8…` **ไม่ขยับ** · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — Pass 3 adversarial review ; พบโดย Pass-3 review agent (ADR-127 minor-issue)
+**priority:** กลาง — honesty correctness (กลับกัน: ADR-127 เผลอ "ปิด" กฎที่ active จริง)
+
+### 1. บั๊ก (กลาง — misclassification ใน ADR-127) — ADDR001 ไม่ใช่ master-dependent
+ADR-127 ใส่ `ADDR001` ใน `MASTER_DEPENDENT` (→ รายงาน `unavailable-resource` เมื่อ master ว่าง). **ผิด:** `r_addr001` (rules_a:245-261) มี **standalone path** ก่อนถึง branch master:
+```
+bv = normalize_text(b.get('address',''))
+if not bv: return ['ไม่พบที่อยู่']                      # ← ฟ้องแม้ไม่มี master
+if not m or not m.get('address_parts'):
+    if not re.search(r'\b\d{5}\b', bv): ... 'ไม่พบรหัสไปรษณีย์ 5 หลัก'   # ← ฟ้องแม้ไม่มี master
+    if not any(kw in bv ...): ... 'ไม่พบจังหวัด/เขต/...'                  # ← ฟ้องแม้ไม่มี master
+    return issues
+```
+→ ADDR001 **ฟ้องที่อยู่ "ของบิลเอง" ได้แม้ master ว่าง** = **active จริง**. (corpus=0 เพราะที่อยู่ครบ ไม่ใช่เพราะ master ว่าง). การ mark unavailable = honesty ผิดทางตรงข้าม (ปิดกฎที่ทำงานจริง).
+
+### 2. หลักฐาน (reproduce)
+- `r_addr001({'address':'บ้านเลขที่ 1 หมู่บ้านสวย'}, None, {})` → `['ไม่พบรหัสไปรษณีย์ 5 หลัก','ไม่พบจังหวัด/...']` (ฟ้อง แม้ m=None).
+- เทียบ: `r_cmp001/r_addr002/r_addr003(.., None, {})` → `[]` (master-dependent จริง: `if not m: return []` บรรทัดแรก).
+
+### 3. วิธีทำ (surgical · metadata)
+ลบ `"ADDR001"` ออกจาก `code_registry.MASTER_DEPENDENT`. เหลือ 8 code ที่ master-dependent จริง:
+`CMP001/004/006, ADDR002, ADDR003, TAX003, TAX005, BR004`. ADDR001 กลับเป็น `active`.
+
+### 4. พิสูจน์ golden-neutral
+code_registry = metadata. `regression_full . corpus`=`23b315e8` เป๊ะ. coverage honest: active 53→**54**, unavailable 10→**9** (ADDR001 ออก). `ADDR001` status = `active`.
+
+### 5. Migration risk
+ต่ำมาก — แก้การจัดกลุ่ม metadata ให้ถูก. ADDR001 รายงาน active (ตามจริง). ADR-127 ส่วนที่เหลือ (8 code) ถูกต้อง คงไว้.
+
+### 6. ยืนยัน (gate ครบ)
+`test_rule_status.py` +2 assertion (ADDR001 ∉ MASTER_DEPENDENT + ADDR001 ∈ active) — ผ่าน. golden=`23b315e8` ✅.
+**git diff:** `code_registry.py` (ลบ ADDR001 จาก MASTER_DEPENDENT) + `test_rule_status.py` (+2 assertion) + DECISIONS.md (ADR) — golden-neutral.
+**Pass-3 review สรุป:** ADR-126/128/129/130/131/132/133/134/135/136/137/138/139/140 = **sound** (เหลือ nit/report-only เท่านั้น) ; ADR-127 = แก้ด้วย ADR-141 นี้. nit/report-only ที่เหลือ (make_release abspath-vs-realpath/stray-loose-.xls, .venv-prefix prune, iv pure-digit narrowing) = รับได้/no-action — บันทึกใน `_ส่งมอบ_HARDENING_5YEAR_ADR126-140_TH.md`.
+
+---
+
+## ADR-142 — [golden-path false-negative] parse_date_any ตัด '%d/%m/%y' fallback ที่ fabricate วันปี 2 หลัก — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus delta=0) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — Pass-3 fresh-hunt (dates-period medium) ; false-negative ใน golden-path date
+**priority:** กลาง-สูง — false-negative (วันเสียถูกรับเป็นวันอนาคต → DT006 ไม่ฟ้อง) ในเส้น golden
+
+### 1. บั๊ก (กลาง — silent false-negative · golden-path) — fallback fabricate วันปี 2 หลัก
+`parse_date_any` (puopuy_dates.py) สาขา `m_yy` (Thai-aware, บรรทัด 76-91) จัดการ D/M/YY ตาม `_ivp_year2_to_ce`
+(ปีกำกวม 00-14/40-57 → None ตาม ADR-052 ; วันไม่มีจริง → raise → ตก). **แต่** strptime fallback บรรทัด 92 มี
+`'%d/%m/%y'` ที่ตีปี 2 หลักด้วย **pivot 1969 ของ Python** (yy≤68→20yy) → "fabricate ใหม่" หลัง m_yy ปฏิเสธ:
+- `'29/2/68'`: พ.ศ.2568=ค.ศ.2025 (ไม่อธิกสุรทิน) → 29ก.พ.ไม่มีจริง → m_yy ล้ม → fallback → **2068-02-29** (2068
+  อธิกสุรทิน) = "วันอนาคต 43 ปี" → `parser_p1:580` ตั้ง iv_date + **ข้าม** _bad_date → **DT006 ไม่ฟ้อง** (false-negative).
+- `'12/2/13'` (ที่อยู่ '2/12-2/13'→'12/2/13'): ปีกำกวม 13 → m_yy คืน None (ADR-052) → fallback → **2013** = ที่อยู่ชนะ date จริง.
+
+### 2. หลักฐาน (reproduce + golden-neutral)
+- `parse_date_any('29/2/68')` `2068-02-29`→`None` ; `'12/2/13'` `2013-02-12`→`None` ; `'5/5/45'` `2045`→`None`.
+- corpus iv_date ทั้งหมดปี **2024-2026** (สแกน 1056 บิล: 0 บิล ≥2040) → fallback `%d/%m/%y` ไม่เคยทำงานบน corpus
+  (m_yy คืนก่อน: 66-69 ∈ 58-99 → `_ce`≠None) → ตัด = corpus delta=0.
+
+### 3. วิธีทำ (surgical · ลบ 1 format)
+ลบ `'%d/%m/%y'` จาก list strptime fallback. m_yy ครอบ D/M/YY valid ทุกตัว (superset slash + label/เวลา) → ตัดเฉพาะ
+ตัว fabricate ; 4-หลัก `'%d/%m/%Y'` + ISO + `%d-%m-%Y`/`%d.%m.%Y` คงไว้.
+
+### 4. พิสูจน์ golden-neutral
+`regression_full . corpus`=`23b315e8` เป๊ะ. `test_date_2digit_year` ✅ · `test_date_parse_characterization` **36/36** ✅ ·
+`test_bs4_dt006_tor_calendar` ✅. valid (5/5/69→2026, 1/1/66→2023, label) byte-identical ; วันเสีย/กำกวม→None→DT006.
+
+### 5. Migration risk
+ต่ำ — ตัด format ซ้ำซ้อนที่ fabricate ผิด. valid byte-identical ; เปลี่ยนเฉพาะวันเสีย/กำกวม (เดิม fabricate → None = ถูกตาม ADR-052/DT006). ไม่กระทบ 4-หลัก/ISO.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr142_date_2digit_fallback.py` — register `run_ci.sh [3x3a]`. golden=`23b315e8` ✅ · date characterization 36/36 ✅.
+**git diff:** `puopuy_dates.py` (ลบ '%d/%m/%y') + `test_adr142_date_2digit_fallback.py` (ใหม่) + `run_ci.sh` ([3x3a]) + DECISIONS.md (ADR) — golden-neutral.

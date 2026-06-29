@@ -89,7 +89,14 @@ def parse_date_any(v: Any) -> datetime | None:
             if _ce is not None and 1 <= mon <= 12 and 1 <= day <= 31:
                 return datetime(_ce, mon, day)
         except Exception: pass
-    for fmt in ['%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y','%d/%m/%y','%d-%m-%Y','%d.%m.%Y']:
+    # [ADR-142] ตัด '%d/%m/%y' ออกจาก fallback — มันคือตัวเดียวที่ "fabricate วันที่ปี 2 หลักใหม่" ด้วย
+    #   pivot 1969 ของ Python (yy<=68→20yy) "หลัง" สาขา m_yy (Thai-aware) ปฏิเสธไปแล้ว (ปีกำกวม/วันไม่มีจริง)
+    #   → ทำให้วันเสีย เช่น '29/2/68' (พ.ศ.2568=ค.ศ.2025 ไม่อธิกสุรทิน → 29ก.พ.ไม่มีจริง) ถูกตีเป็น 2068-02-29
+    #   (2068 อธิกสุรทิน) = "วันอนาคต 43 ปี" แทนที่จะ flag DT006 = false-negative ; และ '12/2/13' (ปีกำกวม 00-14
+    #   ที่ ADR-052 จงใจคืน None) ถูก fabricate เป็น 2013 = ที่อยู่ชนะ date cell จริง. m_yy ครอบ D/M/YY ทุกตัว
+    #   ที่ valid อยู่แล้ว (corpus 66-69 → m_yy คืนก่อน ไม่ถึง fallback) → ตัด '%d/%m/%y' = byte-identical บน corpus
+    #   (golden=23b315e8) + คืน None ให้ปีกำกวม/วันไม่มีจริง → DT006/bad-date ทำงาน. (4-หลัก '%d/%m/%Y' คงไว้.)
+    for fmt in ['%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%d.%m.%Y']:
         try:
             d = datetime.strptime(s[:19] if len(s)>=19 else s[:10], fmt)
             if d.year > 2400: d = d.replace(year=d.year - 543)

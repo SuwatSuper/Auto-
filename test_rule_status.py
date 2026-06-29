@@ -81,6 +81,11 @@ MASTER_DEP = set(REG.MASTER_DEPENDENT)
 en_master = MASTER_DEP & enabled
 _check(f"MASTER_DEPENDENT ทุกตัวเป็นกฎที่เปิดอยู่จริง ({sorted(MASTER_DEP - enabled) or 'ครบ'})",
        MASTER_DEP <= enabled)
+# [ADR-141 แก้ ADR-127] ADDR001 มี standalone path (ฟ้องไปรษณีย์/จังหวัดขาด แม้ไม่มี master) =
+#   "active จริง" ไม่ใช่ master-dependent → ต้องไม่อยู่ใน MASTER_DEPENDENT + ต้องเป็น active เสมอ.
+_check("ADDR001 ไม่อยู่ใน MASTER_DEPENDENT (มี standalone path = active จริง)",
+       "ADDR001" not in MASTER_DEP)
+_check("ADDR001 = active (ฟ้องที่อยู่ตัวเองได้แม้ master ว่าง)", "ADDR001" in active)
 if not REG.master_available():
     _check("ไม่มี master จริง → กฎตัวตนทั้งหมด = unavailable-resource (ไม่นับ active)",
            en_master <= unavail and not (en_master & active))

@@ -116,6 +116,7 @@ run "[3x-fc2] ADR-138 QA tripwire robust (coverage_gate ไม่ splat + versio
 run "[3x2] FIELD_CODES coverage (แดชบอร์ดเห็นทุกกฎ — กัน false-clean)" "$PY" test_field_codes_coverage.py
 run "[3x2b] rule status (A2 — active/disabled/unavailable + เหตุผล ไม่หลอกตา)" "$PY" test_rule_status.py
 run "[3x3] date 2-digit year (พ.ศ./ค.ศ. ไม่ขัดกัน)" "$PY" test_date_2digit_year.py
+run "[3x3a] ADR-142 ตัด %d/%m/%y fallback (วันเสีย/กำกวม→None→DT006 ไม่ fabricate วันอนาคต)" "$PY" test_adr142_date_2digit_fallback.py
 run "[3x3b] date parse characterization (ทุกสาขา + adversarial, ADR-053)" "$PY" test_date_parse_characterization.py
 run "[3x3c] DOC001 SHORT guard (ADR-058 — เทมเพลตก๊อป/บิลเดี่ยว ไม่ใช่ 'วัน')" "$PY" test_doc001_short_guard.py
 run "[3x4] code-table consistency (MAP+FIELD_LAYOUT ตามทันทุกรหัส)" "$PY" test_code_tables_consistency.py

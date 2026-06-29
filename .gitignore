@@ -7,9 +7,15 @@ _f1_*.py
 _f1_*.json
 .ruff_cache/
 .mypy_cache/
+.pytest_cache/
 .coverage
 .coverage.json
 .venv*/
+
+# wheelhouse offline (re-vendor ตาม §10/BUILD_OFFLINE) — ใหญ่ (~73MB cp312) ; ไม่ commit ขึ้น repo.
+#   make_release (os.walk) แพ็กเข้า OFFLINE zip ให้เอง ; package.sh (git ls-files) = source-only ไม่รวม.
+vendor/wheels/
+requirements.lock.bak
 
 # ── ข้อมูลจริงลูกค้า + ผลลัพธ์ที่ derive จากข้อมูลจริง (ห้าม commit ขึ้น repo) ──
 # corpus = 148 ไฟล์ .xls จริง (ชื่อบริษัท/เลขภาษี/ที่อยู่/ยอดเงิน) — ระบบออกแบบให้ "ไม่อยู่ใน repo"
