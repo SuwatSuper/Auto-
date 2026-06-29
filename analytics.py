@@ -161,6 +161,14 @@ def build_unit_index(all_bills):
         for it in _safe_items(b):
             name = it.get('name')
             unit = it.get('unit')
+            # [ADR-139/RB-02] coerce name/unit เป็น str ให้ตรงกับที่ run_rules coerce (rules_engine:289-291)
+            #   — build_unit_index รัน "ก่อน" run_rules → ถ้า name เป็น non-str (int รหัสสินค้า) จะ key
+            #   ด้วยค่าดิบ แต่ r_itm015 lookup ด้วย name ที่ coerce แล้ว (str) → key ไม่ตรง → ITM015 พลาด
+            #   cross-unit conflict (false-negative). corpus ทุก item str → str() no-op → golden-neutral.
+            if not isinstance(name, str):
+                name = '' if name is None else str(name)
+            if not isinstance(unit, str):
+                unit = '' if unit is None else str(unit)
             if name and unit:
                 idx[name].add(unit)
     return idx

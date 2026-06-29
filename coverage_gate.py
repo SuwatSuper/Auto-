@@ -40,7 +40,10 @@ GROUPS = [
 _allfiles = [f for _, fs in GROUPS for f in fs]
 SOURCE = ",".join(os.path.splitext(f)[0] for f in _allfiles)
 TESTS = [
-    'test_rules_c_decimal_gates.py',
+    # [ADR-138] ต้องเป็น list — entry นี้เคยเป็น bare string → `*t` (บรรทัด 79) splat เป็น "ตัวอักษรทีละตัว"
+    #   ['t','e','s','t',...] → coverage รันไฟล์ชื่อ 't'/'e'/... (ไม่มีจริง, check=False เงียบ) → test_rules_c
+    #   _decimal_gates "ไม่เคยถูกวัด" → branch ของ rules_c (ค่าขอบเงิน Decimal) วัดต่ำกว่าจริง.
+    ["test_rules_c_decimal_gates.py"],
     ["test_rules_coverage.py"], ["test_rules_extra.py"], ["test_rules_extra2.py"],
     ["test_rules_typo_branch.py"],   # r_itm004/r_itm010 typo emit branches (rules_b)
     ["test_fuzz_rules_robust.py"],   # [ADR-120 GAP-A] ครอบ branch coerce non-str ใน run_rules (data-hygiene)

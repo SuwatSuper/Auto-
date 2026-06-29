@@ -50,6 +50,7 @@ run "[3c3] TAX008 (B1 — เลขภาษีเดียวชื่อต่
 run "[3c4] ADDR006 (B2 — ไปรษณีย์↔จังหวัด, ไม่พึ่ง master)" "$PY" test_addr006.py
 run "[3c4b] ADDR province word-boundary (ADR-110 — กัน substring FP)" "$PY" test_addr_province_boundary.py
 run "[3c4c] ADR-122 กฎใหม่ VAT012/ADDR010/ADDR007 (บาทอักษร↔ตัวเลข, จังหวัดปลอม, ไปรษณีย์↔อำเภอ)" "$PY" test_adr122_new_rules.py
+run "[3c4c2] ADR-140 ADDR007 เว้นกรุงเทพฯ จริง (dead-guard fix)" "$PY" test_adr140_bkk_skip.py
 run "[3c4d] ADR-123 เคลียร์ก้ำกึ่ง (กลุ่ม A ฟ้องรีเช็ค / กลุ่ม B เงียบ / FP=0 / lookbehind หล็กฉาก)" "$PY" test_adr123_borderline_clear.py
 run "[3c4e] ADR-125 ที่อยู่ 2 บรรทัด — กู้บ้านเลขที่หาย (KNT/CETI) + guard ไม่เก็บบรรทัดสินค้า" "$PY" test_adr125_addrline_houseno.py
 run "[3c4f] ADR-137 ที่อยู่ label-glued 'เลขที่123'/'หมู่ที่4' ถูกเก็บ (sibling ADR-125)" "$PY" test_adr137_addr_glued.py
@@ -100,6 +101,7 @@ run "[3v] issue consolidator (Agent ยุบรหัส→ข้อสรุ�
 run "[3v1] ADR-133 consolidate_bill ทนบิลเพี้ยน (issues=None/non-dict/non-str code)" "$PY" test_adr133_consolidator_robust.py
 run "[3v2] report lane/aspect (ADR-111 — CMP005 must-fix + ITM019/020 หน่วย)" "$PY" test_report_lane_aspect.py
 run "[3w] super ultra viewer (label คน + บล็อกบริษัท)" "$PY" test_super_ultra_viewer.py
+run "[3w0a] ADR-139 advisory robust (build_unit_index coerce non-str + viewer note ไม่เงียบ)" "$PY" test_adr139_advisory_robust.py
 run "[3w1] honesty รายผู้ขาย (A1 — 'ตรง'=เทียบ master จริง ; รองรับบริษัทใหม่)" "$PY" test_honesty_per_bill.py
 run "[3w1b] SYS-* summary (A5 — silent skip กฎ crash มองเห็นได้ท้ายการรัน)" "$PY" test_sys_summary.py
 run "[3w0] precision council (รีพอร์ตลูกค้า 10 ผู้ตรวจ + 2-tier)" "$PY" test_report_precision.py
@@ -110,6 +112,7 @@ run "[3x] golden single-source (doc↔baseline.json sync)" "$PY" test_golden_sin
 run "[3x-typo] typo decisions lock (ADR-084) + _kw_in_name characterization (ADR-085/087 safety net)" "$PY" test_typo_decisions_lock.py
 run "[3x-itm005] ITM005 precision characterization (ADR-087 F1 sniper — FP cut + recall lock)" "$PY" test_itm005_precision.py
 run "[3x-fc] forward-compat deprecation tripwire (ADR-088/FC-1 — กันระบบล้าหลังเงียบตอน bump dep ปีที่ 4-5)" "$PY" test_forward_compat.py
+run "[3x-fc2] ADR-138 QA tripwire robust (coverage_gate ไม่ splat + version_gate ไม่ false-green)" "$PY" test_adr138_gate_robust.py
 run "[3x2] FIELD_CODES coverage (แดชบอร์ดเห็นทุกกฎ — กัน false-clean)" "$PY" test_field_codes_coverage.py
 run "[3x2b] rule status (A2 — active/disabled/unavailable + เหตุผล ไม่หลอกตา)" "$PY" test_rule_status.py
 run "[3x3] date 2-digit year (พ.ศ./ค.ศ. ไม่ขัดกัน)" "$PY" test_date_2digit_year.py

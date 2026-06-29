@@ -2878,3 +2878,97 @@ mesh = ชั้น advisory (data plane ของ agent) — golden snapshot = 
 ### 6. ยืนยัน (gate ครบ)
 `test_adr137_addr_glued.py` (A: glued ถูกเก็บ · B: รูปเว้นวรรค byte-identical · C: non-addr/'เลขที่บัญชี' ไม่เก็บ) — register `run_ci.sh [3c4f]`. golden=`23b315e8` ✅ · parse-canary ✅ · ADR-125 test ✅.
 **git diff:** `parser_p1.py` (regex `\s*` ใน branch-1 ของ `_pb_try_address_line`) + `test_adr137_addr_glued.py` (ใหม่) + `run_ci.sh` ([3c4f]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+# ── Pass 2 (re-hunt §6 + ปิด report-only ที่ golden-neutral) 2026-06-29 — ADR-138.. ──
+
+## ADR-138 — [QA tripwire robust] coverage_gate ไม่ splat + version_gate ไม่ false-green เวอร์ชันหัวใจ — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — QA tooling นอก audit) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — bug-hunt safety-net robustness (Pass 2) ; พบโดย workflow (GOV-02/GOV-03 fix-now)
+**priority:** กลาง — tripwire ที่ "วัดผิด/ผ่านหลอก" = ความเชื่อใน gate 5 ปีเสีย
+
+### 1. บั๊ก (2 จุดใน QA gate)
+**(GOV-02) `coverage_gate.TESTS[0]` เป็น bare string:** entry แรก = `'test_rules_c_decimal_gates.py'` (string) ; entry อื่นเป็น `[...]`. บรรทัด 79 `coverage run ... *t` — splat บน string = แตกเป็น **ตัวอักษรทีละตัว** `['t','e','s','t',...]` → coverage รันไฟล์ชื่อ 't'/'e'/... (ไม่มีจริง, `check=False` + stderr DEVNULL = เงียบ) → `test_rules_c_decimal_gates.py` **ไม่เคยถูกวัด** → branch ของ rules_c (ค่าขอบเงิน Decimal) วัดต่ำกว่าจริง.
+**(GOV-03) `version_gate._policy` false-green:** `parse_version('dev')`=`()` (chunk แรกไม่มีเลขนำ → break). `diff_level(want, 'dev')` → `LV_UNKNOWN`. `_policy(REQUIRED_CRITICAL, LV_UNKNOWN)` เดิม **ไม่อยู่** ใน FAIL-set (`LV_MISSING/MAJOR/MINOR`) → `ST_WARN` → dep หัวใจ (pandas/numpy/...) ที่เวอร์ชัน "แปลงเลขไม่ได้" (editable/git install) **ผ่านเป็น WARN** ทั้งที่ยืนยันเวอร์ชันไม่ได้ = false-green ที่เสี่ยง golden drift เงียบ.
+
+### 2. หลักฐาน
+- (GOV-02) `*'test_rules_c_decimal_gates.py'` → `['t','e','s',...]` (reproduced) ; entry อื่นเป็น list.
+- (GOV-03) `parse_version('dev')==()`, `diff_level('2.2.2','dev')==LV_UNKNOWN`, `_policy('numpy',LV_UNKNOWN)` เดิม=WARN.
+
+### 3. วิธีทำ (surgical · tooling)
+(GOV-02) ห่อ `['test_rules_c_decimal_gates.py']` (list). (GOV-03) เพิ่ม `LV_UNKNOWN` ใน FAIL-set ของ `python` + `REQUIRED_CRITICAL` (เทียบ golden-critical ไม่ได้ = FAIL). env ปกติ (เลขสะอาด) → `LV_OK` → ไม่กระทบ.
+
+### 4. พิสูจน์ golden-neutral
+ทั้ง 2 ไฟล์เป็น QA gate (นอก parse/audit) — golden ไม่ขยับเชิงโครงสร้าง. `version_gate.py` ยังผ่านบน env ปัจจุบัน (pin สะอาด → LV_OK). `coverage_gate` ผ่าน (94.6% line) + ตอนนี้ "วัด test_rules_c_decimal_gates จริง" (coverage เพิ่มได้ ไม่ลด → gate ยังผ่าน). `regression_full . corpus`=`23b315e8`.
+
+### 5. Migration risk
+ต่ำมาก — (GOV-02) coverage เพิ่มขึ้นเท่านั้น. (GOV-03) เข้มขึ้นเฉพาะเคส "เวอร์ชันแปลงไม่ได้" (ไม่เกิดบน env pin). ทั้งคู่ไม่แตะ audit.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr138_gate_robust.py` (GOV-02 ทุก entry เป็น list ผ่าน AST [ไม่ import coverage_gate ที่รัน gate ตอน import] · GOV-03 LV_UNKNOWN→FAIL + LV_OK→OK) — register `run_ci.sh [3x-fc2]`. version_gate ✅ · coverage_gate ✅ · golden=`23b315e8` ✅.
+**git diff:** `coverage_gate.py` (entry → list) + `version_gate.py` (LV_UNKNOWN ใน FAIL-set) + `test_adr138_gate_robust.py` (ใหม่) + `run_ci.sh` ([3x-fc2]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-139 — [advisory-layer robustness] build_unit_index coerce non-str + viewer note ไม่เงียบ — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — advisory/report layer) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — Pass 2 ; พบโดย workflow (RB-02 + RPT-04 fix-now)
+**priority:** กลาง — (RB-02) false-negative ITM015 บน non-str ; (RPT-04) silent failure (ขัด mandate ADR-111)
+
+### 1. บั๊ก (2 จุด advisory)
+**(RB-02) `analytics.build_unit_index` key ด้วย name ดิบ:** สร้าง index `idx[it.get('name')]` **ก่อน** run_rules coerce name→str (rules_engine:289-291). ถ้า item name เป็น **non-str** (int รหัสสินค้า) → key เป็น int ดิบ ; แต่ `r_itm015` lookup ด้วย name ที่ coerce แล้ว (str) → key ไม่ตรง → ITM015 **พลาด cross-unit conflict** (สินค้าเดียวกันใช้หน่วยต่างกลุ่ม) = false-negative. (สองชั้น normalize ที่คนละเวลา.)
+**(RPT-04) `super_ultra_viewer:288` bare except:** `try: import unit_detection_ext; notes.extend(company_unit_notes(...)) except Exception: pass` — กลืน **ทั้ง import error และ runtime error** เงียบสนิท ไม่มี log/sentinel (ขัด mandate ADR-111 "เลิก except:pass ที่มองไม่เห็น").
+
+### 2. หลักฐาน
+- (RB-02) `build_unit_index([{items:[{name:4501,unit:'กล่อง'},{name:4501,unit:'ชิ้น'}]}])` เดิม key=int 4501 ≠ lookup str '4501' → 2 หน่วยไม่ถูกรวมใต้ key เดียว → ITM015 ไม่จับ.
+- (RPT-04) handler = `except Exception: pass` (bare).
+- corpus: ทุก item name เป็น str → coerce no-op → golden-neutral.
+
+### 3. วิธีทำ (surgical · advisory เท่านั้น)
+(RB-02) coerce `name`/`unit`→str ใน build_unit_index (ตรงกับ run_rules) ก่อน `idx[name].add(unit)`. (RPT-04) เก็บพฤติกรรม degrade (note optional) แต่ `except Exception as _e` → `log_system_issue(code='SYS-UNITNOTE', echo=False)` (มี try ซ้อนกัน logger ล้มไม่ลาม).
+
+### 4. พิสูจน์ golden-neutral
+analytics/viewer = advisory/report layer (golden = audit snapshot ไม่รวม). `regression_full . corpus`=`23b315e8` เป๊ะ. `test_super_ultra_viewer`/`test_unit_detection_ext`/`test_unit_missing_rules` เขียว. SYS-UNITNOTE = sidecar log ไม่เข้า snapshot.
+
+### 5. Migration risk
+ต่ำมาก — coerce ค่าที่ corpus เป็น str อยู่แล้ว (no-op) ; viewer degrade เหมือนเดิม + เพิ่ม trail.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr139_advisory_robust.py` (RB-02: index key coerce str + str ปกติเดิม + None ไม่ index · RPT-04: try ที่ body เรียก company_unit_notes มี handler ทิ้ง SYS-UNITNOTE [AST, กันถูก string ในข้อความหลอก]) — register `run_ci.sh [3w0a]`. golden=`23b315e8` ✅ · viewer/itm tests ✅.
+**git diff:** `analytics.py` (coerce name/unit ใน build_unit_index) + `super_ultra_viewer.py` (except → SYS trail) + `test_adr139_advisory_robust.py` (ใหม่) + `run_ci.sh` ([3w0a]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-140 — [dead-guard fix] district_postal_mismatch (ADDR007) เว้นกรุงเทพฯ จริง — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus delta=0) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — Pass 2 ; พบโดย workflow (TN-01 fix-now)
+**priority:** กลาง — dead-guard → กฎ ADDR007 ประมวลผลกรุงเทพฯ ทั้งที่ intent เว้น (เสี่ยง FP เมือง กทม.)
+
+### 1. บั๊ก (กลาง — logic conflict / dead-guard) — guard เว้นกรุงเทพฯ ตายสนิท
+`district_postal_mismatch` (thai_postal.py, ป้อน r_addr007 ที่ rules_c:67) มี:
+```
+if province is None or province in _ADDR006_SKIP_PROVINCES:
+    if province is None: return None
+```
+`_ADDR006_SKIP_PROVINCES = {กรุงเทพมหานคร}`. เมื่อ province=กรุงเทพฯ → if นอก True แต่ inner คืนเฉพาะ None → **ตกผ่าน** → กรุงเทพฯ "ถูกประมวลผล" (ไม่เว้น) ทั้งที่ intent/คอมเมนต์ = เว้น (ADDR005 ดูแลโซน กทม.). guard ตาย.
+
+### 2. หลักฐาน
+- `district_postal_mismatch(<addr กรุงเทพฯ>)` เดิม "ไม่ return ที่ guard" → เดินต่อไปเทียบอำเภอ↔รหัส.
+- corpus: golden delta=0 หลังแก้ (`23b315e8` เป๊ะ) → ไม่มีบิลกรุงเทพฯ ที่ ADDR007 จาก path นี้เปลี่ยน (ADDR007 corpus=5, ไม่มีจาก กทม.path).
+
+### 3. วิธีทำ (surgical · 1 บรรทัด)
+`if province is None or province in _ADDR006_SKIP_PROVINCES: return None` (เว้นทั้ง None และ SKIP-province). intent ตรง.
+
+### 4. พิสูจน์ golden-neutral
+`regression_full . corpus`=`23b315e8` เป๊ะ (delta=0). `test_adr122_new_rules`/`test_addr006`/`test_addr_province_boundary` เขียว.
+
+### 5. Migration risk
+ต่ำ — ทำให้ behavior ตรง intent (เว้น กทม.). corpus ไม่ขยับ. future: ที่อยู่กรุงเทพฯ จะไม่ถูก ADDR007 จาก path นี้ (ADDR005 ดูแล) = ลด FP. **หมายเหตุ:** TN-02 (Thai-numeral zip ใน `_ZIP_RE`) + TN-03 (addr006 normalize vs addr007/010 raw) เป็น detection-consistency ที่ interdependent — **เสนอแยกให้เจ้าของรีวิว** (เปลี่ยน behavior บนข้อมูลอนาคต ; ดูรายงานท้าย).
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr140_bkk_skip.py` (กรุงเทพฯ → None เว้นจริง · province None/ว่าง → None · non-BKK ไม่ครัช) — register `run_ci.sh [3c4c2]`. golden=`23b315e8` ✅ · addr tests ✅.
+**git diff:** `thai_postal.py` (dead-guard fix ใน district_postal_mismatch) + `test_adr140_bkk_skip.py` (ใหม่) + `run_ci.sh` ([3c4c2]) + DECISIONS.md (ADR) — golden-neutral.

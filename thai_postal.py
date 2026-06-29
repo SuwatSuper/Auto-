@@ -243,10 +243,10 @@ def district_postal_mismatch(addr):
     if not addr:
         return None
     province = province_in_address(addr)
+    # [ADR-140] dead-guard fix: เดิม `if None or in SKIP: if None: return` → กรุงเทพฯ (ใน SKIP) ตกผ่าน
+    #   ไม่เคยถูกเว้นจริง (ขัด intent ที่ว่า ADDR005 ดูแลโซน กทม.แล้ว). คืน None ทั้ง None และ SKIP-province.
     if province is None or province in _ADDR006_SKIP_PROVINCES:
-        # หมายเหตุ: กรุงเทพฯ เว้น (ADDR005/006 ดูแลโซน) — เขต กทม. รหัส 10xxx ตรวจแยกได้ภายหลังถ้าต้องการ
-        if province is None:
-            return None
+        return None
     try:
         from thai_district import DISTRICT_POSTAL
     except Exception:

@@ -128,13 +128,16 @@ def _policy(name: str, level: str, strict: bool) -> str:
         # โหมดเข้ม: อะไรที่ไม่ตรงเป๊ะ = FAIL ทั้งหมด
         return ST_FAIL
 
+    # [ADR-138] LV_UNKNOWN = เวอร์ชันที่ติดตั้ง "แปลงเลขไม่ได้" (เช่น 'dev'/'main' จาก editable/git install)
+    #   → เทียบ golden-critical ไม่ได้ = ต้อง FAIL (ไม่ใช่ WARN false-green). env ปกติ (เลขสะอาด) → LV_OK
+    #   → ไม่กระทบ. กันรู "ผ่านทั้งที่ยืนยันเวอร์ชันหัวใจไม่ได้".
     if name == "python":
         # ต่างที่ major หรือ minor = อันตราย ; patch = เตือน
-        return ST_FAIL if level in (LV_MAJOR, LV_MINOR, LV_MISSING) else ST_WARN
+        return ST_FAIL if level in (LV_MAJOR, LV_MINOR, LV_MISSING, LV_UNKNOWN) else ST_WARN
 
     if name in REQUIRED_CRITICAL:
-        # หัวใจ parse/คำนวณ: ขาด/major/minor = FAIL ; patch = WARN
-        return ST_FAIL if level in (LV_MISSING, LV_MAJOR, LV_MINOR) else ST_WARN
+        # หัวใจ parse/คำนวณ: ขาด/major/minor/แปลงไม่ได้ = FAIL ; patch = WARN
+        return ST_FAIL if level in (LV_MISSING, LV_MAJOR, LV_MINOR, LV_UNKNOWN) else ST_WARN
 
     if name in OPTIONAL_CRITICAL:
         # degrade ได้: เฉพาะ major = FAIL ; ขาด/minor/patch = WARN

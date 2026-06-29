@@ -285,8 +285,17 @@ def build(bills, master_present=True, masters=None):
                         rec["dates"].append(dnote)
         notes = [_note_line(code, rec, ml2) for code, rec in sorted(notes_acc.items())]
         # [ADR-099] เฉพาะ company_unit_notes (หน่วยขายจริง it['unit'], family 2 สคริปต์) — ลบ file_spec_unit_lang_notes (นับ spec ในชื่อ '5 kg'/'9mm' เป็นอังกฤษ → FP 31/33 ไฟล์ ทั้งที่หน่วยขายไทยล้วน)
-        try: import unit_detection_ext as _uxe; notes.extend(_uxe.company_unit_notes(gbills))
-        except Exception: pass
+        try:
+            import unit_detection_ext as _uxe
+            notes.extend(_uxe.company_unit_notes(gbills))
+        except Exception as _e:   # [ADR-139/RPT-04] ไม่เงียบสนิท (mandate ADR-111): note หน่วยล้ม → ทิ้ง SYS trail
+            try:
+                from diagnostics import log_system_issue
+                log_system_issue(code='SYS-UNITNOTE', severity='WARNING', category='ระบบ',
+                                 name='company_unit_notes ล้ม (ข้าม note หน่วย — ไม่กระทบผลตรวจ)',
+                                 detail=f'{type(_e).__name__}: {_e}', echo=False)
+            except Exception:
+                pass
         rows.append({
             "company": comp, "short": _short_name(comp), "month": ml,
             "total": total_sum, "prevat": prevat_sum, "nbills": nbills,
