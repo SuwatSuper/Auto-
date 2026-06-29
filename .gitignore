@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+master_companies.json
+.venv/
+dist/
+_f1_*.py
+_f1_*.json
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.json
+.venv*/
+
+# ── ข้อมูลจริงลูกค้า + ผลลัพธ์ที่ derive จากข้อมูลจริง (ห้าม commit ขึ้น repo) ──
+# corpus = 148 ไฟล์ .xls จริง (ชื่อบริษัท/เลขภาษี/ที่อยู่/ยอดเงิน) — ระบบออกแบบให้ "ไม่อยู่ใน repo"
+# (ci.yml: CI ใช้ fixture เท่านั้น ; golden เต็มยืนยันบนเครื่องเจ้าของที่มีไฟล์จริง). golden oracle
+# = baseline.json (committed) ก็พอ. รายงาน/แดชบอร์ดด้านล่าง = output ที่ regenerate ได้ + มี PII.
+corpus/
+_iv_truth_report.json
+snapshot.json
+audit_charts.png
+audit_dashboard_report.html
+audit_system_issues.jsonl
+company_summary_ฉบับแก้แล้ว.txt
+company_summary_ฉบับแก้แล้ว.xlsx
+ตัวอย่างผลลัพธ์ใหม่_company_summary.txt
+
+# golden rebaseline backups (local only — ห้าม commit)
+*.json.*.bak

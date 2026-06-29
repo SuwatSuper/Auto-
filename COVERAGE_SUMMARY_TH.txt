@@ -1,0 +1,26 @@
+═══════════════════════════════════════════════════════════════
+ ปุ้มปุ้ย v9.1 — สรุป Test Coverage (โมดูลเป้าหมาย 4 ตัว)
+ reproduce: PYTHONHASHSEED=0 PUOPUY_AUDIT_DATE=2026-06-02
+            bash run_ci.sh /path/to/data   (รวม regression baseline f1ac8421…)
+═══════════════════════════════════════════════════════════════
+
+ โมดูล              ก่อน    หลัง    บรรทัดไม่ครอบ
+ ───────────────────────────────────────────────
+ puopuy_units.py    91%  →  100%    0
+ validators.py      89%  →  100%    0
+ rules_engine.py    81%  →   98%    19  (defensive/dict-based)
+ parser.py          82%  →   97%    29  (defensive/unreachable)
+ ───────────────────────────────────────────────
+ รวม 4 โมดูล        ~85% →   98%    48
+
+ Golden master hash: f1ac8421f23726ec00abe193968070827240cb2c381cae6cf854e2be307d209e
+   (ไม่ขยับ — ตรวจซ้ำบนข้อมูลจริง 106 ไฟล์ หลังเพิ่มเทสครบทุกไฟล์)
+
+ ไฟล์เทสที่เพิ่ม (เพิ่มเท่านั้น — ไม่แก้ซอร์สเอนจิน):
+   test_units_extra.py        (13 เช็ค)  puopuy_units.py  → 100%
+   test_validators_extra.py   (20 เช็ค)  validators.py    → 100%
+   test_rules_extra.py        (79 เช็ค)  rules_engine.py  → 93%
+   test_rules_extra2.py       (45 เช็ค)  rules_engine.py  → 98%  (+SYS-handler/degrade)
+   test_parser_extra.py       (54 เช็ค)  parser.py        → 93%
+   test_parser_extra2.py      (38 เช็ค)  parser.py        → 97%  (+TOR/parse_file)
+═══════════════════════════════════════════════════════════════
