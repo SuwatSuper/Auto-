@@ -60,10 +60,15 @@ def parse_date_any(v: Any) -> datetime | None:
                 try:
                     day = int(m.group(1)); year = int(m.group(2))
                     if year < 100:
-                        # [P1-FIX วันที่ 2 หลัก] ใช้กติกาเดียวกับ _ivp_year2_to_ce (กัน divergence 2 ที่):
-                        #   58-82=พ.ศ.ย่อ→ค.ศ., 15-39=ค.ศ.ย่อ (2015-2039). นอกช่วง→ถือเป็น พ.ศ.ย่อเดิม.
+                        # [P1-FIX วันที่ 2 หลัก] ใช้กติกาเดียวกับ _ivp_year2_to_ce: 58-82=พ.ศ.ย่อ→ค.ศ., 15-39=ค.ศ.ย่อ.
+                        # [ADR-144/VDU-1] ปีกำกวม (00-14/40-57 ที่ _ivp คืน None) → **ไม่ fabricate** (เดิม
+                        #   `else year+2500` ให้ '5 พ.ค. 45'→2002, '1 ม.ค. 13'→1970 = วันมั่ว ; ขัดสาขา m_yy ที่
+                        #   คืน None + เจตนา ADR-052 "ห้ามเดาวันให้ที่อยู่ชนะ date จริง"). break → ตก None เหมือน m_yy.
+                        #   corpus ปี 67-69 ∈ 58-99 → _ce≠None → byte-identical (golden ไม่ขยับ).
                         _ce = _ivp_year2_to_ce(year)[0]
-                        year = _ce if _ce is not None else year + 2500
+                        if _ce is None:
+                            break
+                        year = _ce
                     if year > 2400: year -= 543
                     return datetime(year, mn, day)
                 except Exception: pass

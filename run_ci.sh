@@ -51,6 +51,7 @@ run "[3c4] ADDR006 (B2 — ไปรษณีย์↔จังหวัด, ไ
 run "[3c4b] ADDR province word-boundary (ADR-110 — กัน substring FP)" "$PY" test_addr_province_boundary.py
 run "[3c4c] ADR-122 กฎใหม่ VAT012/ADDR010/ADDR007 (บาทอักษร↔ตัวเลข, จังหวัดปลอม, ไปรษณีย์↔อำเภอ)" "$PY" test_adr122_new_rules.py
 run "[3c4c2] ADR-140 ADDR007 เว้นกรุงเทพฯ จริง (dead-guard fix)" "$PY" test_adr140_bkk_skip.py
+run "[3c4c3] ADR-143 เลขไทยในรหัสไปรษณีย์ไม่ FP (ADDR006/007 normalize)" "$PY" test_adr143_thai_zip.py
 run "[3c4d] ADR-123 เคลียร์ก้ำกึ่ง (กลุ่ม A ฟ้องรีเช็ค / กลุ่ม B เงียบ / FP=0 / lookbehind หล็กฉาก)" "$PY" test_adr123_borderline_clear.py
 run "[3c4e] ADR-125 ที่อยู่ 2 บรรทัด — กู้บ้านเลขที่หาย (KNT/CETI) + guard ไม่เก็บบรรทัดสินค้า" "$PY" test_adr125_addrline_houseno.py
 run "[3c4f] ADR-137 ที่อยู่ label-glued 'เลขที่123'/'หมู่ที่4' ถูกเก็บ (sibling ADR-125)" "$PY" test_adr137_addr_glued.py
@@ -118,6 +119,7 @@ run "[3x2b] rule status (A2 — active/disabled/unavailable + เหตุผล
 run "[3x3] date 2-digit year (พ.ศ./ค.ศ. ไม่ขัดกัน)" "$PY" test_date_2digit_year.py
 run "[3x3a] ADR-142 ตัด %d/%m/%y fallback (วันเสีย/กำกวม→None→DT006 ไม่ fabricate วันอนาคต)" "$PY" test_adr142_date_2digit_fallback.py
 run "[3x3b] date parse characterization (ทุกสาขา + adversarial, ADR-053)" "$PY" test_date_parse_characterization.py
+run "[3x3b2] ADR-144 เดือนไทย+ปีกำกวม→None (สอดคล้อง m_yy ; ไม่ fabricate วันมั่ว)" "$PY" test_adr144_thai_month_ambiguous.py
 run "[3x3c] DOC001 SHORT guard (ADR-058 — เทมเพลตก๊อป/บิลเดี่ยว ไม่ใช่ 'วัน')" "$PY" test_doc001_short_guard.py
 run "[3x4] code-table consistency (MAP+FIELD_LAYOUT ตามทันทุกรหัส)" "$PY" test_code_tables_consistency.py
 run "[3x5] A-hardening (advisory/รายงานทนข้อมูลเพี้ยน — ไม่ครัช)" "$PY" test_a_hardening.py

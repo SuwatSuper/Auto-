@@ -101,6 +101,10 @@ PROVINCE_POSTAL_PREFIXES = {
 _ADDR006_SKIP_PROVINCES = frozenset({'กรุงเทพมหานคร'})
 _BKK_HINTS = ('กรุงเทพ', 'กทม')
 _ZIP_RE = re.compile(r'(?<!\d)(\d{5})(?!\d)')
+# [ADR-143/TN-02] เลขไทย ๐-๙ → อารบิก ก่อนจับ/เทียบรหัสไปรษณีย์. `\d` ของ Python เป็น Unicode จับ
+#   '๘๓๐๐๐' ได้ แต่ `z[:2] in valid_pref` เทียบ '๘๓' กับ '83' (ASCII) ไม่ตรง → ADDR006/007 ฟ้อง FP
+#   บนรหัสที่ "ถูกแต่เขียนเลขไทย". corpus = เลขอารบิกล้วน (0 เลขไทยในที่อยู่) → translate เป็น no-op → golden-neutral.
+_THAI_DIGITS = str.maketrans('๐๑๒๓๔๕๖๗๘๙', '0123456789')
 
 # [ADR-110] อักขระไทยที่ "ต่อคำ" (พยัญชนะ ก-ฮ + สระ/วรรณยุกต์) — ใช้ตรวจ word-boundary ของชื่อจังหวัด
 #   กัน substring false-positive: ชื่อจังหวัดสั้น (เลย/ตาก/น่าน/ตรัง/ตราด/แพร่) ที่บังเอิญเป็นส่วนของคำอื่น
@@ -161,7 +165,7 @@ def postal_province_mismatch(addr):
         return None
     if any(h in addr for h in _BKK_HINTS):
         return None
-    zips = _ZIP_RE.findall(addr)
+    zips = _ZIP_RE.findall(addr.translate(_THAI_DIGITS))   # [ADR-143/TN-02] เลขไทย→อารบิก ก่อนจับรหัส
     if not zips:
         return None
     valid = PROVINCE_POSTAL_PREFIXES.get(province, ())
@@ -254,7 +258,7 @@ def district_postal_mismatch(addr):
     dz = DISTRICT_POSTAL.get(province)
     if not dz:
         return None
-    zips = _ZIP_RE.findall(addr)
+    zips = _ZIP_RE.findall(addr.translate(_THAI_DIGITS))   # [ADR-143/TN-02] เลขไทย→อารบิก ก่อนจับรหัส
     valid_pref = PROVINCE_POSTAL_PREFIXES.get(province, ())
     prov_zips = [z for z in zips if z[:2] in valid_pref]
     if len(prov_zips) != 1:                       # ไม่มี/หลายรหัสจังหวัด → กำกวม → เงียบ

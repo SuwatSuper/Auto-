@@ -203,8 +203,8 @@ def council_review(entry, bill=None, fixlist=(), master_present=True):
         tier = CLEAR
     elif confirms and rechecks:
         tier = CLEAR if "consensus" in confirms else SOFT
-    elif confirms:
-        tier = CLEAR
+    # [ADR-145/RPT-03] ลบ `elif confirms: tier = CLEAR` (unreachable — confirms truthy ถูกจับโดย 2 branch
+    #   บนเสมอ: (T,F)→branch1, (T,T)→branch2). else ครอบ (F,F)+(F,T) ตามเดิม → behavior identical.
     else:
         # ไม่มีผู้ตรวจ CONFIRM
         if not confirms and not rechecks:

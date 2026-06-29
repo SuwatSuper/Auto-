@@ -3049,3 +3049,112 @@ code_registry = metadata. `regression_full . corpus`=`23b315e8` เป๊ะ. co
 ### 6. ยืนยัน (gate ครบ)
 `test_adr142_date_2digit_fallback.py` — register `run_ci.sh [3x3a]`. golden=`23b315e8` ✅ · date characterization 36/36 ✅.
 **git diff:** `puopuy_dates.py` (ลบ '%d/%m/%y') + `test_adr142_date_2digit_fallback.py` (ใหม่) + `run_ci.sh` ([3x3a]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+# ── Tier-3 (golden-neutral robustness เผื่ออนาคต — เจ้าของสั่งทำต่อ) 2026-06-29 — ADR-143.. ──
+
+## ADR-143 — [TN-02 normalization FP-guard] เลขไทยในรหัสไปรษณีย์ ไม่ทำ ADDR006/007 false-positive — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus เลขอารบิกล้วน) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — "ทำระดับ 3 (golden-neutral) ต่อ" ; พบโดย Pass-3 hunt (TN-02)
+**priority:** กลาง — false-positive บนใบที่เขียนรหัสไปรษณีย์เป็นเลขไทย (เผื่ออนาคต) ; แนว ADR-114
+
+### 1. บั๊ก (กลาง — FP/normalization) — รหัสถูกแต่เขียนเลขไทย → ฟ้องขัด
+`_ZIP_RE = r'(?<!\d)(\d{5})(?!\d)'` — `\d` ของ Python เป็น **Unicode** จับเลขไทย `๐-๙` ด้วย → `'๘๓๐๐๐'`
+ถูกจับ ; แต่ `postal_province_mismatch`/`district_postal_mismatch` เทียบ `z[:2] in valid_pref` = `'๘๓'` กับ
+`'83'` (ASCII) → **ไม่ตรง** → ฟ้อง "รหัส↔จังหวัดขัด" (ADDR006/ADDR007) บนรหัสที่ **ถูกแต่เขียนเลขไทย** = FP.
+(`normalize_text` ไม่แปลงเลขไทย → ค่าหลุดถึง regex). corpus = อารบิกล้วน → ไม่เคยเจอ (latent ของอนาคต).
+
+### 2. หลักฐาน (reproduce)
+- `postal_province_mismatch('...ภูเก็ต ๘๓๐๐๐')` → `('ภูเก็ต','๘๓๐๐๐','๘๓')` (FP) ; `'...ภูเก็ต 83000'` → `None` (รหัสเดียวกัน อารบิก ไม่ฟ้อง).
+- corpus 1056 บิล: ที่อยู่เลขอารบิกล้วน (0 เลขไทย — สแกน Pass-3) → translate เป็น no-op.
+
+### 3. วิธีทำ (surgical · 2 call-site)
+`_THAI_DIGITS = str.maketrans('๐-๙','0-9')` ; เปลี่ยน `_ZIP_RE.findall(addr)` → `_ZIP_RE.findall(addr.translate(_THAI_DIGITS))`
+ที่ 2 จุด (ADDR006 + ADDR007) เท่านั้น — แปลงเลขไทย→อารบิก "เฉพาะตอนจับรหัส" (ชื่อจังหวัด/province_in_address ไม่แตะ).
+
+### 4. พิสูจน์ golden-neutral
+`regression_full . corpus`=`23b315e8` เป๊ะ (corpus ไม่มีเลขไทยในที่อยู่ → translate no-op). `test_addr006`/`test_adr122_new_rules`
+เขียว. ทิศทาง = **ลด FP** (รหัสถูกเลขไทย→ไม่ฟ้อง ; รหัสผิดเลขไทย→ยังฟ้อง โดยรายงานเป็นอารบิกอ่านง่าย).
+
+### 5. Migration risk
+ต่ำ — translate เฉพาะ digit ตอนจับรหัส. อารบิก byte-identical ; เลขไทยถูกอ่านถูกต้อง (เหมือน ADR-114 ที่กู้ full-width tax-id).
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr143_thai_zip.py` (เลขไทยถูก→ไม่ FP + == อารบิก · เลขไทยผิด→ยังฟ้อง+รายงานอารบิก · อารบิก byte-identical) — register `run_ci.sh [3c4c3]`. golden=`23b315e8` ✅.
+**git diff:** `thai_postal.py` (`_THAI_DIGITS` + translate 2 call-site) + `test_adr143_thai_zip.py` (ใหม่) + `run_ci.sh` ([3c4c3]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-144 — [VDU-1 date fabrication] เดือนไทย + ปี 2 หลัก "กำกวม" → None (สอดคล้องสาขา D/M/YY) — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus ปี 66-69 ∈ ช่วงรู้จัก) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — "ทำระดับ 3 (golden-neutral) ต่อ" ; พี่น้อง ADR-052/ADR-142 (date-fabrication family)
+**priority:** กลาง — date fabrication เงียบ (เผื่ออนาคต/ไฟล์ที่เขียนเดือนไทย + ปีย่อกำกวม)
+
+### 1. บั๊ก (กลาง — date fabrication / inconsistency) — เดือนไทยปีกำกวม เดาวันมั่ว ขัดสาขา slash
+`parse_date_any` สาขา "เดือนไทย" (เช่น `'5 พ.ค. 45'`) เมื่อ `year < 100` เดิม:
+`year = _ce if _ce is not None else year + 2500` (แล้ว `-543`). ช่วงปีกำกวม `00-14`/`40-57`
+ที่ `_ivp_year2_to_ce` จงใจคืน `None` (ADR-052) กลับถูก fallback `year+2500-543` → **fabricate วันมั่ว**:
+`'5 พ.ค. 45'` → 2002 ; `'1 ม.ค. 13'` → 1970. **ขัด** สาขา D/M/YY (`m_yy` บรรทัด 81-96) ที่
+เคารพ `_ivp` คืน `None` ในเคสเดียวกัน → พฤติกรรม 2 สาขาไม่สอดคล้อง + ฝ่าเจตนา ADR-052
+("ห้ามเดาวันให้ที่อยู่/ปีกำกวมชนะ date จริง").
+
+### 2. หลักฐาน (reproduce + golden-neutral)
+- เดิม `parse_date_any('5 พ.ค. 45')`=`2002-05-05`, `'1 ม.ค. 13')`=`1970-01-01` (fabricate) ; slash `'5/5/45'`=`None`.
+- หลังแก้: เดือนไทยกำกวม → `None` == slash (สอดคล้อง). corpus ทุกบิล iv_date ปี **2024-2026** ; เดือนไทยปีย่อใน corpus = 66-69 ∈ 58-99 → `_ce`≠None → ไม่แตะ fallback → **byte-identical**.
+
+### 3. วิธีทำ (surgical · 1 บรรทัด)
+สาขาเดือนไทย เปลี่ยน `year = _ce if _ce is not None else year + 2500` →
+`_ce = _ivp_year2_to_ce(year)[0]; if _ce is None: break; year = _ce`. `break` ออกจาก loop เดือนไทย →
+ตกลงไป `m_yy`/fallback → คืน `None` (เหมือนสาขา slash). ช่วงรู้จัก (58-99/15-39) ไม่กระทบ.
+
+### 4. พิสูจน์ golden-neutral
+`regression_full . corpus`=`23b315e8` เป๊ะ (engine==agent==baseline). `test_date_parse_characterization` **36/36** ✅ ·
+`test_date_2digit_year` ✅ · `test_adr142_date_2digit_fallback` ✅. valid corpus-range (69→2026, 66→2023, 67→2024, 25→2025, 4-หลัก) byte-identical ; ปีกำกวม → None (= slash, ตาม ADR-052).
+
+### 5. Migration risk
+ต่ำ — แก้ให้ 2 สาขา (เดือนไทย / slash) เดินทางเดียวกันในเคสปีกำกวม. valid byte-identical ; เปลี่ยนเฉพาะปีกำกวม (เดิม fabricate → None = ถูกตาม ADR-052). ปี 4 หลัก/ค.ศ. ไม่กระทบ.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr144_thai_month_ambiguous.py` (กำกวม→None · == m_yy · corpus-range byte-identical · เดือน/วันถูก) — register `run_ci.sh [3x3b2]`. golden=`23b315e8` ✅ · date characterization 36/36 ✅.
+**git diff:** `puopuy_dates.py` (เดือนไทย: `else year+2500` → `if _ce is None: break`) + `test_adr144_thai_month_ambiguous.py` (ใหม่) + `run_ci.sh` ([3x3b2]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-145 — [RPT-03 dead-code] ลบ `elif confirms: tier = CLEAR` ที่ unreachable ใน precision council — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (advisory report layer — ไม่กระทบ engine) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — "ทำระดับ 3 (golden-neutral) ต่อ" ; พบโดย Pass-3 hunt (RPT-03)
+**priority:** ต่ำ — dead code (อ่านสับสน — ดูเหมือนมี 3 ทางแต่ทางที่ 3 เข้าไม่ถึง)
+
+### 1. บั๊ก (ต่ำ — dead/unreachable code) — `elif confirms:` ที่ถูก 2 branch บนกินหมด
+`report_precision.py` `council_review()` (advisory — รายงานลูกค้า ไม่ใช่ engine/golden) มีโครงเดิม:
+```
+if confirms and not rechecks: tier = CLEAR        # (confirms=T, rechecks=F)
+elif confirms and rechecks:   tier = CLEAR|SOFT   # (confirms=T, rechecks=T)
+elif confirms:                tier = CLEAR         # ← unreachable: confirms truthy ถูก 2 branch บนกินหมด
+else: ...
+```
+`confirms` truthy มีแค่ 2 สถานะ `(T,F)`→branch1 / `(T,T)`→branch2 → `elif confirms:` เข้าไม่ถึงเลย =
+dead code (อ่านชวนเข้าใจผิดว่ามี logic ทางที่ 3).
+
+### 2. หลักฐาน (reproduce)
+ตารางความจริง confirms×rechecks: `(T,F)`→b1, `(T,T)`→b2, `(F,*)`→else. ไม่มี input ใดถึง `elif confirms:`.
+`test_report_precision.py` (10 ผู้ตรวจ × 20 เคส) เขียวก่อน/หลัง เท่ากัน → ยืนยัน unreachable.
+
+### 3. วิธีทำ (surgical · ลบ 1 elif)
+ลบ `elif confirms: tier = CLEAR` (2 บรรทัด) แทนด้วยคอมเมนต์อธิบายว่าทำไม unreachable. `else` เดิมครอบ
+`(F,F)`+`(F,T)` เท่าเดิม → behavior identical (control-flow ไม่เปลี่ยน).
+
+### 4. พิสูจน์ golden-neutral
+advisory layer (report_precision = ด่านความแม่นก่อนส่งลูกค้า ไม่ feed engine) → golden ไม่เกี่ยว.
+`test_report_precision.py` (20 เคส) ✅ · `test_report_c1_c2.py` ✅. `regression_full . corpus`=`23b315e8` เป๊ะ.
+
+### 5. Migration risk
+ต่ำสุด — ลบโค้ดที่พิสูจน์แล้วว่าเข้าไม่ถึง ; ไม่มี input path เปลี่ยน. tier ทุกเคสเท่าเดิม.
+
+### 6. ยืนยัน (gate ครบ)
+`test_report_precision.py` + `test_report_c1_c2.py` (มีอยู่แล้ว — ครอบ tier ทุกชุด confirms/rechecks). golden=`23b315e8` ✅.
+**git diff:** `report_precision.py` (ลบ `elif confirms` → คอมเมนต์) + DECISIONS.md (ADR) — golden-neutral. (ไม่เพิ่มเทสใหม่ — test_report_precision ครอบ truth-table ครบแล้ว.)
