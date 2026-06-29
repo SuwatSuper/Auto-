@@ -41,6 +41,7 @@ run "[3b2] name-col unit-like guard (F3)"       "$PY" test_dic_find_name_unitlik
 run "[3b3] iv last-resort 4-5 digit (F2)"       "$PY" test_pb_iv_lastresort.py
 # [F-MONEYIV v9.3.1] ยอดเงินบนบิล (เช่น subtotal 6 หลัก) ถูกอ่านเป็นเลขที่เอกสาร → กู้เลขจริง (เคส SHS 21 บิล)
 run "[3b4] iv≠money guard (F-MONEYIV)"          "$PY" test_iv_money_misread.py
+run "[3b5] ADR-136 iv≠money ล้างเฉพาะตัวเลขล้วน (iv มีอักษรไม่ถูกล้าง=FP)" "$PY" test_adr136_iv_alnum_guard.py
 run "[3c] rules coverage"        "$PY" test_rules_coverage.py
 run "[3c-addr] smart address (ADDR001+003)" "$PY" test_addr_smart.py
 run "[3c2] vat002 tolerance 0.50 (ADR-005)" "$PY" test_vat002_tolerance.py
@@ -51,9 +52,11 @@ run "[3c4b] ADDR province word-boundary (ADR-110 — กัน substring FP)" "$
 run "[3c4c] ADR-122 กฎใหม่ VAT012/ADDR010/ADDR007 (บาทอักษร↔ตัวเลข, จังหวัดปลอม, ไปรษณีย์↔อำเภอ)" "$PY" test_adr122_new_rules.py
 run "[3c4d] ADR-123 เคลียร์ก้ำกึ่ง (กลุ่ม A ฟ้องรีเช็ค / กลุ่ม B เงียบ / FP=0 / lookbehind หล็กฉาก)" "$PY" test_adr123_borderline_clear.py
 run "[3c4e] ADR-125 ที่อยู่ 2 บรรทัด — กู้บ้านเลขที่หาย (KNT/CETI) + guard ไม่เก็บบรรทัดสินค้า" "$PY" test_adr125_addrline_houseno.py
+run "[3c4f] ADR-137 ที่อยู่ label-glued 'เลขที่123'/'หมู่ที่4' ถูกเก็บ (sibling ADR-125)" "$PY" test_adr137_addr_glued.py
 run "[3c5] BR004 (B3 — เทียบสาขากับ master)" "$PY" test_br004.py
 run "[3c6] IV007 (D1 — เลขใบกำกับขยะ absolute validity)" "$PY" test_iv007.py
 run "[3c7] IV parser guard (D2 — ไม่คว้าเศษ float เป็นเลขเอกสาร)" "$PY" test_iv_parser_guard.py
+run "[3c7b] ADR-132 core_utils guards (iv_amount_fragment OverflowError + sort file/sheet None)" "$PY" test_adr132_core_utils_guards.py
 # ── [BS-1..4] ปิดช่องโหว่การตรวจจับ (detection blind spots) — golden-neutral, corpus=0 (ADR-114..117) ──
 run "[3c8] BS-1 เลขภาษี full-width ０-９ (ADR-114)"      "$PY" test_bs1_taxid_fullwidth.py
 run "[3c9] BS-2 VAT011 ใบมียอดแต่ VAT=0 (ADR-115)"      "$PY" test_bs2_vat011_zero.py
@@ -67,6 +70,7 @@ run "[3m] offline audit (zero outbound)" "$PY" test_offline_audit.py
 run "[3n] input hardening (untrusted file)" "$PY" test_input_hardening.py
 run "[3n2] fuzz matrix — 60 กฎรอด non-str/edge (GAP-A: ไม่ครัช→SYS→ข้ามกฎ=FN)" "$PY" test_fuzz_rules_robust.py
 run "[3n3] GAP-B — run_rules coerce items→list (items non-list ไม่โยน→กันข้ามทั้งบิล=FN)" "$PY" test_gap_b_items_coerce.py
+run "[3n4] ADR-131 — run_rules drop สมาชิก non-dict ใน items (กัน ~14 กฎครัช→ข้ามเงียบ=FN)" "$PY" test_adr131_item_member.py
 run "[3o] validators coverage" "$PY" test_validators_coverage.py
 run "[3o2] typing leaf (ADR-112 — mypy leaf 4 โมดูล; skip ถ้าไม่มี mypy)" "$PY" test_typing_leaf.py
 run "[3p] parse canary (pin)" "$PY" test_parse_canary.py
@@ -75,7 +79,9 @@ run "[3e] parser helpers"        "$PY" test_parser_helpers.py
 run "[3e2] OPT-1 differential (_dic_int_run/detect byte-identical)" "$PY" test_dic_int_run_equiv.py
 run "[3e3] OPT-1b differential (_label_based_amounts byte-identical)" "$PY" test_label_amounts_equiv.py
 run "[3e4] parser branch coverage (edge/error path, golden-neutral)" "$PY" test_parser_branch.py
+run "[3e5] ADR-130 _is_seq_token OverflowError guard (seq cell ขยะยาว ไม่ทำบิลทั้งชีตหาย)" "$PY" test_adr130_seq_overflow.py
 run "[3f] validators"            "$PY" test_validators.py
+run "[3f1] ADR-134 check_iv_date_sequence str-wrap iv_number (กัน non-str ครัช)" "$PY" test_adr134_iv_number_str.py
 run "[3g] rules extra (≥90% cov)"      "$PY" test_rules_extra.py
 run "[3h] units extra (≥90% cov)"      "$PY" test_units_extra.py
 run "[3i] validators extra (≥90% cov)" "$PY" test_validators_extra.py
@@ -91,6 +97,7 @@ run "[3t] perf canary (algorithmic blowup guard)" "$PY" test_perf_budget.py
 run "[3u] parallel merge — non-empty system_issues" "$PY" test_parallel_merge_nonempty.py
 run "[3u2] parallel merge contract (#3 exc-key/#4a file=None/#cap config)" "$PY" test_parallel_merge_contract.py
 run "[3v] issue consolidator (Agent ยุบรหัส→ข้อสรุป)" "$PY" test_issue_consolidator.py
+run "[3v1] ADR-133 consolidate_bill ทนบิลเพี้ยน (issues=None/non-dict/non-str code)" "$PY" test_adr133_consolidator_robust.py
 run "[3v2] report lane/aspect (ADR-111 — CMP005 must-fix + ITM019/020 หน่วย)" "$PY" test_report_lane_aspect.py
 run "[3w] super ultra viewer (label คน + บล็อกบริษัท)" "$PY" test_super_ultra_viewer.py
 run "[3w1] honesty รายผู้ขาย (A1 — 'ตรง'=เทียบ master จริง ; รองรับบริษัทใหม่)" "$PY" test_honesty_per_bill.py
@@ -125,10 +132,12 @@ run "[3x14d] re-audit 2026-06-21 (P-MED2 label-row≠item/ITM016 + V-F3 DOC001 s
 run "[3x14e] 5-year hardening (ADR-061 .bak stub-aware/ADR-062 report retention/ADR-063 utf8 console)" "$PY" test_recheck_5year.py
 run "[3x14f] enabled-rules fixes 2026-06-22 (ADR-064..076: M-1/C-1/C-2/CMP003/BR/ITM016/DOC001/DT004/ADDR/ITM004/010)" "$PY" test_recheck_rules_20260622.py
 run "[3x7] package integrity (deliverable zip — ชื่อไฟล์ไทยไม่พัง)" "$PY" test_package_integrity.py
+run "[3x7b] make_release hygiene (ADR-129 — ไม่แพ็ก corpus PII/.venv/dist + self-check)" "$PY" test_make_release_hygiene.py
 run "[3y] run_addon_pack guard (shoulder feature)" "$PY" test_run_addon_pack_guard.py
-run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4)" "$PY" test_file_size_ceiling.py
+run "[3z] file-size ceiling (≤600 LOC/ไฟล์, F4 + ADR-126 self-test ข้าม venv/dist/cache)" "$PY" test_file_size_ceiling.py
 run "[3z2] monolith surface contract (26-name getattr API, de-star P1)" "$PY" test_monolith_surface.py
 run "[4] mesh contract"          "$PY" test_mesh_contract.py
+run "[4a] ADR-135 mesh reset ต่อ run() (กัน findings สะสมข้ามการรัน)" "$PY" test_adr135_mesh_reset.py
 run "[4b] vendor report (.txt รายผู้ขาย)" "$PY" test_vendor_report.py
 run "[4b2] unit language note (ADR-091 — flag เฉพาะหน่วยเดียวกัน 2 สคริปต์)" "$PY" test_unit_lang_note.py
 run "[4b3] unit missing rules (ADR-105/106 — ITM020 ทั้งบิลไม่มีหน่วย + ZWNJ/header)" "$PY" test_unit_missing_rules.py

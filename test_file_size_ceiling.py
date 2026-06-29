@@ -11,6 +11,7 @@ WHITELIST: monolith ตัวเดียวที่ยังเกิน — �
 """
 import os
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CEILING = 600
@@ -54,8 +55,28 @@ WHITELIST = {
     'super_ultra_viewer.py': 'report-layer company_summary builder (golden-neutral); ADR-099 ยุบ ชื่อบจ./สาขา + ตัด spec-unit FP; แผนแยก _pinpoint_field → viewer_pinpoint.py รอบ F4 ถัดไป',
 }
 
-# ไม่สแกน: backup, hidden, cache
-SKIP_DIRS = {'_ORIG_BACKUP', '__pycache__', '.ruff_cache', '.git', '.vscode'}
+# ไม่สแกน: backup, hidden, cache, build, virtualenv — ไม่ใช่ "source ของโปรเจกต์"
+#   [ADR-126] เดิม skip แค่ 5 ชื่อ → maintainer ที่ทำสิ่งมาตรฐาน (`python -m venv .venv` ซึ่ง
+#   .gitignore รองรับอยู่แล้ว / รัน make_release สร้าง dist/ / mypy สร้าง .mypy_cache) ทำให้
+#   tripwire แดง "ปลอม" บนไลบรารีภายนอก (rich/xlrd/numpy 600+ LOC) — false-red ที่กัดความเชื่อใน
+#   safety net เอง (เพดานนี้มีไว้คุม "ไฟล์โปรเจกต์" ไม่ใช่ deps). เพิ่ม env/build/cache dirs ทั้งหมด.
+SKIP_DIRS = {
+    '_ORIG_BACKUP', '__pycache__', '.ruff_cache', '.git', '.vscode',
+    '.mypy_cache', '.pytest_cache', 'dist', 'build', '.eggs', '.tox', 'node_modules',
+}
+
+
+def _is_skip_dir(parent, name):
+    """ข้ามไดเรกทอรีที่ "ไม่ใช่ source โปรเจกต์": ชื่อใน SKIP_DIRS, prefix `.venv*`,
+    `*.egg-info`, หรือ "ราก virtualenv" (มีไฟล์ pyvenv.cfg — จับ venv ได้ทุกชื่อไม่ว่าตั้งชื่ออะไร).
+    pyvenv.cfg คือ marker มาตรฐานของ venv ทุกตัว → ครอบ venv/env/.venv_xxx ที่ไม่อยู่ในชื่อ skip."""
+    if name in SKIP_DIRS:
+        return True
+    if name.startswith('.venv') or name.endswith('.egg-info'):
+        return True
+    if os.path.isfile(os.path.join(parent, name, 'pyvenv.cfg')):
+        return True
+    return False
 
 
 def _loc(path):
@@ -63,16 +84,17 @@ def _loc(path):
         return sum(1 for _ in f)
 
 
-def main():
-    over = []          # (relpath, loc) เกินเพดาน และไม่อยู่ whitelist
-    whitelisted = []   # (relpath, loc) เกินแต่ whitelist ไว้
-    for root, dirs, files in os.walk(HERE):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+def scan(root):
+    """เดิน root, คืน (over, whitelisted) = list ของ (relpath, loc) ที่เกินเพดาน.
+    ข้าม dir env/build/cache ด้วย _is_skip_dir (ดู [ADR-126])."""
+    over, whitelisted = [], []
+    for r, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if not _is_skip_dir(r, d)]
         for fn in files:
             if not fn.endswith('.py'):
                 continue
-            full = os.path.join(root, fn)
-            rel = os.path.relpath(full, HERE)
+            full = os.path.join(r, fn)
+            rel = os.path.relpath(full, root)
             n = _loc(full)
             if n <= CEILING:
                 continue
@@ -80,8 +102,68 @@ def main():
                 whitelisted.append((rel, n))
             else:
                 over.append((rel, n))
+    return over, whitelisted
 
-    print(f'[file-size ceiling] เพดาน = {CEILING} LOC/ไฟล์')
+
+def _selftest():
+    """[ADR-126] ตรวจ "ตัวกรอง dir" ของ tripwire เองก่อนสแกนจริง — กัน regress ที่ทำให้
+    tripwire กลับไปแดงปลอมบน venv/deps. คืน list ข้อความ failure (ว่าง = ผ่าน).
+
+    business-reason: เพดานไฟล์มีไว้คุม "ไฟล์โปรเจกต์" — ถ้า _is_skip_dir พังจะนับ deps
+    (rich/xlrd 600+ LOC) เป็นไฟล์เกินเพดาน = false-red กัดความเชื่อใน safety net. self-test
+    นี้ทำให้ "ตัวกรองพัง" = แดงทันทีพร้อมเหตุ (ไม่ใช่ไปรู้ตอน maintainer สร้าง .venv ใน tree)."""
+    fails = []
+    here = os.path.dirname(os.path.abspath(__file__))
+    # (A) ชื่อ env/build/cache ต้องถูกข้าม ; source ต้องไม่ถูกข้าม
+    for nm in ('.venv', '.venv_puopuy', 'dist', 'build', '.mypy_cache',
+               '.pytest_cache', '.tox', 'node_modules', 'pkg.egg-info', '__pycache__'):
+        if not _is_skip_dir(here, nm):
+            fails.append(f'A: ควรข้าม {nm!r} แต่ไม่ข้าม')
+    for nm in ('agents', 'tests', 'INVARIANTS', 'rules_engine'):
+        if _is_skip_dir(here, nm):
+            fails.append(f'A: ไม่ควรข้าม source {nm!r} แต่ข้าม')
+    big = '\n'.join(f'x{i}=1' for i in range(CEILING + 100)) + '\n'   # > เพดาน
+    with tempfile.TemporaryDirectory() as td:
+        # (B) "ราก virtualenv" ตั้งชื่อแปลก (มี pyvenv.cfg) ต้องถูกจับ
+        os.makedirs(os.path.join(td, 'customenv'))
+        with open(os.path.join(td, 'customenv', 'pyvenv.cfg'), 'w') as f:
+            f.write('home = /usr/bin\n')
+        if not _is_skip_dir(td, 'customenv'):
+            fails.append('B: ควรข้าม venv ชื่อแปลก (มี pyvenv.cfg) แต่ไม่ข้าม')
+        if _is_skip_dir(td, 'realsrc'):
+            fails.append('B: ไม่ควรข้าม dir ปกติที่ไม่มี pyvenv.cfg')
+        # (C) end-to-end: ไฟล์ใหญ่ใน venv/dist/build ถูกข้าม แต่ไฟล์โปรเจกต์เกินเพดานยังถูกจับ
+        for sub in ('.venv/lib', 'customenv/lib', 'dist', 'build', '.mypy_cache'):
+            os.makedirs(os.path.join(td, sub), exist_ok=True)
+            with open(os.path.join(td, sub, 'huge.py'), 'w', encoding='utf-8') as f:
+                f.write(big)
+        os.makedirs(os.path.join(td, 'pkg'), exist_ok=True)
+        with open(os.path.join(td, 'pkg', 'toobig.py'), 'w', encoding='utf-8') as f:
+            f.write(big)
+        with open(os.path.join(td, 'ok.py'), 'w', encoding='utf-8') as f:
+            f.write('y = 1\n')
+        over, _wl = scan(td)
+        over_rel = {r for r, _ in over}
+        if not any(r.endswith('toobig.py') for r in over_rel):
+            fails.append('C: ไฟล์โปรเจกต์เกินเพดาน (pkg/toobig.py) ควรถูกจับ แต่ไม่ถูกจับ')
+        leaked = sorted(r for r in over_rel if not r.endswith(os.path.join('pkg', 'toobig.py')))
+        if leaked:
+            fails.append(f'C: ไฟล์ใน venv/dist/build ไม่ควรถูกนับ แต่หลุดมา: {leaked}')
+    return fails
+
+
+def main():
+    # [ADR-126] ตรวจตัวกรอง dir ของ tripwire ก่อน — ถ้าพังให้แดงทันที (ไม่สแกนต่อ)
+    st = _selftest()
+    if st:
+        print('[file-size ceiling] ❌ self-test ตัวกรอง dir ล้มเหลว:')
+        for m in st:
+            print(f'   • {m}')
+        print('RESULT: ❌ FAIL — _is_skip_dir/scan ผิด (จะนับ deps เป็นไฟล์เกินเพดาน). แก้ก่อน.')
+        return 1
+
+    over, whitelisted = scan(HERE)
+    print(f'[file-size ceiling] เพดาน = {CEILING} LOC/ไฟล์ (self-test ตัวกรอง dir ✅)')
     if whitelisted:
         print('whitelist (เกินได้ชั่วคราว พร้อมเหตุผล):')
         for rel, n in sorted(whitelisted):

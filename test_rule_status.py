@@ -74,6 +74,22 @@ if not REG.product_master_available():
 else:
     _check("มี product_master.json → ITM009 = active", "ITM009" in active)
 
+# 4b) [ADR-127] กฎตรวจตัวตน (master-dependent) — ถ้าไม่มี master จริง = unavailable (ไม่ใช่ active)
+#   master ว่าง = ship default (ADR-102) → CMP/ADDR001-003/TAX003/TAX005/BR004 dormant 100%
+#   (ขึ้นต้น `if not m: return []`). เดิมรายงาน active = หลอกตา. สมมาตรกับ ITM009/product_master.
+MASTER_DEP = set(REG.MASTER_DEPENDENT)
+en_master = MASTER_DEP & enabled
+_check(f"MASTER_DEPENDENT ทุกตัวเป็นกฎที่เปิดอยู่จริง ({sorted(MASTER_DEP - enabled) or 'ครบ'})",
+       MASTER_DEP <= enabled)
+if not REG.master_available():
+    _check("ไม่มี master จริง → กฎตัวตนทั้งหมด = unavailable-resource (ไม่นับ active)",
+           en_master <= unavail and not (en_master & active))
+    _check("ทุกกฎตัวตน unavailable: status='unavailable-resource' + เหตุผลอ้าง master_companies.json",
+           all(REG.rule_status(c) == "unavailable-resource"
+               and "master_companies.json" in REG.rule_status_reason(c) for c in en_master))
+else:
+    _check("มี master จริง → กฎตัวตนทั้งหมด = active", en_master <= active)
+
 # 5) format_rule_coverage อ่านได้ + ระบุทั้ง disabled และ unavailable
 txt = REG.format_rule_coverage()
 _check("format_rule_coverage มีหัว 'RULE COVERAGE' + นับ active",

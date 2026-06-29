@@ -284,7 +284,10 @@ def check_iv_date_sequence(bills):
     by_group = defaultdict(list)
     for b in bills:
         if not b.get('iv_number') or not b.get('iv_date'): continue   # [BUGFIX recheck] .get() กัน KeyError
-        digits = re.sub(r'[^\d]','',b['iv_number'])
+        # [ADR-134] str-wrap (เหมือน sibling บรรทัด 186/224/324) — guard บรรทัดบนกรองแค่ falsy ;
+        #   iv_number ที่ "truthy แต่ non-str" (เช่น int 123 จากบิลภายนอก) ทำ re.sub ระเบิด TypeError
+        #   → crosscheck IV004 ครัชทั้งชุด. corpus iv_number=str เสมอ → str() เป็น no-op → byte-identical.
+        digits = re.sub(r'[^\d]', '', str(b['iv_number']))
         last_num = None
         if len(digits) >= 4:
             last_num = int(digits[-4:]) if len(digits) >= 8 else int(digits)

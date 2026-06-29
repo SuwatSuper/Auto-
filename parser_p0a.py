@@ -329,7 +329,16 @@ def _is_seq_token(v):
         if not tail or set(tail) != {'0'}:
             return False
         s = head
-    return s.isdecimal()
+    if not s.isdecimal():
+        return False
+    # [ADR-130] กัน OverflowError ที่ consumer: _dic_item_rows (บรรทัดล่าง) + parser_p2 extract ทำ
+    #   int(float(s)) แบบไม่กัน — ถ้า s หลักยาวมากจน float(s)→inf (เช่น seq cell ขยะ '9'×400)
+    #   จะระเบิด → detect/extract ครัช = "บิลทั้งชีตหายเงียบ" (false-negative). seq จริง 1..50
+    #   (corpus หลักสูงสุด=2) ไม่กระทบ — เช็คเฉพาะ token ยาวผิดปกติ (>308 หลัก = ช่วง float overflow)
+    #   → byte-identical บนข้อมูลจริง. ค่า finite ใหญ่ยังผ่าน แล้วถูกตัดด้วย 1<=v<=50 ตามเดิม.
+    if len(s) > 308 and not math.isfinite(float(s)):
+        return False
+    return True
 
 
 def _dic_item_rows(M, nrows, seq_col):

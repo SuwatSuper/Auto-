@@ -272,6 +272,14 @@ def run_rules(bill, master_companies, file_info, unit_index=None, all_bills_ref=
             bill[_k] = '' if bill[_k] is None else str(bill[_k])
     bill.setdefault('iv_date', None)
     bill.setdefault('issues', [])
+    # [ADR-131] coerce "สมาชิก non-dict" ใน items ออก — พี่น้องของ GAP-B (ADR-124 coerce container→list)
+    #   แต่เป็นระดับ "สมาชิก". loop coercion ล่าง coerce เฉพาะ _it ที่เป็น dict → สมาชิก non-dict
+    #   (None/str/int จากบิลภายนอก/parser อนาคต) ค้างใน list → กฎ ITM/VAT ที่อ้าง it['name']/it.get('amount')
+    #   ดิบ ครัช (TypeError/AttributeError ~14 กฎ) → run_rules ดักเป็น SYS-* → "ข้ามกฎเงียบ" = false-negative.
+    #   corpus จริงทุกสมาชิกเป็น dict (สแกน 0/3307 non-dict) → no-op → golden-NEUTRAL. (analytics._safe_items
+    #   filter อยู่แล้ว ADR-124 — จุดนี้คือ run_rules ที่ตกหล่น). guard `any` กันสร้าง list ใหม่บน corpus.
+    if any(not isinstance(_it, dict) for _it in bill['items']):
+        bill['items'] = [_it for _it in bill['items'] if isinstance(_it, dict)]
     # [F1 2026-06-20] บิลจาก parser มี item ครบ 7 คีย์เสมอ (seq/name/name_raw/qty/unit/price/amount)
     #   → setdefault = no-op (golden ไม่ขยับ). กันบิล "ภายนอก/บางส่วน" ที่ item ขาดคีย์: กฎ ITM001/ITM005/
     #   ITM006 + VAT001 (CRITICAL) อ้าง it['amount']/['price']/['unit']/['name'] ดิบ → KeyError → run_rules

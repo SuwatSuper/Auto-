@@ -16,9 +16,26 @@ exit 0 = ผ่านทั้งหมด, 1 = ไม่ตรง, 2 = รั�
     PYTHONHASHSEED=0 python3 regression_full.py . tests/fixtures tests/fixtures/baseline_fixture.json
 ถ้าไม่ใส่ จะใช้ baseline.json (golden master ของข้อมูลจริง 106 ไฟล์ = /mnt/project, corpus ทางการ) ตามเดิม.
 """
-import os, re, sys, json, subprocess
+import os, re, sys, json, subprocess, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# [ADR-128] engine snapshot ชั่วคราว — ผูก PID (เลี่ยง race เมื่อรันพร้อมกันหลายโปรเซส:
+#   CI matrix / dev รันคู่ CI / verify_parallel). เดิม hardcode '/tmp/_reg_engine.json' = ไฟล์ร่วม
+#   → 2 รันทับกัน → n_files guard อ่าน snapshot ของอีกรัน → false "CORPUS MISMATCH". (mirror
+#   verify_report_det.py ที่ผูก PID อยู่แล้ว). hash อ่านจาก stdout ไม่ใช่ไฟล์ → hash ไม่กระทบ.
+_ENGINE_SNAP = os.path.join(tempfile.gettempdir(), f'_reg_engine_{os.getpid()}.json')
+
+
+def _cleanup_engine_snap():
+    """ลบ snapshot ชั่วคราวตอนจบ (PID-scoped → 1 ไฟล์/รัน ; กันสะสมรกใน /tmp ระยะยาว)."""
+    try:
+        os.remove(_ENGINE_SNAP)
+    except OSError:
+        pass
+
+
+import atexit as _atexit
+_atexit.register(_cleanup_engine_snap)
 PKG = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else HERE
 DATA = sys.argv[2] if len(sys.argv) > 2 else '/mnt/project'
 # argv[3] = baseline path (default baseline.json ใน PKG) — backward compatible
@@ -74,7 +91,7 @@ def main():
     _baseline = json.load(open(BASELINE, encoding='utf-8'))
     baseline_hash = _baseline.get('_sha256')
 
-    eng = _run('golden_master.py', '.', '/tmp/_reg_engine.json', DATA)
+    eng = _run('golden_master.py', '.', _ENGINE_SNAP, DATA)
     if eng is None:
         return 2
     engine_hash = _last_hash(eng.stdout)
@@ -85,7 +102,8 @@ def main():
     _bl_nfiles = _baseline.get('n_files')
     _data_nfiles = None
     try:
-        _data_nfiles = json.load(open('/tmp/_reg_engine.json', encoding='utf-8')).get('n_files')
+        with open(_ENGINE_SNAP, encoding='utf-8') as _f:
+            _data_nfiles = json.load(_f).get('n_files')
     except Exception:
         pass
     if _bl_nfiles is not None and _data_nfiles is not None and _data_nfiles != _bl_nfiles:

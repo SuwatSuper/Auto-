@@ -111,8 +111,10 @@ def _itm_aspects(codes) -> list:
 def consolidate_bill(bill: dict) -> list:
     """ยุบ issue ของ 1 บิลเป็นข้อสรุปต่อ 'จุด' (spot). คืน list ของ consolidated finding."""
     groups = defaultdict(lambda: {"codes": set(), "names": [], "sevs": set(), "details": []})
-    for iss in bill.get("issues", []):
-        code = iss.get("code", "?")
+    for iss in (bill.get("issues") or []):       # [ADR-133] None/ขาด → [] (กัน `for iss in None` TypeError)
+        if not isinstance(iss, dict):             # [ADR-133] ข้าม issue ที่ไม่ใช่ dict (กัน .get → AttributeError)
+            continue
+        code = str(iss.get("code") or "?")        # [ADR-133] coerce code → str (กัน _family/sorted/join non-str ครัช)
         fam = _family(code)
         if fam == "ITM":
             spot = _item_spot(iss.get("detail", "")) or "รายการ (รวม)"

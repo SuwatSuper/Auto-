@@ -119,9 +119,13 @@ class Orchestrator:
         # 0) รีเซ็ต cache ที่ใช้ร่วม (ตรงกับ golden_master/main ที่เรียกก่อนเริ่ม) — กันรัฐตกค้าง
         core.core.reset_run_state()
 
-        # 0.5) ตั้ง mesh (data plane) ถ้ายังไม่มี — agent ทุกตัว publish/อ่าน findings ผ่านที่นี่
-        if ctx.mesh is None:
-            ctx.mesh = FindingsMesh()
+        # 0.5) [ADR-135] mesh (data plane) "ใหม่ทุก run()" — run() คือ full pipeline (reset_run_state +
+        #   re-audit) จึงต้องเริ่ม mesh สะอาด. เดิม `if mesh is None` → ถ้า "ใช้ ctx ซ้ำ" ข้าม run() 2 รอบ
+        #   mesh (append-only: publish→_findings.append) สะสม findings ซ้ำ (รัน2รอบ fixture: 29→59) =
+        #   state leak ข้ามการรัน (ขัดหลัก "parse/run 2 รอบในโปรเซสเดียวต้องได้ผลเท่ากัน"). agent ทุกตัว
+        #   publish/อ่านผ่านที่นี่. (run_advisory คงเดิม `if None`: advisory-only ไม่ reset_run_state →
+        #   ต่อยอด mesh ที่ main เตรียมไว้ ไม่ใช่ full restart).
+        ctx.mesh = FindingsMesh()
 
         # 1) Import (critical) — ไม่มีบิล = หยุด
         self._dispatch(ImportAgent(self.logger), ctx)

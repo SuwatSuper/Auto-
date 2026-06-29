@@ -57,6 +57,25 @@ UNAVAILABLE_RESOURCE = {
                "ตรวจ alias สินค้า — ถ้าไม่มี PRODUCT_MASTER กฎคืน [] เงียบ (เปิดแต่ไม่เคยยิง)"),
 }
 
+# กลุ่ม 3b — [ADR-127] "กฎตรวจตัวตน" ที่เปิดอยู่ แต่ทำงานไม่ได้ถ้า master_companies.json ว่าง/ไม่มี.
+#   master ว่าง = สถานะ ship จริง (ADR-102: เจ้าของลบบริษัทตัวอย่างทั้งหมด ผู้ใช้กรอกเองรายเดือน).
+#   กฎ 9 ตัวนี้ขึ้นต้นด้วย `if not m: return []` (หรือวน all_masters ว่าง) → dormant 100% เมื่อ
+#   master ว่าง (พิสูจน์: ไม่มีรหัสใดใน corpus 1056 บิล เพราะ MASTER={}). เดิม rule_status รายงาน
+#   "active" = สถิติหลอกตา (แดชบอร์ดโชว์ active ทั้งที่กฎไม่เคยยิง). ใส่กลุ่มนี้ให้รายงาน
+#   unavailable-resource เมื่อ master ว่าง — สมมาตรกับ ITM009/product_master.json (กลุ่ม 3).
+#   code → คำอธิบายงานที่ทำไม่ได้ (resource = master_companies.json เสมอ).
+MASTER_DEPENDENT = {
+    "CMP001": "เทียบชื่อบริษัทในบิลกับชื่อใน ภ.พ.20 (ทะเบียน)",
+    "CMP004": "เทียบจำนวนช่องว่างของชื่อกับ ภ.พ.20",
+    "CMP006": "เทียบชื่อบริษัท fuzzy กับ ภ.พ.20 (โซนที่ CMP001 ปล่อย)",
+    "ADDR001": "เทียบที่อยู่ในบิลกับที่อยู่ในทะเบียน master",
+    "ADDR002": "เทียบที่อยู่ (ส่วน) กับทะเบียน master",
+    "ADDR003": "เทียบที่อยู่ (ส่วน) กับทะเบียน master",
+    "TAX003": "เทียบเลขภาษีในบิลกับ ภ.พ.20 ของบริษัทที่ match",
+    "TAX005": "ตรวจว่าเลขภาษีในบิลเป็นของบริษัทอื่นใน master หรือไม่",
+    "BR004": "เทียบสาขาในบิลกับสาขาในทะเบียน master",
+}
+
 
 def product_master_available() -> bool:
     """resource ของ ITM009 (และ whitelist ITM012) — product_master.json โหลดได้และไม่ว่างไหม."""
@@ -67,17 +86,44 @@ def product_master_available() -> bool:
         return False
 
 
+def master_available() -> bool:
+    """[ADR-127] resource ของกฎตรวจตัวตน (MASTER_DEPENDENT) — master_companies.json มีอยู่ +
+    เป็น dict บริษัท "จริง" (ไม่ว่าง และไม่ใช่ golden stub `_golden_stub`).
+
+    master ว่าง = ship default (ADR-102) → กฎตัวตน dormant → ต้องรายงาน unavailable ไม่ใช่ active.
+    อ่านไฟล์ตรง (ไม่พึ่ง runtime state) — สถานะ resource ไม่ขึ้นกับว่ารันบิลรอบไหน. fail-closed:
+    อ่าน/parse ไม่ได้ = ถือว่าไม่มี master (ปลอดภัยกว่าโชว์ active หลอก)."""
+    try:
+        from config import CFG
+        path = CFG.get("MASTER_FILE", "master_companies.json")
+    except Exception:
+        path = "master_companies.json"
+    try:
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return False
+    if not isinstance(data, dict) or data.get("_golden_stub"):
+        return False
+    return any(k != "_golden_stub" for k in data)
+
+
 def disabled_by_design_codes() -> set:
     """กฎที่ปิดโดยตั้งใจ (enabled=False ใน RULES) — แหล่งความจริง = RULES (DISABLED_BY_DESIGN ให้เหตุผล)."""
     return {c for c, r in RULES.items() if not r.get("enabled", True)}
 
 
 def unavailable_rule_codes() -> set:
-    """กฎที่ enabled=True แต่ทำงานไม่ได้เพราะขาด resource ณ ตอนนี้ (เช่น ITM009 ไม่มี product_master.json)."""
+    """กฎที่ enabled=True แต่ทำงานไม่ได้เพราะขาด resource ณ ตอนนี้.
+    - ITM009: ไม่มี product_master.json
+    - [ADR-127] กฎตรวจตัวตน (MASTER_DEPENDENT): ไม่มี master_companies.json จริง (ว่าง/stub)."""
     out = set()
     en = enabled_rule_codes()
     if "ITM009" in en and not product_master_available():
         out.add("ITM009")
+    if not master_available():
+        out |= (set(MASTER_DEPENDENT) & en)
     return out
 
 
@@ -102,6 +148,10 @@ def rule_status_reason(code: str) -> str:
     if code in UNAVAILABLE_RESOURCE:
         res, why = UNAVAILABLE_RESOURCE[code]
         return f"ขาด {res}: {why}"
+    # [ADR-127] กฎตรวจตัวตน dormant เมื่อ master ว่าง (เฉพาะตอนที่ขาด master จริง ๆ)
+    if code in MASTER_DEPENDENT and code in unavailable_rule_codes():
+        return (f"ขาด master_companies.json (ว่าง/ไม่มี): {MASTER_DEPENDENT[code]} — "
+                f"ใส่ ภ.พ.20 ด้วย เพิ่ม_master.py เพื่อเปิดกฎนี้")
     return ""
 
 

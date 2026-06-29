@@ -439,7 +439,10 @@ def _pb_try_address_line(addr_lines, s):
     """เก็บบรรทัดที่อยู่ (ไม่ใช่ชื่อบริษัท) เข้า addr_lines"""
     if re.match(r'^(บริษัท|ห้าง|กิจการ)', s):
         return
-    if re.search(r'(เลขที่ \d+|ตำบล|แขวง|หมู่ที่ \d+)', s):
+    # [ADR-137] `\s*` แทน space เดียว — รับ "เลขที่123"/"หมู่ที่4" แบบ glued (ไม่เว้นวรรค) ที่เดิมตก
+    #   ทุก branch → ทิ้งทั้งบรรทัด → บ้านเลขที่หาย (sibling ADR-125 สำหรับรูป label-glued). superset
+    #   ของพฤติกรรมเดิม (space เดียวยัง match). corpus blast=0 → golden-neutral (พิสูจน์ regression_full).
+    if re.search(r'(เลขที่\s*\d+|ตำบล|แขวง|หมู่ที่\s*\d+)', s):
         if s not in addr_lines: addr_lines.append(s)
     elif re.search(r'(เขต|อำเภอ|จังหวัด|กรุงเทพ)', s) and len(s) < 200:
         if s not in addr_lines: addr_lines.append(s)

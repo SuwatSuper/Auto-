@@ -2519,3 +2519,362 @@ report_precision: **ITM010** (pattern deterministic + คำถูกเที�
 `regression_full . corpus` = `23b315e8` (engine==agent==baseline ✅) · `run_ci.sh corpus` เขียวครบ 108/108 (เพิ่ม [3c4e]) · parse-canary ✅ · crash-fuzz SYS=0 ✅ · `make_release` + fresh-extract reproduce `23b315e8`.
 **regression test:** `test_adr125_addrline_houseno.py` (14 เคส: บรรทัด KNT ถูกเก็บ · guard ไม่เก็บสินค้า/วันที่/เลขภาษี · end-to-end house_no='3/182' · characterization ต้นตอบั๊ก) — register ใน run_ci.sh [3c4e].
 **git diff:** แตะ `parser_p1.py` (+1 branch ใน `_pb_try_address_line`) + `test_adr125_addrline_houseno.py` (ใหม่) + `run_ci.sh` (register) + DECISIONS.md (ADR) — golden-neutral ไม่มี bookkeeping hash. seq/merge/serial §6 byte-identical.
+
+---
+
+# ── รอบ hardening 5 ปี (session ใหม่) 2026-06-29 — ADR-126.. ──
+
+## ADR-126 — [tripwire robustness] file-size ceiling ข้าม virtualenv/build/cache dirs — golden-neutral (tooling)
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — เทส/tooling ล้วน ไม่แตะ audit path) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — "harden ระบบให้สมบูรณ์ 5 ปี + หาบั๊ก/ตั้งตะข่ายนิรภัยทุกระดับ"
+**priority:** Maintainability/Predictability — false-red ใน safety net เอง กัดความเชื่อใน tripwire (5-ปี maintainer)
+
+### 1. บั๊ก (ต่ำ — safety-net robustness) — tripwire แดงปลอมบน deps
+**อาการ:** `test_file_size_ceiling.py` (F4 — เพดาน ≤600 LOC/ไฟล์) เดิน `os.walk(HERE)` โดย skip แค่ 5 ชื่อ (`_ORIG_BACKUP/__pycache__/.ruff_cache/.git/.vscode`). maintainer ที่ทำสิ่ง **มาตรฐาน** — `python -m venv .venv` (ซึ่ง `.gitignore` ระบุ `.venv/`,`dist/`,`.mypy_cache/` ไว้ "รองรับ" อยู่แล้ว), รัน `make_release` (สร้าง `dist/`), หรือ mypy (สร้าง `.mypy_cache`) — ทำให้ tripwire สแกนเข้าไลบรารีภายนอก แล้วแดง: `❌ FAIL (1137 ไฟล์)` บน `rich/console.py (2698)`, `xlrd/sheet.py (2490)`, `numpy`,`urllib3` ฯลฯ. เพดานนี้มีไว้คุม **ไฟล์โปรเจกต์** ไม่ใช่ deps → นี่คือ false-red ของ safety net เอง.
+**ต้นตอ:** `SKIP_DIRS` ไม่ครอบ env/build/cache dirs ที่ `.gitignore` รองรับ. เดิมผ่านได้เพราะ certify env ติดตั้ง deps "นอก tree" — สมมติฐานเปราะ (session นี้ติดตั้ง venv ใน tree ตามมาตรฐาน → แดงทันที, reproduce ได้ตรง ๆ).
+
+### 2. หลักฐานว่าเป็นบั๊กจริง (reproduce)
+- รัน `PUOPUY_CI_STRICT=1 run_ci.sh corpus` ใน env ที่มี `.venv/` ใน tree → `[3z]` แดง: 39 ไฟล์ `rich/*`,`xlrd/*`,`urllib3/*`,`sortedcontainers/*` ฯลฯ (1137 รวม) ทั้งที่เป็น deps ไม่ใช่โปรเจกต์.
+- สร้าง dir `_tmp_venv_probe/` (มี `pyvenv.cfg` + ไฟล์ 700 LOC) ใน repo → ก่อนแก้ tripwire จะแดงบนไฟล์นั้น.
+
+### 3. วิธีทำ (surgical · tooling เท่านั้น)
+- ขยาย `SKIP_DIRS` += `.mypy_cache .pytest_cache dist build .eggs .tox node_modules`.
+- เพิ่ม `_is_skip_dir(parent, name)`: ข้าม (ก) ชื่อใน SKIP_DIRS, (ข) prefix `.venv*`, (ค) `*.egg-info`, (ง) **"ราก virtualenv"** = dir ที่มีไฟล์ `pyvenv.cfg` (marker มาตรฐานของ venv ทุกตัว → จับ `venv/env/.venv_xxx` ที่ตั้งชื่ออื่นได้ทั้งหมด). เปลี่ยน prune จาก `d not in SKIP_DIRS` → `not _is_skip_dir(root, d)`.
+- conservative: ไม่ข้าม dir ชื่อ `env`/`venv` ตรง ๆ (กันบัง source ที่บังเอิญชื่อนี้) — พึ่ง `pyvenv.cfg` marker แทน.
+
+### 4. พิสูจน์ golden-neutral
+แตะเฉพาะ `test_file_size_ceiling.py` (tripwire) + `test_file_size_skip_dirs.py` (ใหม่) + `run_ci.sh` (register) — **ไม่แตะ audit path เลย** → golden ผลตรวจบิลขยับไม่ได้เชิงโครงสร้าง. ยืนยัน `regression_full . corpus` = `23b315e8` หลังแก้. `test_file_size_ceiling.py` ยัง PASS (whitelist 7 ไฟล์เท่าเดิม). probe `.venv`-in-tree → หลังแก้ PASS (ข้ามถูก).
+
+### 5. Migration risk
+ต่ำมาก — tooling/test ล้วน. ความเสี่ยงเดียว: ถ้า maintainer มี source dir จริงชื่อขึ้นต้น `.venv` (แทบเป็นไปไม่ได้ — เป็น convention ของ venv) จะถูกข้าม — รับได้.
+
+### 6. ยืนยัน (gate ครบ)
+**regression test:** fold `_selftest()` เข้า `test_file_size_ceiling.py` เอง (รันก่อนสแกนจริงทุกครั้งใน [3z]) — เคส A (ชื่อ env/build/cache ข้าม + source ไม่ข้าม) · B (pyvenv.cfg จับ venv ชื่อแปลก) · C (end-to-end ผ่าน `scan(tmp)`: venv/dist/build ข้าม แต่ไฟล์โปรเจกต์เกินเพดานยังถูกจับ). non-vacuous: ทำ `_is_skip_dir` พังแล้ว self-test แดง 12 ข้อ. **จงใจ fold แทนแยกไฟล์เทส** — `test_reachability.py` A2 ห้าม "เทสที่ import แต่ test module อื่น" (= ไม่มีในกราฟ production) → แยกไฟล์จะทำ A2 แดง ; fold ไว้ในตัว tripwire (ซึ่งไม่ import โมดูล local เลย) สะอาดสุด + ไม่อ่อนแอ guard ใด.
+`regression_full . corpus`=`23b315e8` ✅ · `check_invariants` ✅ · `test_reachability` ✅ · `test_file_size_ceiling` PASS (self-test ✅ + whitelist 7).
+**git diff:** `test_file_size_ceiling.py` (SKIP_DIRS + `_is_skip_dir` + `scan()` refactor + `_selftest()`) + `run_ci.sh` ([3z] label) + DECISIONS.md (ADR) — golden-neutral, ไม่แตะ audit path.
+
+---
+
+## ADR-127 — [§9-1c rule-status honesty] กฎตรวจตัวตน = unavailable-resource เมื่อ master ว่าง — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — ชั้น metadata/coverage ไม่ใช่ audit snapshot) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — §9 รายการ 1c: "ทำให้ rule status ไม่หลอกตา — ถ้า master ว่าง กฎต้องรายงาน unavailable/dormant ชัดเจน ไม่ใช่ active เฉย ๆ"
+**priority:** Reliability/Predictability — สถิติ coverage ที่ honest = เชื่อถือได้ (กันแดชบอร์ดโชว์กฎ "active" ที่ไม่เคยยิง)
+
+### 1. บั๊ก (กลาง — honesty/observability) — แดชบอร์ดโชว์ "active" หลอกตา
+**อาการ:** กฎตรวจตัวตน 9 ตัว (`CMP001/CMP004/CMP006`, `ADDR001/ADDR002/ADDR003`, `TAX003`, `TAX005`, `BR004`) ขึ้นต้นด้วย `if not m: return []` (หรือวน `all_masters` ว่าง). master ที่ ship จริง = `{}` (ADR-102: เจ้าของลบบริษัทตัวอย่าง ผู้ใช้กรอกเองรายเดือน) → ทั้ง 9 กฎ **dormant 100%** (ไม่เคยยิงบน corpus 1056 บิล — พิสูจน์: ไม่มีรหัสใดใน issue snapshot). แต่ `code_registry.rule_status()` คืน `"active"` (เพราะ enabled=True) → ชีต Rules / `format_rule_coverage` โฆษณา active เกินจริง (62 ทั้งที่ทำงานจริง 53). เดิมมีกลไก honesty อยู่แล้ว (ITM009 = unavailable เพราะขาด product_master.json) แต่ **ไม่ครอบ master-dependent**.
+**ต้นตอ:** `unavailable_rule_codes()` รู้จัก resource เดียว (product_master.json/ITM009). `master_companies.json` คือ resource ของกฎตัวตน แต่ไม่เคยถูกผูกเป็น "resource ที่ขาดได้".
+
+### 2. หลักฐาน (forensic)
+- static: ทั้ง 9 ฟังก์ชัน `r_*` มี `if not m: return []` เป็นบรรทัดแรก (rules_engine_rules_a.py L26/81/108/251/264/286/314/405) ; `r_tax005` วน `all_masters` ว่าง → `matched=None` → `[]`.
+- empirical: corpus issue-code snapshot (master={}) ไม่มี CMP*/ADDR001-003/TAX003/TAX005/BR004 เลย (dormant 100%).
+- การ join: `match_company` (fuzzy ชื่อ → bind `m`) + `all_masters` (tax_id key, r_tax005). master={} → `m=None` ทุกบิล → ทั้งหมด early-return.
+
+### 3. วิธีทำ (surgical · metadata layer เท่านั้น)
+`code_registry.py`: (ก) `MASTER_DEPENDENT` = 9 code → คำอธิบายงาน. (ข) `master_available()` อ่าน `CFG['MASTER_FILE']` ตรง ๆ → True เฉพาะเมื่อเป็น dict บริษัทจริง (ไม่ว่าง + ไม่ใช่ `_golden_stub`) ; fail-closed. (ค) `unavailable_rule_codes()` += `MASTER_DEPENDENT & enabled` เมื่อ `not master_available()` (สมมาตร ITM009). (ง) `rule_status_reason()` คืนเหตุผลอ้าง master_companies.json + วิธีเปิด (`เพิ่ม_master.py`).
+- **สมมาตรกับ ITM009/product_master.json** → ไม่เพิ่มสถานะใหม่ (คงพาร์ทิชัน active/disabled/unavailable). เมื่อผู้ใช้ใส่ master จริง → กฎกลับเป็น active อัตโนมัติ.
+
+### 4. พิสูจน์ golden-neutral
+code_registry = "ชั้น metadata ไม่เปลี่ยน runtime/golden" (golden = bill audit snapshot ไม่ใช่ RULES/coverage). consumer มีแค่ `reporting_p1._xlsx_sheet_rules` (คอลัมน์ "สถานะ" ในชีต Rules — advisory) + test. `regression_full . corpus`=`23b315e8` เป๊ะ หลังแก้. `test_report_det` (self-consistency รัน 2 รอบ) ✅ — รายงานยัง deterministic. ผลตรวจบิลทุกใบไม่ขยับ.
+
+### 5. Migration risk
+ต่ำ — metadata/coverage layer. master ว่าง→กฎ unavailable (honest) ; ใส่ master จริง→active. ความเสี่ยงเดียว: ถ้า `CFG['MASTER_FILE']` ชี้ผิด → fail-closed คืน False (โชว์ unavailable แทน active) = ฝั่งปลอดภัย.
+
+### 6. ยืนยัน (gate ครบ)
+`test_rule_status.py` +4 assertion (master ว่าง→9 กฎ unavailable + เหตุผลอ้าง master_companies.json ; มี master→active) — ผ่าน. coverage honest: active 62→53, unavailable 1→10. `regression_full . corpus`=`23b315e8` ✅ · `test_code_tables_consistency`/`test_field_codes_coverage`/`test_report_det`/`test_report_consistency`/`check_invariants` ✅.
+**git diff:** `code_registry.py` (`MASTER_DEPENDENT`+`master_available()`+`unavailable_rule_codes`/`rule_status_reason`) + `test_rule_status.py` (4 assertion) + DECISIONS.md (ADR) — golden-neutral.
+**หมายเหตุ §9-1a/1b (ต้องอนุมัติ — ยังไม่ทำ):** (1a) `match_company` ปัจจุบัน join ด้วย fuzzy "ชื่อ" (bind `m`) + tax_id เฉพาะ r_tax005/all_masters ; การเปลี่ยน primary join → tax_id เป็น golden-MOVING/architectural — เสนอแยก ขออนุมัติ. (1b) แพ็ก master จริงลง release = เปิดกฎตัวตน → เปลี่ยนผล corpus = rebaseline ต้องมี ADR + เจ้าของอนุมัติ — ห้ามทำเงียบ.
+
+---
+
+## ADR-128 — [concurrency robustness] regression_full ใช้ temp snapshot ผูก PID (กัน race ไฟล์ร่วม) — golden-neutral (tooling)
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — แก้ path temp ของเครื่องมือ ไม่แตะ audit/hash) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — "หาบั๊กทุกระดับ (รวม state/concurrency) + ตั้งตะข่ายนิรภัย"
+**priority:** Reliability/Predictability — false-red จาก race กัดความเชื่อใน gate หลัก (5-ปี: CI matrix/รันคู่)
+
+### 1. บั๊ก (ต่ำ-กลาง — concurrency/state) — gate หลัก race บนไฟล์ temp ร่วม
+**อาการ:** `regression_full.py` (gate golden หลัก §7-1) สั่ง `golden_master.py` เขียน engine snapshot ไป **`/tmp/_reg_engine.json` (hardcode, ร่วมทุกโปรเซส)** แล้วอ่านกลับเพื่อนับ `n_files` (guard "CORPUS MISMATCH"). ถ้ารัน **พร้อมกัน 2 โปรเซส** (CI matrix หลาย Python, dev รัน regression ระหว่าง CI, หรือคู่กับ `verify_parallel`) → snapshot ทับกัน → รันหนึ่งอ่าน `n_files` ของอีกชุดข้อมูล → **false "CORPUS MISMATCH"** (gate แดงทั้งที่โค้ดถูก).
+**ต้นตอ:** path คงที่ร่วมกัน. (`verify_report_det.py:19` ผูก PID อยู่แล้ว `_rd_%d.xlsx % getpid()` — เครื่องมือพี่น้องทำถูก ; regression_full ตกหล่น).
+**ขอบเขต:** hash อ่านจาก **stdout** ของ golden_master (ไม่ใช่ไฟล์) → ค่า hash ไม่ผิด ; เฉพาะ guard `n_files` ที่อ่านไฟล์ → race ทำ false corpus-mismatch (false-red) ไม่ใช่ false-green. ยังควรแก้ (false-red กัดความเชื่อใน gate).
+
+### 2. หลักฐาน
+- static: `regression_full.py:77` เขียน `/tmp/_reg_engine.json` ; `:93` อ่านกลับ — path เดียว ไม่ผูก PID/รัน. grep ยืนยันมีจุดนี้จุดเดียว (golden_master เขียน path ที่ถูกส่งมาเป็น argv → ผูกตาม caller).
+- pattern: `verify_report_det.py` แก้ปัญหาเดียวกันด้วย PID-scope แล้ว = ยอมรับว่าเครื่องมือเหล่านี้รันพร้อมกันได้.
+
+### 3. วิธีทำ (surgical · mirror verify_report_det)
+`regression_full.py`: `_ENGINE_SNAP = os.path.join(tempfile.gettempdir(), f'_reg_engine_{os.getpid()}.json')` (ผูก PID → 1 ไฟล์/รัน, ไม่ชนกัน) ใช้แทน hardcode ทั้ง 2 จุด (เขียน argv + อ่าน n_files) + `atexit` ลบทิ้งตอนจบ (กันสะสมรกใน /tmp — เดิม reuse ไฟล์เดียว, PID-scope สร้างหลายไฟล์จึงต้องเก็บกวาด).
+
+### 4. พิสูจน์ golden-neutral
+แก้เฉพาะ "path ไฟล์ temp ของเครื่องมือ" — ไม่แตะ audit/snapshot/hash logic. hash ยังอ่านจาก stdout เหมือนเดิม. `regression_full . tests/fixtures`=`ad0c9dad` (engine==agent==baseline) ✅ + temp file ถูกลบ (atexit) + ไม่มีไฟล์ค้าง. `regression_full . corpus`=`23b315e8` (ยืนยันใน gate รวมท้าย).
+
+### 5. Migration risk
+ต่ำมาก — เครื่องมือ test/gate ล้วน. ผูก PID = ปลอดภัยขึ้น (ไม่มี regression ของพฤติกรรม). ความเสี่ยงเดียว: ถ้า `tempfile.gettempdir()` ไม่เขียนได้ → เหมือนเดิม (golden_master เขียนไม่ได้ → _run คืน error → gate แดงชัด ไม่ใช่เงียบ).
+
+### 6. ยืนยัน (gate ครบ)
+`regression_full . tests/fixtures`=`ad0c9dad` ✅ (PID-scoped, atexit cleanup ✅, ไม่มีไฟล์ค้าง) · `regression_full . corpus`=`23b315e8` ✅ (gate รวมท้าย) · `check_invariants` (เรียก regression_full บน fixture) ✅.
+**regression test:** ครอบโดย `check_invariants` + ทุก gate ที่เรียก `regression_full` (fixture+corpus) — พิสูจน์เครื่องมือยังคืนผลถูกหลังผูก PID. ไม่เพิ่มไฟล์เทสใหม่ (พฤติกรรม observable ของเครื่องมือเท่าเดิม ; การแก้คือ path ภายใน).
+**git diff:** `regression_full.py` (`_ENGINE_SNAP` PID-scoped + atexit cleanup + 2 call-site) + DECISIONS.md (ADR) — golden-neutral, ไม่แตะ audit path.
+
+---
+
+## ADR-129 — [release hygiene · PII leak] make_release ไม่แพ็ก corpus(ลูกค้า)/.venv/dist + self-check — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — เครื่องมือ packaging, portable-golden ทำ hash ไม่ขึ้นกับ path) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — "หาบั๊กทุกระดับ (รวมร้าย) + ส่งระบบสมบูรณ์ 5 ปี" ; พบโดย bug-hunt workflow (GOV-01)
+**priority:** **HIGH** — ความลับข้อมูลลูกค้า (PII) + ความถูกต้องของ "ประตูปล่อย release" (gate ที่ทุกการส่งต้องผ่าน)
+
+### 1. บั๊ก (ร้าย — data leak) — release zip พก corpus PII ลูกค้า
+**อาการ:** `make_release.py._iter_files` เดิน `os.walk(pkg_dir)` ตัดแค่ 5 dir (`__pycache__/e2e_output/.git/.pytest_cache/.mypy_cache`) → **"ลืม" `corpus/` (148 ไฟล์จริงของลูกค้า: ชื่อบริษัท/เลขภาษี 13 หลัก/ที่อยู่/ยอดเงิน)** + `.venv` + `dist/` (รวม release zip เก่า) + รายงาน PII (`company_summary*`, `audit_*`). คำเชิญจริงตาม §10 = `make_release.py . corpus out.zip` (pkg=`.` ซึ่ง **มี** `corpus/`) → corpus ถูกแพ็กลง zip ที่ส่งออก. **hash gate ไม่จับ** เพราะ corpus ไม่กระทบ golden (golden = ผลตรวจ ไม่ใช่รายชื่อไฟล์) → "✅ RELEASE OK" ทั้งที่ zip มี PII.
+**ต้นตอ:** ใช้ `os.walk` (จงใจ เพื่อ include `vendor/wheels` ที่ .gitignore — ต่างจาก package.sh ที่ใช้ git ls-files) แต่ exclude list ไม่ครอบ "ข้อมูล/env/build" ที่ .gitignore กันไว้. ที่ corpus ถูกแพ็กยัง **load-bearing** ด้วย: ขั้น verify รัน `regression_full . corpus` ใน tree ที่แตก → ต้องมี corpus ใน tree → จึงเผลอ "ต้อง" แพ็ก corpus.
+
+### 2. หลักฐาน (reproduce)
+- `list(make_release._iter_files('.'))` → 472 ไฟล์ รวม `corpus/KRR_69_057.xls` ฯลฯ ครบ 148 ไฟล์ PII.
+- `.gitignore` ระบุชัด `corpus/` + PII outputs = "ห้าม commit/ส่ง" → make_release ควรเคารพชุดเดียวกัน.
+
+### 3. วิธีทำ (surgical · 3 ชั้น)
+(ก) **ตัดให้ครบ:** `EXCLUDE_DIRS += .ruff_cache/.vscode/dist/build/.eggs/.tox/node_modules/corpus` ; `_skip_dir` ข้าม prefix `.venv*`, `*.egg-info`, ราก virtualenv (`pyvenv.cfg`), และ **โฟลเดอร์ data_dir ที่ผู้ใช้ส่งมา** (realpath==data_abs = corpus จริง ไม่ว่าตั้งชื่ออะไร) ; `EXCLUDE_EXACT/PREFIX/SUFFIX` += รายงาน PII (`audit_charts.png`/`audit_dashboard_report.html`/`audit_system_issues.jsonl`/`company_summary*`/`ตัวอย่างผลลัพธ์*`/`*.json.*.bak`/`.coverage*`).
+(ข) **verify ไม่พึ่งสำเนาใน zip:** ส่ง `data_abs = abspath(corpus)` ให้ regression_full/golden_master ใน extracted tree → อ่าน corpus จาก **ตำแหน่งเดิม** (ไม่ต้องแพ็ก). portable-golden (`_strip_paths`/ADR P0-A) strip path → hash เท่าเดิมเป๊ะ (พิสูจน์: `regression_full . /abs/corpus`=`23b315e8`).
+(ค) **self-check (defense-in-depth):** `_zip_pii` สแกน zip ที่ build → ถ้าพบ `/corpus/`, `master_companies.json`, `/.venv`, `pyvenv.cfg`, `/dist/`, รายงาน PII, `*.json.*.bak`, หรือชื่อ data_dir → **ลบ zip + exit 1 (ส่งไม่ได้)**. อนุญาต `tests/fixtures` + `tests/real_cases` (ข้อมูลทดสอบย่อที่ commit ตั้งใจ). แม้ exclude ตกหล่นในอนาคต → ยัง "ส่งไม่ได้".
+
+### 4. พิสูจน์ golden-neutral
+แตะเฉพาะ `make_release.py` (เครื่องมือ packaging) — ไม่แตะ audit/rule/parser. ขั้น verify ยังรัน regression บน corpus เดิม (absolute) → `regression_full . /abs/corpus`=`23b315e8` ✅ (portable-golden, hash ไม่ขึ้นกับ path). แพ็ก 472→314 ไฟล์ (ตัด 148 PII + ขยะ). vendor/wheels ยัง include (offline). fixtures/real_cases ยัง keep.
+
+### 5. Migration risk
+ต่ำ — packaging tool. ผล: release zip เล็กลง + ปลอด PII. ความเสี่ยง: ถ้าผู้ใช้วาง data_dir นอก pkg (absolute path) → ไม่ถูก walk อยู่แล้ว (ไม่มีอะไรเปลี่ยน) ; self-check ยังกัน corpus ที่อาจหลงมาทางอื่น. ขั้น verify reproduce golden เหมือนเดิม.
+
+### 6. ยืนยัน (gate ครบ)
+`test_make_release_hygiene.py` (A: `_skip_dir` env/build/data ข้าม source/vendor ไม่ข้าม · B: `_iter_files` drop corpus/master/.venv/dist/รายงาน keep source/fixtures/vendor · C: `_zip_pii` จับ PII ไม่จับ source/real_cases) — register `run_ci.sh [3x7b]`. `regression_full . /abs/corpus`=`23b315e8` ✅ · `test_reachability` ✅ (make_release ∈ ALLOWLIST_TOOLS) · full `make_release` reproduce `23b315e8` + PII self-check ✅ (gate รวมท้าย §10).
+**git diff:** `make_release.py` (EXCLUDE ครบ + `_skip_dir` + `_zip_pii` self-check + data_abs verify) + `test_make_release_hygiene.py` (ใหม่) + `run_ci.sh` ([3x7b]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-130 — [parse-core crash-guard] `_is_seq_token` กัน int(float()) OverflowError (บิลทั้งชีตหาย) — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus delta=0, parse-core byte-identical) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — bug-hunt ทุกระดับ (รวมครัช→false-negative) ; พบโดย workflow (PEX-1, verify=fix-now)
+**priority:** HIGH — ครัชใน detect/extract = "บิลทั้งชีตหายเงียบ" (false-negative คลาสเดียว ADR-120/124)
+
+### 1. บั๊ก (HIGH — silent failure) — seq cell ตัวเลขยาวมากทำ extract ครัช → บิลทั้งชีตหาย
+**อาการ:** `_is_seq_token(v)` (parser_p0a.py) รับ token ตัวเลขล้วน (isdecimal, ไม่มี '.') = True โดย**ไม่มีขอบเขตความยาว** → `_is_seq_token('9'×400)`=True. consumer 2 จุดทำ `int(float(s))` **แบบไม่กัน**: `_dic_item_rows` (parser_p0a.py:340 — `_is_seq_token(...) and 1<=int(float(...))<=50`, short-circuit ผ่านเพราะ True) + `_pb_extract_items` (parser_p2.py:60-61). `float('9'×400)=inf` → `int(inf)` → **OverflowError**. เฉพาะ `_dic_int_run` มี try (เพิ่ม BUGHUNT v9.3.1) ; 2 จุดนี้ไม่มี → ครัชที่ชั้น detect คอลัมน์/extract → บิลทั้งชีตหาย.
+**ต้นตอ:** detection-vs-extraction contract: `_is_seq_token` validate แค่ "เป็นเลขจำนวนเต็ม" ไม่กันค่าที่ `int(float())` ระเบิด. มีคนแก้ `_dic_int_run` จุดเดียว ลืม 2 sibling.
+
+### 2. หลักฐาน (reproduce + วัด byte-identical)
+- reproduce: `int(float('9'*400))` → `OverflowError: cannot convert float infinity to integer` ; `_is_seq_token('9'*400)`=True (ถึง consumer).
+- วัด corpus: instrument `_is_seq_token` ทั้ง 148 ไฟล์ → **max หลัก seq-token ที่ True = 2** (seq 1..50). ไม่มี token ≥5 หลักเลย → bound ใด ๆ ที่ ≥3 byte-identical ; เลือก guard เฉพาะ inf (>308 หลัก) = ปลอดภัยสุด.
+
+### 3. วิธีทำ (surgical · 1 จุด chokepoint · conservative)
+`_is_seq_token`: หลัง `.isdecimal()` เพิ่ม `if len(s) > 308 and not math.isfinite(float(s)): return False`. กันเฉพาะ token ที่ float→inf (>308 หลัก = ช่วง overflow) → fix ทั้ง 2 consumer ที่จุดเดียว (short-circuit / `if not _is_seq_token: continue`). ค่า finite ใหญ่ (เช่น 201 หลัก) ยังผ่าน predicate แล้วถูกตัดด้วย `1<=v<=50` ที่ consumer ตามเดิม → ไม่มี behavior เปลี่ยนบนค่า finite. `math` import อยู่แล้ว (parser_p0a:23).
+
+### 4. พิสูจน์ golden-neutral + byte-identical
+**corpus delta=0:** `regression_full . corpus`=`23b315e8` เป๊ะ ก่อน/หลัง (seq จริง ≤2 หลัก ไม่แตะ guard). **parse-core byte-identical:** `test_dic_int_run_equiv` (9703 คอลัมน์ + 1528 เฟรม, 0 ต่าง) ✅ + `test_parser_chain_integrity` ✅. **parse-canary:** 1056 บิล / 0 ไฟล์ได้ 0 บิล (rate ไม่ร่วง). seq/merge/serial §6 byte-identical (guard เฉพาะ inf-token ที่ไม่มีในข้อมูลจริง).
+
+### 5. Migration risk
+ต่ำมาก — guard เฉพาะ token >308 หลัก (เป็นไปไม่ได้ในใบกำกับจริง: เลขภาษี 13/ยอดเงิน ~12). ไม่เปลี่ยนผลบนค่า finite ใด ๆ. เป็น superset-safe (เพิ่มการ reject เฉพาะเคสที่เดิม "ครัช").
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr130_seq_overflow.py` (A: ไม่ครัช + reject inf-token · B: seq จริง 1/50/'1.00' byte-identical + finite-huge ผ่าน · C: `_dic_item_rows` ข้าม garbage ไม่ครัช ยังเก็บ seq จริง) — register `run_ci.sh [3e5]`. golden=`23b315e8` ✅ · parse-canary ✅ · `test_dic_int_run_equiv`/`test_parser_chain_integrity` ✅.
+**git diff:** `parser_p0a.py` (+3 บรรทัด guard ใน `_is_seq_token`) + `test_adr130_seq_overflow.py` (ใหม่) + `run_ci.sh` ([3e5]) + DECISIONS.md (ADR) — golden-neutral. parse-core seq byte-identical.
+
+---
+
+## ADR-131 — [GAP-B sibling] run_rules drop "สมาชิก non-dict" ใน items (กัน ~14 กฎครัช→ข้ามเงียบ) — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus 0/3307 สมาชิก non-dict) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — bug-hunt false-negative ; พบโดย workflow (RB-01)
+**priority:** กลาง — false-negative (บิลโผล่ 'ตรง' หลอกทั้งที่กฎ item/VAT ไม่ได้ตรวจ) — คลาส GAP-A/B
+
+### 1. บั๊ก (กลาง — silent false-negative) — สมาชิก non-dict ใน items ทำกฎ item/VAT ครัช
+**อาการ:** `run_rules` (rules_engine.py:279-291) loop coerce item field "เฉพาะเมื่อ `isinstance(_it, dict)`" → สมาชิก **non-dict** (None/str/int — บิลภายนอก/parser อนาคต/ไฟล์เพี้ยน) ค้างใน `bill['items']`. กฎ item/VAT ~14 ตัว (ITM001/003/004/005/006/007/010/011/012/013/017 + VAT001/006/007) อ้าง `it['name']`/`it.get('amount')` ดิบ → `TypeError`/`AttributeError` → `run_rules` try/except route เป็น `SYS-*` (echo=False ไม่ลง issues) → **กฎเหล่านั้นถูกข้ามเงียบ** = บิลโผล่ 'ตรง' หลอก. ADR-124 coerce **container** items→list แต่ไม่แตะ **สมาชิก** ; `analytics._safe_items` filter สมาชิก non-dict อยู่แล้ว แต่ `run_rules` ตกหล่น.
+
+### 2. หลักฐาน (reproduce)
+- `run_rules(bill items=[None, {valid}])` → SYS logged 14 ตัว: `SYS-ITM001/003/004/005/006/007/010/011/012/013/017, SYS-VAT001/006/007` → กฎ item/VAT ทั้งหมดถูกข้าม (กฎ non-item เช่น TAX001/BR ยังยิง = บิลดู "มี issue บ้าง" แต่ item/VAT เงียบสนิท = false-negative แอบแฝง).
+- corpus: parser ให้สมาชิก dict-หรือ-None เชิงโครงสร้าง — สแกน **0/3307 สมาชิก non-dict** บน corpus → fix เป็น no-op.
+
+### 3. วิธีทำ (surgical · mirror analytics._safe_items)
+ก่อน loop coercion: `if any(not isinstance(_it, dict) for _it in bill['items']): bill['items'] = [_it for _it in bill['items'] if isinstance(_it, dict)]`. drop สมาชิก non-dict (เหมือน `_safe_items`) → loop ล่าง + กฎทั้งหมดเห็นเฉพาะ dict. guard `any` → ไม่สร้าง list ใหม่บน corpus (no-op จริง).
+
+### 4. พิสูจน์ golden-neutral
+`regression_full . corpus`=`23b315e8` เป๊ะ (corpus ทุกสมาชิกเป็น dict → `any(...)`=False → ไม่แตะ list). `test_gap_b_items_coerce` (ADR-124) ยังเขียว 20/0 · `test_rules_coverage` (no-throw contract) ✅. ไม่แตะ logic กฎ.
+
+### 5. Migration risk
+ต่ำมาก — drop ค่าที่ "ไม่ใช่ item" (สมาชิก non-dict ไม่มี field สินค้าให้ตรวจอยู่แล้ว). บิลถูกตรวจ "item ที่เหลือ" จริง แทนข้ามทั้งชุด. conservative: ไม่เดา/ไม่สร้าง item ปลอม.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr131_item_member.py` (A: items ปกติ no SYS · B: None/str/int member drop ไม่ครัช ไม่ SYS · C: item ที่เหลือถูกตรวจจริง) — register `run_ci.sh [3n4]`. golden=`23b315e8` ✅ · GAP-B/rules-coverage ✅.
+**git diff:** `rules_engine.py` (+filter สมาชิก non-dict ก่อน coercion loop) + `test_adr131_item_member.py` (ใหม่) + `run_ci.sh` ([3n4]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-132 — [core_utils crash-guards] iv_amount_fragment OverflowError + sort_bills_by_date None — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus SYS=0/file=str) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — bug-hunt ครัช/error-handling ; พบโดย workflow (RC-02 fix-now, PG-04 report-only)
+**priority:** กลาง — (RC-02) ครัช→false-negative ; (PG-04) ครัชชั้นรายงาน
+
+### 1. บั๊ก (2 จุดใน core_utils — crash/error-handling)
+**(A·RC-02) `iv_amount_fragment` OverflowError:** line 133 `s = repr(float(v))` — `v` คือ subtotal/vat/total ที่ผ่าน `isinstance(v,(int,float))` ; ถ้าเป็น **int มหึมา** (เกินช่วง float, เช่น 10^400 จากไฟล์เพี้ยน) → `float(v)` → `OverflowError: int too large to convert to float`. ผู้เรียก `r_iv007` (rules_engine_rules_c:709) ครัช → `SYS-IV007` → ข้ามกฎ = false-negative.
+**(B·PG-04) `sort_bills_by_date` TypeError:** `sorted(..., key=lambda b: (b['iv_date'] or datetime.max, b['file'], str(b['sheet'])))` — guard `iv_date`/`sheet` แต่ `b['file']` ดิบ. ตอน tie บน iv_date เดียวกัน comparator ไปถึง `file` ; บิลภายนอกที่ `file=None` → `'<' not supported between str and NoneType` (ชั้นรายงาน).
+
+### 2. หลักฐาน (reproduce)
+- (A) `iv_amount_fragment('123456', total=10**400)` → `OverflowError` (reproduced).
+- (B) `sort_bills_by_date([{iv_date:d,file:None,sheet:'s'},{iv_date:d,file:'a',sheet:1}])` → `TypeError` (reproduced).
+- corpus: SYS=0 (1056 บิล) → iv_amount_fragment ไม่เคยครัชบน corpus ; file = `os.path.basename` (str เสมอ) → 2 guard เป็น no-op.
+
+### 3. วิธีทำ (surgical · crash-guard เท่านั้น — ไม่แตะ detection semantics)
+**(A)** ครอบ `float(v)` ด้วย `try/except (OverflowError, ValueError): continue` → ค่าที่ float ไม่ได้ "ไม่ใช่เศษ float ของยอด" → ข้าม (ไม่ match) ถูกต้อง. **จงใจไม่แก้** integer-mismatch (PG-05: `repr(float(int))`→'.0'→spurious digit) เพราะการทำให้ match เพิ่ม = เปิด detection ใหม่ = golden-MOVING → report-only.
+**(B)** `str(b.get('file') or '')` + `str(b.get('sheet') or '')` (สมมาตรกับ sheet เดิม). corpus file=str → byte-identical.
+
+### 4. พิสูจน์ golden-neutral
+`regression_full . corpus`=`23b315e8` เป๊ะ. iv_amount_fragment พฤติกรรมปกติ byte-identical (float-tail detection: iv '0000000002' == frac ของ VAT 1416233.0000000002 → True เดิม ; integer-mismatch ยัง False เดิม). `test_iv007`/`test_iv_money_misread`/`test_iv_parser_guard`/`test_bughunt_recheck` เขียวครบ. sort = ชั้นรายงาน (downstream audit) ไม่กระทบ golden.
+
+### 5. Migration risk
+ต่ำมาก — guard เฉพาะค่าที่ "เดิมครัช" (int เกิน float / file=None) ที่ไม่มีในข้อมูลจริง. ไม่เปลี่ยนผลบนค่าปกติ.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr132_core_utils_guards.py` (A: iv_amount_fragment ไม่ครัช int มหึมา · A2: float-tail/short/integer-mismatch byte-identical · B: sort ไม่ครัช file/sheet None · B2: sort order เดิม) — register `run_ci.sh [3c7b]`. golden=`23b315e8` ✅ · iv-guards ✅.
+**git diff:** `core_utils.py` (`sort_bills_by_date` str-wrap + `iv_amount_fragment` try/except) + `test_adr132_core_utils_guards.py` (ใหม่) + `run_ci.sh` ([3c7b]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-133 — [report-layer crash-guard] consolidate_bill ทนบิลเพี้ยน (issues=None/non-dict/non-str code) — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — report layer, ไม่แตะ audit) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — bug-hunt error-handling ; พบโดย workflow (RPT-02 fix-now)
+**priority:** กลาง — ครัชทำ Error Report (.xlsx) ล่มทั้งฉบับ (ชั้นส่งลูกค้า)
+
+### 1. บั๊ก (กลาง — error-handling) — consolidate_bill ครัช 3 ทาง
+`issue_consolidator.consolidate_bill` (ชั้นรายงาน, ป้อน build_consolidated_report): (1) `bill.get("issues", [])` — `issues=None` (มีคีย์แต่ None) → default ไม่ทำงาน → `for iss in None` → `TypeError`. (2) issue ที่ไม่ใช่ dict (str) → `iss.get(...)` → `AttributeError`. (3) `code` เป็น non-str (int) → `_family(code)` (re.match) + `sorted(codes)` + `",".join(codes)` → `TypeError`. บิลเพี้ยน 1 ใบ → Error Report ล่มทั้งฉบับ.
+
+### 2. หลักฐาน (reproduce)
+- `consolidate_bill({'file':'F','issues':None})` → `TypeError: 'NoneType' object is not iterable`.
+- `...issues=[{'code':123,...}]` → `TypeError: expected string or bytes-like object, got 'int'`.
+- `...issues=['ขยะ']` → `AttributeError: 'str' object has no attribute 'get'`.
+
+### 3. วิธีทำ (surgical · 3 บรรทัด)
+`for iss in (bill.get("issues") or []):` + `if not isinstance(iss, dict): continue` + `code = str(iss.get("code") or "?")`. ครอบทั้ง 3 ทาง. บิลปกติ (issues=list-of-dict, code=str) → byte-identical.
+
+### 4. พิสูจน์ golden-neutral
+issue_consolidator = ชั้นรายงาน (advisory) — golden = audit snapshot ไม่ใช่ report. `regression_full . corpus`=`23b315e8` (ไม่กระทบ). `test_issue_consolidator`/`test_report_lane_aspect` เขียว (บิลปกติเดิม).
+**หมายเหตุ:** `issue_consolidator.MASTER_DEPENDENT` (บรรทัด 47 = `{CMP001,CMP003,CMP004,TAX003,TAX005,ADDR003}`) เป็นคนละชุดกับ `code_registry.MASTER_DEPENDENT` (ADR-127) — **จงใจคนละ purpose** (อันนี้ = curated "report bucket ขึ้นกับ master" ; ของ code_registry = "กฎ dormant เมื่อ master ว่าง"). คนละ namespace ไม่ชนกัน — ไม่ reconcile (เปลี่ยน bucket = report เปลี่ยน เสี่ยงเปล่า).
+
+### 5. Migration risk
+ต่ำมาก — report layer, guard เฉพาะ input เพี้ยน. บิลปกติไม่เปลี่ยน.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr133_consolidator_robust.py` (5 เคสเพี้ยนไม่ครัช + บิลปกติเดิม) — register `run_ci.sh [3v1]`. golden=`23b315e8` ✅ · consolidator/report tests ✅.
+**git diff:** `issue_consolidator.py` (+3 บรรทัด guard ใน consolidate_bill) + `test_adr133_consolidator_robust.py` (ใหม่) + `run_ci.sh` ([3v1]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-134 — [golden-path crash-guard] check_iv_date_sequence str-wrap iv_number — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus iv_number=str → str() no-op) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — bug-hunt error-handling/consistency ; พบโดย workflow (VDU-3 fix-now)
+**priority:** กลาง — ครัชใน crosscheck IV004 → ข้ามทั้งชุด (false-negative) + consistency กับ sibling
+
+### 1. บั๊ก (กลาง — error-handling/consistency) — iv_number non-str ทำ re.sub ครัช
+`validators.check_iv_date_sequence` (golden-path crosscheck IV004) บรรทัด 287: `re.sub(r'[^\d]','',b['iv_number'])` **ดิบ**. guard บรรทัด 286 (`if not b.get('iv_number')...continue`) กรองแค่ **falsy** → iv_number ที่ "truthy แต่ non-str" (int 123 จากบิลภายนอก/parser อนาคต) ผ่าน → `re.sub` บน int → `TypeError` → crosscheck ครัชทั้งชุดบิลในเดือนนั้น. sibling 3 จุด (validators.py:186/224/324) `str()`-wrap หมดแล้ว — จุดนี้ตกหล่น (inconsistent).
+
+### 2. หลักฐาน
+- `re.sub(r'[^\d]','', 123)` → `TypeError: expected string or bytes-like object, got 'int'`.
+- grep: บรรทัด 186/224/324 ใช้ `str(b['iv_number'])` ; บรรทัด 287 ไม่ใช้ (outlier ยืนยัน).
+- corpus: iv_number = str เสมอ (parser ให้ str) → str() เป็น no-op.
+
+### 3. วิธีทำ (surgical · 1 จุด · mirror sibling)
+`re.sub(r'[^\d]', '', str(b['iv_number']))` — สมมาตรกับ sibling. byte-identical บน corpus.
+
+### 4. พิสูจน์ golden-neutral
+`regression_full . corpus`=`23b315e8` เป๊ะ (golden-path แต่ corpus iv_number=str → str() ไม่เปลี่ยนค่า). `test_validators`/`test_bughunt_recheck`/`test_crosscheck_idempotency` เขียวครบ.
+
+### 5. Migration risk
+ต่ำมาก — str-wrap ค่าที่เดิม "ต้องเป็น str อยู่แล้ว" บน corpus. กันเฉพาะ non-str ที่เดิมครัช.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr134_iv_number_str.py` (int iv_number ไม่ครัช + str ปกติเดิม) — register `run_ci.sh [3f1]`. golden=`23b315e8` ✅ · validators golden-path tests ✅.
+**git diff:** `validators.py` (str-wrap บรรทัด 287) + `test_adr134_iv_number_str.py` (ใหม่) + `run_ci.sh` ([3f1]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-135 — [advisory state-leak] Orchestrator.run() เริ่ม mesh สะอาดทุกครั้ง — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — mesh = advisory ไม่อยู่ใน snapshot ; agent==engine ยืนยัน) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — §6 "state ค้างข้ามการรัน" ; พบโดย workflow (AMP-1 fix-now)
+**priority:** กลาง — state leak ข้ามการรัน (advisory findings สะสมซ้ำ) — ขัดหลัก idempotent ในโปรเซสเดียว
+
+### 1. บั๊ก (กลาง — state-management) — mesh สะสม findings ข้าม run()
+`Orchestrator.run()` ตั้ง mesh ด้วย `if ctx.mesh is None: ctx.mesh = FindingsMesh()` ; `reset_run_state()` (บรรทัด 120) reset core engine state แต่ **ไม่แตะ ctx.mesh**. `FindingsMesh.publish` = **append-only** (`_findings.append`). ถ้า "ใช้ PipelineContext ซ้ำ" ข้าม `run()` 2 รอบ → รอบ 2 เจอ mesh เดิม (ไม่ None) → reuse → agent ทุกตัว publish **ทับของเดิม** → findings สะสมซ้ำ. ขัดหลัก "parse/run 2 รอบในโปรเซสเดียวต้องได้ผลเท่ากัน" (test_reset_completeness).
+
+### 2. หลักฐาน (reproduce บน fixture)
+- สร้าง ctx (master={}, fixtures) → `orch.run(ctx)` → `ctx.mesh.count()=29` → `orch.run(ctx)` (ctx เดิม) → `count()=59` (สะสม ≈ ×2). reproduced.
+
+### 3. วิธีทำ (surgical · 1 บรรทัด)
+`run()`: เปลี่ยน `if ctx.mesh is None: ctx.mesh = FindingsMesh()` → `ctx.mesh = FindingsMesh()` (ใหม่เสมอ — run() = full pipeline reset_run_state+re-audit จึง mesh สะอาด). **`run_advisory()` คงเดิม** (`if None`) — เป็น advisory-only ที่ไม่ reset_run_state (ต่อยอด mesh ที่ main เตรียม ไม่ใช่ restart).
+
+### 4. พิสูจน์ golden-neutral
+mesh = ชั้น advisory (data plane ของ agent) — golden snapshot = bill audit (all_bills/issues/...) ไม่รวม mesh. `regression_full . corpus` engine==agent==baseline=`23b315e8` ✅ (agent path ใช้ run() — ยังตรง). fresh ctx (เคสปกติ) mesh=None → ทั้งเก่า/ใหม่สร้าง fresh เท่ากัน → ไม่เปลี่ยนพฤติกรรมปกติ.
+
+### 5. Migration risk
+ต่ำมาก — เคสปกติ (fresh ctx ต่อ run) ไม่เปลี่ยน. แก้เฉพาะเคส "ใช้ ctx ซ้ำ" ที่เดิมรั่ว. ไม่มีใครพึ่ง mesh เก่าค้างข้าม run() (full restart).
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr135_mesh_reset.py` (run() 2 รอบ ctx เดียว → mesh count เท่ากัน 29==29 + bills คงที่) — register `run_ci.sh [4a]`. golden engine==agent==baseline=`23b315e8` ✅ · `test_mesh_contract`/`test_reset_completeness`/`test_agents` ✅.
+**git diff:** `agents/orchestrator.py` (run() mesh fresh เสมอ) + `test_adr135_mesh_reset.py` (ใหม่) + `run_ci.sh` ([4a]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-136 — [parser FP-guard] reject_iv_equal_amount ล้างเฉพาะ iv ตัวเลขล้วน — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus delta=0) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — bug-hunt false-positive ; พบโดย workflow (PG-01 fix-now)
+**priority:** กลาง — false-positive ลบ "เลขเอกสารจริง" (alphanumeric iv) ทิ้งเงียบ
+
+### 1. บั๊ก (กลาง — weak validation/FP) — เลขเอกสาร alphanumeric ถูกล้างเพราะ digits ตรงยอด
+`reject_iv_equal_amount` (parser_guards.py, F-MONEYIV) ทำ `iv = re.sub(r'\D','', str(iv))` **ก่อน** เทียบกับ `_bill_amount_strings`. iv ที่มีตัวอักษร (เช่น `'IV-1250'` = เลขเอกสารจริง) ถูกตัดอักษรเหลือ digits `'1250'` → ถ้ายอดบิล (subtotal/vat/total/item.amount) = 1250 → เข้าเงื่อนไข → **ล้าง iv ทิ้ง** (`''` + score -1e9) แล้วเรียก last-resort = ลบเลขเอกสารจริง (false-positive). guard นี้มีไว้จับ "ยอดเงินถูกอ่านเป็นเลขเอกสาร" ซึ่งเป็น **ตัวเลขล้วน** เสมอ — แต่ดันกิน alphanumeric ที่ digit-collide.
+
+### 2. หลักฐาน
+- `reject_iv_equal_amount(df, {iv:'IV-1250', subtotal:1250,...})` → เดิม iv ถูกล้างเป็น `''`.
+- money-misread จริง (SHS): subtotal `'200500'` อ่านเป็น iv → iv เป็น **ตัวเลขล้วน** → `isdigit()`=True → ยังเข้าเงื่อนไขเดิม.
+- corpus: golden delta=0 หลังแก้ (พิสูจน์ `23b315e8` เป๊ะ) → ไม่มีบิล corpus ที่ iv alphanumeric ถูกล้างปัจจุบัน.
+
+### 3. วิธีทำ (surgical · 1 gate)
+ก่อนเทียบ: เก็บ `raw_iv = str(iv).strip()` → `if not raw_iv.isdigit(): return` (เฉพาะ iv ตัวเลขล้วนถึงเข้าข่าย money-misread). iv ตัวเลขล้วน==ยอด → ยังถูกล้าง (พฤติกรรม F-MONEYIV เดิม).
+
+### 4. พิสูจน์ golden-neutral + blast radius
+`regression_full . corpus`=`23b315e8` เป๊ะ (delta=0). `test_iv_money_misread` (F-MONEYIV) เขียว 6/0 (money-misread ตัวเลขล้วนยังจับได้). parse-canary ✅.
+
+### 5. Migration risk
+ต่ำ — เพิ่ม gate ที่ "ตัดเฉพาะเคสที่เดิมล้างผิด" (alphanumeric). ไม่กระทบ money-misread จริง (ตัวเลขล้วน). conservative.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr136_iv_alnum_guard.py` (A: 'IV-1250'/'CB-6905-0392' ไม่ถูกล้าง · B: '200500'==subtotal ยังถูกล้าง · C: '01954' ไม่ตรงยอด คงเดิม) — register `run_ci.sh [3b5]`. golden=`23b315e8` ✅ · F-MONEYIV ✅ · parse-canary ✅.
+**git diff:** `parser_guards.py` (+gate `raw_iv.isdigit()` ใน reject_iv_equal_amount) + `test_adr136_iv_alnum_guard.py` (ใหม่) + `run_ci.sh` ([3b5]) + DECISIONS.md (ADR) — golden-neutral.
+
+---
+
+## ADR-137 — [parse-core FIX-ADDRLINE sibling] รับที่อยู่ label-glued "เลขที่123"/"หมู่ที่4" — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden-NEUTRAL — corpus delta=0, additive regex) · fixture `ad0c9dad…` ไม่ขยับ
+**สั่งโดย:** เจ้าของ (Tor) — bug-hunt parser silently dropping data ; พบโดย workflow (PH-03 fix-now)
+**priority:** กลาง — anchor field (บ้านเลขที่) หาย → ADDR001 false-positive (sibling ADR-125)
+
+### 1. บั๊ก (กลาง — parser drops data) — บรรทัดที่อยู่ที่ label ติดเลขถูกทิ้ง
+`_pb_try_address_line` (parser_p1.py) branch-1 (บรรทัด 442) ใช้ `re.search(r'(เลขที่ \d+|...|หมู่ที่ \d+)')` — บังคับ **space เดียว** ระหว่าง label กับเลข. บรรทัด `"เลขที่123 ถนนสุขุมวิท"` (label ติดเลข ไม่เว้นวรรค) → ตก branch-1 ; branch-2 (เขต/อำเภอ/จังหวัด/กรุงเทพ) ไม่มี ; branch-3 (ADR-125, `^\s*\d+`) ขึ้นต้นด้วย 'เลขที่' ไม่ใช่เลข → ตกหมด → **ทิ้งทั้งบรรทัด** → บ้านเลขที่หาย → ADDR001 ฟ้อง "ไม่พบเลขที่" (sibling ADR-125 รูป label-glued).
+
+### 2. หลักฐาน
+- `_pb_try_address_line([], 'เลขที่123 ถนนสุขุมวิท')` → เดิม `[]` (ถูกทิ้ง) ; หลังแก้ → เก็บ.
+- corpus: golden delta=0 (พิสูจน์ `23b315e8` เป๊ะ) → ไม่มีรูป glued ใน corpus (ทุก 'เลขที่' ตามด้วย space) → byte-identical.
+
+### 3. วิธีทำ (surgical · superset regex)
+`เลขที่ \d+` → `เลขที่\s*\d+` และ `หมู่ที่ \d+` → `หมู่ที่\s*\d+` (รับ 0+ space → glued + เว้นวรรคเดิม). superset → รูปเว้นวรรคเดิม match เหมือนเดิม. guard เดิม (ชื่อบริษัท/non-addr) คงอยู่.
+
+### 4. พิสูจน์ golden-neutral
+`regression_full . corpus`=`23b315e8` เป๊ะ (additive ; corpus ไม่มี glued). parse-canary 1056/0 ✅. `test_adr125_addrline_houseno` (14 เคส) ยังเขียว. seq/merge/serial §6 byte-identical (เฉพาะ superset บนเคสที่เคยทิ้ง).
+
+### 5. Migration risk
+ต่ำ — superset regex (space→`\s*`). ความเสี่ยง: บรรทัดที่มี 'เลขที่<เลข>' ที่ไม่ใช่ที่อยู่ (เช่น 'เลขที่บัญชี123') อาจถูกเก็บ — แต่ 'เลขที่บัญชี' ไม่มีเลขติดทันที (มีคำ 'บัญชี' คั่น) → ไม่ match `เลขที่\s*\d+` (พิสูจน์ในเทส). corpus delta=0 ยืนยันไม่มีผลข้างเคียง.
+
+### 6. ยืนยัน (gate ครบ)
+`test_adr137_addr_glued.py` (A: glued ถูกเก็บ · B: รูปเว้นวรรค byte-identical · C: non-addr/'เลขที่บัญชี' ไม่เก็บ) — register `run_ci.sh [3c4f]`. golden=`23b315e8` ✅ · parse-canary ✅ · ADR-125 test ✅.
+**git diff:** `parser_p1.py` (regex `\s*` ใน branch-1 ของ `_pb_try_address_line`) + `test_adr137_addr_glued.py` (ใหม่) + `run_ci.sh` ([3c4f]) + DECISIONS.md (ADR) — golden-neutral.

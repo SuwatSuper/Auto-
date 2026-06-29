@@ -100,7 +100,11 @@ def parse_address_input(addr_text: Any) -> dict[str, str]:
 
 
 def sort_bills_by_date(bills: list[dict]) -> list[dict]:
-    return sorted(bills, key=lambda b: (b['iv_date'] or datetime.max, b['file'], str(b['sheet'])))
+    # [ADR-132] str-wrap file/sheet (เหมือน sheet เดิม) — กัน TypeError ตอน tie บน iv_date เดียวกัน
+    #   แล้ว comparator ไปถึง file=None (บิลภายนอก) → '<' str vs None ระเบิด. corpus file = basename
+    #   (str เสมอ) → byte-identical. ชั้นรายงาน (downstream audit) → golden ไม่กระทบอยู่แล้ว.
+    return sorted(bills, key=lambda b: (b.get('iv_date') or datetime.max,
+                                        str(b.get('file') or ''), str(b.get('sheet') or '')))
 
 
 def iv_digits_garbage(iv: Any) -> str | None:
@@ -130,7 +134,13 @@ def iv_amount_fragment(iv: Any, subtotal: Any = None, vat: Any = None, total: An
     for v in (total, vat, subtotal):
         if not isinstance(v, (int, float)):
             continue
-        s = repr(float(v))
+        # [ADR-132] กัน OverflowError: int มหึมา (เกินช่วง float) → float(v) ระเบิด → r_iv007 ครัช
+        #   → SYS → ข้ามกฎ = false-negative. ยอดเงินจริงไม่เกินช่วง float → guard เป็น no-op บน corpus
+        #   (SYS=0 พิสูจน์). ค่าที่ float ไม่ได้ = ไม่ใช่ "เศษ float ของยอด" → ข้าม (ไม่ match) ถูกต้อง.
+        try:
+            s = repr(float(v))
+        except (OverflowError, ValueError):
+            continue
         if digits == re.sub(r'\D', '', s):                 # iv = ทั้งก้อนตัวเลขของยอด
             return True
         if '.' in s:

@@ -222,8 +222,15 @@ def reject_iv_equal_amount(df, result, row_start, header_end, ncols):
       เงื่อนไข if ไม่เคยเป็นจริงบน corpus → dormant 100% → golden hash ไม่ขยับ (พิสูจน์ด้วย
       golden_master ก่อน/หลัง). ทำงานเฉพาะไฟล์ที่ misread จริงเท่านั้น.
     """
-    iv = re.sub(r'\D', '', str(result.get('iv_number') or ''))
+    raw_iv = str(result.get('iv_number') or '').strip()
+    iv = re.sub(r'\D', '', raw_iv)
     if not iv:
+        return
+    # [ADR-136] เฉพาะ iv "ตัวเลขล้วน" ถึงเข้าข่าย money-misread (ยอดเงินถูกอ่านเป็นเลขเอกสาร).
+    #   iv ที่มีตัวอักษร (เช่น 'IV-1250' = เลขเอกสารจริง) ห้ามล้างเพราะ digits บังเอิญตรงยอด:
+    #   เดิม re.sub ตัดอักษรทิ้ง → '1250' → ถ้ายอดบิล=1250 จะล้างเลขเอกสารจริงทิ้ง = false-positive.
+    #   money-misread จริง (เช่น subtotal '200500') เป็นตัวเลขล้วนอยู่แล้ว → ยังจับได้. corpus delta=0.
+    if not raw_iv.isdigit():
         return
     if iv in _bill_amount_strings(result):
         result['iv_number'] = ''
