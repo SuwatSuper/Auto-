@@ -130,7 +130,8 @@ run "[3x9] report determinism (รายงาน Excel นิ่ง บน fixt
 run "[3x10] reset completeness (parse 2 รอบในโปรเซสเดียว ผลเท่ากัน)" "$PY" test_reset_completeness.py
 run "[3x11] stub-marker (master จริงไม่ถูกตีเป็น stub)" "$PY" test_stub_marker.py
 run "[3x12] match-guard (กัน fuzzy ผูกข้ามบริษัท)" "$PY" test_match_guard.py
-run "[3x12b] tax_id-primary join (ADR-146/201 — FN ชื่อเพี้ยน match ด้วย tax + fallback + anti-fraud คง)" "$PY" test_taxid_join_adr146.py
+run "[3x12b] tax_id-primary join (ADR-146/147 — FN ชื่อเพี้ยน match ด้วย tax + fallback + anti-fraud คง)" "$PY" test_taxid_join_adr146.py
+run "[3x12c] identity-golden (ADR-148 — กฎตัวตน 9 ข้อ pin บน master ทดสอบ ; main golden ว่างเหมือนเดิม)" "$PY" test_identity_golden.py
 run "[3x13] rules_c Decimal gates (ค่าขอบเงิน)" "$PY" test_rules_c_decimal_gates.py
 run "[3x14] bughunt hardening (crash/data-integrity guards, golden-safe)" "$PY" test_bughunt_hardening.py
 run "[3x14b] bughunt recheck (IV dup ข้ามหลัก/VAT004/ANTI_PREFIX/_D nan-inf/leap พ.ศ./addr005)" "$PY" test_bughunt_recheck.py

@@ -3242,3 +3242,36 @@ corpus master ว่าง → `r_tax005` วน `all_masters={}` → matched=No
 `test_report_consistency.py` (13/13) · `test_report_summary_fixes.py` (17/17) · `test_rules_extra.py` (TAX005 เอ/บี→ฟ้อง) ·
 `test_taxid_join_adr146.py` (F3 spoof→TAX005+CMP001) — ทั้งหมดเขียว. golden=`23b315e8` ✅.
 **git diff:** `rules_engine_rules_a.py` (r_tax005 ถอด same_owner) + DECISIONS.md — golden-neutral. คู่กับ ADR-146.
+
+---
+
+## ADR-148 — [🟡 identity-golden] ตาข่ายนิรภัยกฎตัวตน 9 ข้อ (master ทดสอบ fixed) — ไม่แตะ main golden
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (golden_snapshot.MASTER ยังว่าง — กฎตัวตน dormant บน corpus เหมือนเดิม)
+**สั่งโดย:** เจ้าของ (Tor) — `PROMPT_FIX_MASTER_JOIN` 🟡 ข้อ 2 (กฎที่กำลังจะเปิดใช้ด้วย master จริง ต้องมีตาข่าย)
+**priority:** กลาง — coverage gap (กฎตัวตนพังเงียบโดย golden ไม่จับ)
+
+### 1. ปัญหา (กลาง · coverage gap)
+main golden `23b315e8` คำนวณด้วย `golden_snapshot.MASTER = {}` (ว่าง — โดยเจตนา ADR-102 ship default)
+→ กฎพึ่ง master (CMP001/004/006, ADDR001/002/003, TAX003/005, BR004) **dormant 100% บน corpus**
+→ ถ้าโค้ดแก้ทำกฎเหล่านี้เพี้ยน (ฟ้องเกิน/หาย) golden จับไม่ได้. มีแค่ unit test กระจาย ไม่มี golden รวม.
+
+### 2. วิธีทำ (golden แยก · ไม่แตะ main golden)
+`test_identity_golden.py` (ใหม่): master ทดสอบ fixed 3 record (อัลฟ่า + เบต้า สนญ/สาขา1 แชร์ tax เดียว —
+สังเคราะห์ ไม่มี PII ไม่อยู่ใน corpus · tax_id checksum ถูก) + บิลสังเคราะห์ 8 ใบ (VAT-consistent →
+รหัสที่เหลือเป็นตัวตนล้วน) ครอบ: ตรงทุกช่อง / ชื่อ typo / เลขภาษีผิด / สวมเลข / ที่อยู่ผิด / สาขาผิด /
+สาขาถูก (disambiguate) / ไม่รู้จัก (honesty). **pin (set รหัส, master_key) เป็น literal** + ตรวจ detail
+กฎ anti-fraud (TAX005/TAX003/BR004). `golden_snapshot.MASTER` คงว่าง (assert ในเทส).
+
+### 3. พิสูจน์ golden-neutral
+ไม่แตะ `golden_snapshot.py` / engine — เป็นเทสแยกล้วน. `regression_full . corpus`=`23b315e8` ✅.
+เทสยังยืนยัน `golden_snapshot.MASTER == {}` (กันเผลอเติม master ทดสอบเข้า main golden).
+
+### 4. ขอบเขต
+ครอบ tax-join (ADR-146) + disambiguate สาขา + anti-fraud (ADR-147) + honesty A1 ในที่เดียว →
+เป็น regression net ของ "กฎที่ Tor กำลังจะเปิด". ขยายเคสได้ในอนาคต (เพิ่ม bill + pin เพิ่ม).
+
+### 5. ยืนยัน (gate ครบ)
+`test_identity_golden.py` (8 บิล × 2 assert + 3 detail + 1 main-golden-guard = 20 เคส) ✅ —
+register `run_ci.sh [3x12c]`. golden=`23b315e8` ✅ · full pytest เขียว.
+**git diff:** `test_identity_golden.py` (ใหม่) + `run_ci.sh` + DECISIONS.md — golden-neutral (ไม่แตะ engine/golden).
