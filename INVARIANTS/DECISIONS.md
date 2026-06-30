@@ -3158,3 +3158,87 @@ advisory layer (report_precision = ด่านความแม่นก่อ
 ### 6. ยืนยัน (gate ครบ)
 `test_report_precision.py` + `test_report_c1_c2.py` (มีอยู่แล้ว — ครอบ tier ทุกชุด confirms/rechecks). golden=`23b315e8` ✅.
 **git diff:** `report_precision.py` (ลบ `elif confirms` → คอมเมนต์) + DECISIONS.md (ADR) — golden-neutral. (ไม่เพิ่มเทสใหม่ — test_report_precision ครอบ truth-table ครบแล้ว.)
+
+---
+
+## ADR-146 — [🔴 MASTER-JOIN] join master ด้วย tax_id (เลข 13 หลักเอกลักษณ์) แทนชื่อ fuzzy — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (corpus รันด้วย master ว่าง `{}` → tax-index ว่าง → ตก fallback ชื่อเดิมเป๊ะ)
+**สั่งโดย:** เจ้าของ (Tor) — `PROMPT_FIX_MASTER_JOIN_CLAUDE_CODE_TH.md` (เตรียมเปิดกฎตัวตน ~24 ข้อด้วย master จริง ใช้ 5 ปี)
+**priority:** ร้าย — false-negative เงียบทั้งบิล ที่สเกลพันบริษัท
+
+### 1. บั๊ก (ร้าย) — `match_company` หา master ด้วย "ชื่อบริษัท fuzzy" ไม่ใช่ tax_id
+`rules_engine_base.match_company(bill_company, master)` รับ **แค่ชื่อ** → substring + `fuzz.partial_ratio`
+(threshold `FUZZY_NAME_THRESHOLD=75`). tax_id ถูกใช้แค่ "เทียบหลัง match" (rules_engine MATCH-GUARD)
+ไม่เคยใช้ "หา" record. ผล: บิลที่ชื่อเพี้ยน/ย่อ/สลับคำ/อังกฤษ/typo (score < 75) → ไม่ match →
+กฎตัวตน (ADDR001/TAX003/005/008/BR004/CMP*) **ข้ามทั้งบิลเงียบ** ทั้งที่ tax_id ตรง = FN.
+
+### 2. หลักฐาน (reproduce)
+```
+master = {'…':{'tax_id':'0105563333333','name':'บริษัท เอบีซี เอ็นจิเนียริ่ง แอนด์ คอนสตรัคชั่น จำกัด',…}}
+match_company('บริษัท เอบีซี วิศวกรรม จำกัด', master)            → (None,None,66.7)  ❌
+match_company('ABC Engineering and Construction Co.,Ltd.', master) → (None,None,10.5)  ❌
+```
+บิลจริงมี tax_id 100% (1056/1056 corpus) → เลข 13 หลักเอกลักษณ์ join ได้ทุกบิล แม่นกว่าชื่อทุกทาง.
+
+### 3. วิธีทำ (surgical · tax_id-primary + คง name fallback)
+- เพิ่ม `_master_taxid_index(master)` (O(1) dict: clean_tax_id→list ของ record) + `_pick_branch_record`
+  (disambiguate HQ/สาขา ด้วย branch_no, deterministic เรียงตาม key).
+- `match_company(bill_company, master, bill_tax_id=None, bill_branch_no=None)` — ถ้า
+  `clean_tax_id(bill_tax_id)`=13 หลัก ตรง index → คืน record (score 100). ไม่ตรง/ไม่มี →
+  **ตก name matching เดิม (คัดลอกเป๊ะ ห้ามแก้)**. call site `rules_engine.run_rules` ส่ง tax_id+branch_no.
+- [HARDEN] coerce `master` ที่ไม่ใช่ dict → `{}` (load_master() คืน None ได้ → กัน `.items()` ครัช→FN).
+- backward-compatible: เรียก 2-args เดิมได้ (bill_tax_id=None → name-only เป๊ะ).
+
+### 4. พิสูจน์ golden-neutral
+corpus golden รันผ่าน `golden_master.py` → `run_audit_core(all_bills, MASTER={}, …)` (master ว่างเสมอ)
+→ tax-index ว่าง → ทุกบิลตก fallback ชื่อเดิม → byte-identical. `regression_full . corpus`=`23b315e8` ✅ (engine==agent==baseline).
+
+### 5. Migration risk
+ต่ำ — เปลี่ยนเฉพาะ "วิธีหา record" เมื่อ master มีข้อมูล (โหมดที่ Tor กำลังจะเปิด). บน corpus = no-op.
+perf: index สร้าง O(n) ต่อบิล (เท่า loop fuzzy เดิม) ; corpus master ว่าง → 0 cost. สเกลใหญ่ขึ้นค่อย hoist index ไป run_audit_core (out-of-scope).
+
+### 6. ยืนยัน (gate ครบ)
+`test_taxid_join_adr146.py` (ใหม่ · 25 เคส: FN เดิม→match, fallback, golden-neutral, สาขา, ทน input เพี้ยน,
+integration run_rules) — register `run_ci.sh [3x12b]`. golden=`23b315e8` ✅ · full pytest เขียว.
+**git diff:** `rules_engine_base.py` (match_company + 2 helper) + `rules_engine.py` (call site ส่ง tax_id) +
+`test_taxid_join_adr146.py` (ใหม่) + `run_ci.sh` + DECISIONS.md — golden-neutral. คู่กับ ADR-147.
+
+---
+
+## ADR-147 — [🔴 companion] TAX005 anti-fraud ใช้ "ชื่อ≠เจ้าของ tax" ตัดสิน (ถอด same_owner) หลัง tax-join — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (corpus master ว่าง → matched=None → return [] ก่อนถึง guard)
+**สั่งโดย:** companion ของ ADR-146 (เจ้าของสั่ง "อย่าให้ logic join ไปกลบกฎ")
+**priority:** ร้าย — ถ้าไม่แก้ TAX005 เงียบทุกเคส = anti-fraud สวมเลขพัง
+
+### 1. บั๊ก (ร้าย · regression ที่เกิดจาก ADR-146) — `same_owner` กลายเป็นจริงเสมอ
+`r_tax005` เดิมมี guard `same_owner = (m is not None and matched.tax == m.tax)` กันฟ้องเมื่อบิล match
+master เป็น "เจ้าของ tax" ตามชื่อ. หลัง ADR-146 join เป็น tax_id-primary → `m` = "เจ้าของ tax" **เสมอ**
+เมื่อ tax อยู่ใน master → `matched.tax == m.tax` จริงเสมอ → `same_owner` จริงเสมอ → **TAX005 เงียบทุกเคส**
+= กลบกฎ anti-fraud สวมเลข (เคสจริง เจ.อาร์./ฉีหยวน: บิลใช้ tax ของ ฉีหยวน แต่ชื่อ เจ.อาร์.).
+
+### 2. หลักฐาน (reproduce)
+`test_report_consistency.py` / `test_report_summary_fixes.py` (spoof บิล tax=master, ชื่อคนละเจ้า) →
+ก่อนแก้: `TAX005 ∉ issues` (❌ ควรฟ้อง). ตัวแบ่ง "เจ้าของจริง vs สวมเลข" ที่ถูกคือ **ชื่อในบิลตรงเจ้าของ tax
+หรือไม่** (ไม่ใช่ความเท่ากันของ tax ซึ่งตอนนี้จริงเสมอ).
+
+### 3. วิธีทำ (surgical · ถอด same_owner เหลือ guard ชื่อตัวเดียว)
+ถอดบล็อก `same_owner` ทิ้ง เหลือ guard ชื่อเดิมของผู้เขียน: `fuzz.token_sort_ratio(bill, matched.name) ≥ 85`
+→ ชื่อใกล้พอ = เจ้าของจริง (เงียบ) ; ไม่งั้น = สวมเลข (ฟ้อง). threshold 85 calibrated แยก
+'บริษัท เอ' จาก 'บริษัท บี' (prefix 'บริษัท' ร่วม) — พิสูจน์โดย `test_rules_extra.py` (เอ/บี → ฟ้อง).
+*(เคยลอง reuse match_company name-only แต่ partial≥75 หลวมไป — 'บริษัท เอ'~'บริษัท บี' = false-silence → ตีกลับ token_sort)*
+
+### 4. พิสูจน์ golden-neutral
+corpus master ว่าง → `r_tax005` วน `all_masters={}` → matched=None → `return []` ก่อนถึง guard →
+กฎ dormant บน corpus เหมือนเดิมเป๊ะ. `regression_full . corpus`=`23b315e8` ✅.
+
+### 5. Migration risk
+ต่ำ — net behavior บนเคสที่ pin (spoof→ฟ้อง / เจ้าของจริง→เงียบ) **เท่าก่อน ADR-146 เป๊ะ** (คืนสัญญาเดิม
+ไม่ใช่ rebaseline). เคสชื่อ token_sort 75–84 ที่เคย same_owner เงียบ → ฟ้อง TAX005 ด้วย (แต่ CMP001
+ฟ้องชื่อไม่ตรงอยู่แล้ว = สอดคล้อง ไม่ใช่ FP คลาสใหม่). ตรงเจตนา prompt "ปล่อยกฎ TAX/CMP ฟ้องความต่าง".
+
+### 6. ยืนยัน (gate ครบ)
+`test_report_consistency.py` (13/13) · `test_report_summary_fixes.py` (17/17) · `test_rules_extra.py` (TAX005 เอ/บี→ฟ้อง) ·
+`test_taxid_join_adr146.py` (F3 spoof→TAX005+CMP001) — ทั้งหมดเขียว. golden=`23b315e8` ✅.
+**git diff:** `rules_engine_rules_a.py` (r_tax005 ถอด same_owner) + DECISIONS.md — golden-neutral. คู่กับ ADR-146.

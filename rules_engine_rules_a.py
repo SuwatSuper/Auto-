@@ -338,14 +338,15 @@ def r_tax005(b,m,c):
             matched = mm; break
     if not matched:
         return []
-    # v9.2 [FIX-TAX005]: เดิมฟ้องเฉพาะตอนบิล match master "คนละเจ้าของ" (เงื่อนไข `m and ...`)
-    #   → พลาดเคสอันตรายสุด: tax นี้เป็นของ matched (เช่น ภ.พ.20=ฉีหยวน) แต่ "ชื่อบิลไม่ตรงใครเลย"
-    #     (match_company คืน m=None เพราะชื่อต่างมาก เช่น เจ.อาร์.) → ทั้งที่ tax ตรง master กลับเงียบ.
-    #   ใหม่: ฟ้องเมื่อ tax เป็นของ matched แต่ "ชื่อในบิล ≠ เจ้าของ tax" (กัน FP ด้วย fuzzy ≥ 85 = ชื่อยังใกล้เคียงพอ).
-    same_owner = (m is not None
-                  and clean_tax_id(matched.get('tax_id','')) == clean_tax_id(m.get('tax_id','')))
-    if same_owner:
-        return []
+    # v9.2 [FIX-TAX005]: ฟ้องเมื่อ tax เป็นของ matched แต่ "ชื่อในบิล ≠ เจ้าของ tax"
+    #   (กัน FP ด้วย token_sort ≥ 85 = ชื่อยังใกล้เคียงพอ — calibrated แยก 'บริษัท เอ' จาก 'บริษัท บี').
+    # [TAXID-JOIN/ADR-147] เดิมมี guard `same_owner` = (matched.tax == m.tax) นำหน้า — กันฟ้องเมื่อบิล
+    #   match master เป็น "เจ้าของ tax" ตามชื่อ. หลังเปลี่ยน join เป็น tax_id-primary (ADR-146) m =
+    #   "เจ้าของ tax" เสมอเมื่อ tax อยู่ใน master → same_owner จริงเสมอ → TAX005 เงียบทุกเคส = กลบกฎ
+    #   anti-fraud สวมเลข (เจ.อาร์./ฉีหยวน). ตัวแบ่ง "เจ้าของจริง vs สวมเลข" ที่ถูกคือ "ชื่อในบิลตรง
+    #   เจ้าของ tax หรือไม่" (token_sort ≥ 85) ไม่ใช่ความเท่ากันของ tax → ถอด same_owner ออก เหลือ
+    #   guard ชื่อตัวเดียว (เกณฑ์เดิมของผู้เขียน). golden-NEUTRAL: corpus master ว่าง → matched=None
+    #   → return [] ก่อนถึงจุดนี้ (กฎ dormant บน corpus เหมือนเดิม).
     if fuzz.token_sort_ratio(normalize_text(b.get('company','')),
                              normalize_text(matched.get('name',''))) >= 85:
         return []   # ชื่อบิลยังใกล้เคียงเจ้าของ tax พอ → ไม่ฟ้อง (กัน false-positive ชื่อย่อ/รูปต่างเล็กน้อย)

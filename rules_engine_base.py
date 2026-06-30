@@ -59,7 +59,70 @@ from thai_text import find_similar_in_thai_dict, predict_category, pythainlp_spe
 
 # ===== match_company (ใช้เฉพาะ run_rules) =====
 
-def match_company(bill_company, master):
+def _master_taxid_index(master):
+    """[TAXID-JOIN/ADR-146] ทำดัชนี master ด้วย clean_tax_id(record['tax_id']) → list ของ (key, record).
+    เลขภาษี 13 หลัก = กุญแจเอกลักษณ์ของนิติบุคคล (แม่นกว่าชื่อ fuzzy ทุกทาง).
+    เก็บเป็น list เพราะหลาย record อาจแชร์ tax_id เดียว (สำนักงานใหญ่ + สาขา) → disambiguate ภายหลัง.
+    O(n) ต่อการเรียก — master เดียวกันทั้งรัน ; corpus golden ใช้ master ว่าง → index ว่าง (no-op)."""
+    idx = {}
+    if not isinstance(master, dict):
+        return idx
+    for key, m in master.items():
+        if not isinstance(m, dict):
+            continue
+        t = clean_tax_id(m.get('tax_id') or '')
+        if len(t) == 13:
+            idx.setdefault(t, []).append((key, m))
+    return idx
+
+
+def _pick_branch_record(cands, bill_branch_no):
+    """[TAXID-JOIN/ADR-146] เลือก record ที่ตรงสาขาของบิล เมื่อหลาย record แชร์ tax_id เดียว.
+    ลำดับความเชื่อ (deterministic — เรียงตาม key ก่อน ไม่พึ่ง insertion order):
+      (1) branch_no ตรงเป๊ะ → (2) สำนักงานใหญ่ (00000/มีคำ 'สำนัก') → (3) ตัวแรกตาม key."""
+    if len(cands) == 1:
+        return cands[0]
+    cands = sorted(cands, key=lambda kv: kv[0])
+    bn = re.sub(r'\D', '', str(bill_branch_no or ''))
+    if bn:
+        bn5 = bn.zfill(5)
+        for key, m in cands:
+            mbn = re.sub(r'\D', '', str(m.get('branch_no') or ''))
+            if mbn and mbn.zfill(5) == bn5:
+                return key, m
+    for key, m in cands:                       # ไม่ระบุ/ไม่ตรงสาขา → เลือกสำนักงานใหญ่
+        mbn = re.sub(r'\D', '', str(m.get('branch_no') or ''))
+        if mbn.zfill(5) == '00000' or 'สำนัก' in str(m.get('branch') or ''):
+            return key, m
+    return cands[0]
+
+
+def match_company(bill_company, master, bill_tax_id=None, bill_branch_no=None):
+    """หา master record ของบิล.
+
+    [TAXID-JOIN/ADR-146] เปลี่ยน join เป็น **tax_id-primary**: เลขภาษี 13 หลักเป็น join key
+      เอกลักษณ์ (ชื่อเพี้ยน/ย่อ/สลับคำ/อังกฤษ/typo ไม่ทำให้ "ข้ามการตรวจตัวตนเงียบ" อีก).
+      ถ้า clean_tax_id(bill_tax_id) = 13 หลัก ตรง record ใน master → คืน record นั้น score=100
+      (แหล่ง=tax_id). หลาย record แชร์ tax_id (HQ+สาขา) → disambiguate ด้วย branch_no.
+    คง **name matching เดิมไว้เป็น fallback** (เมื่อบิลไม่มี tax_id / tax_id ไม่อยู่ใน master) —
+      กัน regression เคส master ที่ tax_id ขาด. ไม่แก้ logic ชื่อแม้บรรทัดเดียว.
+    conservative: tax_id ตรงแต่ชื่อต่างมาก → ยัง match (ด้วย tax_id) ปล่อยกฎ TAX/CMP ที่มีอยู่
+      เป็นตัวฟ้องความต่าง — logic join ไม่กลบกฎ.
+    golden-neutral: corpus รันด้วย master ว่าง ({}) → index ว่าง → ตก fallback ชื่อเดิมเป๊ะ.
+    """
+    # [HARDEN/ADR-146] load_master() คืน None ได้ (ไฟล์ไม่มี/พัง) → coerce เป็น {} กัน
+    #   `for ... in master.items()` (path ชื่อ) ครัช → run_rules โยน → bumper ข้ามทั้งบิล = FN.
+    #   golden-NEUTRAL: corpus ส่ง dict ({}) เสมอ → no-op.
+    if not isinstance(master, dict):
+        master = {}
+    # --- [TAXID-JOIN/ADR-146] tax_id-primary (เดินก่อนชื่อ) ---
+    bt = clean_tax_id(bill_tax_id) if bill_tax_id is not None else ''
+    if len(bt) == 13:
+        cands = _master_taxid_index(master).get(bt)
+        if cands:
+            key, m = _pick_branch_record(cands, bill_branch_no)
+            return key, m, 100
+    # --- name matching (fallback เดิม — คัดลอกเป๊ะ ห้ามแก้ logic) ---
     bc = normalize_text(bill_company)
     if not bc: return None, None, 0
     for key, m in master.items():

@@ -297,7 +297,12 @@ def run_rules(bill, master_companies, file_info, unit_index=None, all_bills_ref=
             for _tk in ('name', 'name_raw', 'unit'):
                 if not isinstance(_it[_tk], str):
                     _it[_tk] = '' if _it[_tk] is None else str(_it[_tk])
-    key, master, score = match_company(bill['company'], master_companies)
+    # [TAXID-JOIN/ADR-146] ส่ง tax_id + branch_no เข้า match_company → join ด้วยเลขภาษี 13 หลัก
+    #   (เอกลักษณ์) เป็นหลัก, ตก fallback ชื่อ fuzzy เดิมเมื่อบิลไม่มี tax_id / tax_id ไม่อยู่ใน master.
+    #   golden-NEUTRAL: corpus รันด้วย master ว่าง → index tax ว่าง → เดิน fallback ชื่อเดิมเป๊ะ (23b315e8 ไม่ขยับ).
+    key, master, score = match_company(bill['company'], master_companies,
+                                       bill_tax_id=bill.get('tax_id'),
+                                       bill_branch_no=bill.get('branch_no'))
     # [MATCH-GUARD] กัน fuzzy ผูกข้ามบริษัท: partial_ratio ให้คะแนนสูงจากคำอุตสาหกรรมร่วม
     #   ("...คอนสตรัคชั่น จำกัด") → บิลของ "คนละนิติบุคคล" (เลขภาษี 13 หลักต่างจาก master ชัด ๆ)
     #   เคยถูกผูกที่ score 75-80 แล้วโดน CMP001/TAX003/ADDR001 เป็น false positive ถึงลูกค้า.
