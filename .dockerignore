@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.git/
+.pytest_cache/
+.mypy_cache/
+*.log
+*.orig
+*.tmp
+master_companies.json
+snapshot.json
+_iv_truth_report.json
+e2e_output/
