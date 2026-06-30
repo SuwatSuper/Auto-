@@ -111,6 +111,8 @@ def load_master():
 def _classify_tax_digits(digits):
     """[BUG-2/ADR-149] แปลง digit-run → (tax_id, branch_from_tax). คืน (None,'') ถ้าไม่ใช่ความยาว tax.
     13=tax / 12=tax(เติม0) / 18=tax13+branch5 / 17=tax12+branch5 (กรณีติดกันจริงไม่มี separator)."""
+    if not isinstance(digits, str):                         # [ADR-150 CRASH-2] กัน len() ครัชถ้า caller อนาคตส่ง non-str
+        return None, ''
     if len(digits) == 13:
         return digits, ''
     if len(digits) == 12:
@@ -146,13 +148,22 @@ def parse_master_blob(blob):
     #   digit รวม >13 ไม่เข้า 13/12/18/17 → tax หายเงียบ (BUG เดิม). Pass1 หยุดที่ช่องว่าง → ได้ 13 สะอาด.
     #   Pass2 (fallback) ยอมช่องว่างใน tax ('0 1055 56000 04 1' = พิมพ์เว้นวรรค) เฉพาะเมื่อ Pass1 ไม่เจอ.
     #   คง BUG-1 (TAB-glued '…\t00001') — Pass1 ได้ tax13 สะอาด, branch '00001' หาได้จาก post-tax logic.
-    for _pat in (r'(?<!\d)(\d[\d\-]{11,30}\d)(?!\d)',
-                 r'(?<!\d)(\d[\d\-\s]{11,30}\d)(?!\d)'):
-        for m in re.finditer(_pat, text):
-            _tid, _brt = _classify_tax_digits(re.sub(r'\D', '', m.group(1)))
-            if _tid:
-                out['tax_id'] = _tid; _br_from_tax = _brt
-                tax_start = m.start(1); tax_end = m.end(1); break
+    # [ADR-150 BUG-1] quantifier {10,30} (เดิม {11,30}) → จับ run 12 หลักเปล่า (Excel ตัด 0 นำหน้า
+    #   เลขภาษีไม่มี separator เช่น '105556000041') ที่ _classify เติม 0 เป็น 13 อยู่แล้ว แต่เดิม regex
+    #   ยาวขั้นต่ำ 13 ตัว → ไม่ match → tax หาย. (run 10/11 ตัว = เบอร์โทร → _classify คืน None → ข้าม.)
+    # [ADR-150 BUG-3] ถ้ามี label 'เลขประจำตัว/เลขผู้เสียภาษี' → ค้น tax จาก "หลัง label" ก่อน → กันคว้า
+    #   เลข 13 หลักอื่น (เลขบัญชี/อ้างอิง) ที่มาก่อน label. ไม่มี label / หลัง label ไม่เจอ → ค้นทั้งข้อความ.
+    _lbl = re.search(r'เลข(?:ประจำตัว(?:ผู้เสียภาษี|ผู้เสีย|ประชาชน)?|ผู้เสียภาษี)\S*\s*[:：]?\s*', text)
+    for _off in ([_lbl.end(), 0] if _lbl else [0]):
+        for _pat in (r'(?<!\d)(\d[\d\-]{10,30}\d)(?!\d)',
+                     r'(?<!\d)(\d[\d\-\s]{10,30}\d)(?!\d)'):
+            for m in re.finditer(_pat, text[_off:]):
+                _tid, _brt = _classify_tax_digits(re.sub(r'\D', '', m.group(1)))
+                if _tid:
+                    out['tax_id'] = _tid; _br_from_tax = _brt
+                    tax_start = _off + m.start(1); tax_end = _off + m.end(1); break
+            if tax_end is not None:
+                break
         if tax_end is not None:
             break
 
@@ -161,6 +172,7 @@ def parse_master_blob(blob):
     #   เลข 5 หลักติด/ตามหลัง tax_id (ภ.พ.20) > default สำนักงานใหญ่.
     #   guard เลขโดด: ภายใน 15 ตัวอักษรหลัง tax_id เท่านั้น + ไม่ใช่ '00000'
     #   (กันรหัสไปรษณีย์ปลายที่อยู่ เช่น 20170 ถูกจับผิด — อยู่ไกล tax_id เสมอ)
+    _brcode_end = None    # [ADR-150 BUG-2] ตำแหน่งจบ "รหัสสาขา 5 หลัก" ที่ตามหลัง tax (post-tax) ใน text
     if re.search(r'สำนักงานใหญ่|สนง\.?ใหญ่|สนญ', text):
         out['branch'] = 'สำนักงานใหญ่'
     else:
@@ -174,6 +186,7 @@ def parse_master_blob(blob):
                 mb2 = re.match(r'\s*(\d{5})(?!\d)', text[tax_end:tax_end + 15])
                 if mb2 and mb2.group(1) != '00000':
                     out['branch'] = 'สาขา ' + mb2.group(1)
+                    _brcode_end = tax_end + mb2.end()   # รหัสสาขาติด tax → ตัดรวมกับ tax ออกจากชื่อ
             if not out['branch']:
                 out['branch'] = 'สำนักงานใหญ่'
 
@@ -196,14 +209,15 @@ def parse_master_blob(blob):
     # [BUG-2/ADR-149] ตัด tax ออกจากชื่อ "แบบตรงตัว" (สตริง tax ที่ extract ได้จริง รูปแบบใดก็ได้:
     #   ติดกัน/dash/space) แทน regex greedy เดิม [\d\-\s] ที่กิน 'tax<space>เลขบ้าน/สาขา' พ่วงไปด้วย →
     #   เลขบ้าน '99/4' หาย / รหัสสาขาหลุด. ตัดตรงตัว → เลขที่ตามหลังคงไว้ให้ ADR-100/ที่อยู่จัดการถูก.
-    if tax_start is not None and tax_end is not None:
-        cs = cs.replace(text[tax_start:tax_end], ' ', 1)
-    cs = re.sub(r'(?<!\d)\d[\d\-]{11,30}\d(?!\d)', ' ', cs)   # เผื่อ tax-like run อื่นตกค้าง (ไม่กินช่องว่าง)
-    # [BUG-2/ADR-149] ตัด "รหัสสาขา 5 หลักโดด" ที่ตรง branch_no (เช่น '00001' ตามหลัง tax แบบ TAB-glued
-    #   ที่ Pass1 แยก tax 13 หลักทิ้งไว้) — กันรหัสสาขาหลุดไปต้นที่อยู่แล้วถูกเข้าใจผิดเป็นรหัสไปรษณีย์.
-    _brc = re.match(r'สาขา\s*(\d{5})$', out['branch'] or '')
-    if _brc:
-        cs = re.sub(r'(?<!\d)' + _brc.group(1) + r'(?!\d)', ' ', cs)
+    # [BUG-2/ADR-149 + ADR-150] ตัด "tax (+ รหัสสาขา post-tax ถ้าติดกัน)" ออกจากชื่อ "แบบตรงตัว".
+    #   [ADR-150 BUG-2] เดิมตัดรหัสสาขาด้วย global re.sub(branch_no) → ลบเลข 5 หลักที่บังเอิญอยู่ในชื่อ
+    #   จริง (เช่น 'ไทยพาณิชย์ 12345 จำกัด' โดน 12345 หาย). แก้: ขยายช่วงตัด tax ให้ครอบรหัสสาขาที่
+    #   "ตามหลัง tax ติดกัน" (_brcode_end) เท่านั้น — รหัสสาขาที่มาจาก keyword 'สาขา N' ตัดด้วย regex
+    #   keyword ด้านล่างอยู่แล้ว ; เลข 5 หลักอื่นในชื่อไม่โดนแตะ.
+    _strip_end = _brcode_end if _brcode_end is not None else tax_end
+    if tax_start is not None and _strip_end is not None:
+        cs = cs.replace(text[tax_start:_strip_end], ' ', 1)
+    cs = re.sub(r'(?<!\d)\d[\d\-]{10,30}\d(?!\d)', ' ', cs)   # เผื่อ tax-like run อื่นตกค้าง (ไม่กินช่องว่าง)
     cs = re.sub(r'สำนักงานใหญ่|สนง\.?ใหญ่|สนญ\.?|สาขา\s*(?:ที่)?\s*\d{1,5}', ' ', cs)
     cs = re.sub(r'\s+', ' ', cs).strip()
     # [ADR-100] เลขที่บ้านเปล่า (เช่น "88", "99/4", "99 หมู่ 4") ที่ขึ้นต้นที่อยู่แต่ไม่มี "เลขที่" นำ

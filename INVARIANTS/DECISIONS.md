@@ -3320,3 +3320,43 @@ BUG-1 TAB-glued) + `test_adr137`/`test_adr125` (เลขบ้าน glued) เ
 register `run_ci.sh [3x12d]`. golden=`23b315e8` ✅ · full pytest เขียว.
 **git diff:** `master.py` (`_classify_tax_digits` + 2-pass extraction + ตัด tax/branch ตรงตัว) +
 `test_master_blob_characterization.py` (ใหม่) + `run_ci.sh` + DECISIONS.md — golden-neutral.
+
+---
+
+## ADR-150 — [bug-hunt 3-pass] 6 บั๊ก golden-neutral บนพื้นผิว master-join (F1/CRASH×2/blob×3) — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (ทุกบั๊กอยู่ใน path master ที่ corpus ไม่แตะ — master ว่าง)
+**สั่งโดย:** เจ้าของ (Tor) — "รีเช็ค บั้ค ร้าย/กลาง/ต่ำ/ครัช ถ้ามีแก้". พบโดย bug-hunt 5 มิติ (match_company/identity/parse_blob/master_io/crash) + adversarial verify.
+**priority:** กลาง — ปิดช่องบนเส้นทางที่ Tor กำลังจะเปิดใช้
+
+### สรุปผล bug-hunt (golden-neutral ทุกข้อ — corpus master ว่าง)
+- identity-rules: **ตรวจครบ ไม่พบ sibling ของ TAX005** (ADR-147 ปิดสนิท) — r_tax003/br004/cmp001/006/addr*/tax008/009 ถูกต้องใต้ tax-join.
+- master_io BUG-1 (key collision HQ+branch) = **DATA-SHAPE → ยกให้ Tor ตัดสิน** (ดู §ค้าง ท้าย ADR) — ไม่แก้ในรอบนี้.
+
+### บั๊กที่แก้ (6 — reproduce + pin ครบ)
+| # | ไฟล์:สัญลักษณ์ | ระดับ | อาการ | แก้ |
+|---|---|---|---|---|
+| F1 | rules_engine_base.py:_pick_branch_record | กลาง | record สาขาที่ descriptor มีคำ 'สำนัก' (เช่น 'สาขาสำนักพระโขนง') ถูกหยิบเป็น HQ แทน 00000 จริง → BR004 ฟ้องสาขาผิด | แยก 2 รอบ: 00000 เป๊ะก่อน, 'สำนัก' fallback |
+| CRASH-1 | rules_engine_base.py:_pick_branch_record:85 | ครัช | `sorted(cands, key=kv[0])` ครัชเมื่อ master key คนละ type (int+str) | `key=lambda kv: str(kv[0])` |
+| CRASH-2 | master.py:_classify_tax_digits | ครัช | `len(None)` ถ้า caller อนาคตส่ง non-str | `if not isinstance(digits,str): return None,''` |
+| BUG-1 | master.py:parse_master_blob | ร้าย | เลขภาษี 12 หลักเปล่า (Excel ตัด 0 นำหน้า) ไม่ match (regex ยาวขั้นต่ำ 13) → tax หาย | quantifier `{11,30}`→`{10,30}` (run 10/11=เบอร์โทร→_classify คืน None) |
+| BUG-2 | master.py:parse_master_blob | กลาง (regression ADR-149) | global `re.sub(branch_no)` ลบเลข 5 หลักในชื่อจริง ('ไทยพาณิชย์ 12345') | ขยายช่วงตัด tax ครอบรหัสสาขา post-tax (`_brcode_end`) เท่านั้น |
+| BUG-3 | master.py:parse_master_blob | กลาง | เลข 13 หลักอื่น (บัญชี) ก่อน label → คว้าผิดเป็น tax | ค้น tax จาก "หลัง label เลขผู้เสียภาษี" ก่อน |
+
+### พิสูจน์ golden-neutral
+ทั้ง 6 อยู่บน path master (match_company tax-join + parse_master_blob) ที่ corpus golden (master ว่าง) ไม่เดิน.
+`regression_full . corpus`=`23b315e8` ✅ · `run_ci.sh corpus` (STRICT) เขียวครบ · full pytest เขียว.
+
+### ยืนยัน (gate ครบ)
+ต่อยอด test เดิม: `test_taxid_join_adr146.py` (+D5 F1, +D6 CRASH-1), `test_master_blob_characterization.py`
+(+[D] BUG-1/2/3 + CRASH-2 + เบอร์โทร safety). golden=`23b315e8` ✅.
+**git diff:** `master.py` (4 จุด) + `rules_engine_base.py` (_pick_branch_record) + 2 test + DECISIONS.md — golden-neutral.
+
+### ⚠️ ค้าง — ยกให้ Tor ตัดสิน (master_io BUG-1 · DATA-SHAPE · ไม่แก้เองตามกฎ §4)
+`input_master_data` สร้าง key จาก "ชื่อบริษัทล้วน" (`key_base`) → HQ + สาขา ชื่อเดียวกันชนกัน 1 key →
+master เก็บได้ record เดียวต่อบริษัท → `_pick_branch_record` (disambiguate HQ/สาขา) ใช้งานจริงไม่ได้ผ่าน
+เมนูกรอก (ยังทำงานถ้า Tor แก้ JSON มือ/ใส่ key แยกเอง). แก้ = เปลี่ยน key เป็น branch-aware
+(`key_base#branch_no`) → **เปลี่ยนรูปร่าง master_companies.json** = data-contract change → ตามกฎ §4
+ต้องขออนุมัติ Tor ก่อน. master ยังไม่ถูกเติม → เปลี่ยนตอนนี้ไม่มีต้นทุน migration (ทำได้ทันทีถ้า Tor อนุมัติ).
+พ่วง: branch_no='' ถ้า label สาขาไม่มีเลข + validate_master_entry เป็น advisory (tax ไม่ครบ 13 ยัง save ได้
+→ join ด้วย tax ไม่ติด) — ควรพิจารณาคู่กัน. **สถานะ: รออนุมัติ.**

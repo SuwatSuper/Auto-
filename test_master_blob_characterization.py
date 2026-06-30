@@ -101,6 +101,27 @@ for label, blob, tail in [
     check(r['tax_id'] == blob, f"{label} → tax={r['tax_id']!r} (ครบ 13)")
 
 # ── (C) crash-safety: ทุก input ต้องไม่ครัช + คืน dict 4 คีย์ ───────────────────────
+print("\n[D] ADR-150 bug-hunt fixes (12-digit / branch-strip / label-anchor)")
+# BUG-1: bare 12-digit tax (Excel ตัด 0 นำหน้า, ไม่มี separator) → เติม 0 เป็น 13 (เดิม tax หาย)
+r = P('บริษัท ทดสอบ จำกัด 105556000041 เลขที่ 9 ถนนเอ แขวงบี เขตซี กรุงเทพมหานคร 10110')
+check(r['tax_id'] == '0105556000041', f"BUG-1 12-digit เปล่า → tax={r['tax_id']!r} (เติม 0 เป็น 13)")
+# BUG-1 safety: เบอร์โทร 10/11 หลัก ต้องไม่กลายเป็น tax
+for ph in ['0212345678', '021234567', '0891234567']:
+    r = P(f'บริษัท โทร จำกัด โทร {ph} เลขที่ 9 ถนนเอ แขวงบี เขตซี กรุงเทพมหานคร 10110')
+    check(r['tax_id'] == '', f"BUG-1 safety: เบอร์ {len(ph)} หลัก ไม่เป็น tax (={r['tax_id']!r})")
+# BUG-2: เลข 5 หลักในชื่อจริงไม่ถูกตัด (เดิม global re.sub(branch_no) ลบผิด)
+r = P('บริษัท ไทยพาณิชย์ 12345 จำกัด 0105556000041 สาขาที่ 12345 เลขที่ 9 ถนนเอ แขวงบี เขตซี กรุงเทพมหานคร 10110')
+check('12345' in r['name'] and 'ไทยพาณิชย์' in r['name'],
+      f"BUG-2 เลข 5 หลักในชื่อคงไว้ → name={r['name']!r}")
+check(r['branch'] == 'สาขา 12345', f"BUG-2 สาขา explicit ยังถูก → branch={r['branch']!r}")
+# BUG-3: เลข 13 หลักอื่น (บัญชี) ก่อน label → เลือก tax หลัง label
+r = P('บริษัท ทดสอบ จำกัด บัญชี 1234567890123 เลขประจำตัวผู้เสียภาษี 0105556000041 เลขที่ 9 ถนนเอ แขวงบี เขตซี กรุงเทพมหานคร 10110')
+check(r['tax_id'] == '0105556000041', f"BUG-3 label-anchored → tax={r['tax_id']!r} (ไม่ใช่เลขบัญชี)")
+# _classify_tax_digits crash-safety (CRASH-2)
+from master import _classify_tax_digits as _C
+check(_C(None) == (None, '') and _C(123) == (None, '') and _C(1.5) == (None, ''),
+      "CRASH-2 _classify_tax_digits(non-str) → (None,'') ไม่ครัช")
+
 print("\n[C] crash-safety — input ขยะ/สุดขั้ว ต้องไม่ครัช + คืน dict ครบคีย์")
 ADVERSARIAL = [
     None, '', '   ', '\t\n\r', '!!!@@@###', '0' * 5000, '12345', 'บริษัท' * 1000,

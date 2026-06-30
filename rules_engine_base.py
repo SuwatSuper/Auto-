@@ -82,7 +82,7 @@ def _pick_branch_record(cands, bill_branch_no):
       (1) branch_no ตรงเป๊ะ → (2) สำนักงานใหญ่ (00000/มีคำ 'สำนัก') → (3) ตัวแรกตาม key."""
     if len(cands) == 1:
         return cands[0]
-    cands = sorted(cands, key=lambda kv: kv[0])
+    cands = sorted(cands, key=lambda kv: str(kv[0]))   # [ADR-150 CRASH-1] str() กัน sort ครัชเมื่อ key คนละ type
     bn = re.sub(r'\D', '', str(bill_branch_no or ''))
     if bn:
         bn5 = bn.zfill(5)
@@ -90,9 +90,14 @@ def _pick_branch_record(cands, bill_branch_no):
             mbn = re.sub(r'\D', '', str(m.get('branch_no') or ''))
             if mbn and mbn.zfill(5) == bn5:
                 return key, m
-    for key, m in cands:                       # ไม่ระบุ/ไม่ตรงสาขา → เลือกสำนักงานใหญ่
-        mbn = re.sub(r'\D', '', str(m.get('branch_no') or ''))
-        if mbn.zfill(5) == '00000' or 'สำนัก' in str(m.get('branch') or ''):
+    # [ADR-150 F1] ไม่ระบุ/ไม่ตรงสาขา → เลือกสำนักงานใหญ่. แยก 2 รอบ: รหัส 00000 ชัดเจน "ก่อน" →
+    #   กัน record สาขาที่ descriptor บังเอิญมีคำ 'สำนัก' (เช่น 'สาขาสำนักพระโขนง') ถูกหยิบเป็น HQ
+    #   แทน record 00000 จริง (เคยทำ BR004 ฟ้องสาขาไม่ตรงผิด). 'สำนัก' เป็น fallback เฉพาะเมื่อไม่มี 00000.
+    for key, m in cands:                       # รอบ 1: รหัสสำนักงานใหญ่ 00000 เป๊ะ
+        if re.sub(r'\D', '', str(m.get('branch_no') or '')).zfill(5) == '00000':
+            return key, m
+    for key, m in cands:                       # รอบ 2: ข้อความ 'สำนัก' (เมื่อไม่มี 00000)
+        if 'สำนัก' in str(m.get('branch') or ''):
             return key, m
     return cands[0]
 

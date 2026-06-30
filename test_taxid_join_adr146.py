@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""test_taxid_join_adr200.py — [ADR-146/201] พิสูจน์ join master ด้วย tax_id (เลข 13 หลักเอกลักษณ์)
+"""test_taxid_join_adr146.py — [ADR-146/147] พิสูจน์ join master ด้วย tax_id (เลข 13 หลักเอกลักษณ์)
 
 บริบท: เดิม match_company join ด้วย "ชื่อบริษัท fuzzy" เท่านั้น (rules_engine_base) → บิลที่ชื่อ
 เพี้ยน/ย่อ/อังกฤษ/typo (score < FUZZY_NAME_THRESHOLD=75) ไม่ match → กฎตัวตน ~24 ข้าม "ทั้งบิล
@@ -100,6 +100,20 @@ kd3, md3, sd3 = match_company('บริษัท เอ็กซ์ จำก�
 check(md3 is not None and md3.get('branch_no') == '00000', "D3 บิลไม่ระบุสาขา → default สำนักงานใหญ่")
 kd4, md4, sd4 = match_company('บริษัท เอ็กซ์ จำกัด', MULTI, bill_tax_id='0105556000010', bill_branch_no='00099')
 check(md4 is not None, "D4 บิลสาขาไม่ตรงใคร → ยัง match (ไม่ครัช) เลือก HQ")
+# [ADR-150 F1] HQ tie-break: record สาขาที่ descriptor มีคำ 'สำนัก' ต้องไม่แย่ง record 00000 จริง
+HQTIE = {'A สาขาสำนัก': {'tax_id': '0105556000010', 'branch': 'สาขาสำนักพระโขนง', 'branch_no': '00021'},
+         'B สนญ': {'tax_id': '0105556000010', 'branch': 'สำนักงานใหญ่', 'branch_no': '00000'}}
+_kf, md5, _sf = match_company('co', HQTIE, bill_tax_id='0105556000010', bill_branch_no='')
+check(md5 is not None and md5.get('branch_no') == '00000',
+      "D5 [F1] บิลไม่ระบุสาขา → เลือก 00000 จริง ไม่ใช่ 'สาขาสำนัก...' (กัน BR004 FP)")
+# [ADR-150 CRASH-1] หลาย record แชร์ tax + master key คนละ type → sort ไม่ครัช
+try:
+    match_company('co', {1: {'tax_id': '0105556000010', 'branch_no': '1'},
+                         'a': {'tax_id': '0105556000010', 'branch_no': '2'}},
+                  bill_tax_id='0105556000010', bill_branch_no='00099')
+    check(True, "D6 [CRASH-1] master key คนละ type (int+str) → sort ไม่ครัช")
+except Exception as e:
+    check(False, f"D6 [CRASH-1] ครัช: {e!r}")
 
 print("\n[E] ทนทาน — input เพี้ยน/ขาด ไม่ครัช")
 BAD = {
@@ -177,7 +191,7 @@ check('CMP001' in cc3, "F3 ชื่อไม่ตรงเจ้าของ t
 
 print("\n" + "=" * 64)
 if _FAIL == 0:
-    print("RESULT: ✅ tax_id-primary join (ADR-146/201) — FN เดิม match ได้, fallback คง, golden-neutral")
+    print("RESULT: ✅ tax_id-primary join (ADR-146/147) — FN เดิม match ได้, fallback คง, golden-neutral")
     sys.exit(0)
 print(f"RESULT: ❌ {_FAIL} ข้อไม่ผ่าน")
 sys.exit(1)
