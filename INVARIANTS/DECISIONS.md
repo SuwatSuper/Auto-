@@ -3275,3 +3275,48 @@ main golden `23b315e8` คำนวณด้วย `golden_snapshot.MASTER = {}`
 `test_identity_golden.py` (8 บิล × 2 assert + 3 detail + 1 main-golden-guard = 20 เคส) ✅ —
 register `run_ci.sh [3x12c]`. golden=`23b315e8` ✅ · full pytest เขียว.
 **git diff:** `test_identity_golden.py` (ใหม่) + `run_ci.sh` + DECISIONS.md — golden-neutral (ไม่แตะ engine/golden).
+
+---
+
+## ADR-149 — [🟡 BUG-2] parse_master_blob: tax 13 หลักหายเมื่อมีเลขต่อท้ายคั่นช่องว่าง + characterization — golden-neutral
+
+**วันที่:** 2026-06-29 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (parse_master_blob ใช้แค่ใน input_master_data โต้ตอบ ไม่อยู่เส้น corpus/golden)
+**สั่งโดย:** เจ้าของ (Tor) — `PROMPT_FIX_MASTER_JOIN` 🟡 ข้อ 3 (Tor วาง ภ.พ.20 หลากรูปแบบทุกวัน 5 ปี)
+**priority:** กลาง→ร้าย — tax หาย = ทำ tax-join (ADR-146) ใช้ไม่ได้กับบริษัทที่กรอกรูปแบบนี้
+
+### 1. บั๊ก (กลาง · พบตอน characterization) — tax regex greedy คร่อมเลขต่อท้าย → tax หายเงียบ
+`master.parse_master_blob` ดึง tax ด้วย `re.finditer(r'(?<!\d)(\d[\d\-\s]{11,30}\d)(?!\d)')` — char class
+มี `\s` → run "โลภ" คร่อม 'tax<space>เลขต่อท้าย' (เลขบ้าน/รหัสสาขา) รวมเป็น digit > 13 หลัก → ไม่เข้า
+13/12/18/17 → **tax_id = ''** (หายเงียบ). พ่วง: ชื่อ/ที่อยู่เพี้ยน (เลขบ้านโดนกินหาย).
+
+### 2. หลักฐาน (reproduce)
+```
+parse_master_blob('บริษัท จี เอช จำกัด 0105556000041 99/4 หมู่ 4 ถนนบางนา … 10260')
+  เดิม → tax=''  addr='4 หมู่ 4 …'   (tax หาย + เลขบ้าน 99/ หาย)   ❌
+parse_master_blob('บริษัท เดลต้า จำกัด สาขาที่ 7 0105556000027 เลขที่ 5/9 …')
+  เดิม → tax=''  name='…สาขาที่'                                    ❌
+```
+ทั้งคู่ tax 13 หลักชัดเจน แต่ '7 0105556000027'=14 / '0105556000041 99'=15 หลัก → ถูกปัด.
+
+### 3. วิธีทำ (surgical · 2-pass + ตัดตรงตัว)
+- tax extraction: helper `_classify_tax_digits` + **2-pass** — Pass1 `[\d\-]` (ไม่มีช่องว่าง) หยุดที่
+  ช่องว่าง → ได้ 13 สะอาด ; Pass2 `[\d\-\s]` (เดิม) เป็น fallback เฉพาะ tax พิมพ์เว้นวรรค. คง BUG-1
+  (TAB-glued 18/17) ทำงานต่อ.
+- ตัด tax ออกจากชื่อ "แบบตรงตัว" (`cs.replace(text[tax_start:tax_end])`) แทน regex greedy → เลขบ้าน
+  '99/4' คงไว้ให้ ADR-100 ย้ายไปต้นที่อยู่.
+- ตัด "รหัสสาขา 5 หลักโดด" ที่ตรง branch_no (เช่น '00001' หลัง TAB-glued) — กันหลุดไปต้นที่อยู่แล้วถูก
+  เข้าใจผิดเป็นรหัสไปรษณีย์.
+
+### 4. พิสูจน์ golden-neutral
+`parse_master_blob` ถูกเรียกเฉพาะ `input_master_data` (เมนูโต้ตอบ) — `golden_master.py`/`run_audit_core`
+ไม่แตะ (ยืนยันด้วย grep). `regression_full . corpus`=`23b315e8` ✅. ของเดิม `test_fix_tnt_trio` (28/28,
+BUG-1 TAB-glued) + `test_adr137`/`test_adr125` (เลขบ้าน glued) เขียวครบ → ไม่ regress.
+
+### 5. Migration risk
+ต่ำ — field user แก้เองได้ระหว่างกรอก (โหมดโต้ตอบ) ; การแก้ "เพิ่มความถูก" ไม่ลด. รูปแบบ 12 แบบ pin แล้ว.
+
+### 6. ยืนยัน (gate ครบ)
+`test_master_blob_characterization.py` (ใหม่ · 12 รูปแบบจริง + 3 BUG-2 regression + 20 adversarial crash-safe) —
+register `run_ci.sh [3x12d]`. golden=`23b315e8` ✅ · full pytest เขียว.
+**git diff:** `master.py` (`_classify_tax_digits` + 2-pass extraction + ตัด tax/branch ตรงตัว) +
+`test_master_blob_characterization.py` (ใหม่) + `run_ci.sh` + DECISIONS.md — golden-neutral.
