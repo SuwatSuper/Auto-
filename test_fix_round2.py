@@ -70,7 +70,10 @@ try:
     M.save_master(result)   # จำลอง double-save แบบ เพิ่ม_master.py
 
     final = json.load(open(_MF, encoding='utf-8'))
-    check(len(final) == 3 and 'ฉี อัน คอนสตรัคชั่น' in final and 'เถ้าแก่เนี้ย' in final,
+    # [ADR-151] คีย์แยกตามสาขาแล้ว — เถ้าแก่เนี้ย สาขา 00001 → คีย์ 'เถ้าแก่เนี้ย (สาขา 00001)'
+    #   (เจตนาเดิม "เพิ่มแล้วของเก่าอยู่ครบ" คงไว้ — เช็คแบบ key-มีชื่อ ไม่ผูกรูปคีย์เป๊ะ)
+    check(len(final) == 3 and 'ฉี อัน คอนสตรัคชั่น' in final
+          and any('เถ้าแก่เนี้ย' in k for k in final),
           f"M-1: เพิ่มบริษัทแล้วของเดิมอยู่ครบ (ได้ {len(final)} บริษัท)")
     bak = json.load(open(_BAK, encoding='utf-8')) if os.path.exists(_BAK) else {}
     check(len(bak) == 2, f"M-1b: .bak เก็บสภาพก่อนแก้ (2 บริษัท — ได้ {len(bak)})")

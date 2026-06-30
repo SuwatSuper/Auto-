@@ -3360,3 +3360,45 @@ master เก็บได้ record เดียวต่อบริษัท �
 ต้องขออนุมัติ Tor ก่อน. master ยังไม่ถูกเติม → เปลี่ยนตอนนี้ไม่มีต้นทุน migration (ทำได้ทันทีถ้า Tor อนุมัติ).
 พ่วง: branch_no='' ถ้า label สาขาไม่มีเลข + validate_master_entry เป็น advisory (tax ไม่ครบ 13 ยัง save ได้
 → join ด้วย tax ไม่ติด) — ควรพิจารณาคู่กัน. **สถานะ: รออนุมัติ.**
+
+---
+
+## ADR-151 — [อนุมัติแล้ว] คีย์ master แยกตามสาขา → tax-join disambiguate สาขาทำงานครบวง — golden-neutral
+
+**วันที่:** 2026-06-30 · **สถานะ:** ACTIVE · **golden:** `23b315e8…` **ไม่ขยับ** (input_master_data ไม่อยู่เส้น corpus/golden)
+**สั่งโดย:** เจ้าของ (Tor) — **"ทำการแก้ได้เลย เราอนุมัติ"** (ปลดล็อกรายการค้างใน ADR-150)
+**priority:** กลาง — ปลดล็อกฟีเจอร์ disambiguate สาขา (ADR-146) ให้ใช้จริงผ่านเมนูกรอกได้
+
+### 1. บั๊ก (master_io BUG-1 — data-shape · ปิดท้าย ADR-150 รออนุมัติ)
+`input_master_data` ตั้งคีย์ master จาก **ชื่อบริษัทล้วน** (`key_base`) ไม่มีส่วนสาขา → HQ + สาขา ของ
+บริษัทเดียวกัน (ชื่อเดียวกันบน ภ.พ.20) ชนกัน 1 คีย์ → record หลังทับ record หน้า → master เก็บได้
+**record เดียว/บริษัท** → `_pick_branch_record` (disambiguate HQ/สาขา ของ tax-join ADR-146) มี cands=1 เสมอ
+→ **ใช้จริงผ่านเมนูกรอกไม่ได้** (ทำงานเฉพาะถ้าแก้ JSON มือ). บิล HQ อาจ mis-join เป็น record สาขาที่เหลือ.
+
+### 2. หลักฐาน (reproduce)
+กรอก 'บริษัท เอ็กซ์ จำกัด' 2 ครั้ง (HQ branch_no 00000, แล้วสาขา 00001) → `len(master)==1` (สาขาทับ HQ).
+
+### 3. วิธีทำ (surgical · helper + คีย์แยกสาขา)
+- helper module-level: `_company_key_base` (ตัด prefix/suffix), `_normalize_branch_no` (HQ→00000 / เลขที่ใด
+  ใน label / '' — **BUG-2** เดิมจับเลขท้ายอย่างเดียว 'สาขาที่ 5 กรุงเทพ'→''), `_master_key` (HQ→key_base
+  สะอาด backward-compatible / สาขา→'key_base (สาขา NNNNN)' หรือ '(label)').
+- ใช้ `_HQ_RE` (สำนักงานใหญ่/สนญ เต็มคำ) ไม่ใช่ substring 'สำนัก' หลวม (กับดัก ADR-150 F1: 'สาขาสำนักพระโขนง').
+- input_master_data: คีย์ = `_master_key(...)`, dup-check บนคีย์ใหม่ (ชนเฉพาะสาขาเดียวกัน), **BUG-3** เพิ่ม
+  เตือนผลกระทบเมื่อ tax ไม่ครบ 13 หลัก ("เทียบด้วยเลขภาษีไม่ได้ — จับคู่ได้เฉพาะชื่อ").
+
+### 4. พิสูจน์ golden-neutral
+input_master_data เรียกเฉพาะเมนูโต้ตอบ (`เพิ่ม_master.py`/main) — ไม่อยู่ใน golden_master/run_audit_core.
+`regression_full . corpus`=`23b315e8` ✅. master ยังไม่ถูกเติม → ไม่มีต้นทุน migration.
+
+### 5. Migration / compatibility
+- บริษัทสาขาเดียว (ส่วนใหญ่) → คีย์ = key_base เหมือนเดิมเป๊ะ (backward-compatible).
+- name-fallback ใน match_company: คีย์สาขา ('key_base (สาขา …)') ทำให้ `key in bc` ไม่ตรง แต่ name/name_alt
+  ยัง match → resolve ได้ (และ name-fallback วิ่งเฉพาะตอน tax ไม่อยู่ใน master = disambiguate ไม่ได้อยู่แล้ว).
+- `test_fix_round2.py` ปรับ assertion คีย์ (เถ้าแก่เนี้ย สาขา 00001 → 'เถ้าแก่เนี้ย (สาขา 00001)') — เจตนา
+  "เพิ่มแล้วของเก่าครบ" คงเดิม (เช็คแบบ key-มีชื่อ).
+
+### 6. ยืนยัน (gate ครบ)
+`test_master_key_branch_adr151.py` (ใหม่ · helper A-C + end-to-end D: HQ+2 สาขา → 3 record → tax-join
+disambiguate ถูกตัว) — register `run_ci.sh [3x12e]`. `test_fix_round2.py` (ปรับ assertion) เขียว. golden=`23b315e8` ✅.
+**git diff:** `master.py` (3 helper + input_master_data คีย์/branch_no/เตือน tax) + `test_master_key_branch_adr151.py`
+(ใหม่) + `test_fix_round2.py` (assertion) + `run_ci.sh` + DECISIONS.md — golden-neutral. **ปิดรายการค้าง ADR-150.**

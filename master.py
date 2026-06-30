@@ -245,6 +245,45 @@ def parse_master_blob(blob):
     return out
 
 
+# [ADR-151] HQ signal เต็มคำ (สอดคล้อง parse_master_blob/r_br001) — ไม่ใช้ substring 'สำนัก' หลวม ๆ
+#   ที่จับ 'สาขาสำนักพระโขนง' ผิดเป็นสำนักงานใหญ่ (กับดักเดียวกับ ADR-150 F1).
+_HQ_RE = re.compile(r'สำนักงานใหญ่|สนง\.?ใหญ่|สนญ')
+
+
+def _company_key_base(name):
+    """[ADR-151] ตัด prefix/suffix นิติบุคคลจากชื่อ → 'ฐานคีย์' ของ record ใน master."""
+    kb = re.sub(r'^(บริษัท\s*|ห้างหุ้นส่วนจำกัด\s*|ห้าง\s*|บจก\.?\s*|หจก\.?\s*|บมจ\.?\s*)', '', str(name or '')).strip()
+    kb = re.sub(r'\s*จำกัด(\s*\(มหาชน\))?\s*$', '', kb).strip()
+    return kb
+
+
+def _normalize_branch_no(branch):
+    """[ADR-151 BUG-2] รหัสสาขา 5 หลักจาก label branch: HQ→'00000', มีเลขที่ไหนก็ได้→zfill(5), label ล้วน→''.
+    เดิมจับเฉพาะเลข "ท้ายสุด" → 'สาขาที่ 5 กรุงเทพ' ได้ '' (สาขาไร้รหัส). ตอนนี้จับเลขที่ใดก็ได้ใน label."""
+    br = str(branch or '')
+    if _HQ_RE.search(br):
+        return '00000'
+    m = re.search(r'(\d{1,5})', br)
+    return m.group(1).zfill(5) if m else ''
+
+
+def _master_key(key_base, branch_no, branch):
+    """[ADR-151 BUG-1] คีย์ของ record ที่ "แยกตามสาขา" — กัน HQ + สาขา ชื่อเดียวกันชนกัน 1 คีย์
+    (เดิมคีย์ = ชื่อล้วน → สาขาทับ HQ → tax-join disambiguate สาขา ใช้จริงผ่านเมนูกรอกไม่ได้).
+      สำนักงานใหญ่ → key_base (สะอาด, backward-compatible เคสบริษัทสาขาเดียว = ส่วนใหญ่)
+      สาขามีเลข   → 'key_base (สาขา NNNNN)'
+      สาขาไม่มีเลข → 'key_base (label)'  ;  ไม่มีข้อมูลสาขา → key_base (ถือเป็น HQ)."""
+    br = str(branch or '')
+    bn = re.sub(r'\D', '', str(branch_no or ''))
+    if _HQ_RE.search(br) or bn == '00000':
+        return key_base
+    if bn:
+        return f'{key_base} (สาขา {bn.zfill(5)})'
+    if br.strip():
+        return f'{key_base} ({br.strip()})'
+    return key_base
+
+
 def input_master_data(ask_reuse=True):
     existing = load_master()
     if ask_reuse and existing:
@@ -299,29 +338,33 @@ def input_master_data(ask_reuse=True):
             for e in errors: print(f'   • {e}')
             if input('บันทึกต่อ? [y/N]: ').strip().lower() != 'y':
                 print('ข้าม'); continue
-        key_base = re.sub(r'^(บริษัท\s*|ห้างหุ้นส่วนจำกัด\s*|ห้าง\s*|บจก\.?\s*|หจก\.?\s*|บมจ\.?\s*)','',name).strip()
-        key_base = re.sub(r'\s*จำกัด(\s*\(มหาชน\))?\s*$','',key_base).strip()
+        key_base = _company_key_base(name)
         name_alt = re.sub(r'^(บริษัท|ห้างหุ้นส่วนจำกัด|ห้าง|บจก\.?|หจก\.?|บมจ\.?)\s+',r'\1',name)
-        # v5.9 FIX-7: ตรวจ key ซ้ำก่อนบันทึก — กัน master ถูกทับโดยไม่เตือน
-        if key_base in master:
-            existing_tax = master[key_base].get('tax_id', '')
-            print(f'\n⚠️  "{key_base}" มีอยู่แล้วใน master (เลขภาษี: {existing_tax})')
+        # [BUG-1b FIX 11.06.69 + ADR-151] branch_no normalize (HQ→00000 / เลขที่ใดใน label / '' ถ้าไม่มีเลข)
+        _brno = _normalize_branch_no(branch)
+        # [ADR-151 BUG-1] คีย์แยกตามสาขา → HQ + สาขา บริษัทเดียวกันอยู่ร่วมกันได้ (tax-join disambiguate สาขาทำงานจริง)
+        key = _master_key(key_base, _brno, branch)
+        _ct = clean_tax_id(tax_id)
+        # [ADR-151 BUG-3] เตือนผลของเลขภาษีไม่ครบ 13 หลัก → บริษัทนี้ "เทียบด้วยเลขภาษี (tax-join) ไม่ได้"
+        #   (จับได้เฉพาะชื่อ fuzzy). validate ด้านบนเตือนรูปแบบแล้ว — ตรงนี้บอกผลกระทบต่อการตรวจตัวตนชัด ๆ.
+        if len(_ct) != 13:
+            print(f'   ⚠️ เลขภาษี "{_ct}" ไม่ครบ 13 หลัก → บริษัทนี้จะเทียบด้วยเลขภาษีไม่ได้ '
+                  f'(ระบบจับคู่ได้เฉพาะชื่อ). แนะนำตรวจเลขภาษีให้ครบ 13 หลักเพื่อตรวจตัวตนแม่นยำ.')
+        # v5.9 FIX-7: ตรวจ key ซ้ำก่อนบันทึก — กัน master ถูกทับโดยไม่เตือน (คีย์แยกสาขาแล้ว → ชนเฉพาะสาขาเดียวกัน)
+        if key in master:
+            existing_tax = master[key].get('tax_id', '')
+            print(f'\n⚠️  "{key}" มีอยู่แล้วใน master (เลขภาษี: {existing_tax})')
             if input('   เขียนทับ? [y/N]: ').strip().lower() != 'y':
                 print('ข้าม — ไม่เขียนทับ')
                 idx += 1
                 continue
-        # [BUG-1b FIX 11.06.69] เดิม branch_no ตั้งเฉพาะ HQ ('00000') — สาขาได้ค่าว่าง
-        #   (BR004 ยัง fallback parse จาก label ได้ แต่ตั้งตรง ๆ ปลอดภัย/อ่านง่ายกว่า)
-        _m_brno = re.search(r'(\d{1,5})\s*$', branch)
-        _brno = ('00000' if 'สำนัก' in branch
-                 else _m_brno.group(1).zfill(5) if _m_brno else '')
-        master[key_base] = {
-            'name':name,'name_alt':name_alt,'tax_id':clean_tax_id(tax_id),
+        master[key] = {
+            'name':name,'name_alt':name_alt,'tax_id':_ct,
             'branch':branch,'branch_no':_brno,
             'iv_prefix':iv_prefix,
             'address_full':full_addr,'address_parts':parse_address_input(full_addr),
         }
-        print(f'✅ "{key_base}"')
+        print(f'✅ "{key}"')
         idx += 1
     save_master(master)
     return master
