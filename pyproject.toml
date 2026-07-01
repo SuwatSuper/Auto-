@@ -1,0 +1,40 @@
+# OBJ-TEST — config สำหรับ lint/format (ruff + black)
+# ขอบเขตบังคับใน CI: โมดูลใหม่/agent layer (โค้ดที่ดูแลในเฟสนี้). โค้ด legacy (parser/rules/main)
+# ค่อยขยายเมื่อทำ OBJ-MAINT (ซอยไฟล์) เพื่อกัน regression ระหว่างจัดรูปแบบไฟล์ใหญ่.
+[tool.pytest.ini_options]
+# เทสทุกตัวเป็น "standalone script" (รันด้วย python3 <file>.py) ไม่ใช่ pytest-native function.
+# conftest.py มี custom collector ที่รันแต่ละสคริปต์เป็น subprocess (เหมือน run_ci.sh) →
+# ปิด builtin python-collector ไม่ให้ "import" ไฟล์เหล่านี้ (กัน module-level sys.exit ครัช collection).
+# ค่า python_files นี้จงใจไม่ match ไฟล์จริงตัวใด — ให้ conftest เป็นผู้ collect ทางเดียว.
+python_files = ["_pytest_native_disabled_*.py"]
+addopts = "-q -p no:cacheprovider"
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# default (E,F) — เน้น error/pyflakes ; ปรับเพิ่มภายหลังได้
+[tool.ruff.lint.per-file-ignores]
+# เทสเป็น script: ต้องตั้ง sys.path ก่อน import engine (E402), รวม import บรรทัดเดียว (E401),
+# ชื่อสั้น l ในตัวช่วย (E741) — เป็น idiom ของ harness ไม่ใช่โค้ดส่งมอบ
+"test_*.py" = ["E402", "E401", "E741"]
+
+# ── mypy: บังคับ type เฉพาะ "ชั้น leaf utility" (self-contained, ไม่พึ่ง re-export chain) ──
+# โค้ด parser/rules ใช้ dynamic re-export → mypy ทั้งก้อนจะ false-positive (undefined-name) เพียบ
+# จึง scope การบังคับ type ไว้ที่ leaf layer ที่ type-check ได้จริง. test_typing_leaf.py ตรึงสัญญานี้
+# (รัน mypy --disallow-untyped-defs บน 4 โมดูลนี้) และ GitHub CI บังคับจริง.
+#   ใช้เอง:  mypy --ignore-missing-imports --disallow-untyped-defs puopuy_core.py puopuy_dates.py puopuy_units.py core_utils.py
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+files = ["puopuy_core.py", "puopuy_dates.py", "puopuy_units.py", "core_utils.py"]
+
+[[tool.mypy.overrides]]
+module = ["puopuy_core", "puopuy_dates", "puopuy_units", "core_utils"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
