@@ -3435,3 +3435,58 @@ Root cause: คลาสเดียวกับ GAP-B (analytics._safe_items 20
 ขอบเขต: แตะ super_ultra_viewer.py เท่านั้น (+ ADR นี้). เส้น analytics/rules/parse-core ไม่แตะ. เส้น `for it in ...
   or []` อื่นที่เหลือเป็น parse-core แช่แข็ง (rules_engine_rules_b/unit_detection_ext/parser_guards — ต้อง rebaseline
   ถ้าแตะ) หรือ advisory ที่การ์ด build() ครอบให้แล้ว → คงไว้เพื่อรักษา surgical (1 ADR = 1 แก้).
+
+
+## ADR-154 — [🔴 PERF/Track B] r_tax008 O(n²)→O(n): memoize pure normalizers (_tax008_name/_tax008_clean) — golden-neutral
+วันที่: 2026-07-01
+ปัญหา (perf/scale — พบจาก DEEP-AUDIT กอง 3 Track B): audit-core โตแบบ superlinear ตามจำนวนบิล.
+  วัดจริง (synthetic ก๊อป corpus × N): audit ms/bill = 1.58→3.78→6.63→11.69 ที่ mult=1/5/10/20
+  (ratio 7.39× ที่ 20× = O(n²)). parse เป็น O(n) ปกติ (ms/file ~53-56 คงที่). cProfile ชี้ชัด:
+  r_tax008 (rules_engine_rules_c.py) ครองเวลา 21.35/32.0s ที่ mult=4 (15.85× สำหรับ 4× บิล = quadratic).
+root cause: r_tax008 (และ mirror _bs3_name_index/TAX009) เดินกลุ่มเลขภาษีเดียวกันขนาด g แต่ "คำนวณ
+  _tax008_name(ob.company) + clean_tax_id(ob.tax_id) ซ้ำ O(g²) ครั้ง" (recompute normalize/regex บนชื่อ
+  เดิม ๆ ทุกคู่ในกลุ่ม) แม้ ADR-103 จัด index กลุ่มไว้แล้ว. บนข้อมูลจริง 1 ผู้ขายใหญ่ (เลขภาษีเดียว หลายพันใบ)
+  = กลุ่มใหญ่ → เสียเวลาแบบกำลังสอง.
+แก้ (surgical · golden-neutral cache/dedup — Track B อนุญาตชัด "cache/dedup ที่ผลเท่าเดิม"):
+  memoize 2 pure function (str→str, ไม่มี side-effect — puopuy_core ยืนยัน): @lru_cache(maxsize=131072)
+  บน `_tax008_name` และ helper ใหม่ `_tax008_clean` (wrap clean_tax_id). r_tax008 loop ใช้ตัว memoized
+  → g² recompute ยุบเหลือ ~จำนวนชื่อ/เลข distinct. ไม่แตะ logic/เกณฑ์/ลำดับใด ๆ — คืนค่าเดิมเป๊ะทุก input.
+พิสูจน์ golden-neutral: (1) golden_master ก่อน/หลัง = 23b315e8… ไม่ขยับ (BILLS=1056 typos=51 เท่าเดิม).
+  (2) test_adr154_tax008_memo.py: memoized == fresh computation บนทุก sample (byte-identical) + cache-hit
+  ทำงาน + r_tax008 ยัง detect เลขเดียวชื่อต่างชัด/เงียบเมื่อต่างแค่ (สำนักงานใหญ่). (3) วัดหลังแก้:
+  audit ms/bill = 0.98→1.05→1.14→1.43 (ratio 1.46× = O(n) แล้ว) ; mult=20 audit 246.9s→30.3s (8.1×).
+ขอบเขต: แตะ rules_engine_rules_c.py (import lru_cache + memoize 2 helper + ใช้ใน r_tax008) + test ใหม่ +
+  run_ci.sh + ADR นี้. ไม่แตะ logic กฎ/parse-core/golden. determinism (idempotent/order-independent) ยังผ่าน
+  (pure cache → ผลเท่าเดิมข้ามรอบ).
+
+## ADR-155 — [🟡 Track C robustness] run_rules coerce bill['issues']→list — กัน silent false-negative
+วันที่: 2026-07-01
+ปัญหา (silent FN — พบจาก DEEP-AUDIT กอง 3 Track C, engine-plumbing cluster): run_rules มี guard-family
+  ครบ (items→list ADR-124, item-members→dict ADR-131, text→str GAP-A) เพื่อกัน "บิลภายนอก/บางส่วน/อนาคต"
+  ทำกฎครัชแล้วข้ามเงียบ = FN. แต่ 'issues' ได้แค่ bill.setdefault('issues', []) ซึ่ง no-op ถ้าคีย์มีอยู่แต่เป็น
+  non-list (None/''/dict/int). ทุกกฎที่ "พบปัญหา" เรียก add_issue → b['issues'].append (rules_engine_base:150)
+  → ครัชใน try ของ run_rules → route เป็น SYS-<code> แล้ว "ข้ามกฎเงียบ" → บิลที่มี CRITICAL/ERROR จริง
+  (TAX001/VAT001/ITM001) โผล่เป็น 'ตรง/สะอาด' หลอก = false-negative (คลาสเดียวกับที่ guard พี่น้องปิด แต่
+  ตกหล่นสมาชิกนี้).
+แก้ (surgical): เพิ่ม `if not isinstance(bill.get('issues'), list): bill['issues'] = []` ต่อจาก setdefault
+  (แนวเดียว ADR-124 items). corpus จริงทุกบิล issues เป็น list (parser/setdefault) → coerce = no-op → golden-neutral.
+พิสูจน์: (1) golden 23b315e8… ไม่ขยับ. (2) test_adr155_issues_coerce.py: ป้อน issues=None/''/dict/int/str →
+  coerce เป็น list + TAX001 ยังฟ้อง (ไม่ silent-skip) ; issues=list เดิม (มีของ) ไม่ถูกล้าง + ฟ้องเพิ่มได้.
+ขอบเขต: แตะ rules_engine.py (1 guard) + test ใหม่ + run_ci.sh + ADR นี้. ไม่แตะ logic กฎ/parse-core/golden.
+
+## ADR-156 — [🟡 Track C dead-branch] webverify tier state ใช้ 'MID' ไม่ใช่ 'MEDIUM' (สาขา NEEDS_REVIEW ตาย) — advisory golden-neutral
+วันที่: 2026-07-01
+ปัญหา (dead-branch/misclassify — พบจาก DEEP-AUDIT กอง 3 Track C, flagged-unread cluster): confidence_tier()
+  (analytics.py:43-53 · CONF_TIERS) คืนได้แค่ 'HIGH'/'MID'/'LOW' — ไม่เคยคืน 'MEDIUM'. แต่ tier1_verify และ
+  tier2_verify เทียบ `tier == 'MEDIUM'` → สาขา 'NEEDS_REVIEW' unreachable → สินค้าระดับ MID (conf01 0.7-0.9)
+  ถูกจัดเป็น tier1_state/tier2_state = 'UNVERIFIABLE' + risk_level 'HIGH' (over-flag) แทน 'NEEDS_REVIEW'+'MEDIUM'.
+  พิสูจน์ด้วยการรัน: sorted({confidence_tier(i/100) for i in range(101)}) == ['HIGH','LOW','MID'].
+แก้ (surgical): เปลี่ยน compare 'MEDIUM'→'MID' ที่ 2 จุด (tier1_verify, tier2_verify). หมายเหตุ: 'MEDIUM' ที่
+  บรรทัด risk_level เป็น label ไม่ใช่ compare (ถูกอยู่แล้ว ไม่แตะ).
+พิสูจน์ golden-neutral: webverify ไม่ถูก import โดย golden_master/run_audit_core (docstring ยืนยัน "golden_master
+  ไม่แตะชั้นนี้") → advisory/opt-in → golden 23b315e8… ไม่ขยับ. locked test ที่แตะ webverify (test_offline_audit
+  เช็ค presence ของ tier1_state เท่านั้น) ยังเขียว. test_adr156_webverify_tier_mid.py ยืนยัน MID→NEEDS_REVIEW.
+ขอบเขต: แตะ webverify.py (2 compare) + test ใหม่ + run_ci.sh + ADR นี้. ไม่แตะ parse-core/rules/golden.
+หมายเหตุ Track C เพิ่มเติม: finding "file_info non-dict → run_rules ครัชนอก try (rules_engine:330)" ตรวจแล้ว
+  = unreachable (parse_filename คืน dict เสมอ + caller ส่ง b.get('file_info', {}) → dict เสมอ) → ไม่แก้
+  (ไม่ปั้น guard ให้โค้ดที่เข้าไม่ถึง ตามวินัย reproduce-ก่อนแก้).

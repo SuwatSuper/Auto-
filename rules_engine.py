@@ -271,7 +271,14 @@ def run_rules(bill, master_companies, file_info, unit_index=None, all_bills_ref=
         if not isinstance(bill[_k], str):
             bill[_k] = '' if bill[_k] is None else str(bill[_k])
     bill.setdefault('iv_date', None)
-    bill.setdefault('issues', [])
+    # [ADR-155] coerce 'issues' ให้เป็น list เสมอ — พี่น้องของ GAP-B (ADR-124 items→list) ที่ตกหล่น.
+    #   setdefault เติมเฉพาะคีย์ที่ "หาย" ; ถ้า 'issues' มีอยู่แต่เป็น non-list (บิลภายนอก/บางส่วน/อนาคต
+    #   ที่ตั้ง issues=None/'' /dict) → add_issue → b['issues'].append (rules_engine_base:150) จะครัช
+    #   ในทุกกฎที่ "พบปัญหา" → run_rules ดักเป็น SYS-<code> แล้ว "ข้ามกฎเงียบ" = false-negative (บิลที่มี
+    #   CRITICAL/ERROR จริงโผล่เป็น 'ตรง/สะอาด' หลอก — คลาสเดียวกับที่ guard items/text ตั้งใจปิด).
+    #   corpus จริงทุกบิล issues เป็น list (parser/setdefault) → coerce เป็น no-op → golden-NEUTRAL คง 23b315e8.
+    if not isinstance(bill.get('issues'), list):
+        bill['issues'] = []
     # [ADR-131] coerce "สมาชิก non-dict" ใน items ออก — พี่น้องของ GAP-B (ADR-124 coerce container→list)
     #   แต่เป็นระดับ "สมาชิก". loop coercion ล่าง coerce เฉพาะ _it ที่เป็น dict → สมาชิก non-dict
     #   (None/str/int จากบิลภายนอก/parser อนาคต) ค้างใน list → กฎ ITM/VAT ที่อ้าง it['name']/it.get('amount')

@@ -169,8 +169,12 @@ def tier1_verify(name, unit, category=None):
 
     tier = confidence_tier(out['tier1_conf01'])
     out['tier1_tier'] = tier
+    # [ADR-156] confidence_tier() คืน 'HIGH'/'MID'/'LOW' เท่านั้น (analytics.py:43-53 · CONF_TIERS) — ไม่เคยคืน
+    #   'MEDIUM' → เดิมเทียบ tier=='MEDIUM' เป็นสาขาตาย → สินค้า tier MID (conf01 0.7-0.9) ตกไป 'UNVERIFIABLE'
+    #   (over-flag เป็น HIGH-risk) แทนที่จะเป็น 'NEEDS_REVIEW'. แก้ 'MEDIUM'→'MID' ให้สาขากลับมาทำงาน.
+    #   advisory/opt-in (golden_master ไม่แตะ webverify) → golden-NEUTRAL. 'MEDIUM' ที่บรรทัด risk_level เป็น label ไม่ใช่ compare (ถูกอยู่แล้ว).
     out['tier1_state'] = ('VERIFIED' if tier == 'HIGH'
-                          else 'NEEDS_REVIEW' if tier == 'MEDIUM'
+                          else 'NEEDS_REVIEW' if tier == 'MID'
                           else 'UNVERIFIABLE')
 
     if cat in PRODUCT_CATEGORIES:
@@ -236,8 +240,9 @@ def tier2_verify(name, unit, conn):
                 'tier2_trust':0,'tier2_conf01':0.0,'tier2_tier':'LOW'}
     conf01 = to_conf01(result['trust'])
     tier = confidence_tier(conf01)
+    # [ADR-156] เช่นเดียวกับ tier1: confidence_tier ไม่คืน 'MEDIUM' → 'MID' (สาขา NEEDS_REVIEW เดิมตาย). advisory → golden-NEUTRAL.
     state = ('VERIFIED' if tier == 'HIGH'
-             else 'NEEDS_REVIEW' if tier == 'MEDIUM'
+             else 'NEEDS_REVIEW' if tier == 'MID'
              else 'UNVERIFIABLE')
     return {'tier2_state':state,'tier2_source':result['source'],
             'tier2_snippet':result['snippet'],'tier2_trust':result['trust'],

@@ -73,6 +73,9 @@ run "[3n] input hardening (untrusted file)" "$PY" test_input_hardening.py
 run "[3n2] fuzz matrix — 60 กฎรอด non-str/edge (GAP-A: ไม่ครัช→SYS→ข้ามกฎ=FN)" "$PY" test_fuzz_rules_robust.py
 run "[3n3] GAP-B — run_rules coerce items→list (items non-list ไม่โยน→กันข้ามทั้งบิล=FN)" "$PY" test_gap_b_items_coerce.py
 run "[3n4] ADR-131 — run_rules drop สมาชิก non-dict ใน items (กัน ~14 กฎครัช→ข้ามเงียบ=FN)" "$PY" test_adr131_item_member.py
+run "[3n5] ADR-155 — run_rules coerce issues→list (non-list ทำ add_issue ครัช→ข้ามกฎเงียบ=FN)" "$PY" test_adr155_issues_coerce.py
+run "[3n6] ADR-154 — r_tax008 memoize (O(n²)→O(n) golden-neutral · cache-hit + byte-identical)" "$PY" test_adr154_tax008_memo.py
+run "[3n7] ADR-156 — webverify tier state MID (สาขา NEEDS_REVIEW ไม่ตาย · MID ไม่ over-flag)" "$PY" test_adr156_webverify_tier_mid.py
 run "[3o] validators coverage" "$PY" test_validators_coverage.py
 run "[3o2] typing leaf (ADR-112 — mypy leaf 4 โมดูล; skip ถ้าไม่มี mypy)" "$PY" test_typing_leaf.py
 run "[3p] parse canary (pin)" "$PY" test_parse_canary.py

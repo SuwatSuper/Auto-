@@ -3,6 +3,7 @@
 """rules_engine_rules_c — OBJ-MAINT: กลุ่มกฎ r_* (extract คัดลอกเป๊ะ). toolkit จาก rules_engine_base.
 ห้ามแก้ logic — golden byte-identical."""
 from __future__ import annotations
+from functools import lru_cache   # [ADR-154 PERF] memoize pure cross-bill normalizers (golden-neutral)
 from rules_engine_base import (   # [F3 de-star] explicit re-export shim (split-base chain; เดิม `import *`)
     CFG, COMPANY_PREFIXES, COMPANY_PREFIX_RE, Counter,
     Decimal, PRODUCT_CATEGORIES, ROUND_HALF_UP, _AMBIG_SHORT_KW,
@@ -268,10 +269,27 @@ _TAX008_BRANCH_RE = re.compile(
     r'|\s*สาขา(?:ที่)?\s*\d[\d\s]*'                   # สาขา + เลขที่สาขา (นอกวงเล็บ) — ต้องตามด้วยเลข
 )
 
+@lru_cache(maxsize=1 << 17)
 def _tax008_name(s):
-    """normalize ชื่อบริษัท + ตัด marker สาขา/สนญ. — ต่างแค่ 'สาขา/สำนักงานใหญ่' = บริษัทเดียวกัน."""
+    """normalize ชื่อบริษัท + ตัด marker สาขา/สนญ. — ต่างแค่ 'สาขา/สำนักงานใหญ่' = บริษัทเดียวกัน.
+
+    [ADR-154 PERF] memoize: ฟังก์ชันนี้เป็น pure (str→str, ไม่มี side-effect — normalize_text/regex
+      บน `s` ล้วน) แต่ r_tax008/_bs3_name_index เรียกซ้ำ O(g²) ครั้งต่อกลุ่มเลขภาษีขนาด g (recompute
+      ชื่อเดิม ๆ ทุกคู่) → เป็นต้นเหตุ O(n²) ที่ครองเวลา audit-core (พิสูจน์ด้วย cProfile: 21/32s ที่
+      mult=4). lru_cache ยุบ g² recompute เหลือ ~จำนวนชื่อ distinct → ผลลัพธ์ byte-identical
+      (คืนค่าเดิมเป๊ะทุก input) → golden-NEUTRAL. cache bounded (maxsize=131072) + pure → deterministic
+      ข้ามรอบ (idempotency/reset ไม่กระทบ). ดู INVARIANTS/DECISIONS.md §ADR-154."""
     s = _TAX008_BRANCH_RE.sub('', normalize_text(s))
     return re.sub(r'\s+', ' ', s).strip()
+
+
+@lru_cache(maxsize=1 << 17)
+def _tax008_clean(s):
+    """[ADR-154 PERF] memoized clean_tax_id เฉพาะเส้น cross-bill (r_tax008/_bs3) — pure str→str.
+    r_tax008 เรียก clean_tax_id(ob.tax_id) ซ้ำ O(g²) ครั้งต่อกลุ่ม (ทุก ob ต่อทุก b ในกลุ่มเดียว) แม้
+    ดัชนีจัดกลุ่มไว้แล้ว. run_rules coerce tax_id เป็น str เสมอ (rules_engine:262-272) → hashable.
+    ผลเท่า clean_tax_id เป๊ะ → golden-NEUTRAL."""
+    return clean_tax_id(s)
 
 def _tax008_same(a, b):
     """ชื่อเดียวกันไหม — เกณฑ์แนวเดียว CMP001 (exact / substring ย่อ-เต็ม / fuzzy token_sort ≥ 85).
@@ -293,7 +311,7 @@ def r_tax008(b, m, c):
     all_bills = c.get('all_bills_for_iv_check', [])
     if not all_bills:
         return []
-    this_tax = clean_tax_id(b.get('tax_id', ''))
+    this_tax = _tax008_clean(b.get('tax_id', ''))            # [ADR-154] memoized (เท่า clean_tax_id เป๊ะ)
     if len(this_tax) != 13 or not this_tax.isdigit():       # เชื่อว่า "เลขเดียวกัน" เฉพาะเลขที่สมบูรณ์
         return []
     this_name = _tax008_name(b.get('company', ''))
@@ -303,7 +321,7 @@ def r_tax008(b, m, c):
     # [PERF/ADR-103] เดินเฉพาะกลุ่มเลขภาษีเดียวกัน (ดัชนี) แทน scan all_bills ทั้งหมด — กลุ่มเรียงเดิม → ผลเท่าเดิม
     scan = c.get('xbill_tax_index', {}).get(this_tax, all_bills)
     for ob in scan:
-        if ob is b or clean_tax_id(ob.get('tax_id', '')) != this_tax:
+        if ob is b or _tax008_clean(ob.get('tax_id', '')) != this_tax:   # [ADR-154] memoized clean → ยุบ O(g²) recompute
             continue
         nm = _tax008_name(ob.get('company', ''))
         if nm and not _tax008_same(this_name, nm) and nm not in conflicts:
