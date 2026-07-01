@@ -3402,3 +3402,15 @@ input_master_data เรียกเฉพาะเมนูโต้ตอบ (
 disambiguate ถูกตัว) — register `run_ci.sh [3x12e]`. `test_fix_round2.py` (ปรับ assertion) เขียว. golden=`23b315e8` ✅.
 **git diff:** `master.py` (3 helper + input_master_data คีย์/branch_no/เตือน tax) + `test_master_key_branch_adr151.py`
 (ใหม่) + `test_fix_round2.py` (assertion) + `run_ci.sh` + DECISIONS.md — golden-neutral. **ปิดรายการค้าง ADR-150.**
+
+## ADR-152 — test_golden_single_source: .vscode เป็น OPTIONAL_DEV_SURFACES (แก้ CI-แดง-บน-release-ตัวเอง)
+วันที่: 2026-07-01
+ปัญหา: make_release.py EXCLUDE_DIRS ตัด '.vscode' ทุก release แต่ test_golden_single_source.py
+  บังคับ presence ของ .vscode/tasks.json + .vscode/launch.json (gate [3x]) → run_ci.sh (exit "$fail")
+  แดงทั้ง run บนทุก package ที่ packager สร้างเอง (logic conflict: packager ตัด ↔ tripwire ต้องการ).
+แก้: เพิ่ม OPTIONAL_DEV_SURFACES={'.vscode/tasks.json','.vscode/launch.json'}; None-branch: ถ้า
+  rel ∈ optional → continue (absence=ปกติ); ไม่งั้น fail เดิม. ถ้าไฟล์ "มี" (dev) → ยังบังคับ sync +
+  แบน retired-hash เต็ม (drift protection ไม่ลดลง).
+พิสูจน์: release-absent ✅ / dev-correct ✅ / dev-retired(ae84d3f0) ❌ จับ drift.
+  golden 23b315e8… ไม่ขยับ (engine==agent==baseline). run_ci.sh 128 gates เขียว.
+ขอบเขต: แตะ test_golden_single_source.py เท่านั้น (+ ADR นี้). ไม่แตะ parse-core/rules/golden.

@@ -22,8 +22,8 @@ OPERATIONAL_SURFACES = [
     'README.md',
     'version_gate.py',
     'agents/orchestrator.py',
-    '.vscode/tasks.json',
-    '.vscode/launch.json',
+    '.vscode/tasks.json',        # [ADR-152] dev-local (OPTIONAL) — make_release ตัดออก; sync ถ้ามี, ข้ามถ้าไม่มี
+    '.vscode/launch.json',       # [ADR-152] dev-local (OPTIONAL) — make_release ตัดออก; sync ถ้ามี, ข้ามถ้าไม่มี
     '_SESSION_HANDOFF.md',
     'QUICKSTART_VSCODE_TH.md',
     'INVARIANTS/DECISIONS.md',   # เฉพาะ banner/ADR-019 ส่วนบน (ทั้งไฟล์มีของเก่าด้วย → ดูหมายเหตุ §ledger ด้านล่าง)
@@ -37,6 +37,14 @@ OPERATIONAL_SURFACES = [
 # หมายเหตุ: regression_full.py / verify_golden.py / golden_master.py จงใจ "ไม่" อยู่ใน list นี้ —
 #   มันคือ verifier ที่ "อ่าน" baseline.json ตอน runtime (ไม่ได้ hardcode ค่า hash ไว้ในตัว) →
 #   drift ไม่ได้โดยโครงสร้าง. list นี้คุมเฉพาะพื้นผิวที่ "พิมพ์/ประกาศค่า golden ปัจจุบัน" ไว้.
+
+# [ADR-152] พื้นผิว dev-local ที่ make_release.py จงใจตัดออก (EXCLUDE_DIRS มี '.vscode'):
+#   "ไม่มีในแพ็กเกจ release" = สภาพปกติ ไม่ใช่ drift. ถ้าไฟล์ "มี" (เครื่อง dev) → ยังบังคับ sync เต็ม
+#   (กัน tasks.json/launch.json ค้าง hash เก่า); ถ้า "ไม่มี" (แพ็กเกจที่ ship) → ข้าม.
+#   เหตุ: ก่อน ADR-152 test บังคับ presence → gate [3x] แดงบน "แพ็กเกจ release ของตัวเอง" เสมอ
+#   (packager ตัด .vscode แต่ tripwire ต้องการ .vscode = logic conflict). ใช้ pattern "หาย=continue"
+#   เดียวกับ FIXTURE_SURFACES/version-surfaces ในไฟล์นี้อยู่แล้ว.
+OPTIONAL_DEV_SURFACES = {'.vscode/tasks.json', '.vscode/launch.json'}
 
 # hash ที่ปลดระวางแล้ว (ห้ามปรากฏในพื้นผิว "ปัจจุบัน")
 #   73f5bf87 = golden 106-ไฟล์ ก่อน F2-cont (rebaseline → 35b2f7c8, ดู ADR-021)
@@ -80,6 +88,8 @@ def main():
     for rel in OPERATIONAL_SURFACES:
         text = _read(rel)
         if text is None:
+            if rel in OPTIONAL_DEV_SURFACES:
+                continue   # [ADR-152] dev-local (make_release ตัด .vscode) — absence = ปกติ ไม่ใช่ drift
             fails.append(f'{rel}: ไม่พบไฟล์ (ALLOWLIST ชี้ไฟล์ที่ไม่มี — แก้ test หรือ restore ไฟล์)')
             continue
 
