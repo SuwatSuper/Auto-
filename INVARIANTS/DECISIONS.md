@@ -3414,3 +3414,24 @@ disambiguate ถูกตัว) — register `run_ci.sh [3x12e]`. `test_fix_rou
 พิสูจน์: release-absent ✅ / dev-correct ✅ / dev-retired(ae84d3f0) ❌ จับ drift.
   golden 23b315e8… ไม่ขยับ (engine==agent==baseline). run_ci.sh 128 gates เขียว.
 ขอบเขต: แตะ test_golden_single_source.py เท่านั้น (+ ADR นี้). ไม่แตะ parse-core/rules/golden.
+
+## ADR-153 — super_ultra_viewer.build: coerce items เป็น list-of-dict ที่จุดเข้าเดียว (กัน company_summary ทั้ง batch ครัช)
+วันที่: 2026-07-01
+ปัญหา (crash, reporting path — พบจาก dynamic-latitude bug hunt): super_ultra_viewer.build() → report_precision
+  council (a_subtotal_reconcile/a_empty_items) + viewer worklist ใช้ `b.get("items") or []` หลายจุด. `or []`
+  กัน None/falsy ได้ แต่ "ไม่กัน truthy-non-list": items=5 → `for it in 5`/`len(5)` ครัช ; items='abc'/dict →
+  iterate แล้ว `.get` ครัช. build() ไม่มี try รอบนอก (emit_for_bills เรียกตรง) → บิลเพี้ยน 1 ใบทำ company_summary.txt
+  /.xlsx ทั้ง batch ไม่ออกเลย. reproduce: build([{...,'items':5,'issues':[{'code':'ITM010','detail':'#2: x'}]}])
+  → TypeError: object of type 'int' has no len() ; items='abc' → AttributeError.
+Root cause: คลาสเดียวกับ GAP-B (analytics._safe_items 2026-06-28) แต่ตอนนั้น harden เฉพาะเส้น analytics/unit-index
+  ที่ป้อน r_itm015 (กระทบผลตรวจ) — เส้น report/viewer (super_ultra_viewer + report_precision) ถูกทิ้งไว้ด้วย `or []`.
+แก้ (surgical · 1 จุดเข้าเดียว): ต้น build() coerce แต่ละบิลให้ items='list-of-dict' บนสำเนาตื้น (mutate เฉพาะบิล
+  เพี้ยน ไม่แตะ bills ของผู้เรียก) ก่อนแตกกลุ่ม → ทุก downstream (viewer worklist + bill_lookup → report_precision)
+  เห็น list สะอาด. ครอบทุก item-access ในเส้นรายงานด้วยการ์ดเดียว (report_precision ไม่ต้องแก้).
+พิสูจน์ golden-neutral: (1) super_ultra_viewer/report_precision ไม่ถูก import โดย golden_master/golden_snapshot/
+  run_audit_core → อยู่นอก hash path โดยโครงสร้าง. (2) corpus จริง 1056/1056 บิล items=list, 3307/3307 สมาชิก=dict
+  → ผ่านเงื่อนไข คืน object เดิม → company_summary.txt byte-identical (sha 9d3e4737 เท่ากันก่อน/หลัง, rows=96 เท่ากัน).
+  (3) Gate C engine hash = 23b315e8… ไม่ขยับ ; Gate D AGENT==BASELINE ✅.
+ขอบเขต: แตะ super_ultra_viewer.py เท่านั้น (+ ADR นี้). เส้น analytics/rules/parse-core ไม่แตะ. เส้น `for it in ...
+  or []` อื่นที่เหลือเป็น parse-core แช่แข็ง (rules_engine_rules_b/unit_detection_ext/parser_guards — ต้อง rebaseline
+  ถ้าแตะ) หรือ advisory ที่การ์ด build() ครอบให้แล้ว → คงไว้เพื่อรักษา surgical (1 ADR = 1 แก้).

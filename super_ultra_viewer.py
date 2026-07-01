@@ -147,6 +147,23 @@ def _norm_company(s: str) -> str:
 
 def build(bills, master_present=True, masters=None):
     from collections import Counter
+    # [ADR-153] report-path robustness: coerce แต่ละบิลให้ items เป็น "list-of-dict" ที่จุดเข้าเดียว
+    #   ก่อนส่งต่อทุก viewer/precision-council. เดิม downstream ใช้ `b.get("items") or []` หลายจุด
+    #   (super_ultra_viewer + report_precision.a_subtotal_reconcile/a_empty_items) ซึ่งกัน None/falsy ได้
+    #   แต่ "ไม่กัน truthy-non-list" (items=5 → len()/for ครัช ; items='abc'/dict → .get ครัช) → build ทั้ง
+    #   batch พังหมด (company_summary ทั้งชุดไม่ออก). ใช้แนวเดียวกับ analytics._safe_items (GAP-B). สำเนา
+    #   ตื้นเฉพาะบิลที่เพี้ยน (ไม่ mutate ของผู้เรียก). corpus จริง 1056/1056 บิล items=list-of-dict อยู่แล้ว
+    #   → ผ่านเงื่อนไข → คืน object เดิม → รายงาน byte-identical ; build อยู่นอก golden hash path → golden-NEUTRAL.
+    _norm = []
+    for _b in bills:
+        _it = _b.get("items") if isinstance(_b, dict) else None
+        if isinstance(_it, list) and all(isinstance(_x, dict) for _x in _it):
+            _norm.append(_b)
+        else:
+            _c = dict(_b) if isinstance(_b, dict) else {}
+            _c["items"] = [_x for _x in _it if isinstance(_x, dict)] if isinstance(_it, list) else []
+            _norm.append(_c)
+    bills = _norm
     # ★ [FIX-CONSOLIDATE] จัดกลุ่มด้วย (เลขภาษี, เดือน) — เลขภาษี = canonical identity ของบริษัท
     #   กัน "บริษัทเดียว เดือนเดียว" ถูกแยกเป็นหลายบล็อกเพราะชื่อพิมพ์ต่าง ('จำกัด' เกิน/ขาด,
     #   เว้นวรรคไม่ตรง). ไม่มีเลขภาษี → fallback ชื่อ normalize. ชื่อที่โชว์ = ที่พบบ่อยสุดในกลุ่ม.
