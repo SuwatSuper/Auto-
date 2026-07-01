@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /tmp/realfiles)",
+      "Bash(cp /root/.claude/uploads/5063970d-109d-5b2d-9ad7-ef1a9cbdae44/43988fa3-JRN_69.05.xls /tmp/realfiles/JRN_69.05.xls)",
+      "Bash(cp /root/.claude/uploads/5063970d-109d-5b2d-9ad7-ef1a9cbdae44/597c47fe-SSN_69.05_1.xls /tmp/realfiles/SSN_69.05_1.xls)",
+      "Bash(cp /root/.claude/uploads/5063970d-109d-5b2d-9ad7-ef1a9cbdae44/6cc729f2-TOR_69.05.xlsx /tmp/realfiles/TOR_69.05.xlsx)",
+      "Bash(cp /root/.claude/uploads/5063970d-109d-5b2d-9ad7-ef1a9cbdae44/f6bb776d-TSH_69.05.xls /tmp/realfiles/TSH_69.05.xls)"
+    ]
+  }
+}
