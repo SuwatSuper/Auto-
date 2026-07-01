@@ -3,6 +3,7 @@ __pycache__/
 master_companies.json
 .venv/
 dist/
+dist_deliverable/
 _f1_*.py
 _f1_*.json
 .ruff_cache/
