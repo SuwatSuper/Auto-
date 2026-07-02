@@ -3772,3 +3772,30 @@ FIX (surgical ตามแนว [A5-FIX]/[M4] — ไม่รื้อ builder
   reporting_p1) จงใจไม่แตะ — เส้นลูกค้า = LEAN เท่านั้น และ full mode มี _df_safe ชั้นของตัวเอง.
 ขอบเขต: reporting_p1.py (_xl_safe · _clean_period · _clean_company_label · import KNOWN_TYPES) ·
   reporting_p2.py (pre-pass str coerce + except จำแนก OSError ใน build_clean_report) · ADR นี้.
+
+## ADR-169 — [BUG-3 ยืนยันผลบนเครื่องแก้งาน] หมายเหตุหน่วยปนไทย+อังกฤษ (ADR-166 FIX-A/B) ใช้งานได้จริง + ตัดสินใจไม่เพิ่ม family เก็งกำไร — golden-neutral (ไม่แตะโค้ด)
+วันที่: 2026-07-02
+บริบท: ปิดงานส่งต่อจาก ADR-166 บั๊ก(3): หมายเหตุ "หน่วยสินค้าปนไทย+อังกฤษ" (ADR-104) ไม่ขึ้นบนเครื่องเจ้าของ.
+  ADR-166 วินิจฉัยราก 2 ข้อ + แก้แล้ว (FIX-A ตัว/อัน เข้า family ชิ้น ; FIX-B advisory ออกเสมอไม่ผูก xlsx).
+  งานรอบนี้ = ยืนยันผลจริง + พิจารณา "อุดคู่ที่เหลือถ้ามี".
+ยืนยันผล (เครื่องแก้งาน, venv pin ครบตาม constraints):
+  • smoke ตาม playbook §4.2: ตัว/pc → ⚠️ 'SHS_69_06.xls — หน่วย "ชิ้น" เขียนปน: ตัว / pc' ตรงคาดเป๊ะ ·
+    อัน/pcs → จับด้วย · ชิ้น+ตัว (th↔th family เดียวกัน) → ไม่ flag กันเอง (กติกา th↔en เท่านั้น ถูกต้อง).
+  • โฟลว์ main() LEAN จริง (ระหว่างพิสูจน์ ADR-168): agent_report.txt มี section
+    'หน่วยสินค้า — ตรวจเพิ่ม (Unit Consistency, advisory)' ครบ แม้บังคับ xlsx fail (FIX-B ทำงาน).
+  • test_unit_detection_ext 38/38 + test_unit_lang_note เขียว.
+ตัดสินใจ: "ไม่เพิ่ม" family/คู่หน่วยใหม่รอบนี้ — เหตุผลตามลำดับกติกา:
+  (1) พิสูจน์ก่อนแก้: เครื่องนี้ไม่มี corpus จริง → พิสูจน์ไม่ได้ว่าคู่ th↔en ใดของลูกค้า "ยังหลุด" จริง
+    (เงื่อนไข playbook §4.3 = เพิ่มเมื่อคู่จริงยังหลุดเท่านั้น). เคสที่ลูกค้ารายงาน (ตัว/pc) ปิดแล้วโดย ADR-166.
+  (2) golden ไม่ใช่เรื่อง advisory ล้วน: r_itm019/r_itm020 (rules_engine.py import จาก unit_detection_ext)
+    อยู่ในเส้น golden — เพิ่ม family ทำหน่วย unknown → known → ITM019 บน corpus จริงขยับได้เงียบ ๆ
+    = เสี่ยงชน rule ห้ามข้อ 0.2/0.3 โดยไม่มีเครื่องยืนยัน.
+  (3) คำตัดสินเจ้าของเดิมล็อกไว้ (ADR-091 + test_unit_lang_note): เส้น/ท่อน/กระป๋อง/ขวด/ซอง/แพ็ค + PCS./EA.
+    ต้อง "ไม่" flag — คู่เย้ายวนหลายคู่ถูกห้ามโดยเจตนาอยู่แล้ว.
+watch list ช่องโหว่ coverage ที่เหลือ (สำรวจจากโค้ด/คอนฟิกทั้งระบบ — หน่วยที่ยัง "ไม่มี family" จึงตรวจปนไม่ได้):
+  ไทย: ฟุต หลา ขวด ซอง ตู้ โคม ล็อต งาน รายการ ขด มัด เที่ยว ฯลฯ · อังกฤษ: ft yd/yard bottle/btl sachet lot ฯลฯ.
+  สูตรเพิ่มที่ปลอดภัยเมื่อเจอคู่จริงบนเครื่องเจ้าของ: เพิ่มเป็น family ใหม่ th↔en ที่ฝั่ง en ไม่ทับ pc/pcs/ea/m
+  (เช่น ขวด↔bottle, ฟุต↔ft, หลา↔yd, พาเลท↔pallet) → รัน test_unit_detection_ext + test_unit_lang_note +
+  regression_full บน corpus จริง ยืนยัน golden ก่อน commit (ถ้า ITM019 ขยับ = ต้องตัดสินใจ rebaseline อย่างตั้งใจ).
+พิสูจน์ golden-neutral: ไม่แตะโค้ดใด ๆ ในรอบนี้ · fixture ad0c9dad คงเดิม · lock 8 ตัวเขียว.
+ขอบเขต: (ยืนยันผล + บันทึกการตัดสินใจ — ไม่มีไฟล์โค้ดถูกแก้) · ADR นี้.
