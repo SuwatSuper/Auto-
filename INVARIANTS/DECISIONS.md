@@ -3709,3 +3709,30 @@ FIX-B ปุ้มปุ้ย_ultimate_v9_modular main()/LEAN: ย้าย emi
   paste-and-verify + แพ็กโค้ด (ไม่มี wheels) สำหรับ Claude Code — บันทึกใน PROMPT_CLAUDE_CODE_แก้ทั้งหมด_v1.md.
 ขอบเขต: unit_detection_ext.py · ปุ้มปุ้ย_ultimate_v9_modular.py (LEAN branch) · +PROMPT_CLAUDE_CODE_แก้ทั้งหมด_v1.md ·
   +ระบบจับอะไรได้บ้าง_v9_3_4.md · ADR นี้.
+
+## ADR-167 — [BUG-1 เครื่องเจ้าของ] จำแนก "ไฟล์ถูกโปรแกรมอื่นเปิดค้าง" ใน parse_file — batch ข้าม SHS 69.06 — golden-neutral
+วันที่: 2026-07-02
+บริบท: ปิดงานส่งต่อจาก ADR-166 บั๊ก(1): batch หลายไฟล์ → "⚠️ ไฟล์เปิดไม่ได้ SHS 69.06 …" (SYS001 File Open Failure
+  จาก parser_p2.parse_file บล็อก except นอก) แต่ส่งเดี่ยวอ่านได้. เครื่องเจ้าของ = Windows (พร้อมตรวจ/รีพอร์ต บน Desktop).
+forensic (เครื่องที่แก้ = Linux container ไม่มีไฟล์ มิ.ย. จริง — พิสูจน์เชิงโครงสร้าง + จำลอง exception จริง):
+  • H3 (ไฟล์ก่อนหน้าวางยา) ตัดทิ้ง: state ข้ามไฟล์ทั้งหมด (state.py: _FUZZY_DICT_CACHE/_PYTHAINLP_CACHE/lazy dicts/
+    _SYSTEM_ISSUES/_AUDIT_CTX) ไม่มีตัวไหนป้อนเข้า read_workbook/pd.ExcelFile (parser_p0a.py:204-208)
+    → ไม่มีกลไก in-process ให้ไฟล์ก่อนหน้าทำให้ไฟล์ถัดไป "เปิดไม่ได้".
+  • H4 (fd หมด) ตัดทิ้ง: parse_file ปิด workbook ใน finally ตั้งแต่ v6.1 [S2] · probe บนเครื่องนี้ fd +1 ระหว่างเปิด
+    กลับ 0 หลังปิด · แล็บ 760 ไฟล์ fd ค้าง 0 (ADR-166).
+  • H1 (Excel เปิดไฟล์ค้าง → OS lock) = สมมติฐานหลักที่ตรงอาการ: ลูกค้าโยนไฟล์ทีละหลายไฟล์ขณะ Excel ยังเปิดอยู่
+    บน Windows การเปิดไฟล์ที่ Excel ถือ → PermissionError [Errno 13] / sharing violation (winerror 32)
+    ตรง "batch พัง แต่ปิด Excel แล้วส่งเดี่ยวผ่าน" · บน Linux จำลอง OS lock จริงไม่ได้ (POSIX ไม่มี mandatory lock)
+    จึงจำลองที่ชั้น exception แทน.
+FIX parser_p2.parse_file (บล็อก except เดิม — จุดเดียว): จำแนก PermissionError หรือ OSError ที่ errno ∈
+  {EACCES,EBUSY,ETXTBSY} หรือ winerror ∈ {32,33} → พิมพ์ "⚠️ ไฟล์ถูกโปรแกรมอื่นเปิดค้างอยู่ (เช่น Excel) —
+  ปิดไฟล์แล้วรันใหม่: {fname}" ; exception ชนิดอื่นข้อความเดิมเป๊ะ ; SYS001 + flow + finally คงเดิมทุกประการ
+  (ชนิด/ข้อความ exception จริงยังครบใน SYS001 detail ผ่าน log_system_issue exc=e).
+พิสูจน์: จำลอง batch 3 ไฟล์ (fixture ×3, target ชื่อ "SHS 69.06 คาเมล.xlsx") monkeypatch read_workbook →
+  PermissionError(EACCES)/OSError(EBUSY)/OSError(winerror=32) ได้ข้อความใหม่ + batch เดินต่อ บิลไฟล์อื่นครบ 6/6
+  + SYS001 บันทึก 1 รายการ · BadZipFile ได้ข้อความเดิม · ไม่มี lock → 9/9 บิล · ส่งเดี่ยว target = 3/3 บิล ·
+  fixture ad0c9dad ไม่ขยับ · lock 8 ตัว (playbook ข้อ 0.7) เขียวครบ.
+ส่งต่อ (ปิดจบบนเครื่องจริงเท่านั้น): รัน batch ชุดเดิมที่เคยพัง — ถ้า SHS 69.06 ยังพังทั้งที่ปิด Excel แล้ว
+  ให้อ่านชนิด exception จริงจาก SYS001 detail (H2) แล้ววินิจฉัยต่อตาม PROMPT §2.2-2.3 ;
+  สังเกตไฟล์ ~$SHS… ในโฟลเดอร์บิล = ร่องรอย Excel เปิดค้าง (parser_guards ข้ามไฟล์ ~$ อยู่แล้ว).
+ขอบเขต: parser_p2.py (import errno + บล็อก except ของ parse_file เท่านั้น) · ADR นี้.

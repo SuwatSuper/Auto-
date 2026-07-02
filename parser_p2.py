@@ -11,6 +11,7 @@ _rx.reexport(_up, globals(), exclude=('Decimal', 'ROUND_HALF_UP', '_RATE_MARKERS
                                       '_rightmost_num_has_decimal', '_row_has_rate_marker'))
 del _rx, _up
 import math   # [C-1/ADR-069] guard non-finite ในเส้น _tor_scan_* (กัน inf/NaN ไหลเข้า bill money)
+import errno  # [ADR-167/BUG-1] จำแนก OSError "ไฟล์ถูกโปรแกรมอื่นเปิดค้าง" (EACCES/EBUSY/ETXTBSY)
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation  # [F2/ADR-020] money-math: VAT ด้วย Decimal+HALF_UP
 from puopuy_units import _money_q, baht_text_to_decimal   # [F-1] ปัดเงิน HALF_UP + [ADR-122] บาทอักษร→Decimal (VAT012)
 from parser_guards import (   # [F4 ceiling 11.06.69] ชั้นปราการ input + iv last-resort (ซอยตามเพดาน 600)
@@ -646,7 +647,18 @@ def parse_file(filepath):
                                  severity='ERROR', file=_fname, sheet=str(sheet),
                                  exc=e, echo=False)
     except Exception as e:
-        print(f'⚠️ ไฟล์เปิดไม่ได้ {_fname}: {str(e)[:80]}')
+        # [ADR-167/BUG-1] จำแนกเคส "ไฟล์ถูกโปรแกรมอื่นเปิดค้าง" (เช่น Excel บน Windows →
+        #   PermissionError [Errno 13] / OSError EACCES/EBUSY/ETXTBSY / sharing violation winerror 32,33)
+        #   → บอกวิธีแก้ให้ผู้ใช้ตรง ๆ (เดิมบอกแค่ "เปิดไม่ได้" ลูกค้าไม่รู้ว่าต้องปิด Excel ก่อนรันใหม่).
+        #   SYS001 + flow เดิมคงไว้ทุกประการ (ชนิด/ข้อความ exception จริงยังอยู่ครบใน SYS001 detail).
+        _locked = isinstance(e, PermissionError) or (
+            isinstance(e, OSError) and (
+                getattr(e, 'errno', None) in (errno.EACCES, errno.EBUSY, errno.ETXTBSY)
+                or getattr(e, 'winerror', None) in (32, 33)))
+        if _locked:
+            print(f'⚠️ ไฟล์ถูกโปรแกรมอื่นเปิดค้างอยู่ (เช่น Excel) — ปิดไฟล์แล้วรันใหม่: {_fname}')
+        else:
+            print(f'⚠️ ไฟล์เปิดไม่ได้ {_fname}: {str(e)[:80]}')
         log_system_issue('SYS001', 'File Open Failure',
                          'เปิด/อ่านไฟล์ไม่ได้ — ทั้งไฟล์ถูกข้าม',
                          severity='ERROR', file=_fname, exc=e, echo=False)
