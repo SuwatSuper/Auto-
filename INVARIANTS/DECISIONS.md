@@ -3799,3 +3799,24 @@ watch list ช่องโหว่ coverage ที่เหลือ (สำร
   regression_full บน corpus จริง ยืนยัน golden ก่อน commit (ถ้า ITM019 ขยับ = ต้องตัดสินใจ rebaseline อย่างตั้งใจ).
 พิสูจน์ golden-neutral: ไม่แตะโค้ดใด ๆ ในรอบนี้ · fixture ad0c9dad คงเดิม · lock 8 ตัวเขียว.
 ขอบเขต: (ยืนยันผล + บันทึกการตัดสินใจ — ไม่มีไฟล์โค้ดถูกแก้) · ADR นี้.
+
+## ADR-170 — [ปิดรอบ adversarial review + CI] อุด pd.NaT ใน _clean_period · Decimal ใน fallback KNOWN_TYPES · whitelist เพดาน reporting_p1 — golden-neutral
+วันที่: 2026-07-02
+บริบท: หลังปิด ADR-167/168/169 รัน (ก) CI เต็มชุด fixture (ข) adversarial review อิสระ 3 มุม
+  (correctness BUG-1 / correctness BUG-2 / golden-neutrality) เพื่อรีเช็คทั้งระบบก่อนส่งมอบ — พบ 3 ประเด็นจริง:
+  • CI: reporting_p1.py โตจาก 590 → 613 LOC (เกราะ ADR-168) เกินเพดาน 600 ของ test_file_size_ceiling.
+  • review: pd.NaT ทะลุการ์ด C2 — NaT เป็น truthy + isinstance datetime + .year คืน nan (float) → ผ่านเช็ค
+    'yr is None' แล้วครัช ValueError ที่ f-string (พฤติกรรมเดิมก่อน ADR-168 ก็ครัชแบบเดียวกัน — ไม่ใช่ regression
+    แต่อยู่ในขอบเขต C2 พอดี; ทางเข้า: reporting_p2 เช็คแค่ truthy ก่อนเรียก).
+  • review: fallback _XL_KNOWN_TYPES (ใช้เมื่อ import path ของ openpyxl เปลี่ยนในอนาคตเท่านั้น — วันนี้
+    unreachable บน pin 3.1.5) ขาด Decimal เทียบของจริง.
+FIX: • _clean_period: int(getattr(...)) + except (TypeError, ValueError) → '-' (กัน None/nan/NaT ครบ;
+    วันที่ปกติพิสูจน์ byte-identical ทุกเคสรวมปี พ.ศ./1970/pd.Timestamp) • fallback KNOWN_TYPES += Decimal
+  • test_file_size_ceiling: whitelist 'reporting_p1.py' พร้อมเหตุผล/แผนซอย (_clean_sheet_* → reporting_p1c.py)
+    ตาม convention เดิมของไฟล์ (แบบเดียวกับ validators/rules_a/super_ultra_viewer ที่ ADR ดันเกินเพดาน).
+พิสูจน์: review ยืนยัน REPORT_DET_HASH byte-identical ก่อน/หลังเกราะ ADR-168 (33187a23…) · _clean_period(pd.NaT)
+  → '-' ไม่ครัช · CI เต็มชุด fixture exit 0 "✅ CI ผ่านทั้งหมด" · fixture ad0c9dad ไม่ขยับ · lock 8 ตัวเขียว.
+ข้อสังเกตที่จงใจไม่แก้ (บันทึกไว้): ข้อความ lock-file ของ ADR-167 ครอบ PermissionError ทุกกรณี (รวม ACL จริง
+  ที่ไม่ใช่ Excel) — ยอมรับได้: ข้อความ hedge ด้วย "เช่น" + ชนิด/ข้อความ exception จริงอยู่ครบใน SYS001 detail.
+ขอบเขต: reporting_p1.py (_clean_period int-guard · fallback Decimal) · test_file_size_ceiling.py (whitelist
+  reporting_p1.py พร้อมแผน) · ADR นี้.

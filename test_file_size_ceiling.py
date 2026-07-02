@@ -53,6 +53,12 @@ WHITELIST = {
     #   1 บรรทัด) + (ข) ตัด file_spec_unit_lang_notes (FP 31/33 ไฟล์). เดิม 600 ชิดเพดาน → 607. monolith viewer
     #   ซอยปลอดภัย (golden-neutral). แผน: รอบ F4 ถัดไปแยก _pinpoint_field + field-render → viewer_pinpoint.py.
     'super_ultra_viewer.py': 'report-layer company_summary builder (golden-neutral); ADR-099 ยุบ ชื่อบจ./สาขา + ตัด spec-unit FP; แผนแยก _pinpoint_field → viewer_pinpoint.py รอบ F4 ถัดไป',
+    # reporting_p1.py: report layer (clean/full sheet builders + leaf helpers — advisory/golden-neutral).
+    #   ADR-168 เพิ่มเกราะชนิดข้อมูล C2/C3/C4 (_clean_period getattr guard, _clean_company_label str coerce,
+    #   _xl_safe non-scalar→str ตาม KNOWN_TYPES ของ openpyxl; ADR-170 กัน pd.NaT) ปิดครัชทั้ง workbook
+    #   จากบิลเพี้ยน → เดิมชิดเพดาน (590) เป็น 615. report layer ล้วน ซอยปลอดภัย. แผน: รอบ maintenance ถัดไปแยก
+    #   _clean_sheet_* → reporting_p1c.py (คู่กับแผนซอย reporting เดิม).
+    'reporting_p1.py': 'report-layer builders (golden-neutral); ADR-168 เกราะชนิดข้อมูล C2/C3/C4 กันครัชทั้ง workbook; แผนแยก _clean_sheet_* → reporting_p1c.py รอบ maintenance ถัดไป',
 }
 
 # ไม่สแกน: backup, hidden, cache, build, virtualenv — ไม่ใช่ "source ของโปรเจกต์"

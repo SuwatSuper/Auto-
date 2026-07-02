@@ -32,7 +32,8 @@ try:
     from openpyxl.cell.cell import KNOWN_TYPES as _XL_KNOWN_TYPES        # [ADR-168] ชนิดที่ openpyxl รับตรง ๆ
 except Exception:                                                        # เผื่อ path เปลี่ยนข้ามเวอร์ชัน
     import datetime as _dt
-    _XL_KNOWN_TYPES = (int, float, str, bytes, bool, type(None),
+    from decimal import Decimal as _Dec   # [ADR-170] fallback ต้องมี Decimal ให้ตรง openpyxl จริง
+    _XL_KNOWN_TYPES = (int, float, str, bytes, bool, type(None), _Dec,
                        _dt.datetime, _dt.date, _dt.time, _dt.timedelta)
 
 
@@ -366,9 +367,10 @@ def _clean_period(d):
     if not d: return '-'
     # [ADR-168/BUG-2 C2] iv_date ชนิดผิดแต่ truthy (str/float serial จากบิลเพี้ยน) → เดิม d.year ครัช
     #   AttributeError ล้มทั้ง workbook (เส้นคลีนเรียก 6 จุด) — การ์ดแบบเดียวกับ _sk (getattr).
+    #   [ADR-170] int() ครอบด้วย: pd.NaT truthy + .year=nan ทะลุเช็ค None แล้วครัชที่ f-string.
     #   วันที่ปกติ (datetime.date) ได้ผลเท่าเดิมเป๊ะ.
-    yr = getattr(d, 'year', None); mo = getattr(d, 'month', None)
-    if yr is None or mo is None: return '-'
+    try: yr = int(getattr(d, 'year', None)); mo = int(getattr(d, 'month', None))
+    except (TypeError, ValueError): return '-'
     be = yr + 543 if yr < 2500 else yr
     return f"{(be % 100):02d}.{mo:02d}"
 
