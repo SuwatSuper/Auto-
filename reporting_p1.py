@@ -28,12 +28,27 @@ try:
 except Exception:                                                        # เผื่อ path เปลี่ยนข้ามเวอร์ชัน
     _XL_ILLEGAL = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
 
+try:
+    from openpyxl.cell.cell import KNOWN_TYPES as _XL_KNOWN_TYPES        # [ADR-168] ชนิดที่ openpyxl รับตรง ๆ
+except Exception:                                                        # เผื่อ path เปลี่ยนข้ามเวอร์ชัน
+    import datetime as _dt
+    _XL_KNOWN_TYPES = (int, float, str, bytes, bool, type(None),
+                       _dt.datetime, _dt.date, _dt.time, _dt.timedelta)
+
 
 def _xl_safe(v):
     """[H3] ตัดอักขระควบคุมที่ openpyxl ปฏิเสธ (เช่น \\x07) ออกจากสตริงก่อนเขียนลงเซลล์.
     เดิม IllegalCharacterError จากเซลล์ที่ไม่ถูก sanitize (detail/name_raw/ชื่อไฟล์-ชีต) →
-    build_clean_report คืน False → ผู้ใช้ "ไม่ได้รายงานเลย" ทั้งที่ตรวจเสร็จครบทั้งรอบ."""
-    return _XL_ILLEGAL.sub('', v) if isinstance(v, str) else v
+    build_clean_report คืน False → ผู้ใช้ "ไม่ได้รายงานเลย" ทั้งที่ตรวจเสร็จครบทั้งรอบ.
+    [ADR-168/BUG-2 C4] ค่า non-scalar (list/dict/object หลุดมากับบิลเพี้ยน เช่น qty เป็น list) →
+    openpyxl ValueError 'Cannot convert … to Excel' ล้มทั้ง workbook — แปลงเป็นสตริงแทน.
+    ใช้ KNOWN_TYPES ของ openpyxl เองเป็นเกณฑ์ (รวม numpy scalar) → ค่าที่เคยเขียนได้ = เขียนเหมือนเดิมเป๊ะ
+    (report-determinism ไม่ขยับ) ; เฉพาะค่าที่เดิม "ครัช" เท่านั้นที่กลายเป็นสตริง."""
+    if isinstance(v, str):
+        return _XL_ILLEGAL.sub('', v)
+    if isinstance(v, _XL_KNOWN_TYPES):   # ครอบ None ด้วย (type(None) อยู่ใน KNOWN_TYPES)
+        return v
+    return _XL_ILLEGAL.sub('', str(v))
 
 
 def _fin(v):
@@ -349,14 +364,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 
 def _clean_period(d):
     if not d: return '-'
-    yr = d.year
+    # [ADR-168/BUG-2 C2] iv_date ชนิดผิดแต่ truthy (str/float serial จากบิลเพี้ยน) → เดิม d.year ครัช
+    #   AttributeError ล้มทั้ง workbook (เส้นคลีนเรียก 6 จุด) — การ์ดแบบเดียวกับ _sk (getattr).
+    #   วันที่ปกติ (datetime.date) ได้ผลเท่าเดิมเป๊ะ.
+    yr = getattr(d, 'year', None); mo = getattr(d, 'month', None)
+    if yr is None or mo is None: return '-'
     be = yr + 543 if yr < 2500 else yr
-    return f"{(be % 100):02d}.{d.month:02d}"
+    return f"{(be % 100):02d}.{mo:02d}"
 
 def _clean_company_label(b):
     mk = b.get('master_key')
-    if mk and mk != '(ไม่พบใน master)': return mk
-    comp = (b.get('company') or '').strip()
+    # [ADR-168/BUG-2 C3] str() กัน master_key/company ชนิดผิด (float/int) → เดิมหลุดไป sorted() ใน
+    #   _clean_sheet_summary เทียบ str กับ float → TypeError ล้มทั้ง workbook. ค่าปกติ (str) = no-op.
+    if mk and mk != '(ไม่พบใน master)': return str(mk)
+    comp = str(b.get('company') or '').strip()
     if comp: return comp
     base = os.path.basename(str(b.get('file','')))
     m = re.match(r'\s*([A-Za-zก-๙]+)', base)

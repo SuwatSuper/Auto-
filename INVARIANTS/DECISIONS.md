@@ -3736,3 +3736,39 @@ FIX parser_p2.parse_file (บล็อก except เดิม — จุดเ�
   ให้อ่านชนิด exception จริงจาก SYS001 detail (H2) แล้ววินิจฉัยต่อตาม PROMPT §2.2-2.3 ;
   สังเกตไฟล์ ~$SHS… ในโฟลเดอร์บิล = ร่องรอย Excel เปิดค้าง (parser_guards ข้ามไฟล์ ~$ อยู่แล้ว).
 ขอบเขต: parser_p2.py (import errno + บล็อก except ของ parse_file เท่านั้น) · ADR นี้.
+
+## ADR-168 — [BUG-2 เครื่องเจ้าของ] เกราะชนิดข้อมูล 4 จุด + จำแนก OSError ใน build_clean_report — Excel audit ไม่ออก — golden-neutral
+วันที่: 2026-07-02
+บริบท: ปิดงานส่งต่อจาก ADR-166 บั๊ก(2): audit_v58_*.xlsx ไม่ออกบนเครื่องเจ้าของ (wrapper พิมพ์
+  "⚠️ สร้างรายงานคลีนล้มเหลว" + traceback แล้วคืน False). เครื่องที่แก้ไม่มีไฟล์ มิ.ย. จริง → อ่าน traceback จริง
+  ไม่ได้ จึง forensic แบบ "ไล่พิสูจน์จุดครัชที่เป็นไปได้ทั้งหมดในเส้นคลีน (LEAN) แล้วอุดทุกจุดที่พิสูจน์ครัชได้จริง".
+forensic (probe ยิงตรง _build_clean_report_impl — ยืนยันครัชได้จริงทุกข้อก่อนแก้):
+  • C1 issue['code'] ชนิดผิดแต่ truthy (เช่น int) → e_rows.sort เทียบ str/int → TypeError (reporting_p2 ชีต Error
+    Report) — [M4] เดิม coerce เฉพาะ falsy จึงไม่กัน. • C2 iv_date truthy แต่ไม่ใช่ date (str/float Excel serial จาก
+    บิลเพี้ยน) → _clean_period ทำ d.year → AttributeError (เส้นคลีนเรียก 6 จุด; _sk ข้าง ๆ การ์ด getattr แล้วแต่
+    _clean_period ไม่) • C3 master_key ไม่ใช่ str → sorted ใน _clean_sheet_summary เทียบ str/float → TypeError
+    • C4 ค่า item non-scalar (qty เป็น list ฯลฯ) → openpyxl ValueError 'Cannot convert … to Excel'
+    • C6 (สิ่งแวดล้อม — playbook จัดว่าน่าจะพบบ่อยสุด): PermissionError/OSError ตอน wb.save (ไฟล์รายงานเก่า
+    เปิดค้าง/สิทธิ์ REPORT_DIR/OneDrive) → เดิมข้อความ generic ไม่บอกวิธีแก้.
+  • ตรวจแล้วไม่ใช่ประเด็นบน openpyxl 3.1.5 pin: อักขระควบคุม (_xl_safe [H3] ครอบทุกเซลล์), สตริง >32767
+    (check_string ตัดเอง), ชื่อชีต (literal ≤31 ทั้งหมด), NaN เงิน ([REP-C2]).
+FIX (surgical ตามแนว [A5-FIX]/[M4] — ไม่รื้อ builder ; ทุกตัว no-op กับข้อมูลปกติ):
+  • reporting_p2.build_clean_report pre-pass: str() coerce 5 คีย์ issue เมื่อชนิดไม่ใช่ str (ต่อท้าย [M4] เดิม) — C1
+  • reporting_p1._clean_period: การ์ด getattr year/month → '-' เมื่อไม่ใช่ date (สไตล์เดียวกับ _sk) — C2
+  • reporting_p1._clean_company_label: str(master_key) + str(company) ก่อน strip — C3
+  • reporting_p1._xl_safe: ค่านอก openpyxl KNOWN_TYPES → แปลงเป็นสตริง (ใช้เกณฑ์ของ openpyxl เอง รวม numpy
+    scalar → ค่าที่เคยเขียนได้เขียนเหมือนเดิมเป๊ะ ; เฉพาะค่าที่เดิมครัชเท่านั้นที่เปลี่ยนเป็น str) — C4
+  • reporting_p2.build_clean_report except: จำแนก OSError → ข้อความ "เขียนไฟล์รายงานไม่ได้ … ปิดไฟล์รายงานเก่า
+    ที่เปิดค้าง (เช่น Excel) แล้วตรวจสิทธิ์เขียนโฟลเดอร์รายงาน: {path}" ; prefix "⚠️ สร้างรายงานคลีนล้มเหลว:" คงเดิม
+    ทั้งสองกิ่ง + traceback เต็มพิมพ์เหมือนเดิมทุกกรณี — C6
+พิสูจน์: probe ซ้ำผ่าน wrapper — C1/C2/C3/C4 + รวมพิษ 4 อย่างในบิลเดียว → ok=True ได้ xlsx ชีตครบ (High Risk/
+  บิลซ้ำ conditional ตามข้อมูล) · C6 → ok=False + ข้อความแนะนำ + traceback · โฟลว์ main() LEAN จริงบน fixture:
+  รอบปกติ "✅ ไฟล์รายงาน (คลีน 7 ชีต) บันทึกแล้ว" ; รอบบังคับ PermissionError ตอน save (ล้างโฟลเดอร์รายงานก่อน) →
+  agent_report.txt (มี section หน่วยสินค้า) + company_summary ×3 ยังออกครบ = พฤติกรรม ADR-166 คงอยู่ ·
+  test_a_hardening/test_recheck_20260620/test_report_det/e2e_test เขียว (report-determinism ไม่ขยับ) ·
+  fixture ad0c9dad ไม่ขยับ · lock 8 ตัวเขียว.
+ส่งต่อ (ปิดจบบนเครื่องจริง): รันโฟลว์จริง — ถ้ายังพัง อ่าน traceback ใต้ "⚠️ สร้างรายงานคลีนล้มเหลว" ได้เลย
+  (ตอนนี้ครัชชนิดข้อมูลถูกอุด + ครัชชั้นไฟล์บอกวิธีแก้เอง) ; twin coerce loop ของ export_excel (full mode,
+  reporting_p1) จงใจไม่แตะ — เส้นลูกค้า = LEAN เท่านั้น และ full mode มี _df_safe ชั้นของตัวเอง.
+ขอบเขต: reporting_p1.py (_xl_safe · _clean_period · _clean_company_label · import KNOWN_TYPES) ·
+  reporting_p2.py (pre-pass str coerce + except จำแนก OSError ใน build_clean_report) · ADR นี้.

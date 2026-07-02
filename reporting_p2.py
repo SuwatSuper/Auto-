@@ -351,9 +351,22 @@ def build_clean_report(all_bills, summary, iv_issues, typos, filename_issues, pa
                 _i['code'] = _i.get('code') or 'UNKNOWN'; _i['severity'] = _i.get('severity') or 'INFO'
                 _i['category'] = _i.get('category') or '-'; _i['detail'] = _i.get('detail') or ''
                 _i['name'] = _i.get('name') or _i.get('code') or ''
+                # [ADR-168/BUG-2 C1] กันค่า "ชนิดผิดแต่ truthy" ด้วย (M4 เดิมกันเฉพาะ falsy — code เป็น int
+                #   จาก addon/external → e_rows.sort เทียบ str กับ int → TypeError ล้มทั้ง workbook).
+                #   str() = no-op กับ issue ปกติ (engine เติม str ครบ 5 คีย์อยู่แล้ว) → รายงาน/golden ไม่ขยับ.
+                for _k in ('code', 'severity', 'category', 'detail', 'name'):
+                    if not isinstance(_i[_k], str): _i[_k] = str(_i[_k])
         return _build_clean_report_impl(all_bills, summary, iv_issues, typos, filename_issues, path)
     except Exception as e:
-        print(f'⚠️ สร้างรายงานคลีนล้มเหลว: {e}')
+        # [ADR-168/BUG-2 C6] PermissionError/OSError = ชั้นไฟล์/สิทธิ์ (มักเกิดตอน wb.save: ไฟล์รายงานเก่า
+        #   เปิดค้างใน Excel / สิทธิ์เขียนโฟลเดอร์รายงาน / OneDrive-Controlled Folder Access / ดิสก์เต็ม)
+        #   → บอกวิธีแก้ตรง ๆ (ชื่อไฟล์มี timestamp ต่อวินาที จึงมักเป็นสิทธิ์/นโยบายโฟลเดอร์ ไม่ใช่ชื่อไฟล์ชน).
+        #   traceback เต็มยังพิมพ์เหมือนเดิมทุกกรณี — ใช้วินิจฉัยต่อได้.
+        if isinstance(e, OSError):
+            print(f'⚠️ สร้างรายงานคลีนล้มเหลว: เขียนไฟล์รายงานไม่ได้ ({e}) — ปิดไฟล์รายงานเก่าที่เปิดค้าง (เช่น Excel) '
+                  f'แล้วตรวจสิทธิ์เขียนโฟลเดอร์รายงาน: {path}')
+        else:
+            print(f'⚠️ สร้างรายงานคลีนล้มเหลว: {e}')
         traceback.print_exc()
         return False
 
