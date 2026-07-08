@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Generated run artifacts (ผลลัพธ์รันจริง — ไม่ commit)
+in_sample_survivors.csv
+out_of_sample_validation.csv
+confirmed_strategies.csv
+weekly_signals.csv
+weekly_verdict.csv
+dashboard.html
+
+# NOTE: trade_journal.csv = track record จริงของผู้ใช้ — ถ้าต้องการเก็บประวัติ
+# ให้ commit เอง หรือชี้ JOURNAL_PATH ไป Google Drive (ดู README)
+trade_journal.csv

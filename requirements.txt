@@ -1,0 +1,10 @@
+# SET Weekly Stat-Edge Finder — dependencies
+# Core (จำเป็นต่อการค้นหา/backtest/validate/journal/dashboard)
+numpy>=1.24
+pandas>=2.0
+
+# Data layer (จำเป็นเฉพาะตอนดึงราคาสดใน main(); ทดสอบ/แบ็กเทสต์ไม่ต้องใช้)
+yfinance>=0.2.40
+
+# Test suite
+pytest>=7.4
