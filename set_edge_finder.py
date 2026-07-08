@@ -25,12 +25,15 @@ v2 แก้ด้วยการเพิ่ม "ตระกูลกลยุ
   * FACT: yfinance Daily=5y (intraday จำกัด ~730 วัน) — ใช้ Daily ตรงกับรายสัปดาห์.
   * ถ้ายังได้ 0 = ผลจริง ไม่ใช่บั๊ก. ระบบจะบอกตรง ๆ.
 
-การเคลียร์บั๊ก & edge cases (v9 hardening — ผ่านเทสต์ 64 เคส บน numpy2/pandas3):
+การเคลียร์บั๊ก & edge cases (hardening — ผ่านเทสต์ 70 เคส บน numpy2/pandas3):
   * [สูง] ราคาเสีย 0/ติดลบ (tick ผิด) -> guard entry>0 กันหารศูนย์ -> inf/NaN ปนเปื้อนสถิติ.
   * [กลาง] สัญญาณชนกันในแท่งเดียว (High>=TP และ Low<=SL) -> SL ชนะ (นับเป็นแพ้, ซื่อสัตย์)
            ควบคุมด้วย TIE_BREAK_SL_WINS — ทั้งใน backtest และ resolver ให้ตรงกัน.
+  * [ร้าย/crash] journal เก่าที่ขาดคอลัมน์ -> int(NaN) เดิม crash; ใช้ _safe_int/_safe_float.
+  * [กลาง/perf] iter_combos dedup ด้วย int เดียว (แทน tuple 21 มิติ) -> ลด RAM ~5-10 เท่า.
   * [ต่ำ] ATR=0 (ราคานิ่ง) -> guard กัน TP=entry -> "ชนะทันที" จอมปลอม.
   * [ต่ำ] prev close=0 -> guard GapPct กัน inf (fam5); แก้ HTML tile ที่ malformed.
+  * fetch_prices: จัดการ timezone ปลอดภัย + retry + ตัดแถวราคา<=0/NaN/ซ้ำก่อนเข้าระบบ.
   * Strictly non-repainting: พิสูจน์ prefix==full ทั้ง 7 family (test_strictly_non_repainting).
 
 วิธีใช้บน Colab:
@@ -154,7 +157,20 @@ SPACE = dict(
 
 
 # ================================================ DATA LAYER (Layer 3 — Infra)
-def fetch_prices(tickers=TICKERS) -> pd.DataFrame:
+def _to_naive_datetime(s: pd.Series) -> pd.Series:
+    """แปลงเป็น datetime แบบ tz-naive อย่างปลอดภัย — รองรับทั้ง tz-aware และ naive.
+    yfinance คืน index แบบ tz-aware; แต่บางแหล่ง/บางเวอร์ชันคืน naive -> tz_localize(None)
+    เดิมจะ crash. ตรวจ tz ก่อนแล้วเลือก convert/localize ให้ถูก."""
+    dt = pd.to_datetime(s)
+    tz = getattr(dt.dt, "tz", None)
+    if tz is not None:
+        return dt.dt.tz_convert(None) if hasattr(dt.dt, "tz_convert") else dt.dt.tz_localize(None)
+    return dt
+
+
+def fetch_prices(tickers=TICKERS, retries: int = 3) -> pd.DataFrame:
+    """ดึงราคาสด (Layer 3 — infra, แตะ network เท่านั้น).
+    retries: ลองซ้ำต่อ ticker เมื่อ network สะดุด (exponential-ish backoff)."""
     try:
         import yfinance as yf
     except ImportError as e:
@@ -162,22 +178,39 @@ def fetch_prices(tickers=TICKERS) -> pd.DataFrame:
     parts, ok, failed = [], [], []
     print(f"[{datetime.now():%H:%M:%S}] ดึงข้อมูลสด {len(tickers)} ตัว ...", flush=True)
     for t in tickers:
+        d = None
+        for attempt in range(1, max(1, retries) + 1):
+            try:
+                d = yf.Ticker(t + ".BK").history(period="5y", interval="1d", auto_adjust=False)
+                break
+            except Exception as e:                       # network/transient -> ลองใหม่
+                if attempt >= retries:
+                    print(f"  [!] {t}: {e}", flush=True)
+                else:
+                    time.sleep(min(2 ** attempt, 8))
+        if d is None or d.empty:
+            failed.append(t); continue
         try:
-            d = yf.Ticker(t + ".BK").history(period="5y", interval="1d", auto_adjust=False)
-            if d.empty:
-                failed.append(t); continue
             if isinstance(d.columns, pd.MultiIndex):
                 d.columns = d.columns.get_level_values(0)
             d = d.reset_index()
-            d["Date"] = pd.to_datetime(d[d.columns[0]]).dt.tz_localize(None)
+            d["Date"] = _to_naive_datetime(d[d.columns[0]])
             d["Ticker"] = t
-            parts.append(d[["Ticker", "Date", "Open", "High", "Low", "Close", "Volume"]])
-            ok.append(t)
+            sub = d[["Ticker", "Date", "Open", "High", "Low", "Close", "Volume"]].copy()
+            # ตัดแถวข้อมูลเสีย: ราคา/วันที่ NaN หรือราคา <= 0 (กันหลุดเข้า backtest)
+            price_cols = ["Open", "High", "Low", "Close"]
+            sub = sub.dropna(subset=["Date"] + price_cols)
+            sub = sub[(sub[price_cols] > 0).all(axis=1)]
+            if sub.empty:
+                failed.append(t); continue
+            parts.append(sub); ok.append(t)
         except Exception as e:
-            failed.append(t); print(f"  [!] {t}: {e}", flush=True)
+            failed.append(t); print(f"  [!] {t} (parse): {e}", flush=True)
     if not parts:
         raise RuntimeError("ดึงข้อมูลไม่สำเร็จเลย")
     df = pd.concat(parts, ignore_index=True).sort_values(["Ticker", "Date"]).reset_index(drop=True)
+    # กันแถวซ้ำ (Ticker, Date) ที่บางครั้ง yfinance คืนมา
+    df = df.drop_duplicates(subset=["Ticker", "Date"], keep="last").reset_index(drop=True)
     print(f"  สำเร็จ {len(ok)} | ล้มเหลว {len(failed)}: {failed if failed else '-'}")
     print(f"  ช่วง: {df['Date'].min():%Y-%m-%d} ถึง {df['Date'].max():%Y-%m-%d} | {len(df):,} แถว")
     return df
@@ -451,6 +484,10 @@ def evaluate(cols, p) -> dict:
 
 
 def iter_combos(n_target: int, seed: int):
+    """สุ่ม combo พารามิเตอร์แบบไม่ซ้ำ (deterministic ต่อ seed).
+    เดิม dedup ด้วย set ของ tuple 21 มิติ -> 3M combo กิน RAM ~1GB (เสี่ยง OOM บน Colab).
+    แก้ [กลาง/perf]: dedup ด้วย 'ดัชนีจำนวนเต็มเดียว' ต่อ combo (set ของ int) แล้ว
+    ถอดรหัสแบบ mixed-radix -> ลด RAM ~5-10 เท่า, การกระจายยังสม่ำเสมอเท่าเดิม."""
     keys = list(SPACE.keys())
     sizes = [len(SPACE[k]) for k in keys]
     total = 1
@@ -460,13 +497,20 @@ def iter_combos(n_target: int, seed: int):
         yield from itertools.product(*[SPACE[k] for k in keys])
         return
     rng = np.random.default_rng(seed)
-    seen = set()
+    seen = set()                       # เก็บ int (เบากว่า tuple มาก)
+    n_dims = len(sizes)
     while len(seen) < n_target:
-        pick = tuple(int(rng.integers(0, s)) for s in sizes)
-        if pick in seen:
+        r = int(rng.integers(0, total))
+        if r in seen:
             continue
-        seen.add(pick)
-        yield tuple(SPACE[keys[i]][pick[i]] for i in range(len(keys)))
+        seen.add(r)
+        # ถอด r -> ดัชนีแต่ละมิติ (mixed-radix): บิเจกชัน r <-> combo หนึ่งเดียว
+        combo = [None] * n_dims
+        x = r
+        for i in range(n_dims - 1, -1, -1):
+            x, digit = divmod(x, sizes[i])
+            combo[i] = SPACE[keys[i]][digit]
+        yield tuple(combo)
 
 
 def run_search(data: pd.DataFrame, n_target: int, seed: int) -> pd.DataFrame:
@@ -770,6 +814,25 @@ def save_journal(j: pd.DataFrame, path: str = JOURNAL_PATH) -> None:
     j.to_csv(path, index=False)
 
 
+def _safe_int(val, default: int) -> int:
+    """แปลงเป็น int อย่างปลอดภัย — NaN/None/ค่าเสีย -> default (กัน int(NaN) crash)."""
+    try:
+        if val is None or (isinstance(val, float) and not np.isfinite(val)) or pd.isna(val):
+            return default
+        return int(float(val))
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_float(val) -> float:
+    """แปลงเป็น float อย่างปลอดภัย — ค่าเสีย -> NaN (ให้ผู้เรียกตัดสินใจต่อ)."""
+    try:
+        f = float(val)
+        return f
+    except (ValueError, TypeError):
+        return float("nan")
+
+
 def resolve_journal(journal: pd.DataFrame, raw: pd.DataFrame) -> pd.DataFrame:
     """ตัดสินผลออร์เดอร์ PENDING ด้วยราคาสดที่เพิ่งดึง — กติกาเดียวกับ backtest เป๊ะ:
     market: เข้าที่ Open แท่งแรกหลังวันสัญญาณ, TP เช็คก่อน SL ทุกแท่ง
@@ -794,18 +857,28 @@ def resolve_journal(journal: pd.DataFrame, raw: pd.DataFrame) -> pd.DataFrame:
         fut = g[pd.to_datetime(g["Date"]) > pd.to_datetime(row["signal_date"])].reset_index(drop=True)
         if fut.empty:
             continue
-        hold = int(row["hold_days"])
-        tp, sl = float(row["sell_tp"]), float(row["stop_sl"])
-        emode = int(row["entry_mode"])
+        # crash guard [ร้าย]: journal เก่าที่ขาดคอลัมน์ -> load_journal เติม NaN ->
+        # int(NaN) เดิม crash (ValueError). ใช้ค่า default ที่ปลอดภัยแทน
+        hold = _safe_int(row["hold_days"], default=5)
+        emode = _safe_int(row["entry_mode"], default=0)
+        tp, sl = _safe_float(row["sell_tp"]), _safe_float(row["stop_sl"])
+        # ถ้า tp/sl เสีย (NaN) ตัดสินผลไม่ได้ -> คง PENDING ไว้ (ไม่เดา)
+        if not (np.isfinite(tp) and np.isfinite(sl)):
+            continue
         if emode == 0:
             entry = float(fut["Open"].iloc[0])
             start_k, skip_tp_first = 0, False
         else:
-            if float(fut["Low"].iloc[0]) > float(row["buy_ref"]):
+            buy_ref = _safe_float(row["buy_ref"])
+            if not (np.isfinite(buy_ref) and buy_ref > MIN_VALID_PRICE):
+                continue                    # buy_ref เสีย -> ตัดสินไม่ได้ คง PENDING
+            if float(fut["Low"].iloc[0]) > buy_ref:
                 j.loc[idx, "status"] = "NOT_FILLED"
                 continue
-            entry = float(row["buy_ref"])
+            entry = buy_ref
             start_k, skip_tp_first = 0, True
+        if not (np.isfinite(entry) and entry > MIN_VALID_PRICE):
+            continue                        # entry เสีย (Open=0/NaN) -> คง PENDING
         outcome, exit_price, exit_date = None, None, None
         n_avail = min(hold, len(fut))
         for k in range(start_k, n_avail):

@@ -115,7 +115,7 @@ Stochastic และ ADX ป้องกันหารศูนย์ด้ว�
 
 ## 4. การเคลียร์บั๊ก & Edge Cases
 
-ระบบผ่านเทสต์ 64 เคส และจัดการเคสสุดขอบต่อไปนี้แบบชัดเจน:
+ระบบผ่านเทสต์ 70 เคส และจัดการเคสสุดขอบต่อไปนี้แบบชัดเจน:
 
 | เคส | การจัดการ |
 |---|---|
@@ -174,7 +174,7 @@ python set_edge_finder.py          # ต้องต่อ internet (ดึง�
 ### รันเทสต์ (ไม่ต้องต่อ internet)
 ```bash
 pip install -r requirements.txt
-pytest -q                          # 64 passed
+pytest -q                          # 70 passed
 ```
 
 ### จังหวะใช้จริง
@@ -198,6 +198,6 @@ pytest -q                          # 64 passed
 | ไฟล์ | หน้าที่ |
 |---|---|
 | `set_edge_finder.py` | ระบบทั้งหมด (single-file, copy-paste รันได้) |
-| `test_set_edge_finder.py` | ชุดทดสอบ 64 เคส (unit + edge + non-repaint proof) |
+| `test_set_edge_finder.py` | ชุดทดสอบ 70 เคส (unit + edge + non-repaint proof) |
 | `requirements.txt` | dependencies |
 | `.gitignore` | กันไฟล์ผลลัพธ์/venv หลุดเข้า git |

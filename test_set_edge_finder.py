@@ -713,6 +713,56 @@ def test_tie_policy_config_default_is_honest():
     assert sef.TIE_BREAK_SL_WINS is True                      # ค่าเริ่มต้นต้องเป็นแบบซื่อสัตย์
 
 
+def test_safe_int_handles_nan_and_junk():
+    assert sef._safe_int(np.nan, default=5) == 5
+    assert sef._safe_int(None, default=7) == 7
+    assert sef._safe_int("bad", default=3) == 3
+    assert sef._safe_int(10.0, default=0) == 10
+    assert sef._safe_int(np.inf, default=5) == 5
+
+
+def test_safe_float_handles_junk():
+    assert sef._safe_float("bad") != sef._safe_float("bad")   # NaN != NaN
+    assert sef._safe_float(2.5) == 2.5
+
+
+def test_resolve_journal_legacy_missing_cols_no_crash():
+    # journal เก่าที่ขาด entry_mode/hold_days -> load เติม NaN -> เดิม int(NaN) crash
+    row = _journal_row()
+    row.loc[0, "entry_mode"] = np.nan
+    row.loc[0, "hold_days"] = np.nan
+    raw = _price_frame("X", ["2026-01-02", "2026-01-05", "2026-01-06"],
+                       o=[99, 100, 101], h=[99, 106, 101], l=[99, 98, 100], c=[99, 104, 101])
+    j = sef.resolve_journal(row, raw)          # ต้องไม่ throw
+    assert j.iloc[0]["status"] == "FILLED_TP"  # default entry_mode=0 (market) -> resolvable
+
+
+def test_resolve_journal_broken_tp_sl_stays_pending():
+    # sell_tp/stop_sl เสีย (NaN) -> ตัดสินไม่ได้ ต้องคง PENDING (ไม่เดา/ไม่ crash)
+    row = _journal_row(sell_tp=np.nan, stop_sl=np.nan)
+    raw = _price_frame("X", ["2026-01-02", "2026-01-05"],
+                       o=[99, 100], h=[99, 106], l=[99, 98], c=[99, 104])
+    j = sef.resolve_journal(row, raw)
+    assert j.iloc[0]["status"] == "PENDING"
+
+
+def test_iter_combos_mixed_radix_valid_across_space():
+    # ทุกค่าที่ถอดรหัสต้องอยู่ใน SPACE จริง (บิเจกชันถูกต้อง ไม่หลุดขอบ)
+    keys = list(sef.SPACE.keys())
+    for combo in sef.iter_combos(1500, seed=9):
+        assert len(combo) == len(keys)
+        for k, v in zip(keys, combo):
+            assert v in sef.SPACE[k]
+
+
+def test_to_naive_datetime_tz_aware_and_naive():
+    aware = pd.Series(pd.to_datetime(["2024-01-01", "2024-01-02"]).tz_localize("Asia/Bangkok"))
+    naive = pd.Series(pd.to_datetime(["2024-01-01", "2024-01-02"]))
+    for s in (aware, naive):
+        out = sef._to_naive_datetime(s)
+        assert getattr(out.dt, "tz", None) is None    # ต้องได้ naive เสมอ ไม่ crash
+
+
 def test_strictly_non_repainting_all_families():
     # ข้อกำหนดหลัก: สัญญาณที่แท่ง t ต้องไม่เปลี่ยนเมื่อมีข้อมูลอนาคตมาต่อ.
     # พิสูจน์: signal(prefix[0..t]).last == signal(full)[t] สำหรับทุก family.
