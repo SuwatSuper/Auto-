@@ -263,6 +263,49 @@
   .countdown .cd-t{font-size:12.5px;color:var(--soft)}
   .countdown .cd-v{font-size:15px;font-weight:600;margin-top:1px}
   .countdown .cd-v small{font-size:11px;font-weight:400;color:var(--faint)}
+  /* ===== Multi-Agent Advisory Board (v5.5) ===== */
+  .sevpill{display:inline-block;font-size:10px;font-weight:700;padding:1px 8px;border-radius:99px}
+  .sevpill.r{background:rgba(214,69,69,.15);color:#D64545}
+  .sevpill.y{background:rgba(201,138,0,.18);color:#B8860B}
+  .sevpill.g{background:var(--card-2);color:var(--soft);border:1px solid var(--line)}
+  #appRoot:not(.light) .sevpill.y{color:#E6B84C}
+  .confb{display:inline-block;font-size:9.5px;font-weight:600;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--faint);margin-left:4px;vertical-align:1px;white-space:nowrap}
+  .confb.g{color:var(--green);border-color:var(--green)}
+  .confb.y{color:#B8860B;border-color:rgba(201,138,0,.5)}
+  .confb.r{color:#D64545;border-color:rgba(214,69,69,.5)}
+  #appRoot:not(.light) .confb.y{color:#E6B84C}
+  .stb{display:inline-block;font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:6px;margin-left:2px;white-space:nowrap}
+  .stb.g{background:var(--green-dim);color:var(--green)}
+  .stb.y{background:rgba(201,138,0,.15);color:#B8860B}
+  .stb.r{background:var(--red-dim);color:#D64545}
+  #appRoot:not(.light) .stb.y{color:#E6B84C}
+  .asec{margin-top:10px}
+  .asech{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink);margin-bottom:4px}
+  .alist{margin:0;padding:0;list-style:none}
+  .alist li{font-size:12.6px;line-height:1.55;padding:3px 0 3px 15px;position:relative;color:var(--ink)}
+  .alist li:before{content:"•";position:absolute;left:3px;color:var(--gold-2)}
+  .riskrow{border:1px solid var(--line);border-left-width:3px;border-radius:9px;padding:9px 11px;margin-bottom:8px;background:var(--card-2)}
+  .riskrow.r{border-left-color:#D64545}
+  .riskrow.y{border-left-color:#C98A00}
+  .riskrow.g{border-left-color:var(--faint)}
+  .rk-h{font-size:12.8px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .rk-b{margin-top:5px;font-size:12px;line-height:1.6;color:var(--soft)}
+  .rk-b b{color:var(--ink);font-weight:600}
+  .agentcard{border:1px solid var(--line);border-radius:11px;margin-bottom:9px;background:var(--card-2);overflow:hidden}
+  .agentcard>summary{list-style:none;cursor:pointer;padding:11px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .agentcard>summary::-webkit-details-marker{display:none}
+  .agentcard>summary:hover{background:var(--gold-dim)}
+  .ag-em{font-size:18px;line-height:1;flex:none}
+  .ag-nm{font-weight:600;font-size:13px;display:flex;flex-direction:column;line-height:1.2;margin-right:auto}
+  .ag-nm small{font-size:10px;font-weight:400;color:var(--faint)}
+  .ag-body{padding:4px 12px 13px;border-top:1px solid var(--line)}
+  .ceo-top{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
+  .ceo-badge{border:2px solid;border-radius:12px;padding:10px 15px;display:flex;flex-direction:column;justify-content:center;min-width:118px}
+  .cb-l{font-size:10px;letter-spacing:.04em;opacity:.85}
+  .cb-v{font-size:22px;font-weight:700;line-height:1.05;margin-top:2px}
+  .databars{display:grid;grid-template-columns:1fr 1fr;gap:7px 16px}
+  @media(max-width:520px){.databars{grid-template-columns:1fr}.ceo-badge{min-width:0;width:100%}}
+  .dbar-l{display:flex;justify-content:space-between;font-size:11.5px;color:var(--soft);margin-bottom:3px}
   @media(prefers-reduced-motion:reduce){#appRoot *{animation:none!important;transition:none!important}.bar i,.progress i{width:var(--w)!important}}
 </style>
 
@@ -293,6 +336,7 @@
     <button class="tab" role="tab" aria-selected="false" data-t="life"><span class="ic">🗓️</span><span class="lb">ตาราง/เอกสาร</span></button>
     <button class="tab" role="tab" aria-selected="false" data-t="goal"><span class="ic">🎯</span><span class="lb">เป้าหมาย</span></button>
     <button class="tab" role="tab" aria-selected="false" data-t="fin"><span class="ic">📑</span><span class="lb">งบการเงิน</span></button>
+    <button class="tab" role="tab" aria-selected="false" data-t="board"><span class="ic">🧠</span><span class="lb">ที่ปรึกษา</span></button>
     <button class="tab" role="tab" aria-selected="false" data-t="set"><span class="ic">⚙️</span><span class="lb">ตั้งค่า</span></button>
   </nav>
 
@@ -535,6 +579,29 @@
       <div class="card"><div class="eyebrow"><span class="ic">💎</span>Net Worth Trend</div><h2>แนวโน้มความมั่งคั่งสุทธิ <span class="hint">เก็บอัตโนมัติทุกเดือน</span></h2><div id="nwTrendBox"></div></div>
       <div class="card"><h2><span class="h2ic">📊</span>เปรียบเทียบรายเดือน</h2><div id="trendBox"></div></div>
       <div class="card"><h2><span class="h2ic">📅</span>สรุปรายปี</h2><div id="yearBox"></div></div>
+    </section>
+
+    <section id="board" hidden>
+      <div class="card">
+        <div class="eyebrow"><span class="ic">🧠</span>Multi-Agent Advisory</div>
+        <h2>คณะที่ปรึกษา AI <span class="hint">วิเคราะห์จากข้อมูลจริงในเครื่อง · ไม่เดา ไม่แต่งข้อมูล</span></h2>
+        <div id="ceoBox"></div>
+      </div>
+      <div class="card"><h2><span class="h2ic">🔎</span>ตรวจสอบความน่าเชื่อถือของข้อมูล <span class="hint">Data Verification Agent</span></h2><div id="verifyBox"></div></div>
+      <div class="card"><h2><span class="h2ic">🛡️</span>ทะเบียนความเสี่ยง <span class="hint">เรียงตามความรุนแรง</span></h2><div id="riskBox"></div></div>
+      <div class="card">
+        <h2><span class="h2ic">👥</span>รายงานรายเอเจนต์ <span class="hint">แตะเพื่อขยาย</span></h2>
+        <div class="chips" id="agentChips"></div>
+        <div id="agentsBox"></div>
+      </div>
+      <div class="card">
+        <h2><span class="h2ic">📄</span>ส่งออกรายงาน</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost sm" id="copyReport">📋 คัดลอกรายงาน</button>
+          <button class="btn ghost sm" id="dlReport">💾 ดาวน์โหลด .txt</button>
+        </div>
+        <p class="note" style="margin-top:9px">รายงานนี้เป็นการวิเคราะห์เชิงตัวเลขจากข้อมูลที่คุณบันทึกเท่านั้น — ไม่ใช่คำแนะนำการเงิน/การลงทุน/สุขภาพ/กฎหมาย · จุดที่ระบุ "ข้อมูลไม่เพียงพอ" คือระบบยังสรุปไม่ได้จริง ไม่ได้แปลว่าปลอดภัย</p>
+      </div>
     </section>
 
     <section id="set" hidden>
@@ -1776,7 +1843,7 @@
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='Tor Life OS v5.4 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v5.5 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
   }
 
   /* ---------- edit entry modal ---------- */
@@ -1824,6 +1891,483 @@
     save().then(function(){closeEdit();render();renderBadges(false);toast('แก้ไขรายการแล้ว');});
   }
 
+  /* ================= Multi-Agent Advisory Engine (v5.5) =================
+     หลักการ: ความถูกต้องมาก่อนความมั่นใจ · ใช้ข้อมูลจริงในเครื่องเท่านั้น
+     ไม่เดา ไม่แต่งตัวเลข · ระบุ "ข้อมูลไม่เพียงพอ" เมื่อฟิลด์ที่ต้องใช้ว่าง
+     ทุกข้อสรุปมี basis (อ้างอิงตัวเลขจริง) + ระดับความเชื่อมั่น         */
+  var SEV_RANK={'ร้าย':3,'กลาง':2,'ต่ำ':1};
+  var DISC_FIN='การวิเคราะห์การเงินนี้อ้างอิงเฉพาะข้อมูลที่บันทึกในแอป ไม่ใช่คำแนะนำการลงทุน';
+  var DISC_TAX='ประเมินคร่าว ๆ จากรายรับที่บันทึกเท่านั้น ไม่ใช่คำแนะนำภาษี — ควรปรึกษานักบัญชี/สรรพากร';
+  var DISC_LEGAL='เป็นการเตือนกำหนดจากข้อมูลที่บันทึก ไม่ใช่คำปรึกษาทางกฎหมาย';
+  var DISC_HEALTH='เป็นการสรุปตัวเลขที่บันทึก ไม่ใช่คำวินิจฉัยทางการแพทย์ — พบแพทย์เมื่อมีอาการ';
+  function confOf(p){return p>=0.8?'สูง':p>=0.45?'กลาง':'ต่ำ';}
+  function nfmt(v){return (v<0?'−':'')+fmt(Math.abs(v));}
+  function pct(x){return Math.round(x*100);}
+  function mkRep(id,emoji,name,domain){
+    return {id:id,emoji:emoji,name:name,domain:domain,status:'ok',confidence:'กลาง',
+      completeness:1,facts:[],analysis:[],risks:[],recs:[],missing:[],notes:[]};}
+  function finish(r,have,need){
+    r.completeness=need>0?have/need:1;
+    r.confidence=confOf(r.completeness);
+    if(have===0||r.completeness<0.25)r.status='insufficient';
+    else if(r.completeness<0.6)r.status='partial';
+    return r;
+  }
+  function risk(sev,title,basis,impact,action){return {sev:sev,title:title,basis:basis,impact:impact,action:action};}
+  function rec(text,basis,conf){return {text:text,basis:basis,conf:conf};}
+
+  function agentCtx(){
+    var now=new Date();
+    var cm=monthRows(now);
+    var inc=sumT(cm,'income'),ex=sumT(cm,'expense'),sv=sumT(cm,'saving');
+    var A=db.assets.reduce(function(s,a){return s+num(a.v);},0);
+    var D=db.debts.reduce(function(s,d){return s+num(d.v);},0);
+    var msSet={};db.entries.forEach(function(e){msSet[String(e.date).slice(0,7)]=1;});
+    var monthsWithData=Object.keys(msSet).length;
+    var finAvg=finishedMonthAvgExpense();
+    var budgetTotal=catList('expense').reduce(function(s,c){return s+num(c.b);},0);
+    var base=finAvg>0?finAvg:budgetTotal;
+    var ef=efValue(),efTarget=num(db.settings.efTarget);
+    var runway=base>0?ef/base:null;
+    var saveRate=inc>0?sv/inc:null;
+    var topIncName='',topIncVal=0;
+    catNames('income').forEach(function(n){var v=sumCat(cm,'income',n);if(v>topIncVal){topIncVal=v;topIncName=n;}});
+    var incConc=inc>0?topIncVal/inc:null;
+    var cy=String(now.getFullYear());
+    var yearInc=0,yearEx=0;
+    db.entries.forEach(function(e){
+      if(String(e.date).slice(0,4)===cy){
+        if(e.type==='income')yearInc+=num(e.amount);
+        if(e.type==='expense')yearEx+=num(e.amount);}});
+    return {now:now,cm:cm,inc:inc,ex:ex,sv:sv,A:A,D:D,nw:A-D,monthsWithData:monthsWithData,
+      finAvg:finAvg,budgetTotal:budgetTotal,base:base,ef:ef,efTarget:efTarget,runway:runway,
+      saveRate:saveRate,incConc:incConc,topIncName:topIncName,topIncVal:topIncVal,
+      contractDays:daysUntil(db.settings.contractEnd),cy:cy,yearInc:yearInc,yearEx:yearEx};
+  }
+
+  /* ---- domain agents ---- */
+  function agAccounting(ctx){
+    var r=mkRep('accounting','📒','Accounting Agent','บัญชี');
+    var orph=orphan(ctx.cm,'expense')+orphan(ctx.cm,'income')+orphan(ctx.cm,'saving');
+    var withItem=db.entries.filter(function(e){return e.item;}).length;
+    var itemRate=db.entries.length?withItem/db.entries.length:0;
+    var have=0,need=3;
+    if(db.entries.length>0)have++;else r.missing.push('ยังไม่มีรายการบัญชีเลย');
+    if(ctx.inc>0)have++;else r.missing.push('ยังไม่บันทึกรายรับเดือนนี้');
+    if(ctx.monthsWithData>=1)have++;
+    r.facts.push('รายการทั้งหมด '+db.entries.length+' รายการ · มีข้อมูล '+ctx.monthsWithData+' เดือน');
+    r.facts.push('รายการที่ระบุชื่อสินค้า/รายการ '+pct(itemRate)+'% (ตามรอยราคาย้อนหลังได้)');
+    if(orph>0){
+      r.risks.push(risk('กลาง','มีเงินค้างในหมวดที่ถูกลบ','ยอดในหมวดถูกลบเดือนนี้ '+fmt(orph)+' บาท',
+        'ตัวเลขงบยังนับรวมแต่ระบุหมวดไม่ได้ ทำให้จัดประเภทเพี้ยน','ย้ายไปหมวดที่ถูกต้อง หรือสร้างหมวดเดิมกลับ'));
+    }
+    if(itemRate<0.5&&db.entries.length>=5)
+      r.recs.push(rec('ใส่ชื่อรายการ/สินค้าให้ครบทุกครั้ง','ตอนนี้กรอกชื่อแค่ '+pct(itemRate)+'%',confOf(r.completeness)));
+    if(ctx.monthsWithData>=1)r.analysis.push('บันทึกต่อเนื่องพอจะเปิดงบเปรียบเทียบรายเดือนได้แล้ว');
+    r.notes.push('หน้าที่: ตรวจความครบถ้วน/คุณภาพการบันทึก ก่อนส่งตัวเลขให้เอเจนต์อื่น');
+    return finish(r,have,need);
+  }
+
+  function agFinance(ctx){
+    var r=mkRep('finance','💰','Finance Agent','การเงิน');
+    var have=0,need=4;
+    if(ctx.inc>0)have++;else r.missing.push('รายรับเดือนนี้ = 0 → อัตราการออม/กระแสเงินสดยังเชื่อไม่ได้');
+    if(ctx.cm.length>0)have++;else r.missing.push('ยังไม่มีรายการเดือนนี้');
+    if(ctx.base>0)have++;else r.missing.push('ยังไม่มีงบหรือประวัติรายจ่ายพอคำนวณรันเวย์');
+    if(ctx.monthsWithData>=1)have++;else r.missing.push('ยังไม่มีเดือนที่ปิดจบเพื่อใช้เป็นฐาน');
+    if(ctx.cm.length){
+      var netc=ctx.inc-ctx.ex-ctx.sv;
+      r.facts.push('เดือนนี้ — รายรับ '+fmt(ctx.inc)+' · รายจ่าย '+fmt(ctx.ex)+' · ออม/ลงทุน '+fmt(ctx.sv)+' บาท');
+      r.facts.push('กระแสเงินสดสุทธิ '+nfmt(netc)+' บาท');
+    }
+    if(ctx.runway!==null)r.facts.push('รันเวย์เงินสำรอง ≈ '+ctx.runway.toFixed(1)+' เดือน (สำรอง '+fmt(ctx.ef)+' ÷ ฐานรายจ่าย '+fmt(Math.round(ctx.base))+'/เดือน)');
+    if(ctx.saveRate!==null)r.facts.push('อัตราการออมเดือนนี้ '+pct(ctx.saveRate)+'% ของรายรับ');
+    if(ctx.runway!==null){
+      if(ctx.runway<3)r.risks.push(risk('ร้าย','รันเวย์เงินสำรองต่ำกว่า 3 เดือน','รันเวย์ ≈ '+ctx.runway.toFixed(1)+' เดือน',
+        'ถ้ารายได้สะดุดจะกระทบค่าใช้จ่ายทันที','เร่งเติมเงินสำรองเป็นลำดับแรก'));
+      else if(ctx.runway<6)r.risks.push(risk('กลาง','รันเวย์ยังไม่ถึง 6 เดือน','รันเวย์ ≈ '+ctx.runway.toFixed(1)+' เดือน',
+        'กันชนความเสี่ยงยังบาง','ทยอยเติมให้ถึง 6 เท่าของรายจ่าย'));
+      else r.analysis.push('รันเวย์อยู่ในเกณฑ์ปลอดภัย (≥6 เดือน)');
+    }
+    if(ctx.inc>0&&(ctx.inc-ctx.ex-ctx.sv)<0)
+      r.risks.push(risk('กลาง','กระแสเงินสดเดือนนี้ติดลบ','สุทธิ '+nfmt(ctx.inc-ctx.ex-ctx.sv)+' บาท',
+        'ต้องดึงเงินเก่ามาชดเชย','ลดรายจ่ายไม่จำเป็น หรือชะลอการออมบางส่วนชั่วคราว'));
+    if(ctx.saveRate!==null&&ctx.saveRate<0.1&&ctx.inc>0)
+      r.risks.push(risk('กลาง','อัตราการออมต่ำกว่า 10%','ออม '+pct(ctx.saveRate)+'% ของรายรับ',
+        'สะสมความมั่งคั่งช้า','ตั้งหักออมอัตโนมัติต้นเดือนก่อนใช้จ่าย'));
+    if(ctx.runway!==null&&ctx.runway<6)
+      r.recs.push(rec('เติมเงินสำรองให้ครบ 6 เดือนของรายจ่าย (~'+fmt(Math.round(ctx.base*6))+' บาท)',
+        'ฐานรายจ่าย '+fmt(Math.round(ctx.base))+'/เดือน · ปัจจุบันมี '+fmt(ctx.ef),confOf(r.completeness)));
+    r.notes.push(DISC_FIN);
+    return finish(r,have,need);
+  }
+
+  function agBusiness(ctx){
+    var r=mkRep('business','💼','Business Agent','ธุรกิจ');
+    var linked=db.entries.filter(function(e){return e.biz;}).length;
+    var have=0,need=2;
+    if(db.businesses.length>0)have++;else r.missing.push('ยังไม่มีธุรกิจในระบบ');
+    if(linked>0)have++;else r.missing.push('ยังไม่มีรายการที่ผูกกับธุรกิจ (รายรับ/รายจ่ายยังแยกรายธุรกิจไม่ได้)');
+    db.businesses.forEach(function(b){
+      var all=bizStats(b.id,db.entries),m=bizStats(b.id,ctx.cm);
+      var pfAll=all.rev-all.exp;
+      r.facts.push(b.n+' — สะสม: รายรับ '+fmt(all.rev)+' · รายจ่าย/ลงทุน '+fmt(all.exp)+' · สุทธิ '+nfmt(pfAll));
+      if(all.rev===0&&all.exp>0){
+        r.analysis.push(b.n+': อยู่ช่วงลงทุน/ก่อนมีรายได้ (ลงไปแล้ว '+fmt(all.exp)+' ยังไม่มีรายรับ) — ยังไม่ถือว่าขาดทุน แต่ต้องมีแผนเวลาคืนทุน');
+      }else if(pfAll<0&&all.rev>0){
+        r.risks.push(risk('กลาง','ธุรกิจ "'+b.n+'" ขาดทุนสะสม','สุทธิสะสม '+nfmt(pfAll)+' บาท',
+          'กินเงินสดรวมของระบบ','ทบทวนต้นทุน/ราคาขาย หรือกำหนดจุดตัดขาดทุน'));
+      }
+    });
+    r.notes.push('ผูกรายการกับธุรกิจตอนกรอก เพื่อให้แยกกำไรรายตัวได้แม่นขึ้น');
+    return finish(r,have,need);
+  }
+
+  function agInvestment(ctx){
+    var r=mkRep('investment','📈','Investment Agent','การลงทุน');
+    var inv=db.assets.filter(function(a){return a.cls==='invest';});
+    var have=0,need=2;
+    if(inv.length>0)have++;else r.missing.push('ยังไม่มีสินทรัพย์ประเภทลงทุน');
+    var costSum=0,valSum=0,changed=false,top=null;
+    inv.forEach(function(a){costSum+=num(a.cost);valSum+=num(a.v);
+      if(num(a.cost)!==num(a.v))changed=true;
+      if(!top||num(a.v)>num(top.v))top=a;});
+    if(changed)have++;else if(inv.length>0)r.missing.push('มูลค่าตลาด = ต้นทุนทุกตัว (ยังไม่เคยอัปเดตราคา → กำไร/ขาดทุนที่แสดงอาจไม่ตรงจริง)');
+    if(inv.length){
+      r.facts.push('พอร์ตลงทุน '+inv.length+' รายการ · ต้นทุนรวม '+fmt(costSum)+' · มูลค่าปัจจุบัน '+fmt(valSum));
+      r.facts.push('กำไร/ขาดทุนยังไม่รับรู้ '+nfmt(valSum-costSum)+' บาท');
+      if(top&&valSum>0){
+        var share=num(top.v)/valSum;
+        r.facts.push('สินทรัพย์ก้อนใหญ่สุด: '+top.n+' = '+pct(share)+'% ของพอร์ตลงทุน');
+        if(share>0.6)r.risks.push(risk('กลาง','พอร์ตกระจุกในสินทรัพย์เดียว',top.n+' = '+pct(share)+'% ของพอร์ต',
+          'ราคาสินทรัพย์นั้นตกจะกระทบพอร์ตหนัก','ทยอยกระจายไปสินทรัพย์อื่น'));
+      }
+      if(!changed)r.analysis.push('ยังไม่เคยอัปเดตมูลค่าตลาด — ตัวเลขกำไร/ขาดทุนจึงเป็น 0 โดยปริยาย ไม่ใช่ผลจริง');
+    }
+    r.notes.push('อัปเดตมูลค่าพอร์ตเดือนละครั้งที่แท็บพอร์ต เพื่อให้แนวโน้มความมั่งคั่งแม่นยำ');
+    r.notes.push(DISC_FIN);
+    return finish(r,have,need);
+  }
+
+  function agTax(ctx){
+    var r=mkRep('tax','🧾','Tax Agent','ภาษี');
+    var have=0,need=2;
+    if(ctx.yearInc>0)have++;else r.missing.push('ยังไม่มีรายรับปีนี้ในระบบ — ประเมินภาษีไม่ได้');
+    if(ctx.monthsWithData>=6)have++;else r.missing.push('ข้อมูลรายรับยังไม่ครบทั้งปี (มี '+ctx.monthsWithData+' เดือน) — ตัวเลขจริงทั้งปีจะสูงกว่านี้');
+    if(ctx.yearInc>0){
+      r.facts.push('รายรับที่ "บันทึกในแอป" ปี '+(Number(ctx.cy)+543)+' = '+fmt(ctx.yearInc)+' บาท (อาจไม่ครบทุกช่องทาง)');
+      if(ctx.yearInc>150000)
+        r.analysis.push('รายรับที่บันทึกเกิน 150,000 บาท — โดยทั่วไปอาจเข้าเกณฑ์ต้องยื่นภาษีเงินได้บุคคลธรรมดา (ภ.ง.ด.90/91) ควรตรวจสอบกับสรรพากร');
+      else
+        r.analysis.push('รายรับที่บันทึกยังไม่ถึง 150,000 บาท แต่ข้อมูลอาจไม่ครบทั้งปี — อย่าเพิ่งสรุปว่าไม่ต้องยื่น');
+      var lifePrem=db.insurances.filter(function(i){return /ชีวิต/.test(i.n);}).reduce(function(s,i){return s+num(i.prem)*12;},0);
+      if(lifePrem>0)r.recs.push(rec('เบี้ยประกันชีวิตใช้ลดหย่อนภาษีได้ (สูงสุด 100,000/ปี)','เบี้ยประกันชีวิตที่บันทึก ~'+fmt(lifePrem)+'/ปี','กลาง'));
+      var ssRate=db.insurances.filter(function(i){return /ประกันสังคม/.test(i.n);}).length;
+      if(ssRate>0)r.recs.push(rec('เงินสมทบประกันสังคมใช้ลดหย่อนได้ตามที่จ่ายจริง','พบรายการประกันสังคมในระบบ','กลาง'));
+      r.recs.push(rec('พิจารณา SSF/RMF เพื่อลดหย่อน หากมีกำไรและสภาพคล่องพอ','อ้างอิงพอร์ตลงทุน/ออมในระบบ','ต่ำ'));
+    }
+    r.notes.push(DISC_TAX);
+    return finish(r,have,need);
+  }
+
+  function agLegal(ctx){
+    var r=mkRep('legal','⚖️','Legal Agent','กฎหมาย/เอกสาร');
+    var have=0,need=2;
+    if(db.docs.length>0)have++;else r.missing.push('ยังไม่มีเอกสารในระบบ');
+    if(db.insurances.length>0)have++;else r.missing.push('ยังไม่มีข้อมูลประกัน/สิทธิ');
+    db.docs.forEach(function(dc){
+      var d=daysUntil(dc.expiry);if(d===null)return;
+      if(d<0)r.risks.push(risk('ร้าย','เอกสารหมดอายุแล้ว: '+dc.n,'หมดอายุ '+thD(dc.expiry)+' (เลยมา '+Math.abs(d)+' วัน)',
+        'เสี่ยงค่าปรับ/ใช้สิทธิไม่ได้ (เช่น ประกันรถไม่คุ้มครองถ้าใบขับขี่ขาด)','เร่งต่ออายุทันที'));
+      else if(d<=45)r.risks.push(risk('กลาง','เอกสารใกล้หมดอายุ: '+dc.n,'อีก '+d+' วัน ('+thD(dc.expiry)+')',
+        'ถ้าลืมต่อจะกลายเป็นความเสี่ยงร้าย','นัดต่ออายุล่วงหน้า'));
+    });
+    db.insurances.forEach(function(i){
+      if(/รอ/.test(i.status||''))r.notes.push('ประกัน/สิทธิรอดำเนินการ: '+i.n+' — '+i.status);
+    });
+    if(ctx.contractDays!==null){
+      if(ctx.contractDays<0)r.notes.push('สัญญาฟรีแลนซ์หมดอายุแล้ว ('+thD(db.settings.contractEnd)+')');
+      else r.facts.push('สัญญาฟรีแลนซ์เหลืออีก '+ctx.contractDays+' วัน (ครบ '+thD(db.settings.contractEnd)+')');
+    }
+    if(!r.risks.length&&db.docs.length)r.analysis.push('เอกสารที่บันทึกยังไม่มีที่หมดอายุ/ใกล้หมดอายุ');
+    r.notes.push(DISC_LEGAL);
+    return finish(r,have,need);
+  }
+
+  function agHealth(ctx){
+    var r=mkRep('health','🩺','Health Agent','สุขภาพ');
+    var logs=db.healthLogs.slice().sort(function(a,b){return String(a.date).localeCompare(String(b.date));});
+    var have=0,need=3;
+    if(logs.length>0)have++;else r.missing.push('ยังไม่มีบันทึกสุขภาพ (น้ำหนัก/นอน/ออกกำลัง)');
+    var ws=logs.filter(function(l){return l.weight!==null;});
+    if(ws.length>=2)have++;else r.missing.push('บันทึกน้ำหนักน้อยกว่า 2 ครั้ง → ดูแนวโน้มไม่ได้');
+    var last7=logs.filter(function(l){var d=daysUntil(l.date);return l.sleep!==null&&d!==null&&d>=-7&&d<=0;});
+    if(last7.length>=3)have++;else r.missing.push('บันทึกการนอน 7 วันล่าสุดน้อยกว่า 3 ครั้ง → เฉลี่ยยังไม่น่าเชื่อถือ');
+    if(ws.length>=2){
+      var dw=ws[ws.length-1].weight-ws[0].weight;
+      r.facts.push('น้ำหนักเปลี่ยน '+(dw>0?'+':'')+fmt1(dw)+' กก. ตั้งแต่เริ่มบันทึก (ล่าสุด '+fmt1(ws[ws.length-1].weight)+' กก.)');
+      if(Math.abs(dw)>=3)r.risks.push(risk('กลาง','น้ำหนักเปลี่ยนแปลงมาก','เปลี่ยน '+(dw>0?'+':'')+fmt1(dw)+' กก.',
+        'อาจสะท้อนพฤติกรรม/สุขภาพที่เปลี่ยน','จับตาต่อเนื่อง ปรึกษาแพทย์ถ้าผิดปกติ'));
+    }
+    if(last7.length>=3){
+      var avgS=last7.reduce(function(s,l){return s+l.sleep;},0)/last7.length;
+      r.facts.push('นอนเฉลี่ย 7 วัน ≈ '+fmt1(avgS)+' ชม./คืน (จาก '+last7.length+' คืนที่บันทึก)');
+      if(avgS<6)r.risks.push(risk('กลาง','นอนเฉลี่ยต่ำกว่า 6 ชม.','เฉลี่ย '+fmt1(avgS)+' ชม./คืน',
+        'เสี่ยงล้า/อาการเรื้อรังกลับมา','จัดเวลานอนให้ถึง 7 ชม.'));
+    }
+    var meds=db.healthItems.filter(function(h){return h.kind==='ยา';});
+    if(meds.length)r.facts.push('ยาที่ติดตาม '+meds.length+' รายการ');
+    db.healthItems.forEach(function(h){if(/ระยะยาว|เรื้อรัง|ถามหมอ|ปรึกษา/.test(h.note||''))
+      r.notes.push('ยา/ผลตรวจที่ควรปรึกษาแพทย์: '+h.n+(h.note?' — '+h.note:''));});
+    r.notes.push(DISC_HEALTH);
+    return finish(r,have,need);
+  }
+
+  function agProductivity(ctx){
+    var r=mkRep('productivity','✅','Productivity Agent','งาน/ตาราง');
+    var have=0,need=1;
+    if(db.todos.length>0)have++;else r.missing.push('ยังไม่มีรายการ to-do');
+    var over=0,soon=0,done=0;
+    db.todos.forEach(function(t){
+      if(t.done){done++;return;}
+      var d=daysUntil(t.due);
+      if(d!==null&&d<0)over++;else if(d!==null&&d<=14)soon++;
+    });
+    if(db.todos.length){
+      r.facts.push('งานทั้งหมด '+db.todos.length+' · เสร็จแล้ว '+done+' · เลยกำหนด '+over+' · ใกล้กำหนด(≤14วัน) '+soon);
+      if(over>0)r.risks.push(risk(over>=3?'ร้าย':'กลาง','มีงานเลยกำหนด '+over+' รายการ','เลยกำหนด '+over+' งาน',
+        'งานค้างสะสม/พลาดกำหนดชำระ','เคลียร์งานเลยกำหนดก่อนเป็นอันดับแรก'));
+      if(soon>0)r.analysis.push('มีงานใกล้กำหนด '+soon+' รายการใน 14 วัน — วางแผนล่วงหน้า');
+    }
+    r.notes.push('งานทำซ้ำรายเดือน (ผ่อนบ้าน/ปิดงบ) จะเลื่อนกำหนดอัตโนมัติเมื่อกดเสร็จ');
+    return finish(r,have,need);
+  }
+
+  function agLearning(ctx){
+    var r=mkRep('learning','📚','Learning Agent','การเรียนรู้');
+    var lg=db.goals.filter(function(g){return g.cat==='การเรียน';});
+    var have=0,need=1;
+    if(lg.length>0){have++;
+      lg.forEach(function(g){var cur=goalCurrent(g),p=num(g.target)>0?cur/num(g.target):0;
+        r.facts.push('เป้าเรียนรู้: '+g.n+' — คืบหน้า '+pct(Math.min(p,1))+'%');});
+    }else{
+      r.missing.push('ยังไม่มีเป้าหมายหมวด "การเรียน" หรือรายการที่เกี่ยวข้อง');
+      r.notes.push('ถ้าต้องการให้เอเจนต์นี้วิเคราะห์ได้ ให้เพิ่มเป้าหมายประเภท "การเรียน" ที่แท็บเป้าหมาย');
+    }
+    return finish(r,have,need);
+  }
+
+  function agRisk(ctx,allRisks){
+    var r=mkRep('risk','🛡️','Risk Management Agent','บริหารความเสี่ยง');
+    // cross-domain compound risk (grounded)
+    if(ctx.incConc!==null&&ctx.incConc>=0.7&&ctx.contractDays!==null&&ctx.contractDays<=365&&ctx.contractDays>=0){
+      allRisks=allRisks.concat([{sev:'ร้าย',from:'Risk Management',emoji:'🛡️',
+        title:'รายได้กระจุกแหล่งเดียว + สัญญาใกล้หมด',
+        basis:'รายได้จาก '+ctx.topIncName+' '+pct(ctx.incConc)+'% และสัญญาเหลือ '+ctx.contractDays+' วัน',
+        impact:'ถ้าสัญญาไม่ต่อ รายได้หลักหายเกือบทั้งก้อน',
+        action:'เร่งสร้างช่องทางรายได้สำรองก่อนสัญญาหมด'}]);
+    }else if(ctx.incConc!==null&&ctx.incConc>=0.7){
+      allRisks=allRisks.concat([{sev:'กลาง',from:'Risk Management',emoji:'🛡️',
+        title:'รายได้กระจุกที่แหล่งเดียว',basis:ctx.topIncName+' = '+pct(ctx.incConc)+'% ของรายรับเดือนนี้',
+        impact:'ขาดความหลากหลายของรายได้',action:'วางแผนกระจายแหล่งรายได้'}]);
+    }
+    var sorted=allRisks.slice().sort(function(a,b){return (SEV_RANK[b.sev]||0)-(SEV_RANK[a.sev]||0);});
+    var cR=0,cY=0,cG=0;
+    sorted.forEach(function(k){if(k.sev==='ร้าย')cR++;else if(k.sev==='กลาง')cY++;else cG++;});
+    r.facts.push('รวมความเสี่ยงที่ตรวจพบ '+sorted.length+' รายการ — ร้าย '+cR+' · กลาง '+cY+' · ต่ำ '+cG);
+    r.risks=sorted;
+    if(cR>0)r.analysis.push('มีความเสี่ยงระดับร้าย '+cR+' รายการ ควรจัดการก่อนเรื่องอื่น');
+    else if(cY>0)r.analysis.push('ยังไม่มีความเสี่ยงร้าย แต่มีระดับกลาง '+cY+' รายการที่ควรเฝ้าระวัง');
+    else if(sorted.length===0)r.analysis.push('จากข้อมูลที่มี ยังไม่พบความเสี่ยงที่ประเมินได้ (อาจเพราะข้อมูลบางส่วนยังไม่ครบ)');
+    r.completeness=1;r.confidence=confOf(0.7);r.status='ok';
+    return r;
+  }
+
+  function agStrategy(ctx,allRisks){
+    var r=mkRep('strategy','🧭','Strategy Agent','กลยุทธ์');
+    var pr=[];
+    if(ctx.runway!==null&&ctx.runway<6)pr.push('เติมเงินสำรองให้ถึง 6 เดือน (ตอนนี้ ≈ '+ctx.runway.toFixed(1)+' เดือน)');
+    if(ctx.incConc!==null&&ctx.incConc>=0.7&&ctx.contractDays!==null&&ctx.contractDays>=0)
+      pr.push('กระจายรายได้ก่อนสัญญาหมดใน '+Math.max(0,Math.round(ctx.contractDays/30))+' เดือน');
+    if(ctx.D>0)pr.push('วางแผนชำระหนี้: โฟกัสก้อนดอกเบี้ยสูงก่อน (ดูรายการที่แท็บพอร์ต)');
+    if(!pr.length)pr.push('รักษาวินัยเดิม + อัปเดตมูลค่าพอร์ตทุกเดือนให้ตัวเลขแม่น');
+    pr.forEach(function(p,i){r.recs.push(rec((i+1)+') '+p,'สังเคราะห์จากรันเวย์/สัญญา/หนี้ในระบบ',confOf(0.6)));});
+    if(ctx.runway!==null&&ctx.runway<6&&ctx.D>0){
+      r.analysis.push('ทางเลือก "เติมเงินสำรอง" vs "โปะหนี้": เงินสำรองต่ำ (<6 เดือน) โดยทั่วไปควรทำกันชนให้พอก่อน '+
+        'แล้วค่อยเร่งโปะหนี้ — เพราะไม่มีกันชนแล้วเจอเหตุฉุกเฉินอาจต้องกู้ใหม่ดอกสูงกว่า (ประเมินจากตัวเลขในระบบ ไม่ใช่คำแนะนำการลงทุน)');
+    }
+    r.completeness=1;r.confidence=confOf(0.6);r.status='ok';
+    return r;
+  }
+
+  function agVerify(ctx,reports){
+    var r=mkRep('verify','🔎','Data Verification Agent','ตรวจสอบข้อมูล');
+    var domains=reports.map(function(x){return {name:x.name,domain:x.domain,c:x.completeness,status:x.status,missing:x.missing};});
+    var avg=reports.length?reports.reduce(function(s,x){return s+x.completeness;},0)/reports.length:0;
+    r.facts.push('ความครบถ้วนข้อมูลเฉลี่ย '+pct(avg)+'% จาก '+reports.length+' ด้าน');
+    // integrity checks
+    if(!db.assets.some(function(a){return a.n===db.settings.efAsset;}))
+      r.risks.push(risk('กลาง','สินทรัพย์ที่ตั้งเป็น "เงินสำรองฉุกเฉิน" ไม่พบในพอร์ต','ตั้งค่า efAsset = "'+db.settings.efAsset+'"',
+        'รันเวย์/คะแนนจะคำนวณจากเงินสำรอง = 0','เลือกสินทรัพย์ให้ถูกที่แท็บตั้งค่า'));
+    if(ctx.inc===0&&ctx.cm.length>0)
+      r.risks.push(risk('กลาง','เดือนนี้มีรายจ่ายแต่ไม่มีรายรับ','รายรับเดือนนี้ = 0','อัตราส่วนการเงินหลายตัวจะเพี้ยน','บันทึกรายรับให้ครบ'));
+    var invNoUpdate=db.assets.filter(function(a){return a.cls==='invest';}).every(function(a){return num(a.cost)===num(a.v);});
+    if(db.assets.some(function(a){return a.cls==='invest';})&&invNoUpdate)
+      r.notes.push('พอร์ตลงทุนยังไม่เคยอัปเดตมูลค่าตลาด — ตัวเลขกำไร/ขาดทุนและความมั่งคั่งอาจคลาดเคลื่อน');
+    reports.forEach(function(x){if(x.status==='insufficient')r.missing.push(x.name+': '+(x.missing[0]||'ข้อมูลไม่พอ'));});
+    r._domains=domains;r._avg=avg;
+    r.completeness=1;r.confidence='สูง';r.status='ok';
+    return r;
+  }
+
+  function agCEO(ctx,reports,allRisks,verify){
+    var r=mkRep('ceo','🧠','CEO Agent','ภาพรวม');
+    var cR=0,cY=0;allRisks.forEach(function(k){if(k.sev==='ร้าย')cR++;else if(k.sev==='กลาง')cY++;});
+    r._overall=cR>0?'ร้าย':cY>0?'กลาง':'ปกติ';
+    r._trust=verify._avg;
+    r._insufficient=reports.filter(function(x){return x.status==='insufficient';}).map(function(x){return x.name;});
+    r.facts.push('สถานะความเสี่ยงรวม: '+(cR>0?'มีความเสี่ยงร้าย '+cR+' รายการ':cY>0?'มีความเสี่ยงระดับกลาง '+cY+' รายการ':'ยังไม่พบความเสี่ยงร้าย/กลาง'));
+    r.facts.push('ความน่าเชื่อถือของข้อมูลโดยรวม '+pct(verify._avg)+'%'+(verify._avg<0.6?' — ควรเติมข้อมูลให้ครบก่อนเชื่อผลเต็มที่':''));
+    r.completeness=1;r.confidence=confOf(verify._avg);r.status='ok';
+    return r;
+  }
+  /* ---- orchestration + render ---- */
+  var boardFilter='all', lastBoard=null;
+  function runBoard(){
+    var ctx=agentCtx();
+    var fns=[agAccounting,agFinance,agBusiness,agInvestment,agTax,agLegal,agHealth,agProductivity,agLearning];
+    var reports=fns.map(function(fn){
+      try{return fn(ctx);}
+      catch(e){var er=mkRep('err','⚠️','('+(fn.name||'agent')+')','ข้อผิดพลาด');er.status='insufficient';er.missing.push('เอเจนต์นี้ทำงานผิดพลาด: '+(e&&e.message||e));return er;}});
+    var allRisks=[];
+    reports.forEach(function(r){r.risks.forEach(function(k){
+      allRisks.push({sev:k.sev,title:k.title,basis:k.basis,impact:k.impact,action:k.action,from:r.name,emoji:r.emoji});});});
+    var rm=agRisk(ctx,allRisks);
+    var strat=agStrategy(ctx,allRisks);
+    var verify=agVerify(ctx,reports);
+    var ceo=agCEO(ctx,reports,rm.risks,verify);
+    return {ctx:ctx,reports:reports,rm:rm,strat:strat,verify:verify,ceo:ceo};
+  }
+  function sevPill(s){var c=s==='ร้าย'?'r':s==='กลาง'?'y':'g';return '<span class="sevpill '+c+'">'+esc(s)+'</span>';}
+  function confBadge(c){var cl=c==='สูง'?'g':c==='กลาง'?'y':'r';return '<span class="confb '+cl+'">ความเชื่อมั่น '+esc(c)+'</span>';}
+  function statusBadge(st){var m={ok:['ข้อมูลครบ','g'],partial:['ข้อมูลบางส่วน','y'],insufficient:['ข้อมูลไม่พอ','r']};
+    var x=m[st]||m.ok;return '<span class="stb '+x[1]+'">'+x[0]+'</span>';}
+  function secList(title,arr){
+    if(!arr||!arr.length)return '';
+    return '<div class="asec"><div class="asech">'+title+'</div><ul class="alist">'+
+      arr.map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></div>';
+  }
+  function riskListHTML(arr){
+    if(!arr||!arr.length)return '';
+    return '<div class="asec"><div class="asech">⚠️ ความเสี่ยง</div>'+arr.map(function(k){
+      return '<div class="riskrow '+(k.sev==='ร้าย'?'r':k.sev==='กลาง'?'y':'g')+'">'+
+        '<div class="rk-h">'+sevPill(k.sev)+' <b>'+esc(k.title)+'</b></div>'+
+        '<div class="rk-b"><div><b>อ้างอิง:</b> '+esc(k.basis)+'</div>'+
+        '<div><b>ผลกระทบ:</b> '+esc(k.impact)+'</div>'+
+        '<div><b>ทำอะไร:</b> '+esc(k.action)+'</div></div></div>';}).join('')+'</div>';
+  }
+  function recListHTML(arr){
+    if(!arr||!arr.length)return '';
+    return '<div class="asec"><div class="asech">💡 ข้อเสนอแนะ</div><ul class="alist">'+arr.map(function(k){
+      return '<li>'+esc(k.text)+' <span class="confb '+(k.conf==='สูง'?'g':k.conf==='กลาง'?'y':'r')+'">'+esc(k.conf)+'</span>'+
+        '<div class="note">อ้างอิง: '+esc(k.basis)+'</div></li>';}).join('')+'</ul></div>';
+  }
+  function agentCardHTML(r){
+    var body='';
+    if(r.status==='insufficient')
+      body+='<div class="flag warn" style="margin:2px 0 8px"><b>ข้อมูลไม่เพียงพอ</b> — ต้องการ: '+
+        (r.missing.length?esc(r.missing.join(' · ')):'ข้อมูลเพิ่มเติม')+'</div>';
+    body+=secList('📌 ข้อเท็จจริง',r.facts);
+    body+=secList('🔬 การวิเคราะห์',r.analysis);
+    body+=riskListHTML(r.risks);
+    body+=recListHTML(r.recs);
+    if(r.status!=='insufficient')body+=secList('❓ ข้อมูลที่ยังขาด',r.missing);
+    if(r.notes.length)body+='<p class="note" style="margin-top:8px">'+r.notes.map(function(n){return esc(n);}).join('<br>')+'</p>';
+    if(!r.facts.length&&!r.analysis.length&&!r.risks.length&&!r.recs.length&&r.status!=='insufficient')
+      body+='<p class="note">ยังไม่มีข้อสรุปที่ประเมินได้จากข้อมูลปัจจุบัน</p>';
+    var rc=r.risks.length?' <span class="tagx">⚠️ '+r.risks.length+'</span>':'';
+    return '<details class="agentcard"'+(r.risks.some(function(k){return k.sev==='ร้าย';})?' open':'')+'>'+
+      '<summary><span class="ag-em">'+r.emoji+'</span><span class="ag-nm">'+esc(r.name)+'<small>'+esc(r.domain)+'</small></span>'+
+      statusBadge(r.status)+confBadge(r.confidence)+rc+'</summary>'+
+      '<div class="ag-body">'+body+'</div></details>';
+  }
+  function renderBoard(){
+    if(!$('#board'))return;
+    var B=runBoard();lastBoard=B;
+    var ceo=B.ceo,ov=ceo._overall;
+    var ovc=ov==='ร้าย'?'var(--red)':ov==='กลาง'?'#C98A00':'var(--green)';
+    var trust=Math.round((ceo._trust||0)*100);
+    var pri=B.strat.recs.slice(0,3);
+    var ceoHtml='<div class="ceo-top">'+
+      '<div class="ceo-badge" style="border-color:'+ovc+';color:'+ovc+'">'+
+        '<div class="cb-l">สถานะความเสี่ยงรวม</div><div class="cb-v">'+esc(ov)+'</div></div>'+
+      '<div class="biz-grid" style="flex:1">'+
+        '<div class="bx"><div class="l">ความน่าเชื่อถือข้อมูล</div><div class="n num" style="color:'+(trust<60?'var(--red)':trust<80?'#C98A00':'var(--green)')+'">'+trust+'%</div></div>'+
+        '<div class="bx"><div class="l">ความเสี่ยงที่พบ</div><div class="n num">'+B.rm.risks.length+'</div></div>'+
+        '<div class="bx"><div class="l">ความเชื่อมั่นรวม</div><div class="n num">'+esc(ceo.confidence)+'</div></div>'+
+      '</div></div>';
+    if(pri.length)ceoHtml+='<div class="asech" style="margin-top:11px">🧭 ลำดับความสำคัญที่แนะนำ</div><ul class="alist">'+
+      pri.map(function(k){return '<li>'+esc(k.text)+'</li>';}).join('')+'</ul>';
+    if(ceo._insufficient.length)ceoHtml+='<div class="flag warn" style="margin-top:10px"><b>ยังประเมินไม่ได้เพราะข้อมูลไม่พอ:</b> '+esc(ceo._insufficient.join(', '))+'</div>';
+    ceoHtml+='<p class="note" style="margin-top:10px">ทุกตัวเลขคำนวณจากข้อมูลจริงในเครื่องเท่านั้น ระบบไม่เดา/ไม่แต่งข้อมูล — ที่ระบุว่า "ข้อมูลไม่เพียงพอ" คือยังสรุปไม่ได้จริง ไม่ใช่ผลว่าปลอดภัย · ไม่ใช่คำแนะนำการเงิน/สุขภาพ/กฎหมาย</p>';
+    $('#ceoBox').innerHTML=ceoHtml;
+
+    // verify
+    var vb='<div class="databars">'+B.verify._domains.map(function(d){
+      var p=Math.round(d.c*100);var col=p<45?'var(--red)':p<80?'#C98A00':'var(--green)';
+      return '<div class="dbar"><div class="dbar-l"><span>'+esc(d.name.replace(' Agent',''))+'</span><span class="num">'+p+'%</span></div>'+
+        '<div class="bar"><i style="--w:'+p+'%;background:'+col+'"></i></div></div>';}).join('')+'</div>';
+    if(B.verify.risks.length)vb+=riskListHTML(B.verify.risks);
+    if(B.verify.notes.length)vb+='<p class="note" style="margin-top:8px">'+B.verify.notes.map(function(n){return esc(n);}).join('<br>')+'</p>';
+    $('#verifyBox').innerHTML=vb;
+
+    // risk register
+    $('#riskBox').innerHTML=!B.rm.risks.length?empty('ยังไม่พบความเสี่ยงที่ประเมินได้จากข้อมูลปัจจุบัน (อาจเพราะข้อมูลบางส่วนยังไม่ครบ)','🛡️')
+      :B.rm.risks.map(function(k){
+        return '<div class="riskrow '+(k.sev==='ร้าย'?'r':k.sev==='กลาง'?'y':'g')+'">'+
+          '<div class="rk-h">'+sevPill(k.sev)+' <b>'+esc(k.title)+'</b> <span class="tagx">'+esc((k.emoji||'')+' '+(k.from||'').replace(' Agent',''))+'</span></div>'+
+          '<div class="rk-b"><div><b>อ้างอิง:</b> '+esc(k.basis)+'</div><div><b>ผลกระทบ:</b> '+esc(k.impact)+'</div><div><b>ทำอะไร:</b> '+esc(k.action)+'</div></div></div>';}).join('');
+
+    renderAgentsList();
+  }
+  function renderAgentsList(){
+    if(!lastBoard)return;var B=lastBoard;
+    var chips=[['all','ทั้งหมด'],['risk','⚠️ มีความเสี่ยง'],['insufficient','❓ ข้อมูลไม่พอ']];
+    $('#agentChips').innerHTML=chips.map(function(c){return '<button type="button" class="chip'+(boardFilter===c[0]?' on':'')+'" data-bf="'+c[0]+'">'+c[1]+'</button>';}).join('');
+    Array.prototype.forEach.call($('#agentChips').querySelectorAll('.chip'),function(b){
+      b.onclick=function(){boardFilter=b.getAttribute('data-bf');renderAgentsList();};});
+    var all=[B.rm,B.strat].concat(B.reports).concat([B.verify]);
+    var list=all.filter(function(r){
+      if(boardFilter==='risk')return r.risks&&r.risks.length;
+      if(boardFilter==='insufficient')return r.status==='insufficient';
+      return true;});
+    $('#agentsBox').innerHTML=list.length?list.map(agentCardHTML).join(''):empty('ไม่มีเอเจนต์ตรงกับตัวกรองนี้','🔍');
+  }
+  function boardText(){
+    var B=lastBoard||runBoard();
+    function block(r){
+      var L=[];L.push('['+r.emoji+' '+r.name+'] — '+r.domain+' · ความเชื่อมั่น '+r.confidence+(r.status==='insufficient'?' · ข้อมูลไม่เพียงพอ':''));
+      if(r.facts.length){L.push('  ข้อเท็จจริง:');r.facts.forEach(function(t){L.push('   - '+t);});}
+      if(r.analysis.length){L.push('  การวิเคราะห์:');r.analysis.forEach(function(t){L.push('   - '+t);});}
+      if(r.risks.length){L.push('  ความเสี่ยง:');r.risks.forEach(function(k){L.push('   - ['+k.sev+'] '+k.title+' | อ้างอิง: '+k.basis+' | ทำอะไร: '+k.action);});}
+      if(r.recs.length){L.push('  ข้อเสนอแนะ:');r.recs.forEach(function(k){L.push('   - '+k.text+' (ความเชื่อมั่น '+k.conf+') | อ้างอิง: '+k.basis);});}
+      if(r.missing.length){L.push('  ข้อมูลที่ยังขาด:');r.missing.forEach(function(t){L.push('   - '+t);});}
+      if(r.notes.length){r.notes.forEach(function(t){L.push('  หมายเหตุ: '+t);});}
+      return L.join('\n');
+    }
+    var out=['Tor Life OS — รายงานคณะที่ปรึกษา (Multi-Agent)',
+      'สร้างเมื่อ '+thD(todayStr())+' · หลักการ: ความถูกต้องมาก่อนความมั่นใจ · ใช้ข้อมูลจริงในเครื่องเท่านั้น','',
+      '== ภาพรวม (CEO) =='];
+    out.push('สถานะความเสี่ยงรวม: '+B.ceo._overall+' · ความน่าเชื่อถือข้อมูล '+Math.round((B.ceo._trust||0)*100)+'%');
+    out.push('');out.push('== ทะเบียนความเสี่ยง (เรียงตามความรุนแรง) ==');
+    if(!B.rm.risks.length)out.push('  ยังไม่พบความเสี่ยงที่ประเมินได้');
+    else B.rm.risks.forEach(function(k){out.push('  ['+k.sev+'] '+k.title+' — '+k.basis+' → '+k.action);});
+    out.push('');out.push('== รายงานรายเอเจนต์ ==');
+    [B.rm,B.strat].concat(B.reports).concat([B.verify]).forEach(function(r){out.push(block(r));out.push('');});
+    out.push('— รายงานนี้เป็นการวิเคราะห์เชิงตัวเลขจากข้อมูลที่บันทึก ไม่ใช่คำแนะนำการเงิน/สุขภาพ/กฎหมาย —');
+    return out.join('\n');
+  }
+
   function applyTheme(){
     var root=document.getElementById('appRoot');
     var light=db.settings.theme==='light';
@@ -1831,14 +2375,15 @@
     try{document.body.style.margin='0';
       document.body.style.background=light?'#F7F7F8':'#0C1220';}catch(e){}
   }
-  function render(){applyTheme();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderSet();}
+  function render(){applyTheme();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderBoard();renderSet();}
 
   /* ---------- events ---------- */
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
     t.onclick=function(){
       Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(x){x.setAttribute('aria-selected',x===t?'true':'false');});
-      ['dash','add','hist','biz','port','health','life','goal','fin','set'].forEach(function(id){$('#'+id).hidden=(id!==t.getAttribute('data-t'));});
+      ['dash','add','hist','biz','port','health','life','goal','fin','board','set'].forEach(function(id){$('#'+id).hidden=(id!==t.getAttribute('data-t'));});
       if(t.getAttribute('data-t')==='dash')renderDash();
+      if(t.getAttribute('data-t')==='board')renderBoard();
     };});
   Array.prototype.forEach.call($('#typeSeg').querySelectorAll('button'),function(b){
     b.onclick=function(){
@@ -2001,6 +2546,13 @@
     dl('TorLifeOS.csv',rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n'),'text/csv;charset=utf-8');
   };
   $('#expJson').onclick=function(){dl('TorLifeOS_backup_'+todayStr()+'.json',JSON.stringify(db,null,2),'application/json');};
+  $('#dlReport').onclick=function(){dl('TorLifeOS_advisory_'+todayStr()+'.txt',boardText(),'text/plain;charset=utf-8');};
+  $('#copyReport').onclick=function(){
+    var txt=boardText();
+    function done(){toast('คัดลอกรายงานแล้ว');}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,function(){dl('TorLifeOS_advisory_'+todayStr()+'.txt',txt,'text/plain;charset=utf-8');});}
+    else{dl('TorLifeOS_advisory_'+todayStr()+'.txt',txt,'text/plain;charset=utf-8');}
+  };
   $('#impJson').onclick=function(){$('#fileIn').click();};
   $('#fileIn').onchange=function(ev){
     var f=ev.target.files&&ev.target.files[0];if(!f)return;
