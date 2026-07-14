@@ -234,6 +234,35 @@
   .eyebrow .ic{margin-right:5px;filter:grayscale(.25);vertical-align:-1px}
   .biz-grid .bx .l .ic{margin-right:3px;vertical-align:-1px}
   .toast .ic{margin-right:6px}
+  .ed{border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:14px;padding:3px 6px;border-radius:6px;transition:.14s;margin-right:2px}
+  .ed:hover{color:var(--gold-2);background:var(--gold-dim)}
+  #appRoot.light .ed:hover{color:#10A37F;background:rgba(16,163,127,.09)}
+  /* edit / quick-search / countdown */
+  .modal{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center}
+  .modal[hidden]{display:none}
+  .modal .scrim{position:absolute;inset:0;background:rgba(6,10,20,.55);backdrop-filter:blur(2px);animation:fade .2s both}
+  #appRoot.light .modal .scrim{background:rgba(20,20,20,.32)}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .modal-card{position:relative;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;
+    background:var(--card);border:1px solid var(--line);border-radius:16px 16px 0 0;padding:16px 15px 22px;
+    box-shadow:0 -12px 40px -18px rgba(0,0,0,.7);animation:sheet .28s cubic-bezier(.2,.7,.3,1) both}
+  @media(min-width:600px){.modal{align-items:center}.modal-card{border-radius:16px}}
+  @keyframes sheet{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+  .modal-card h2{margin:0 0 13px}
+  .modal-x{border:0;background:var(--card-2);color:var(--soft);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px}
+  .modal-x:hover{color:var(--ink);background:var(--line)}
+  .searchbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .searchbar input{padding:10px 11px}
+  .searchbar .sx{border:1px solid var(--line);background:var(--card-2);color:var(--soft);border-radius:9px;
+    width:40px;height:40px;flex:none;cursor:pointer;font-size:14px}
+  .searchbar .sx:hover{border-color:var(--gold);color:var(--ink)}
+  .countdown{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);
+    border-radius:12px;background:var(--card-2);margin-bottom:13px}
+  .countdown .cd-ic{font-size:22px;line-height:1;flex:none}
+  .countdown .cd-b{flex:1;min-width:0}
+  .countdown .cd-t{font-size:12.5px;color:var(--soft)}
+  .countdown .cd-v{font-size:15px;font-weight:600;margin-top:1px}
+  .countdown .cd-v small{font-size:11px;font-weight:400;color:var(--faint)}
   @media(prefers-reduced-motion:reduce){#appRoot *{animation:none!important;transition:none!important}.bar i,.progress i{width:var(--w)!important}}
 </style>
 
@@ -276,6 +305,7 @@
         <div class="m"><span class="serif" id="mLabel">—</span><small id="mCount"></small></div>
         <button id="nextM" aria-label="เดือนถัดไป">›</button>
       </div>
+      <div id="contractBox"></div>
       <div id="honesty"></div>
       <div class="card">
         <div class="eyebrow"><span class="ic">🤖</span>AI Assistant</div>
@@ -349,6 +379,10 @@
     <section id="hist" hidden>
       <div class="card">
         <h2><span class="h2ic">📋</span>รายการทั้งหมด <span class="hint" id="histMonth"></span></h2>
+        <div class="searchbar">
+          <input id="histSearch" type="search" placeholder="🔍 ค้นหา รายการ / หมวด / โน้ต / ธุรกิจ (ทุกเดือน)">
+          <button class="sx" id="histSearchClear" title="ล้างคำค้น" aria-label="ล้างคำค้น">✕</button>
+        </div>
         <div class="chips" id="filterChips"></div>
         <div id="histBox"></div>
       </div>
@@ -498,6 +532,7 @@
       <div class="card"><div class="eyebrow"><span class="ic">📑</span>Income Statement</div><h2>งบรายรับ-รายจ่าย <span class="hint" id="plMonth"></span></h2><div id="plBox"></div></div>
       <div class="card"><div class="eyebrow"><span class="ic">💵</span>Cash Flow</div><h2>งบกระแสเงินสด</h2><div id="cfBox"></div></div>
       <div class="card"><div class="eyebrow"><span class="ic">⚖️</span>Balance Sheet</div><h2>งบแสดงฐานะการเงิน</h2><div id="bsBox"></div></div>
+      <div class="card"><div class="eyebrow"><span class="ic">💎</span>Net Worth Trend</div><h2>แนวโน้มความมั่งคั่งสุทธิ <span class="hint">เก็บอัตโนมัติทุกเดือน</span></h2><div id="nwTrendBox"></div></div>
       <div class="card"><h2><span class="h2ic">📊</span>เปรียบเทียบรายเดือน</h2><div id="trendBox"></div></div>
       <div class="card"><h2><span class="h2ic">📅</span>สรุปรายปี</h2><div id="yearBox"></div></div>
     </section>
@@ -546,8 +581,38 @@
       </div>
     </section>
   </div>
+
+  <div class="modal" id="editModal" hidden>
+    <div class="scrim" id="editScrim"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="แก้ไขรายการ">
+      <h2 style="display:flex;justify-content:space-between;align-items:center">
+        <span><span class="h2ic">✏️</span>แก้ไขรายการ</span>
+        <button class="modal-x" id="editClose" aria-label="ปิด">✕</button>
+      </h2>
+      <div class="seg" id="eTypeSeg">
+        <button data-k="expense" aria-pressed="true">📤 รายจ่าย</button>
+        <button data-k="income" aria-pressed="false">📥 รายรับ</button>
+        <button data-k="saving" aria-pressed="false">🏦 ออม/ลงทุน</button>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="eCat">หมวด</label><select id="eCat"></select></div>
+        <div class="field"><label for="eAmt">จำนวนเงินรวม (บาท)</label><input id="eAmt" class="num-in" type="number" inputmode="decimal" placeholder="0"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="eBiz">ผูกกับธุรกิจ</label><select id="eBiz"></select></div>
+        <div class="field"><label for="eDate">วันที่</label><input id="eDate" type="date"></div>
+      </div>
+      <div class="field"><label for="eItem">รายการ / สินค้า</label><input id="eItem" type="text" list="itemList" placeholder="เช่น อาหารแมว Maxima 3 กก."></div>
+      <div class="row2">
+        <div class="field"><label for="eQty">จำนวน (หน่วย)</label><input id="eQty" class="num-in" type="number" value="1" step="0.01" min="0.01"></div>
+        <div class="field"><label for="ePay">จ่ายด้วย</label><select id="ePay"></select></div>
+      </div>
+      <div class="field"><label for="eNote">โน้ต</label><input id="eNote" type="text" placeholder="ไม่ใส่ก็ได้"></div>
+      <button class="btn" id="eSave">💾 บันทึกการแก้ไข</button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
 </div>
-<div class="toast" id="toast"></div>
 
 <script>
 (function(){
@@ -603,10 +668,11 @@
     settings:{efTarget:100000,saveTarget:15000,contractEnd:'2027-04-30',
       efAsset:'เงินสำรองฉุกเฉิน (กรุงศรี)',efCat:'เงินสำรองฉุกเฉิน',theme:'light',
       pays:['เงินสด','โอน/พร้อมเพย์','บัตร','หักบัญชีอัตโนมัติ']},
-    badges:{}
+    badges:{},
+    snapshots:{}
   };
 
-  var db=clone(DEF), curType='expense', cursor=new Date(), openCat=null, filter='all';
+  var db=clone(DEF), curType='expense', cursor=new Date(), openCat=null, filter='all', histSearch='';
   var storageOK=null, verified=false, seq=0;
 
   function clone(o){return JSON.parse(JSON.stringify(o));}
@@ -787,6 +853,11 @@
       if(Array.isArray(p.settings.pays)&&p.settings.pays.length)s.pays=p.settings.pays.map(String);
     }
     if(p.badges&&typeof p.badges==='object')out.badges=p.badges;
+    if(p.snapshots&&typeof p.snapshots==='object'){
+      out.snapshots={};
+      Object.keys(p.snapshots).forEach(function(k){
+        if(/^\d{4}-\d{2}$/.test(k)&&isFinite(Number(p.snapshots[k])))out.snapshots[k]=num(p.snapshots[k]);});
+    }
     return out;
   }
 
@@ -832,6 +903,15 @@
       return tryOld(0);
     }).catch(function(){render();});
   }
+  function netWorth(){
+    var A=db.assets.reduce(function(s,a){return s+num(a.v);},0);
+    var D=db.debts.reduce(function(s,d){return s+num(d.v);},0);
+    return A-D;
+  }
+  function stampSnapshot(){
+    if(!db.snapshots||typeof db.snapshots!=='object')db.snapshots={};
+    db.snapshots[ymOf(new Date())]=netWorth();
+  }
   function save(){
     if(!anyStore()){
       storageOK=false;
@@ -839,6 +919,7 @@
       return Promise.resolve();
     }
     if(storageOK===false){storageOK=null;verified=false;}
+    stampSnapshot();
     var payload=JSON.stringify(db);
     if(payload.length>4.5*1024*1024){toast('ข้อมูลใกล้เต็มเพดาน 5MB — สำรอง JSON แล้วลบรายการเก่า');}
     return storSet(KEY,payload).then(function(){
@@ -982,7 +1063,26 @@
   }
 
   /* ---------- dashboard ---------- */
+  function renderContract(){
+    var box=$('#contractBox');if(!box)return;
+    var end=db.settings.contractEnd;
+    var d=daysUntil(end);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(end||''))||d===null){box.innerHTML='';return;}
+    var ic,color,headline,sub;
+    if(d<0){ic='📕';color='var(--red)';headline='สัญญาหมดอายุแล้ว';sub='ครบเมื่อ '+thD(end);}
+    else{
+      var mLeft=Math.round(d/30.4);
+      ic=d<=90?'⏳':'🗓️';
+      color=d<=183?'var(--red)':d<=365?'var(--gold-2)':'var(--green)';
+      headline='เหลืออีก ~'+mLeft+' เดือน';
+      sub=d+' วัน · ครบ '+thD(end);
+    }
+    box.innerHTML='<div class="countdown"><span class="cd-ic">'+ic+'</span><div class="cd-b">'+
+      '<div class="cd-t">สัญญาฟรีแลนซ์บัญชี — เตรียมช่องทางรายได้สำรองล่วงหน้า</div>'+
+      '<div class="cd-v" style="color:'+color+'">'+headline+' <small>· '+sub+'</small></div></div></div>';
+  }
   function renderDash(){
+    renderContract();
     var rows=monthRows(cursor);
     $('#mLabel').textContent=thM(cursor);
     $('#mCount').textContent=rows.length?rows.length+' รายการ':'ยังไม่มีรายการ';
@@ -1089,6 +1189,42 @@
        '<span><span class="sw" style="background:var(--red)"></span>รายจ่าย</span></div>';
     $('#cfChart').innerHTML=s;
   }
+  function nwSeries(){
+    var snaps={};if(db.snapshots&&typeof db.snapshots==='object')snaps=Object.assign({},db.snapshots);
+    snaps[ymOf(new Date())]=netWorth();
+    return Object.keys(snaps).filter(function(k){return /^\d{4}-\d{2}$/.test(k);}).sort()
+      .map(function(k){return {ym:k,v:num(snaps[k])};}).slice(-12);
+  }
+  function renderNwTrend(){
+    var box=$('#nwTrendBox');if(!box)return;
+    var ser=nwSeries();
+    if(ser.length<2){
+      box.innerHTML=empty('กำลังเริ่มเก็บแนวโน้ม — เดือนหน้าจะเห็นเส้นความมั่งคั่งสุทธิเทียบกันได้','💎');
+      return;
+    }
+    var vals=ser.map(function(p){return p.v;});
+    var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals);
+    if(mx-mn<1){mn-=1;mx+=1;}
+    var W=320,H=120,pad=12,zeroInRange=(mn<0&&mx>0);
+    function yOf(v){return H-pad-(H-2*pad)*((v-mn)/(mx-mn));}
+    var pts=ser.map(function(p,i){var x=pad+(W-2*pad)*(i/(ser.length-1));return x.toFixed(1)+','+yOf(p.v).toFixed(1);});
+    var area=pad+','+yOf(mn>0?mn:0).toFixed(1)+' '+pts.join(' ')+' '+(W-pad)+','+yOf(mn>0?mn:0).toFixed(1);
+    var dots=ser.map(function(p,i){var x=pad+(W-2*pad)*(i/(ser.length-1));
+      return '<circle cx="'+x.toFixed(1)+'" cy="'+yOf(p.v).toFixed(1)+'" r="2.8" fill="var(--gold-2)"/>';}).join('');
+    var zeroLine=zeroInRange?'<line x1="'+pad+'" y1="'+yOf(0).toFixed(1)+'" x2="'+(W-pad)+'" y2="'+yOf(0).toFixed(1)+'" stroke="var(--red)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>':'';
+    var first=ser[0],last=ser[ser.length-1],chg=last.v-first.v;
+    box.innerHTML='<svg viewBox="0 0 '+W+' '+(H+16)+'" style="width:100%;max-width:520px">'+
+      '<polygon points="'+area+'" fill="var(--gold)" opacity=".08"/>'+zeroLine+
+      '<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'+dots+
+      '<text x="'+pad+'" y="'+(H+13)+'" font-size="9" fill="var(--faint)">'+thM(new Date(first.ym+'-01T00:00:00'))+'</text>'+
+      '<text x="'+(W-pad)+'" y="'+(H+13)+'" font-size="9" fill="var(--faint)" text-anchor="end">'+thM(new Date(last.ym+'-01T00:00:00'))+'</text>'+
+      '</svg>'+
+      '<div class="biz-grid" style="margin-top:6px">'+
+      '<div class="bx"><div class="l">ล่าสุด</div><div class="n num" style="color:'+(last.v<0?'var(--red)':'var(--green)')+'">'+(last.v<0?'−':'')+fmt(Math.abs(last.v))+'</div></div>'+
+      '<div class="bx"><div class="l">เปลี่ยนแปลง</div><div class="n num" style="color:'+(chg<0?'var(--red)':'var(--green)')+'">'+(chg<0?'−':'+')+fmt(Math.abs(chg))+'</div></div>'+
+      '<div class="bx"><div class="l">จำนวนเดือน</div><div class="n num">'+ser.length+'</div></div></div>'+
+      '<p class="note" style="margin-top:8px">เก็บค่าความมั่งคั่งสุทธิ (สินทรัพย์ − หนี้สิน) อัตโนมัติทุกครั้งที่บันทึกข้อมูล — อัปเดตมูลค่าพอร์ตเดือนละครั้งเพื่อให้เส้นแม่นยำ</p>';
+  }
   function allocHTML(){
     var tot=db.assets.reduce(function(s,a){return s+num(a.v);},0);
     if(tot<=0)return empty('ยังไม่มีสินทรัพย์','📈',['port','ไปเพิ่มที่แท็บพอร์ต']);
@@ -1186,7 +1322,8 @@
         '<td><div style="display:flex;align-items:flex-start">'+mono(e.item||e.cat,cls)+'<div>'+esc(e.item||e.cat)+unit+
         '<div class="note">'+esc(e.cat)+(e.biz?' · '+esc(bizName(e.biz)):'')+(e.pay?' · '+esc(e.pay):'')+(e.note?' · '+esc(e.note):'')+'</div></div></div></td>'+
         '<td class="r num" style="color:'+COLOR[e.type]+';white-space:nowrap">'+(e.type==='expense'?'−':'+')+fmt(e.amount)+'</td>'+
-        '<td class="r"><button class="del" data-eid="'+esc(e.id)+'" aria-label="ลบรายการ">✕</button></td></tr>';});
+        '<td class="r" style="white-space:nowrap"><button class="ed" data-edit="'+esc(e.id)+'" aria-label="แก้ไขรายการ">✎</button>'+
+        '<button class="del" data-eid="'+esc(e.id)+'" aria-label="ลบรายการ">✕</button></td></tr>';});
     return h+'</tbody></table>';
   }
   function renderRecent(){
@@ -1196,14 +1333,18 @@
 
   /* ---------- history ---------- */
   function renderHist(){
-    $('#histMonth').textContent=thM(cursor);
+    var term=String(histSearch||'').trim().toLowerCase();
+    var searching=term.length>0;
     var F=[['all','📋 ทั้งหมด'],['expense','📤 รายจ่าย'],['income','📥 รายรับ'],['saving','🏦 ออม/ลงทุน']];
     $('#filterChips').innerHTML=F.map(function(f){return '<button type="button" class="chip'+(filter===f[0]?' on':'')+'" data-f="'+f[0]+'">'+f[1]+'</button>';}).join('');
     Array.prototype.forEach.call($('#filterChips').querySelectorAll('.chip'),function(b){
       b.onclick=function(){filter=b.getAttribute('data-f');renderHist();};});
-    var rows=monthRows(cursor).slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id));});
+    var rows=(searching?db.entries.slice():monthRows(cursor)).sort(function(a,b){return String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id));});
     if(filter!=='all')rows=rows.filter(function(e){return e.type===filter;});
-    $('#histBox').innerHTML=rows.length?entTable(rows):empty('ไม่มีรายการตามตัวกรองนี้','🔍');
+    if(searching)rows=rows.filter(function(e){
+      return (String(e.item||'')+' '+String(e.cat||'')+' '+String(e.note||'')+' '+bizName(e.biz)+' '+String(e.pay||'')).toLowerCase().indexOf(term)>=0;});
+    $('#histMonth').textContent=searching?('ผลค้นหาทุกเดือน · '+rows.length+' รายการ'):thM(cursor);
+    $('#histBox').innerHTML=rows.length?entTable(rows):(searching?empty('ไม่พบรายการที่ตรงกับคำค้น','🔍'):empty('ไม่มีรายการตามตัวกรองนี้','🔍'));
     var byItem={};
     db.entries.forEach(function(e){if(e.item&&num(e.qty)>0){(byItem[e.item]=byItem[e.item]||[]).push(e);}});
     var multi=Object.keys(byItem).filter(function(k){return byItem[k].length>1;});
@@ -1515,6 +1656,7 @@
 
   /* ---------- statements ---------- */
   function renderFin(){
+    renderNwTrend();
     var rows=monthRows(cursor);
     $('#plMonth').textContent=thM(cursor);
     var inc=sumT(rows,'income'),ex=sumT(rows,'expense'),sv=sumT(rows,'saving');
@@ -1634,7 +1776,52 @@
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='โหมดเก็บข้อมูล: '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v5.4 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+  }
+
+  /* ---------- edit entry modal ---------- */
+  var editId=null, editType='expense';
+  function fillEditSelects(){
+    $('#eCat').innerHTML=catList(editType).map(function(c){var ic=catIcon(c.n);return '<option value="'+esc(c.n)+'">'+(ic?ic+' ':'')+esc(c.n)+'</option>';}).join('');
+    $('#eBiz').innerHTML='<option value="">'+NOBIZ+'</option>'+db.businesses.map(function(b){return '<option value="'+esc(b.id)+'">'+esc(b.n)+'</option>';}).join('');
+    $('#ePay').innerHTML=db.settings.pays.map(function(p){return '<option>'+esc(p)+'</option>';}).join('');
+  }
+  function openEdit(id){
+    var e=db.entries.filter(function(x){return String(x.id)===String(id);})[0];
+    if(!e)return;
+    editId=e.id; editType=e.type;
+    Array.prototype.forEach.call($('#eTypeSeg').querySelectorAll('button'),function(b){
+      b.setAttribute('aria-pressed',b.getAttribute('data-k')===editType?'true':'false');});
+    fillEditSelects();
+    if(catNames(editType).indexOf(e.cat)<0&&e.cat){
+      var o=document.createElement('option');o.value=e.cat;o.textContent=esc(e.cat)+' (หมวดถูกลบ)';$('#eCat').appendChild(o);
+    }
+    $('#eCat').value=e.cat;
+    $('#eAmt').value=num(e.amount)||'';
+    $('#eItem').value=e.item||'';
+    $('#eQty').value=num(e.qty)>0?num(e.qty):1;
+    $('#eBiz').value=e.biz||'';
+    $('#ePay').value=e.pay||(db.settings.pays[0]||'');
+    $('#eDate').value=/^\d{4}-\d{2}-\d{2}$/.test(e.date)?e.date:todayStr();
+    $('#eNote').value=e.note||'';
+    $('#editModal').hidden=false;
+    setTimeout(function(){try{$('#eAmt').focus();}catch(_e){}},60);
+  }
+  function closeEdit(){editId=null;$('#editModal').hidden=true;}
+  function saveEdit(){
+    if(editId==null)return;
+    var amt=num($('#eAmt').value);
+    if(!(amt>0)){toast('ใส่จำนวนเงินก่อน');$('#eAmt').focus();return;}
+    var e=db.entries.filter(function(x){return String(x.id)===String(editId);})[0];
+    if(!e){closeEdit();return;}
+    var q=num($('#eQty').value);if(!(q>0))q=1;
+    var dt=$('#eDate').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(dt))dt=todayStr();
+    e.type=editType;
+    e.cat=$('#eCat').value||(catNames(editType)[0]||'อื่น ๆ');
+    e.amount=amt;e.qty=q;e.item=$('#eItem').value.trim();
+    e.pay=$('#ePay').value;e.biz=$('#eBiz').value||'';
+    e.date=dt;e.note=$('#eNote').value.trim();
+    save().then(function(){closeEdit();render();renderBadges(false);toast('แก้ไขรายการแล้ว');});
   }
 
   function applyTheme(){
@@ -1679,9 +1866,32 @@
       toast('บันทึกแล้ว · '+fmt(amt)+' บาท');
     });
   };
+  /* Enter-to-save on the add form */
+  ['fAmt','fItem','fNote','fQty'].forEach(function(id){
+    var el=$('#'+id);if(el)el.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'){ev.preventDefault();$('#saveEntry').click();}});});
+  /* edit modal wiring */
+  $('#eSave').onclick=saveEdit;
+  $('#editClose').onclick=closeEdit;
+  $('#editScrim').onclick=closeEdit;
+  Array.prototype.forEach.call($('#eTypeSeg').querySelectorAll('button'),function(b){
+    b.onclick=function(){
+      editType=b.getAttribute('data-k');
+      Array.prototype.forEach.call($('#eTypeSeg').querySelectorAll('button'),function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+      fillEditSelects();};});
+  ['eAmt','eItem','eNote','eQty'].forEach(function(id){
+    var el=$('#'+id);if(el)el.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'){ev.preventDefault();saveEdit();}});});
+  document.addEventListener('keydown',function(ev){
+    if(ev.key==='Escape'&&!$('#editModal').hidden)closeEdit();});
+  /* history search */
+  (function(){var si=$('#histSearch');if(si)si.addEventListener('input',function(){histSearch=si.value;renderHist();});
+    var sc=$('#histSearchClear');if(sc)sc.onclick=function(){histSearch='';if(si){si.value='';si.focus();}renderHist();};})();
   document.addEventListener('click',function(ev){
     var g=ev.target&&ev.target.closest?ev.target.closest('.go[data-go]'):null;
     if(g){goTab(g.getAttribute('data-go'));return;}
+    var ed=ev.target&&ev.target.closest?ev.target.closest('.ed[data-edit]'):null;
+    if(ed){openEdit(ed.getAttribute('data-edit'));return;}
     var d=ev.target&&ev.target.closest?ev.target.closest('.del'):null;
     if(!d)return;
     var id=d.getAttribute('data-eid');
