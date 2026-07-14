@@ -306,6 +306,16 @@
   .databars{display:grid;grid-template-columns:1fr 1fr;gap:7px 16px}
   @media(max-width:520px){.databars{grid-template-columns:1fr}.ceo-badge{min-width:0;width:100%}}
   .dbar-l{display:flex;justify-content:space-between;font-size:11.5px;color:var(--soft);margin-bottom:3px}
+  .chatbox{max-height:360px;overflow-y:auto;padding:4px 2px;margin-bottom:9px}
+  .cmsg{display:flex;margin-bottom:8px}
+  .cmsg.you{justify-content:flex-end}
+  .cbub{max-width:88%;padding:9px 12px;border-radius:14px;font-size:12.8px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  .cmsg.you .cbub{background:var(--gold);color:#141005;border-bottom-right-radius:4px}
+  #appRoot.light .cmsg.you .cbub{background:#0D0D0D;color:#fff}
+  .cmsg.bot .cbub{background:var(--card-2);border:1px solid var(--line);color:var(--ink);border-bottom-left-radius:4px}
+  .cdot{font-size:9px;color:var(--faint);animation:blink 1.2s infinite}
+  .cdot:nth-child(2){animation-delay:.2s} .cdot:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
   @media(prefers-reduced-motion:reduce){#appRoot *{animation:none!important;transition:none!important}.bar i,.progress i{width:var(--w)!important}}
 </style>
 
@@ -583,6 +593,17 @@
 
     <section id="board" hidden>
       <div class="card">
+        <div class="eyebrow"><span class="ic">💬</span>Chat with your Advisor</div>
+        <h2>คุยกับที่ปรึกษา <span class="hint" id="chatMode"></span></h2>
+        <div id="chatBox" class="chatbox"></div>
+        <div class="chips" id="chatChips"></div>
+        <div class="searchbar" style="margin-top:2px">
+          <input id="chatInput" type="text" placeholder="พิมพ์คำถาม เช่น ตอนนี้มีความเสี่ยงอะไรบ้าง">
+          <button class="btn sm" id="chatSendBtn" style="width:auto;flex:none">ส่ง ➤</button>
+        </div>
+        <p class="note" style="margin-top:8px">โหมดออฟไลน์วิเคราะห์จากข้อมูลในเครื่องเท่านั้น (ไม่เดา) · เปิด "โหมด AI" ได้ที่แท็บตั้งค่าโดยใส่ Claude API Key ของคุณเอง — โหมด AI จะส่งสรุปข้อมูลการเงิน/สุขภาพของคุณไป Anthropic เพื่อวิเคราะห์ (มีค่าใช้จ่ายตาม key ของคุณ)</p>
+      </div>
+      <div class="card">
         <div class="eyebrow"><span class="ic">🧠</span>Multi-Agent Advisory</div>
         <h2>คณะที่ปรึกษา AI <span class="hint">วิเคราะห์จากข้อมูลจริงในเครื่อง · ไม่เดา ไม่แต่งข้อมูล</span></h2>
         <div id="ceoBox"></div>
@@ -611,6 +632,19 @@
           <button data-th="light" aria-pressed="true">☀️ Clean White</button>
           <button data-th="dark" aria-pressed="false">🌙 Executive Dark</button>
         </div>
+      </div>
+      <div class="card">
+        <div class="eyebrow"><span class="ic">🤖</span>AI Advisor</div>
+        <h2>โหมด AI ของที่ปรึกษา <span class="hint">ไม่ใส่ก็ใช้โหมดออฟไลน์ได้</span></h2>
+        <div class="field"><label for="sAiKey">Claude API Key (ของคุณเอง)</label><input id="sAiKey" type="password" placeholder="sk-ant-... (เว้นว่าง = ใช้โหมดออฟไลน์)" autocomplete="off"></div>
+        <div class="field"><label for="sAiModel">โมเดล</label>
+          <select id="sAiModel">
+            <option value="claude-opus-4-8">Claude Opus 4.8 (ฉลาดสุด · แพงสุด)</option>
+            <option value="claude-sonnet-5">Claude Sonnet 5 (สมดุล)</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5 (เร็ว · ประหยัด)</option>
+          </select></div>
+        <button class="btn" id="saveAi">💾 บันทึกการตั้งค่า AI</button>
+        <p class="note" style="margin-top:9px">⚠️ เมื่อเปิดโหมด AI ระบบจะส่ง "สรุปข้อมูลการเงิน/สุขภาพ/งาน" ของคุณไปยัง Anthropic เพื่อวิเคราะห์ และมีค่าใช้จ่ายตามการใช้งานของ API Key คุณเอง · Key เก็บในเครื่องนี้เท่านั้น และ<b>ไม่ถูกใส่ในไฟล์สำรอง JSON</b> · ขอ Key ได้ที่ console.anthropic.com · ถ้าไม่ต้องการโหมด AI ให้เว้นว่างไว้</p>
       </div>
       <div class="card">
         <h2><span class="h2ic">⚙️</span>เป้าหมายระบบ</h2>
@@ -734,7 +768,8 @@
       {id:'h2',kind:'ยา',n:'วิตามินซี วันละเม็ด',date:'',note:'เสริมภูมิก่อนลงพื้นที่ ส.ค.'}],
     settings:{efTarget:100000,saveTarget:15000,contractEnd:'2027-04-30',
       efAsset:'เงินสำรองฉุกเฉิน (กรุงศรี)',efCat:'เงินสำรองฉุกเฉิน',theme:'light',
-      pays:['เงินสด','โอน/พร้อมเพย์','บัตร','หักบัญชีอัตโนมัติ']},
+      pays:['เงินสด','โอน/พร้อมเพย์','บัตร','หักบัญชีอัตโนมัติ'],
+      aiKey:'',aiModel:'claude-opus-4-8'},
     badges:{},
     snapshots:{}
   };
@@ -918,6 +953,8 @@
       if(p.settings.efCat)s.efCat=String(p.settings.efCat);
       s.theme=(p.settings.theme==='dark')?'dark':'light';
       if(Array.isArray(p.settings.pays)&&p.settings.pays.length)s.pays=p.settings.pays.map(String);
+      if(typeof p.settings.aiKey==='string')s.aiKey=p.settings.aiKey;
+      if(typeof p.settings.aiModel==='string'&&p.settings.aiModel)s.aiModel=p.settings.aiModel;
     }
     if(p.badges&&typeof p.badges==='object')out.badges=p.badges;
     if(p.snapshots&&typeof p.snapshots==='object'){
@@ -1838,12 +1875,14 @@
     $('#sEfT').value=num(db.settings.efTarget);
     $('#sSaveT').value=num(db.settings.saveTarget);
     $('#sEnd').value=db.settings.contractEnd;
+    if($('#sAiKey'))$('#sAiKey').value=db.settings.aiKey||'';
+    if($('#sAiModel'))$('#sAiModel').value=db.settings.aiModel||'claude-opus-4-8';
     $('#sEfName').innerHTML=db.assets.map(function(a){
       return '<option'+(a.n===db.settings.efAsset?' selected':'')+' value="'+esc(a.n)+'">'+esc(a.n)+'</option>';}).join('');
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='Tor Life OS v5.5 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v5.6 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
   }
 
   /* ---------- edit entry modal ---------- */
@@ -2329,6 +2368,11 @@
           '<div class="rk-b"><div><b>อ้างอิง:</b> '+esc(k.basis)+'</div><div><b>ผลกระทบ:</b> '+esc(k.impact)+'</div><div><b>ทำอะไร:</b> '+esc(k.action)+'</div></div></div>';}).join('');
 
     renderAgentsList();
+    renderChat();
+    var chips=['🛡️ ความเสี่ยงตอนนี้','💰 การเงินเดือนนี้','🧭 ควรทำอะไรก่อน','📈 พอร์ตเป็นยังไง','⚖️ เอกสารใกล้หมดอายุ','🧠 สรุปภาพรวม'];
+    var cc=$('#chatChips');
+    if(cc){cc.innerHTML=chips.map(function(c){return '<button type="button" class="chip" data-q="'+esc(c.replace(/^[^ ]+ /,''))+'">'+esc(c)+'</button>';}).join('');
+      Array.prototype.forEach.call(cc.querySelectorAll('.chip'),function(b){b.onclick=function(){chatSend(b.getAttribute('data-q'));};});}
   }
   function renderAgentsList(){
     if(!lastBoard)return;var B=lastBoard;
@@ -2366,6 +2410,169 @@
     [B.rm,B.strat].concat(B.reports).concat([B.verify]).forEach(function(r){out.push(block(r));out.push('');});
     out.push('— รายงานนี้เป็นการวิเคราะห์เชิงตัวเลขจากข้อมูลที่บันทึก ไม่ใช่คำแนะนำการเงิน/สุขภาพ/กฎหมาย —');
     return out.join('\n');
+  }
+
+  /* ================= Advisor Chat (offline rule-based + optional Claude API) ================= */
+  var chatMsgs=[];
+  var RULES_TH=[
+    'คุณคือ "คณะที่ปรึกษา" ในแอป Tor Life OS — ผู้ช่วยวิเคราะห์การเงิน ธุรกิจ การลงทุน ภาษี กฎหมาย/เอกสาร สุขภาพ งาน และความเสี่ยงส่วนตัวของผู้ใช้',
+    'ยึดหลัก "ความถูกต้องมาก่อนความมั่นใจ" อย่างเคร่งครัด และตอบเป็นภาษาไทยเสมอ',
+    '',
+    'กฎเหล็ก 8 ข้อ (ห้ามละเมิด):',
+    '1. ห้ามเดาหรือสร้างตัวเลข/ข้อมูลขึ้นเอง — ใช้เฉพาะข้อมูลใน <ข้อมูลผู้ใช้> ที่ให้มาเท่านั้น',
+    '2. ถ้าข้อมูลไม่พอ ให้ตอบตรง ๆ ว่า "ข้อมูลไม่เพียงพอ" พร้อมบอกว่าต้องการข้อมูลอะไรเพิ่ม และให้ไปกรอกที่แท็บไหน',
+    '3. แยกให้ชัดเจนเป็น [ข้อเท็จจริง] / [การวิเคราะห์] / [ข้อเสนอแนะ]',
+    '4. ระบุระดับความเชื่อมั่น (สูง/กลาง/ต่ำ) ของข้อสรุปสำคัญทุกข้อ',
+    '5. ถ้าพบความเสี่ยง จัดลำดับความรุนแรง (ร้าย/กลาง/ต่ำ) พร้อมผลกระทบและสิ่งที่ควรทำ',
+    '6. ถ้ามีหลายทางเลือก ให้เปรียบเทียบข้อดี ข้อเสีย และความเสี่ยงของแต่ละทาง',
+    '7. เรื่องการเงิน/สุขภาพ/กฎหมาย ต้องแจ้งข้อจำกัด และย้ำว่านี่ไม่ใช่คำแนะนำวิชาชีพ',
+    '8. ทุกข้อสรุปต้องอ้างอิงตัวเลขจริงจาก <ข้อมูลผู้ใช้>',
+    '',
+    'อย่าแต่งเรื่องเพื่อให้ดูฉลาด — ถ้าไม่รู้หรือข้อมูลไม่ครบ ให้บอกตามจริง กระชับ ตรงประเด็น'
+  ].join('\n');
+
+  function digestHealth(){
+    var logs=db.healthLogs.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+    var w=logs.filter(function(l){return l.weight!==null;})[0];
+    var s=logs.filter(function(l){return l.sleep!==null;})[0];
+    return {บันทึกทั้งหมด:logs.length,น้ำหนักล่าสุด:w?w.weight:null,นอนล่าสุด:s?s.sleep:null,
+      ยาที่ติดตาม:db.healthItems.filter(function(h){return h.kind==='ยา';}).map(function(h){return h.n;})};
+  }
+  function advisorDataDigest(){
+    var ctx=agentCtx();
+    var exCat={},bud={},inCat={};
+    catList('expense').forEach(function(c){var v=sumCat(ctx.cm,'expense',c.n);if(v||num(c.b)){exCat[c.n]=v;bud[c.n]=num(c.b);}});
+    catNames('income').forEach(function(n){var v=sumCat(ctx.cm,'income',n);if(v)inCat[n]=v;});
+    var d={
+      วันที่ปัจจุบัน:thD(todayStr()),
+      เดือนนี้:{รายรับ:ctx.inc,รายจ่าย:ctx.ex,ออมลงทุน:ctx.sv,กระแสเงินสดสุทธิ:ctx.inc-ctx.ex-ctx.sv},
+      รายจ่ายรายหมวดเดือนนี้:exCat,งบรายหมวดต่อเดือน:bud,รายรับรายหมวดเดือนนี้:inCat,
+      ความมั่งคั่งสุทธิ:ctx.nw,สินทรัพย์รวม:ctx.A,หนี้สินรวม:ctx.D,
+      เงินสำรองฉุกเฉิน:ctx.ef,เป้าเงินสำรอง:ctx.efTarget,
+      รันเวย์เงินสำรองเดือน:ctx.runway!=null?Number(ctx.runway.toFixed(1)):null,
+      อัตราการออมเดือนนี้:ctx.saveRate!=null?Math.round(ctx.saveRate*100)+'%':null,
+      สัญญาฟรีแลนซ์เหลืออีกวัน:ctx.contractDays,จำนวนเดือนที่มีข้อมูล:ctx.monthsWithData,
+      สินทรัพย์:db.assets.map(function(a){return {ชื่อ:a.n,ประเภท:CLS_LABEL[a.cls]||a.cls,ต้นทุน:num(a.cost),มูลค่า:num(a.v)};}),
+      หนี้สิน:db.debts.map(function(x){return {ชื่อ:x.n,ยอด:num(x.v)};}),
+      ธุรกิจ:db.businesses.map(function(b){var c=bizStats(b.id,db.entries);return {ชื่อ:b.n,รายรับสะสม:c.rev,รายจ่ายลงทุนสะสม:c.exp,สุทธิ:c.rev-c.exp};}),
+      เป้าหมาย:db.goals.map(function(g){return {ชื่อ:g.n,ปัจจุบัน:goalCurrent(g),เป้า:num(g.target),ต่อเดือน:num(g.monthly)};}),
+      งานค้าง:db.todos.filter(function(t){return !t.done;}).map(function(t){return {งาน:t.n,กำหนด:t.due||'ไม่ระบุ'};}),
+      เอกสาร:db.docs.map(function(dc){return {ชื่อ:dc.n,หมดอายุ:dc.expiry||'ไม่ระบุ'};}),
+      ประกันและสิทธิ:db.insurances.map(function(i){return {ชื่อ:i.n,เบี้ยต่อเดือน:num(i.prem),สถานะ:i.status};}),
+      สุขภาพ:digestHealth(),
+      รายรับทั้งปีนี้ที่บันทึก:ctx.yearInc
+    };
+    return JSON.stringify(d,null,1);
+  }
+
+  /* ---- offline (deterministic) advisor ---- */
+  function findRep(B,id){var all=[B.ceo,B.rm,B.strat,B.verify].concat(B.reports);
+    for(var i=0;i<all.length;i++){if(all[i].id===id)return all[i];}return null;}
+  function repToText(r){
+    var L=[];
+    L.push(r.emoji+' '+r.name+' — ความเชื่อมั่น '+r.confidence+(r.status==='insufficient'?' · ข้อมูลไม่เพียงพอ':''));
+    if(r.status==='insufficient'&&r.missing.length){L.push('  ข้อมูลไม่เพียงพอ — ต้องการ: '+r.missing.join(' · '));}
+    if(r.facts.length){L.push('  [ข้อเท็จจริง]');r.facts.forEach(function(t){L.push('   • '+t);});}
+    if(r.analysis.length){L.push('  [การวิเคราะห์]');r.analysis.forEach(function(t){L.push('   • '+t);});}
+    if(r.risks.length){L.push('  [ความเสี่ยง]');r.risks.forEach(function(k){L.push('   • ['+k.sev+'] '+k.title+' — อ้างอิง: '+k.basis+' → '+k.action);});}
+    if(r.recs.length){L.push('  [ข้อเสนอแนะ]');r.recs.forEach(function(k){L.push('   • '+k.text+' (ความเชื่อมั่น '+k.conf+')');});}
+    return L.join('\n');
+  }
+  function offlineAdvisor(q){
+    var B=lastBoard||runBoard();lastBoard=B;
+    var t=String(q||'').toLowerCase();
+    function has(){for(var i=0;i<arguments.length;i++){if(t.indexOf(arguments[i])>=0)return true;}return false;}
+    if(has('สวัสดี','ทำอะไรได้','ช่วยอะไร','เมนู','help','เริ่ม')){
+      return 'สวัสดีครับ ผมคือคณะที่ปรึกษาแบบออฟไลน์ วิเคราะห์จากข้อมูลจริงในเครื่องเท่านั้น (ไม่เดา ไม่แต่ง)\n'+
+        'ลองถามได้ เช่น:\n• ตอนนี้มีความเสี่ยงอะไรบ้าง\n• การเงินเดือนนี้เป็นยังไง / รันเวย์เท่าไหร่\n• ธุรกิจไหนกำไร/ขาดทุน\n• พอร์ตลงทุนเป็นยังไง\n• เอกสารอะไรใกล้หมดอายุ\n• ควรทำอะไรก่อน (ลำดับความสำคัญ)\n• สรุปภาพรวมให้หน่อย\n\n'+
+        '(อยากคุยแบบถาม-ตอบทุกเรื่องแบบลึก ๆ เปิด "โหมด AI" ได้ที่แท็บตั้งค่า โดยใส่ Claude API Key ของคุณเอง)';
+    }
+    var picks=[],ids={};
+    function add(id){var r=findRep(B,id);if(r&&!ids[id]){ids[id]=1;picks.push(r);}}
+    if(has('ความเสี่ยง','เสี่ยง','risk','อันตราย'))add('risk');
+    if(has('รันเวย์','เงินสำรอง','ออม','กระแสเงินสด','การเงิน','รายรับ','รายจ่าย','เงินเหลือ','คงเหลือ'))add('finance');
+    if(has('ธุรกิจ','ร้าน','สวนข่า','ข่า','lalamove','ลาลามูฟ','กำไร','ขาดทุน'))add('business');
+    if(has('พอร์ต','ลงทุน','หุ้น','กองทุน','ปันผล','ปตท'))add('investment');
+    if(has('ภาษี','ยื่นภาษี','ลดหย่อน','สรรพากร'))add('tax');
+    if(has('เอกสาร','ใบขับขี่','ทะเบียน','กฎหมาย','ประกัน','สิทธิ','ต่ออายุ'))add('legal');
+    if(has('สุขภาพ','น้ำหนัก','นอน','ยา','ออกกำลัง','หมอ'))add('health');
+    if(has('งาน','to-do','todo','ทำ','กำหนด','นัด','ค้าง'))add('productivity');
+    if(has('เรียน','คอร์ส','การเรียน','การศึกษา'))add('learning');
+    if(has('บัญชี','บันทึก','ครบถ้วน','คุณภาพข้อมูล'))add('accounting');
+    if(has('ควรทำ','ลำดับ','แผน','กลยุทธ์','โฟกัส','อะไรก่อน','เริ่มตรงไหน','ทำอะไรดี'))add('strategy');
+    if(has('หนี้','ปลดหนี้','โปะ','กยศ','บ้าน'))add('strategy');
+    var overview=has('ภาพรวม','สรุป','สถานะ','โดยรวม','ทั้งหมด','เป็นยังไงบ้าง');
+    if(overview||!picks.length){
+      var ceo=B.ceo,head='';
+      head='🧠 สรุปภาพรวม — สถานะความเสี่ยงรวม: '+ceo._overall+' · ความน่าเชื่อถือข้อมูล '+Math.round((ceo._trust||0)*100)+'%\n';
+      var topRisks=B.rm.risks.slice(0,5);
+      if(topRisks.length){head+='ความเสี่ยงเด่น:\n'+topRisks.map(function(k){return '  • ['+k.sev+'] '+k.title+' — '+k.basis+' → '+k.action;}).join('\n')+'\n';}
+      var pr=B.strat.recs.slice(0,3);
+      if(pr.length){head+='ลำดับความสำคัญ:\n'+pr.map(function(k){return '  • '+k.text;}).join('\n')+'\n';}
+      if(ceo._insufficient.length)head+='ยังประเมินไม่ได้เพราะข้อมูลไม่พอ: '+ceo._insufficient.join(', ')+'\n';
+      if(!picks.length&&!overview){
+        head='ผมยังจับใจความคำถามนี้ไม่ได้ตรง ๆ เลยสรุปภาพรวมให้ก่อน — ลองถามเจาะจง เช่น "ความเสี่ยง" "รันเวย์" "ธุรกิจ" "พอร์ต" "ภาษี" "เอกสาร" "สุขภาพ" หรือ "ควรทำอะไรก่อน"\n(หรือเปิดโหมด AI ที่ตั้งค่าเพื่อถามได้ทุกเรื่องแบบลึก ๆ)\n\n'+head;
+      }
+      return head+'\n— วิเคราะห์จากข้อมูลจริงในเครื่องเท่านั้น ไม่ใช่คำแนะนำการเงิน/สุขภาพ/กฎหมาย —';
+    }
+    return picks.map(repToText).join('\n\n')+'\n\n— วิเคราะห์จากข้อมูลจริงในเครื่องเท่านั้น ไม่ใช่คำแนะนำวิชาชีพ —';
+  }
+
+  /* ---- Claude API (optional, user-supplied key) ---- */
+  function callLLM(){
+    var key=String(db.settings.aiKey||'').trim();
+    var model=db.settings.aiModel||'claude-opus-4-8';
+    var sys=[{type:'text',text:RULES_TH},{type:'text',text:'<ข้อมูลผู้ใช้ (JSON — ใช้เฉพาะข้อมูลนี้)>\n'+advisorDataDigest()+'\n</ข้อมูลผู้ใช้>'}];
+    var msgs=chatMsgs.filter(function(m){return !m.pending&&m.text;}).map(function(m){return {role:m.role,content:m.text};});
+    return fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:model,max_tokens:2048,system:sys,messages:msgs})
+    }).then(function(r){return r.json().then(function(j){return {status:r.status,body:j};},function(){return {status:r.status,body:null};});})
+    .then(function(res){
+      var j=res.body;
+      if(res.status===401)throw new Error('API Key ไม่ถูกต้อง — ตรวจสอบที่แท็บตั้งค่า');
+      if(res.status===429)throw new Error('เรียกถี่เกินไป (rate limit) — รอสักครู่แล้วลองใหม่');
+      if(j&&j.type==='error')throw new Error((j.error&&j.error.message)||('เกิดข้อผิดพลาด '+res.status));
+      if(!res.status||res.status>=400)throw new Error('เชื่อมต่อไม่สำเร็จ (HTTP '+res.status+')');
+      if(j&&j.stop_reason==='refusal')return 'ระบบ AI ปฏิเสธคำถามนี้ด้วยเหตุผลด้านความปลอดภัย — ลองถามในเชิงข้อมูลการเงิน/สุขภาพ/งานของคุณ';
+      var text=((j&&j.content)||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('');
+      return text||'(ไม่มีคำตอบกลับมา)';
+    });
+  }
+
+  function renderChat(){
+    var box=$('#chatBox');if(!box)return;
+    var aiOn=!!String(db.settings.aiKey||'').trim();
+    var mode=$('#chatMode');
+    if(mode)mode.innerHTML=aiOn?'<span class="stb g">โหมด AI · '+esc(db.settings.aiModel||'claude-opus-4-8')+'</span>':'<span class="stb y">โหมดออฟไลน์ (จากข้อมูลในเครื่อง)</span>';
+    if(!chatMsgs.length){
+      box.innerHTML='<div class="empty"><span class="ic">💬</span>เริ่มคุยกับที่ปรึกษาได้เลย — พิมพ์คำถาม หรือแตะคำถามตัวอย่างด้านล่าง</div>';
+    }else{
+      box.innerHTML=chatMsgs.map(function(m){
+        var who=m.role==='user'?'you':'bot';
+        return '<div class="cmsg '+who+'"><div class="cbub">'+(m.pending?'<span class="cdot">●</span><span class="cdot">●</span><span class="cdot">●</span>':esc(m.text))+'</div></div>';
+      }).join('');
+    }
+    box.scrollTop=box.scrollHeight;
+  }
+  function chatPush(role,text,pending){chatMsgs.push({role:role,text:text,pending:!!pending});renderChat();}
+  function chatSend(q){
+    q=String(q||'').trim();if(!q)return;
+    chatPush('user',q);
+    var input=$('#chatInput');if(input)input.value='';
+    if(String(db.settings.aiKey||'').trim()){
+      chatPush('assistant','',true);
+      callLLM().then(function(ans){
+        for(var i=chatMsgs.length-1;i>=0;i--){if(chatMsgs[i].pending){chatMsgs[i]={role:'assistant',text:ans};break;}}
+        renderChat();
+      }).catch(function(err){
+        for(var i=chatMsgs.length-1;i>=0;i--){if(chatMsgs[i].pending){chatMsgs[i]={role:'assistant',text:'⚠️ '+(err&&err.message||'เชื่อมต่อ AI ไม่สำเร็จ')+'\n(สลับไปโหมดออฟไลน์ได้โดยลบ API Key ที่ตั้งค่า)'};break;}}
+        renderChat();
+      });
+    }else{
+      chatPush('assistant',offlineAdvisor(q));
+    }
   }
 
   function applyTheme(){
@@ -2432,6 +2639,10 @@
   /* history search */
   (function(){var si=$('#histSearch');if(si)si.addEventListener('input',function(){histSearch=si.value;renderHist();});
     var sc=$('#histSearchClear');if(sc)sc.onclick=function(){histSearch='';if(si){si.value='';si.focus();}renderHist();};})();
+  /* advisor chat */
+  (function(){var ci=$('#chatInput'),cb=$('#chatSendBtn');
+    if(cb)cb.onclick=function(){chatSend($('#chatInput').value);};
+    if(ci)ci.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();chatSend(ci.value);}});})();
   document.addEventListener('click',function(ev){
     var g=ev.target&&ev.target.closest?ev.target.closest('.go[data-go]'):null;
     if(g){goTab(g.getAttribute('data-go'));return;}
@@ -2523,6 +2734,11 @@
     db.settings.efCat=$('#sEfCat').value||db.settings.efCat;
     save().then(function(){render();toast('บันทึกการตั้งค่าแล้ว');});
   };
+  $('#saveAi').onclick=function(){
+    db.settings.aiKey=String($('#sAiKey').value||'').trim();
+    db.settings.aiModel=$('#sAiModel').value||'claude-opus-4-8';
+    save().then(function(){render();toast(db.settings.aiKey?'เปิดโหมด AI แล้ว — ไปคุยที่แท็บที่ปรึกษาได้เลย':'บันทึกแล้ว (โหมดออฟไลน์)');});
+  };
   $('#reset').onclick=function(){
     if(!confirm('ลบรายการบัญชีทั้งหมด? กู้คืนไม่ได้ (แนะนำให้สำรอง JSON ก่อน)'))return;
     if(!confirm('ยืนยันอีกครั้ง — ลบรายการทั้งหมดจริงหรือไม่?'))return;
@@ -2545,7 +2761,9 @@
       rows.push([e.date,TNAME[e.type],e.cat,bizName(e.biz),e.item||'',q,(num(e.amount)/q).toFixed(2),num(e.amount),e.pay||'',e.note||'']);});
     dl('TorLifeOS.csv',rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n'),'text/csv;charset=utf-8');
   };
-  $('#expJson').onclick=function(){dl('TorLifeOS_backup_'+todayStr()+'.json',JSON.stringify(db,null,2),'application/json');};
+  $('#expJson').onclick=function(){
+    var out=clone(db);if(out.settings)out.settings.aiKey='';  /* never export the API key */
+    dl('TorLifeOS_backup_'+todayStr()+'.json',JSON.stringify(out,null,2),'application/json');};
   $('#dlReport').onclick=function(){dl('TorLifeOS_advisory_'+todayStr()+'.txt',boardText(),'text/plain;charset=utf-8');};
   $('#copyReport').onclick=function(){
     var txt=boardText();
