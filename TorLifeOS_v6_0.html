@@ -5,68 +5,68 @@
 
 <style>
   #appRoot{
-    --bg:#0C1220; --bg-2:#0F1730;
-    --card:#121A2E; --card-2:#17203A;
-    --line:#233150;
-    --ink:#E9EDF5; --soft:#9AA7BF; --faint:#5F6C86;
-    --gold:#C9A227; --gold-2:#E3C563; --gold-dim:rgba(201,162,39,.14);
-    --green:#2FA37D; --green-dim:rgba(47,163,125,.14);
-    --red:#C25062; --red-dim:rgba(194,80,98,.14);
-    --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 14px 34px -22px rgba(0,0,0,.8);
+    --bg:#12110D; --bg-2:#181510;
+    --card:#1C1914; --card-2:#221E17;
+    --line:#2F2A20;
+    --ink:#F2EEE3; --soft:#B6AE9B; --faint:#77705F;
+    --gold:#CBAA62; --gold-2:#E3C888; --gold-dim:rgba(203,170,98,.13);
+    --green:#77B892; --green-dim:rgba(119,184,146,.13);
+    --red:#D28C82; --red-dim:rgba(210,140,130,.13);
+    --shadow:0 1px 0 rgba(255,255,255,.02) inset, 0 20px 44px -28px rgba(0,0,0,.85);
     --suit:#1B2A41; --suit-2:#14202F; --skin:#C69C7B; --hair:#232833; --shirt:#F4F1E8;
     /* categorical chart palette (validated · dark surface steps) */
     --pie1:#199e70; --pie2:#3987e5; --pie3:#c98500; --pie4:#9085e9; --pie5:#e66767; --pie6:#d95926; --pie7:#d55181; --pie8:#008300;
   }
-  /* ===== Clean White (ChatGPT-style) ===== */
+  /* ===== Executive White (private-bank light) ===== */
   #appRoot.light{
-    --bg:#FFFFFF; --bg-2:#FFFFFF; --card:#FFFFFF; --card-2:#F7F7F8; --line:#E5E5E5;
-    --ink:#0D0D0D; --soft:#5D5D5D; --faint:#8F8F8F;
-    --gold:#10A37F; --gold-2:#0D8F6F; --gold-dim:#F7F7F8;
-    --green:#10A37F; --green-dim:rgba(16,163,127,.09);
-    --red:#D64545; --red-dim:rgba(214,69,69,.08);
-    --shadow:none;
+    --bg:#F4F2EA; --bg-2:#FBFAF5; --card:#FFFFFF; --card-2:#FAF8F1; --line:#E8E3D5;
+    --ink:#1A1913; --soft:#6B6759; --faint:#A49E8C;
+    --gold:#8A6D2F; --gold-2:#A6853E; --gold-dim:rgba(138,109,47,.09);
+    --green:#2E7D5B; --green-dim:rgba(46,125,91,.09);
+    --red:#A8443B; --red-dim:rgba(168,68,59,.08);
+    --shadow:0 1px 2px rgba(27,26,20,.03), 0 14px 36px -22px rgba(27,26,20,.13);
     /* categorical chart palette (validated · light surface steps) */
     --pie1:#1baf7a; --pie2:#2a78d6; --pie3:#eda100; --pie4:#4a3aa7; --pie5:#e34948; --pie6:#eb6834; --pie7:#e87ba4; --pie8:#008300;
   }
   /* flat, minimal chrome */
   #appRoot.light .mast{background:#FFFFFF;border-bottom:1px solid var(--line)}
   #appRoot.light .mast::after{display:none}
-  #appRoot.light .crest{background:#0D0D0D;color:#FFFFFF;box-shadow:none;border-radius:8px;font-family:inherit;font-weight:600}
+  #appRoot.light .crest{background:linear-gradient(150deg,var(--gold-2),var(--gold));color:#1A1913;box-shadow:0 2px 10px -4px rgba(138,109,47,.5);border-radius:9px;font-weight:700}
   #appRoot.light .brand h1{font-family:inherit;letter-spacing:-.01em}
-  #appRoot.light .brand .sub{letter-spacing:.06em;color:#8F8F8F}
+  #appRoot.light .brand .sub{letter-spacing:.06em;color:var(--faint)}
   #appRoot.light .card{border:1px solid var(--line);border-radius:12px;box-shadow:none}
-  #appRoot.light .rw{background:#F7F7F8;border-color:transparent}
-  #appRoot.light .eyebrow{color:#8F8F8F;letter-spacing:.08em}
-  #appRoot.light .tab::after{background:#0D0D0D}
-  #appRoot.light .btn{background:#0D0D0D;color:#FFFFFF;box-shadow:none;border-radius:10px}
-  #appRoot.light .btn:hover{background:#2B2B2B;filter:none}
+  #appRoot.light .rw{background:var(--card-2);border-color:transparent}
+  #appRoot.light .eyebrow{color:var(--faint);letter-spacing:.08em}
+  #appRoot.light .tab::after{background:var(--gold)}
+  #appRoot.light .btn{background:var(--ink);color:#FFFFFF;box-shadow:none;border-radius:10px}
+  #appRoot.light .btn:hover{background:#33302A;filter:none}
   #appRoot.light .btn.ghost{background:#FFFFFF;color:var(--ink);border:1px solid var(--line)}
-  #appRoot.light .btn.ghost:hover{background:#F7F7F8}
-  #appRoot.light .seg button[aria-pressed="true"]{background:#0D0D0D;color:#FFFFFF;border-color:#0D0D0D}
-  #appRoot.light .chip.on{background:#0D0D0D;color:#FFFFFF;border-color:#0D0D0D}
-  #appRoot.light .chip:hover{border-color:#0D0D0D;color:var(--ink);background:#F7F7F8}
+  #appRoot.light .btn.ghost:hover{background:var(--card-2)}
+  #appRoot.light .seg button[aria-pressed="true"]{background:var(--ink);color:#FFFFFF;border-color:var(--ink)}
+  #appRoot.light .chip.on{background:var(--ink);color:#FFFFFF;border-color:var(--ink)}
+  #appRoot.light .chip:hover{border-color:var(--ink);color:var(--ink);background:var(--card-2)}
   #appRoot.light input,#appRoot.light select{background:#FFFFFF;border-radius:10px}
-  #appRoot.light input:focus,#appRoot.light select:focus{border-color:#0D0D0D;box-shadow:0 0 0 3px rgba(13,13,13,.06)}
+  #appRoot.light input:focus,#appRoot.light select:focus{border-color:var(--ink);box-shadow:0 0 0 3px var(--gold-dim)}
   #appRoot.light .monthbar button,#appRoot.light .monthbar .m{background:#FFFFFF}
-  #appRoot.light .monthbar button:hover{border-color:#0D0D0D;background:#F7F7F8}
-  #appRoot.light tbody tr:hover{background:#F7F7F8}
+  #appRoot.light .monthbar button:hover{border-color:var(--ink);background:var(--card-2)}
+  #appRoot.light tbody tr:hover{background:var(--card-2)}
   #appRoot.light tfoot td{border-top:1px solid var(--line)}
-  #appRoot.light .mono{background:#F7F7F8;color:#5D5D5D}
-  #appRoot.light .mono.g{background:rgba(16,163,127,.10);color:#10A37F}
-  #appRoot.light .mono.r{background:rgba(214,69,69,.09);color:#D64545}
-  #appRoot.light .kpi.sv .v{color:#0D0D0D}
-  #appRoot.light .stmt .dbl td{border-top:2px solid #0D0D0D}
-  #appRoot.light .grade{border-color:var(--line);color:#5D5D5D}
-  #appRoot.light .medal.on{background:#FFFFFF;border-color:#0D0D0D}
-  #appRoot.light .medal.on svg{stroke:#0D0D0D}
-  #appRoot.light .medal.on svg .fillable{fill:#F7F7F8}
-  #appRoot.light .flag.warn{background:#F7F7F8;border-color:var(--line);color:#5D5D5D}
-  #appRoot.light .flag.err{background:rgba(214,69,69,.06);border-color:rgba(214,69,69,.35);color:#B03636}
-  #appRoot.light .toast{border-color:var(--line);box-shadow:0 8px 24px -12px rgba(0,0,0,.2)}
-  #appRoot.light .progress i{background:#0D0D0D}
-  #appRoot.light .bar i{background:#10A37F}
-  #appRoot.light .sev.y{background:#C79413}
-  #appRoot.light .tagx{background:#F7F7F8;border-color:var(--line)}
+  #appRoot.light .mono{background:var(--card-2);color:var(--soft)}
+  #appRoot.light .mono.g{background:var(--green-dim);color:var(--green)}
+  #appRoot.light .mono.r{background:var(--red-dim);color:var(--red)}
+  #appRoot.light .kpi.sv .v{color:var(--ink)}
+  #appRoot.light .stmt .dbl td{border-top:2px solid var(--ink)}
+  #appRoot.light .grade{border-color:var(--line);color:var(--soft)}
+  #appRoot.light .medal.on{background:#FFFFFF;border-color:var(--ink)}
+  #appRoot.light .medal.on svg{stroke:var(--ink)}
+  #appRoot.light .medal.on svg .fillable{fill:var(--card-2)}
+  #appRoot.light .flag.warn{background:var(--card-2);border-color:var(--line);color:var(--soft)}
+  #appRoot.light .flag.err{background:var(--red-dim);border-color:rgba(168,68,59,.35);color:#8F332B}
+  #appRoot.light .toast{border-color:var(--line);box-shadow:0 8px 24px -12px rgba(27,26,20,.18)}
+  #appRoot.light .progress i{background:linear-gradient(90deg,var(--gold),var(--gold-2))}
+  #appRoot.light .bar i{background:var(--green)}
+  #appRoot.light .sev.y{background:#B98A34}
+  #appRoot.light .tagx{background:var(--card-2);border-color:var(--line)}
   #appRoot{font-family:'IBM Plex Sans Thai','Noto Sans Thai',system-ui,sans-serif;
     background:var(--bg);color:var(--ink);line-height:1.55;padding-bottom:44px;min-height:100vh}
   #appRoot *{box-sizing:border-box}
@@ -349,6 +349,49 @@
   .marginbar{height:6px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:9px}
   .marginbar i{display:block;height:100%;border-radius:4px}
   @media(prefers-reduced-motion:reduce){#appRoot *{animation:none!important;transition:none!important}.bar i,.progress i{width:var(--w)!important}}
+
+  /* =================================================================
+     EXECUTIVE REDESIGN v6 — private-bank restraint
+     Typography-led · emoji-free chrome · hairline structure.
+     Appended last so it governs every earlier rule.
+  ================================================================= */
+  #appRoot{letter-spacing:-.004em}
+  /* — Masthead: serif wordmark, quieter rule — */
+  .brand h1{font-family:'Noto Serif Thai',Georgia,serif;font-weight:600;font-size:18.5px;letter-spacing:0}
+  .brand .sub{letter-spacing:.18em;font-size:9.5px}
+  .mast::after{opacity:.3}
+  .crest{border-radius:10px;font-family:'Noto Serif Thai',Georgia,serif}
+  /* — Net-worth strip → one hairline-ruled stat rail (1px-gap grid trick) — */
+  .strip{gap:1px;background:var(--line);border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-top:15px}
+  .rw{border:0;border-radius:0;background:var(--card);padding:11px 15px}
+  #appRoot.light .rw{background:var(--card);border-color:transparent}
+  .rw .lbl{font-size:9px;letter-spacing:.13em}
+  .rw .val{font-size:18.5px;font-weight:600}
+  /* — Tabs: text-only, quiet, refined underline — */
+  .tab{flex-direction:row;gap:0;min-width:auto;padding:13px 15px;font-size:12.5px;letter-spacing:.005em}
+  .tab .lb{font-size:12.5px}
+  .tab[aria-selected="true"]{font-weight:600}
+  /* — Cards & section titles: airier, serif headings — */
+  .card{border-radius:15px;padding:17px 18px}
+  .card h2{font-family:'Noto Serif Thai',Georgia,serif;font-weight:600;font-size:15.5px;letter-spacing:0}
+  .card h2 .hint{font-family:'IBM Plex Sans Thai',sans-serif;font-weight:400}
+  .eyebrow{font-size:9px;letter-spacing:.17em}
+  .kpi{border-radius:12px}
+  .kpi .k{letter-spacing:.02em;font-size:10px;text-transform:uppercase;color:var(--faint)}
+  .pos{border-radius:13px}
+  .pos .pl{letter-spacing:.08em}
+  /* — Strip decorative emoji from ALL chrome (per-item catIcon stays) — */
+  #appRoot .tab .ic,#appRoot .eyebrow .ic,#appRoot .rw .lbl .ic,#appRoot .kpi .k .ic,
+  #appRoot .h2ic,#appRoot .biz-grid .bx .l .ic,#appRoot .mini-kpi .mk .l .ic,
+  #appRoot .pos .pl .ic{display:none}
+  /* — Iconography that remains: monochrome unless active — */
+  .empty .ic{opacity:.38;filter:grayscale(1);font-size:22px}
+  .medal .em{filter:grayscale(1);opacity:.5}
+  .medal.on .em{filter:grayscale(.1);opacity:1}
+  .ag-em{filter:grayscale(.55);opacity:.85}
+  .countdown .cd-ic{filter:grayscale(.4);opacity:.9}
+  /* — Buttons: no emoji gap wobble; tighter, flatter — */
+  .seg button,.chip{letter-spacing:.01em}
 </style>
 
 <div id="appRoot">
@@ -453,9 +496,9 @@
         <div class="eyebrow"><span class="ic">✍️</span>New Entry</div>
         <h2>ลงบัญชี</h2>
         <div class="seg" id="typeSeg">
-          <button data-k="expense" aria-pressed="true">📤 รายจ่าย</button>
-          <button data-k="income" aria-pressed="false">📥 รายรับ</button>
-          <button data-k="saving" aria-pressed="false">🏦 ออม/ลงทุน</button>
+          <button data-k="expense" aria-pressed="true">รายจ่าย</button>
+          <button data-k="income" aria-pressed="false">รายรับ</button>
+          <button data-k="saving" aria-pressed="false">ออม/ลงทุน</button>
         </div>
         <div class="field"><label>เลือกหมวดเร็ว</label><div class="chips" id="quickChips"></div></div>
         <div class="row2">
@@ -476,7 +519,7 @@
           <div class="field"><label for="fPay">จ่ายด้วย</label><select id="fPay"></select></div>
         </div>
         <div class="field"><label for="fNote">โน้ต</label><input id="fNote" type="text" placeholder="ไม่ใส่ก็ได้"></div>
-        <button class="btn" id="saveEntry">💾 บันทึกรายการ</button>
+        <button class="btn" id="saveEntry">บันทึกรายการ</button>
       </div>
       <div class="card"><h2><span class="h2ic">🕘</span>บันทึกล่าสุด</h2><div id="recentBox"></div></div>
     </section>
@@ -544,7 +587,7 @@
           <div class="field"><label for="hEx">ออกกำลัง (นาที)</label><input id="hEx" class="num-in" type="number" placeholder="—"></div>
         </div>
         <div class="field"><label for="hNote">โน้ต (อาการ/ยาที่กิน)</label><input id="hNote" type="text" placeholder="เช่น ไม่ปวดหัว นอนตรงเวลา"></div>
-        <button class="btn" id="saveHealth">💾 บันทึกสุขภาพ</button>
+        <button class="btn" id="saveHealth">บันทึกสุขภาพ</button>
         <p class="note" style="margin-top:8px">กรอกเฉพาะช่องที่มีข้อมูลก็ได้ — อย่างน้อย 1 ช่อง</p>
       </div>
       <div class="card"><h2><span class="h2ic">⚖️</span>แนวโน้มน้ำหนัก</h2><div id="weightChart"></div></div>
@@ -670,8 +713,8 @@
       <div class="card">
         <h2><span class="h2ic">📄</span>ส่งออกรายงาน</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn ghost sm" id="copyReport">📋 คัดลอกรายงาน</button>
-          <button class="btn ghost sm" id="dlReport">💾 ดาวน์โหลด .txt</button>
+          <button class="btn ghost sm" id="copyReport">คัดลอกรายงาน</button>
+          <button class="btn ghost sm" id="dlReport">ดาวน์โหลด .txt</button>
         </div>
         <p class="note" style="margin-top:9px">รายงานนี้เป็นการวิเคราะห์เชิงตัวเลขจากข้อมูลที่คุณบันทึกเท่านั้น — ไม่ใช่คำแนะนำการเงิน/การลงทุน/สุขภาพ/กฎหมาย · จุดที่ระบุ "ข้อมูลไม่เพียงพอ" คือระบบยังสรุปไม่ได้จริง ไม่ได้แปลว่าปลอดภัย</p>
       </div>
@@ -681,8 +724,8 @@
       <div class="card">
         <h2><span class="h2ic">🎨</span>ธีม</h2>
         <div class="seg" id="themeSeg">
-          <button data-th="light" aria-pressed="true">☀️ Clean White</button>
-          <button data-th="dark" aria-pressed="false">🌙 Executive Dark</button>
+          <button data-th="light" aria-pressed="true">Clean White</button>
+          <button data-th="dark" aria-pressed="false">Executive Dark</button>
         </div>
       </div>
       <div class="card">
@@ -695,7 +738,7 @@
             <option value="claude-sonnet-5">Claude Sonnet 5 (สมดุล)</option>
             <option value="claude-haiku-4-5">Claude Haiku 4.5 (เร็ว · ประหยัด)</option>
           </select></div>
-        <button class="btn" id="saveAi">💾 บันทึกการตั้งค่า AI</button>
+        <button class="btn" id="saveAi">บันทึกการตั้งค่า AI</button>
         <p class="note" style="margin-top:9px">⚠️ เมื่อเปิดโหมด AI ระบบจะส่ง "สรุปข้อมูลการเงิน/สุขภาพ/งาน" ของคุณไปยัง Anthropic เพื่อวิเคราะห์ และมีค่าใช้จ่ายตามการใช้งานของ API Key คุณเอง · Key เก็บในเครื่องนี้เท่านั้น และ<b>ไม่ถูกใส่ในไฟล์สำรอง JSON</b> · ขอ Key ได้ที่ console.anthropic.com · ถ้าไม่ต้องการโหมด AI ให้เว้นว่างไว้</p>
       </div>
       <div class="card">
@@ -724,13 +767,13 @@
       <div class="card">
         <h2><span class="h2ic">💾</span>สำรองข้อมูล <span class="hint" id="sizeHint"></span></h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn ghost sm" id="expCsv">📊 ดาวน์โหลด CSV</button>
-          <button class="btn ghost sm" id="expJson">💾 สำรอง JSON</button>
-          <button class="btn ghost sm" id="impJson">♻️ กู้คืนจาก JSON</button>
+          <button class="btn ghost sm" id="expCsv">ดาวน์โหลด CSV</button>
+          <button class="btn ghost sm" id="expJson">สำรอง JSON</button>
+          <button class="btn ghost sm" id="impJson">กู้คืนจาก JSON</button>
         </div>
         <input id="fileIn" type="file" accept="application/json,.json" hidden>
         <p class="note" style="margin-top:9px">ข้อมูลจาก v2/v3/v4 กู้คืนผ่าน JSON ได้ — ระบบแปลงโครงสร้างให้อัตโนมัติ · ควรสำรองเดือนละครั้ง<br>ใช้แบบไฟล์เดี่ยว: ดาวน์โหลดไฟล์ .html นี้เก็บในเครื่อง เปิดด้วยเบราว์เซอร์ได้เลย ข้อมูลเซฟถาวรในเครื่องอัตโนมัติ</p>
-        <button class="btn ghost sm" id="reset" style="margin-top:11px;color:var(--red);border-color:var(--red)">🗑️ ล้างรายการบัญชีทั้งหมด</button>
+        <button class="btn ghost sm" id="reset" style="margin-top:11px;color:var(--red);border-color:var(--red)">ล้างรายการบัญชีทั้งหมด</button>
       </div>
     </section>
   </div>
@@ -743,9 +786,9 @@
         <button class="modal-x" id="editClose" aria-label="ปิด">✕</button>
       </h2>
       <div class="seg" id="eTypeSeg">
-        <button data-k="expense" aria-pressed="true">📤 รายจ่าย</button>
-        <button data-k="income" aria-pressed="false">📥 รายรับ</button>
-        <button data-k="saving" aria-pressed="false">🏦 ออม/ลงทุน</button>
+        <button data-k="expense" aria-pressed="true">รายจ่าย</button>
+        <button data-k="income" aria-pressed="false">รายรับ</button>
+        <button data-k="saving" aria-pressed="false">ออม/ลงทุน</button>
       </div>
       <div class="row2">
         <div class="field"><label for="eCat">หมวด</label><select id="eCat"></select></div>
@@ -761,7 +804,7 @@
         <div class="field"><label for="ePay">จ่ายด้วย</label><select id="ePay"></select></div>
       </div>
       <div class="field"><label for="eNote">โน้ต</label><input id="eNote" type="text" placeholder="ไม่ใส่ก็ได้"></div>
-      <button class="btn" id="eSave">💾 บันทึกการแก้ไข</button>
+      <button class="btn" id="eSave">บันทึกการแก้ไข</button>
     </div>
   </div>
   <div class="toast" id="toast"></div>
@@ -1606,7 +1649,7 @@
   function renderHist(){
     var term=String(histSearch||'').trim().toLowerCase();
     var searching=term.length>0;
-    var F=[['all','📋 ทั้งหมด'],['expense','📤 รายจ่าย'],['income','📥 รายรับ'],['saving','🏦 ออม/ลงทุน']];
+    var F=[['all','ทั้งหมด'],['expense','รายจ่าย'],['income','รายรับ'],['saving','ออม/ลงทุน']];
     $('#filterChips').innerHTML=F.map(function(f){return '<button type="button" class="chip'+(filter===f[0]?' on':'')+'" data-f="'+f[0]+'">'+f[1]+'</button>';}).join('');
     Array.prototype.forEach.call($('#filterChips').querySelectorAll('.chip'),function(b){
       b.onclick=function(){filter=b.getAttribute('data-f');renderHist();};});
@@ -2074,7 +2117,7 @@
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='Tor Life OS v5.7 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v6.0 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
   }
 
   /* ---------- edit entry modal ---------- */
@@ -2561,7 +2604,7 @@
 
     renderAgentsList();
     renderChat();
-    var chips=[['🛡️ ความเสี่ยงตอนนี้','ความเสี่ยงตอนนี้'],['🧭 ควรทำอะไรก่อน','ควรทำอะไรก่อน'],['🧠 สรุปภาพรวม','สรุปภาพรวม'],['📈 พอร์ตเป็นยังไง','พอร์ตเป็นยังไง'],['⚡ ดูคำสั่งที่สั่งได้','คำสั่ง']];
+    var chips=[['สรุปภาพรวม','สรุปภาพรวม'],['ความเสี่ยงตอนนี้','ความเสี่ยงตอนนี้'],['เดือนนี้ใช้ไปเท่าไหร่','เดือนนี้ใช้ไปเท่าไหร่'],['ธุรกิจไหนกำไร','ธุรกิจไหนกำไร'],['ควรทำอะไรก่อน','ควรทำอะไรก่อน'],['ดูคำสั่งที่สั่งได้','คำสั่ง']];
     var cc=$('#chatChips');
     if(cc){cc.innerHTML=chips.map(function(c){return '<button type="button" class="chip" data-q="'+esc(c[1])+'">'+esc(c[0])+'</button>';}).join('');
       Array.prototype.forEach.call(cc.querySelectorAll('.chip'),function(b){b.onclick=function(){chatSend(b.getAttribute('data-q'));};});}
@@ -2654,7 +2697,7 @@
       var rep=/ทุกเดือน|รายเดือน|ทุก ?ๆ ?เดือน/.test(t);
       db.todos.push({id:uid(),n:name,due:dt?dt.ymd:'',done:false,rep:rep});
       save().then(function(){render();});
-      return '✅ เพิ่มงานแล้ว: '+(catIcon(name)?catIcon(name)+' ':'📌 ')+name+(dt?' · กำหนด '+thD(dt.ymd):' · ไม่ระบุกำหนด')+(rep?' · ทำซ้ำรายเดือน':'')+'\nดูได้ที่แท็บ 🗓️ ตาราง/เอกสาร';
+      return '✅ เพิ่มงานแล้ว: '+(catIcon(name)?catIcon(name)+' ':'📌 ')+name+(dt?' · กำหนด '+thD(dt.ymd):' · ไม่ระบุกำหนด')+(rep?' · ทำซ้ำรายเดือน':'')+'\nดูได้ที่แท็บ ตาราง/เอกสาร';
     }
     /* MONEY: expense / income / saving (ต้องมีจำนวนเงิน) */
     var isExp=/^(บันทึกรายจ่าย|รายจ่าย|จ่าย|ซื้อ|เสียเงิน|เสียค่า|ค่า)/i.test(t);
@@ -2674,7 +2717,7 @@
       }
       db.entries.push({id:uid(),type:type,cat:cat,item:item,qty:1,pay:(db.settings.pays[0]||''),amount:amt,date:todayStr(),note:'',biz:guessBiz({type:type,cat:cat})||''});
       save().then(function(){render();renderBadges(false);});
-      return '✅ บันทึก'+TNAME[type]+'แล้ว: '+(catIcon(item||cat)?catIcon(item||cat)+' ':'')+(item||cat)+' · '+fmt(amt)+' บาท · หมวด '+cat+' · วันนี้\nดูได้ที่แท็บ 📋 รายการ';
+      return '✅ บันทึก'+TNAME[type]+'แล้ว: '+(catIcon(item||cat)?catIcon(item||cat)+' ':'')+(item||cat)+' · '+fmt(amt)+' บาท · หมวด '+cat+' · วันนี้\nดูได้ที่แท็บ รายการ';
     }
     /* GOAL */
     var goalStrong=/^(เพิ่มเป้าหมาย|ตั้งเป้าหมาย|ตั้งเป้า|สร้างเป้าหมาย)/i.test(t);
@@ -2683,7 +2726,7 @@
       var gname=t.replace(/^(เพิ่มเป้าหมาย|ตั้งเป้าหมาย|ตั้งเป้า|สร้างเป้าหมาย|เป้าหมาย)\s*(ว่า|คือ|เรื่อง)?\s*/i,'').replace(/[\d,]+(?:\.\d+)?\s*(ล้าน|แสน|หมื่น|พัน|k|บาท)?/i,'').replace(/\s+/g,' ').trim()||'เป้าหมายใหม่';
       db.goals.push({id:uid(),n:gname,cat:'การเงิน',target:amt,asset:'',current:0,monthly:0});
       save().then(function(){render();});
-      return '✅ เพิ่มเป้าหมายแล้ว: '+(catIcon(gname)||'🎯')+' '+gname+' · ยอดเป้า '+fmt(amt)+' บาท\nดูได้ที่แท็บ 🎯 เป้าหมาย';
+      return '✅ เพิ่มเป้าหมายแล้ว: '+(catIcon(gname)||'🎯')+' '+gname+' · ยอดเป้า '+fmt(amt)+' บาท\nดูได้ที่แท็บ เป้าหมาย';
     }
     /* BUSINESS */
     if(/^(เพิ่มธุรกิจ|สร้างธุรกิจ|ธุรกิจใหม่)/i.test(t)){
@@ -2691,7 +2734,7 @@
       if(!bn)return 'บอกชื่อธุรกิจด้วยครับ เช่น "เพิ่มธุรกิจ ร้านกาแฟ"';
       if(db.businesses.some(function(b){return b.n===bn;}))return 'มีธุรกิจชื่อนี้อยู่แล้วครับ';
       db.businesses.push({id:uid(),n:bn});save().then(function(){render();});
-      return '✅ เพิ่มธุรกิจแล้ว: '+(catIcon(bn)||'🏢')+' '+bn+'\nดูได้ที่แท็บ 💼 ธุรกิจ';
+      return '✅ เพิ่มธุรกิจแล้ว: '+(catIcon(bn)||'🏢')+' '+bn+'\nดูได้ที่แท็บ ธุรกิจ';
     }
     /* ASSET */
     if(/^(เพิ่มสินทรัพย์|บันทึกสินทรัพย์)/i.test(t)){
@@ -2699,14 +2742,43 @@
       var an=t.replace(/^(เพิ่มสินทรัพย์|บันทึกสินทรัพย์)\s*/i,'').replace(/[\d,]+(?:\.\d+)?\s*(ล้าน|แสน|หมื่น|พัน|k|บาท)?.*$/i,'').replace(/\s+/g,' ').trim()||'สินทรัพย์ใหม่';
       var cls=guessCls(an);
       db.assets.push({n:an,v:amt,cost:amt,cls:cls});save().then(function(){render();});
-      return '✅ เพิ่มสินทรัพย์แล้ว: '+(catIcon(an)||'💰')+' '+an+' · '+fmt(amt)+' บาท ('+CLS_LABEL[cls]+')\nดูได้ที่แท็บ 📈 พอร์ต';
+      return '✅ เพิ่มสินทรัพย์แล้ว: '+(catIcon(an)||'💰')+' '+an+' · '+fmt(amt)+' บาท ('+CLS_LABEL[cls]+')\nดูได้ที่แท็บ พอร์ต';
     }
     /* DEBT */
     if(/^(เพิ่มหนี้|บันทึกหนี้)/i.test(t)){
       if(!(amt>0))return 'บอกยอดหนี้ด้วยครับ เช่น "เพิ่มหนี้ บัตรเครดิต 20000"';
       var dn=t.replace(/^(เพิ่มหนี้|บันทึกหนี้)\s*/i,'').replace(/[\d,]+(?:\.\d+)?\s*(ล้าน|แสน|หมื่น|พัน|k|บาท)?.*$/i,'').replace(/\s+/g,' ').trim()||'หนี้ใหม่';
       db.debts.push({n:dn,v:amt});save().then(function(){render();});
-      return '✅ เพิ่มหนี้แล้ว: 💳 '+dn+' · '+fmt(amt)+' บาท\nดูได้ที่แท็บ 📈 พอร์ต';
+      return '✅ เพิ่มหนี้แล้ว: 💳 '+dn+' · '+fmt(amt)+' บาท\nดูได้ที่แท็บ พอร์ต';
+    }
+    /* MARK TODO DONE (ไม่มีจำนวนเงิน) */
+    if(!(amt>0)&&(/เสร็จแล้ว|ทำเสร็จ|เสร็จเรียบร้อย|ทำงานเสร็จ|เรียบร้อยแล้ว/.test(t)||/^(ปิดงาน|เช็คงาน|ติ๊กงาน|ติ๊ก|มาร์คงาน|เคลียร์งาน)\s*/i.test(t))){
+      var dkey0=t.replace(/^(ปิดงาน|เช็คงาน|ติ๊กงาน|ติ๊ก|มาร์คงาน|เคลียร์งาน|มาร์ค|ทำ|งาน)\s*/i,'')
+        .replace(/(เสร็จเรียบร้อย|ทำงานเสร็จ|เรียบร้อยแล้ว|เสร็จแล้ว|ทำเสร็จ|เสร็จ|แล้ว)/g,'').replace(/\s+/g,' ').trim();
+      var openT=db.todos.filter(function(x){return !x.done;});
+      if(!openT.length)return 'ตอนนี้ไม่มีงานค้างให้ปิดครับ — เพิ่มงานได้โดยพิมพ์ "เตือน <งาน> <วันที่>"';
+      var hitT=null,hj;
+      if(dkey0)for(hj=0;hj<openT.length;hj++){if(openT[hj].n.indexOf(dkey0)>=0||dkey0.indexOf(openT[hj].n)>=0){hitT=openT[hj];break;}}
+      if(!hitT&&!dkey0&&openT.length===1)hitT=openT[0];
+      if(!hitT)return 'ปิดงานไหนดีครับ? งานค้างตอนนี้:\n• '+openT.slice(0,8).map(function(x){return x.n;}).join('\n• ')+'\n(พิมพ์ เช่น "เสร็จแล้ว '+openT[0].n.slice(0,14)+'")';
+      hitT.done=true;save().then(function(){render();renderBadges(false);});
+      return '✅ ปิดงานแล้ว: '+(catIcon(hitT.n)?catIcon(hitT.n)+' ':'')+hitT.n+'\nดูงานที่เหลือได้ที่แท็บ ตาราง/เอกสาร';
+    }
+    /* DELETE TODO */
+    if(/^(ลบงาน|ลบเตือน|เอางานออก|ยกเลิกงาน)\s*/i.test(t)){
+      var delk=t.replace(/^(ลบงาน|ลบเตือน|เอางานออก|ยกเลิกงาน)\s*/i,'').replace(/\s+/g,' ').trim();
+      if(!delk)return 'บอกชื่องานที่จะลบด้วยครับ เช่น "ลบงาน ต่อใบขับขี่"';
+      var di=-1,dq;for(dq=0;dq<db.todos.length;dq++){if(db.todos[dq].n.indexOf(delk)>=0||delk.indexOf(db.todos[dq].n)>=0){di=dq;break;}}
+      if(di<0)return 'ไม่พบงานชื่อ "'+delk+'" ครับ — พิมพ์ "งานค้าง" เพื่อดูรายการทั้งหมด';
+      var deln=db.todos[di].n;db.todos.splice(di,1);save().then(function(){render();});
+      return '🗑️ ลบงานแล้ว: '+deln;
+    }
+    /* NAVIGATE (เปิดแท็บให้) */
+    if(/^(ไป(ที่|แท็บ|หน้า)?|เปิด(แท็บ|หน้า)?|ดูหน้า|พาไป|โชว์หน้า|ขอดู|เปิดดู)\s*/i.test(t)){
+      var navk=t.replace(/^(ไป(ที่|แท็บ|หน้า)?|เปิด(แท็บ|หน้า)?|ดูหน้า|พาไป|โชว์หน้า|ขอดู|เปิดดู)\s*/i,'').replace(/หน่อย|ให้|ที|ครับ|ค่ะ|ๆ/g,'').trim();
+      var NAV=[[/แดชบอร์ด|หน้าหลัก|หน้าแรก|dashboard/,'dash','แดชบอร์ด'],[/กรอก|ลงบัญชี|เพิ่มรายการ|บันทึกรายการ|ลงรายการ/,'add','กรอก'],[/รายการ|ประวัติ|history/,'hist','รายการ'],[/ธุรกิจ|business/,'biz','ธุรกิจ'],[/พอร์ต|ลงทุน|สินทรัพย์|หุ้น|portfolio/,'port','พอร์ต'],[/สุขภาพ|health/,'health','สุขภาพ'],[/ตาราง|เอกสาร|ปฏิทิน|schedule|นัด/,'life','ตาราง/เอกสาร'],[/เป้าหมาย|เป้า|goal/,'goal','เป้าหมาย'],[/งบการเงิน|งบ|บัญชี|statement|กำไรขาดทุน/,'fin','งบการเงิน'],[/ที่ปรึกษา|แชท|advisor|เอเจน/,'board','ที่ปรึกษา'],[/ตั้งค่า|setting|สำรอง|ธีม|backup/,'set','ตั้งค่า']];
+      for(var nk=0;nk<NAV.length;nk++){if(NAV[nk][0].test(navk)){goTab(NAV[nk][1]);return '📂 เปิดแท็บ '+NAV[nk][2]+' ให้แล้วครับ';}}
+      /* ไม่ตรงหน้าไหน → ปล่อยให้ Q&A ตอบต่อ */
     }
     return null;
   }
@@ -2776,21 +2848,60 @@
     if(r.recs.length){L.push('  [ข้อเสนอแนะ]');r.recs.forEach(function(k){L.push('   • '+k.text+' (ความเชื่อมั่น '+k.conf+')');});}
     return L.join('\n');
   }
+  /* direct-figure answers — exact numbers from real data (never guessed) */
+  function quickFacts(q){
+    var t=String(q||'').toLowerCase();
+    var ask=/เท่าไหร่|เท่าไร|เท่าใด|กี่บาท|กี่เดือน|กี่วัน|กี่%|กี่เปอร|เหลือเท่า|มีเท่า|how much|เท่าไห/.test(t);
+    if(!ask)return null;
+    var c=agentCtx();
+    var tail='\n— ตัวเลขจากข้อมูลจริงในเครื่อง ณ '+thD(todayStr())+' —';
+    function H(){for(var i=0;i<arguments.length;i++){if(t.indexOf(arguments[i])>=0)return true;}return false;}
+    if(H('มั่งคั่ง','net worth','ทรัพย์สินสุทธิ','รวยแค่ไหน','สินทรัพย์สุทธิ'))
+      return '[ข้อเท็จจริง] ความมั่งคั่งสุทธิ = '+fmt(c.nw)+' บาท (สินทรัพย์ '+fmt(c.A)+' − หนี้สิน '+fmt(c.D)+')'+tail;
+    if(H('หนี้'))
+      return '[ข้อเท็จจริง] หนี้สินรวม = '+fmt(c.D)+' บาท'+(db.debts.length?' จาก '+db.debts.length+' รายการ: '+db.debts.map(function(d){return d.n+' '+fmt(d.v);}).join(' · '):'')+tail;
+    if(H('รันเวย์','อยู่ได้กี่เดือน','เงินสำรองพอ'))
+      return c.runway!=null?'[ข้อเท็จจริง] รันเวย์เงินสำรอง ≈ '+c.runway.toFixed(1)+' เดือน (เงินสำรอง '+fmt(c.ef)+' ÷ ฐานรายจ่าย '+fmt(c.base)+'/เดือน)'+tail:'ข้อมูลไม่เพียงพอจะคำนวณรันเวย์ — ยังไม่มีงบหรือประวัติรายจ่ายพอ (กรอกที่แท็บ กรอก)';
+    if(H('เงินสำรอง','ฉุกเฉิน','emergency'))
+      return '[ข้อเท็จจริง] เงินสำรองฉุกเฉิน = '+fmt(c.ef)+' บาท จากเป้า '+fmt(c.efTarget)+' บาท ('+pct(c.efTarget>0?c.ef/c.efTarget:0)+'%)'+tail;
+    if(H('อัตราการออม','save rate','ออมกี่'))
+      return c.saveRate!=null?'[ข้อเท็จจริง] อัตราการออมเดือนนี้ = '+Math.round(c.saveRate*100)+'% (ออม/ลงทุน '+fmt(c.sv)+' จากรายรับ '+fmt(c.inc)+')'+tail:'ข้อมูลไม่เพียงพอ — ยังไม่มีรายรับเดือนนี้';
+    if(H('สัญญา','ฟรีแลนซ์เหลือ','contract'))
+      return c.contractDays!=null?'[ข้อเท็จจริง] สัญญาฟรีแลนซ์เหลืออีก '+c.contractDays+' วัน'+tail:'ยังไม่ได้ตั้งวันสิ้นสุดสัญญา (ตั้งได้ที่แท็บ ตั้งค่า)';
+    if(H('สินทรัพย์','ทรัพย์สิน','asset'))
+      return '[ข้อเท็จจริง] สินทรัพย์รวม = '+fmt(c.A)+' บาท จาก '+db.assets.length+' รายการ'+tail;
+    if(H('กำไร','ขาดทุน','ธุรกิจไหน','แต่ละธุรกิจ')){
+      var bl=db.businesses.map(function(b){var s=bizStats(b.id,db.entries);return (catIcon(b.n)?catIcon(b.n)+' ':'')+b.n+': รายรับ '+fmt(s.rev)+' − ต้นทุน '+fmt(s.exp)+' = สุทธิ '+fmt(s.rev-s.exp);});
+      if(bl.length)return '[ข้อเท็จจริง] ผลแต่ละธุรกิจ (สะสมจากที่บันทึก):\n• '+bl.join('\n• ')+tail;
+    }
+    if(H('ออม','เก็บเงิน','ลงทุน'))
+      return '[ข้อเท็จจริง] ออม/ลงทุนเดือนนี้ = '+fmt(c.sv)+' บาท'+tail;
+    if(H('รายรับ','รายได้','เข้าเงิน','ได้เงิน'))
+      return '[ข้อเท็จจริง] รายรับเดือนนี้ = '+fmt(c.inc)+' บาท'+(c.topIncName?' · แหล่งหลัก '+c.topIncName+' '+fmt(c.topIncVal):'')+tail;
+    if(H('รายจ่าย','ใช้ไป','จ่ายไป','ใช้เงิน','ค่าใช้จ่าย'))
+      return '[ข้อเท็จจริง] รายจ่ายเดือนนี้ = '+fmt(c.ex)+' บาท'+tail;
+    if(H('เหลือ','คงเหลือ','กระแสเงินสด','เงินเหลือ','cash flow')){
+      var net=c.inc-c.ex-c.sv;
+      return '[ข้อเท็จจริง] กระแสเงินสดสุทธิเดือนนี้ = '+fmt(net)+' บาท (รายรับ '+fmt(c.inc)+' − รายจ่าย '+fmt(c.ex)+' − ออม/ลงทุน '+fmt(c.sv)+')'+tail;
+    }
+    return null;
+  }
   function offlineAdvisor(q){
     var B=lastBoard||runBoard();lastBoard=B;
+    var qf=quickFacts(q);if(qf)return qf;
     var t=String(q||'').toLowerCase();
     function has(){for(var i=0;i<arguments.length;i++){if(t.indexOf(arguments[i])>=0)return true;}return false;}
     if(has('สวัสดี','ทำอะไรได้','ช่วยอะไร','เมนู','help','เริ่ม','คำสั่ง')){
       return 'สวัสดีครับ ผมคือคณะที่ปรึกษาของระบบคุณ — วิเคราะห์จากข้อมูลจริงในเครื่องเท่านั้น (ไม่เดา ไม่แต่ง) และ "สั่งงาน" ผมได้ด้วย\n\n'+
-        '📊 ถามได้ เช่น:\n• ตอนนี้มีความเสี่ยงอะไรบ้าง\n• รันเวย์เท่าไหร่ / การเงินเดือนนี้เป็นยังไง\n• ธุรกิจไหนกำไร-ขาดทุน · พอร์ตเป็นยังไง\n• ควรทำอะไรก่อน · สรุปภาพรวม\n\n'+
-        '⚡ สั่งให้ผมทำได้เลย เช่น:\n• เตือน ต่อใบขับขี่ 2/8\n• เพิ่มงาน ผ่อนบ้าน สิ้นเดือน ทุกเดือน\n• จ่ายค่ากิน 250\n• รายรับ ฟรีแลนซ์ 28000\n• ออม 5000\n• ตั้งเป้า เที่ยวญี่ปุ่น 50000\n• เพิ่มธุรกิจ ร้านกาแฟ · เพิ่มหนี้ บัตรเครดิต 20000\n\n'+
+        'ถามตัวเลขตรง ๆ ได้ เช่น:\n• เดือนนี้ใช้ไปเท่าไหร่ / รายรับเท่าไหร่ / เหลือเท่าไหร่\n• ความมั่งคั่งสุทธิเท่าไหร่ · หนี้เท่าไหร่ · รันเวย์กี่เดือน\n• ธุรกิจไหนกำไร-ขาดทุน · พอร์ตเป็นยังไง\n• ตอนนี้มีความเสี่ยงอะไร · ควรทำอะไรก่อน · สรุปภาพรวม\n\n'+
+        'สั่งให้ผมทำได้เลย เช่น:\n• จ่ายค่ากิน 250 · รายรับ ฟรีแลนซ์ 28000 · ออม 5000\n• เตือน ต่อใบขับขี่ 2/8 · เพิ่มงาน ผ่อนบ้าน สิ้นเดือน ทุกเดือน\n• เสร็จแล้ว ผ่อนบ้าน · ลบงาน ต่อใบขับขี่\n• ตั้งเป้า เที่ยวญี่ปุ่น 50000 · เพิ่มธุรกิจ ร้านกาแฟ · เพิ่มหนี้ บัตรเครดิต 20000\n• เปิดแท็บ พอร์ต · ไปหน้า งบการเงิน\n\n'+
         '(อยากคุยลึก ๆ ทุกเรื่อง เปิด "โหมด AI" ที่แท็บตั้งค่าโดยใส่ Claude API Key ของคุณเอง — คำสั่งด้านบนยังทำงานได้เหมือนเดิม)';
     }
     var picks=[],ids={};
     function add(id){var r=findRep(B,id);if(r&&!ids[id]){ids[id]=1;picks.push(r);}}
     if(has('ความเสี่ยง','เสี่ยง','risk','อันตราย'))add('risk');
-    if(has('รันเวย์','เงินสำรอง','ออม','กระแสเงินสด','การเงิน','รายรับ','รายจ่าย','เงินเหลือ','คงเหลือ'))add('finance');
-    if(has('ธุรกิจ','ร้าน','สวนข่า','ข่า','lalamove','ลาลามูฟ','กำไร','ขาดทุน'))add('business');
+    if(has('รันเวย์','เงินสำรอง','ออม','กระแสเงินสด','การเงิน','รายรับ','รายได้','รายจ่าย','เงินเหลือ','คงเหลือ','เงินเดือน','ใช้จ่าย','สภาพคล่อง'))add('finance');
+    if(has('ธุรกิจ','ร้าน','สวนข่า','ข่า','lalamove','ลาลามูฟ','กำไร','ขาดทุน','ยอดขาย','มาร์จิ้น'))add('business');
     if(has('พอร์ต','ลงทุน','หุ้น','กองทุน','ปันผล','ปตท'))add('investment');
     if(has('ภาษี','ยื่นภาษี','ลดหย่อน','สรรพากร'))add('tax');
     if(has('เอกสาร','ใบขับขี่','ทะเบียน','กฎหมาย','ประกัน','สิทธิ','ต่ออายุ'))add('legal');
@@ -2810,7 +2921,7 @@
       if(pr.length){head+='ลำดับความสำคัญ:\n'+pr.map(function(k){return '  • '+k.text;}).join('\n')+'\n';}
       if(ceo._insufficient.length)head+='ยังประเมินไม่ได้เพราะข้อมูลไม่พอ: '+ceo._insufficient.join(', ')+'\n';
       if(!picks.length&&!overview){
-        head='ผมยังจับใจความคำถามนี้ไม่ได้ตรง ๆ เลยสรุปภาพรวมให้ก่อน — ลองถามเจาะจง เช่น "ความเสี่ยง" "รันเวย์" "ธุรกิจ" "พอร์ต" "ภาษี" "เอกสาร" "สุขภาพ" หรือ "ควรทำอะไรก่อน"\n(หรือเปิดโหมด AI ที่ตั้งค่าเพื่อถามได้ทุกเรื่องแบบลึก ๆ)\n\n'+head;
+        head='ได้เลยครับ — ขอสรุปภาพรวมล่าสุดให้ก่อน แล้วอยากเจาะเรื่องไหนบอกได้เลย เช่น "ความเสี่ยง" · "รันเวย์" · "ธุรกิจไหนกำไร" · "พอร์ต" · "ภาษี" · "เอกสาร/ประกัน" · "สุขภาพ" · "ควรทำอะไรก่อน"\nหรือสั่งงานได้เลย เช่น "จ่ายค่ากิน 250" · "เตือน ต่อใบขับขี่ 2/8" · "เสร็จแล้ว ผ่อนบ้าน" · "เปิดแท็บ พอร์ต"\n(อยากคุยลึกทุกเรื่อง เปิดโหมด AI ที่แท็บตั้งค่าได้)\n\n'+head;
       }
       return head+'\n— วิเคราะห์จากข้อมูลจริงในเครื่องเท่านั้น ไม่ใช่คำแนะนำการเงิน/สุขภาพ/กฎหมาย —';
     }
