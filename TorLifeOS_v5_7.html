@@ -14,6 +14,8 @@
     --red:#C25062; --red-dim:rgba(194,80,98,.14);
     --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 14px 34px -22px rgba(0,0,0,.8);
     --suit:#1B2A41; --suit-2:#14202F; --skin:#C69C7B; --hair:#232833; --shirt:#F4F1E8;
+    /* categorical chart palette (validated · dark surface steps) */
+    --pie1:#199e70; --pie2:#3987e5; --pie3:#c98500; --pie4:#9085e9; --pie5:#e66767; --pie6:#d95926; --pie7:#d55181; --pie8:#008300;
   }
   /* ===== Clean White (ChatGPT-style) ===== */
   #appRoot.light{
@@ -23,6 +25,8 @@
     --green:#10A37F; --green-dim:rgba(16,163,127,.09);
     --red:#D64545; --red-dim:rgba(214,69,69,.08);
     --shadow:none;
+    /* categorical chart palette (validated · light surface steps) */
+    --pie1:#1baf7a; --pie2:#2a78d6; --pie3:#eda100; --pie4:#4a3aa7; --pie5:#e34948; --pie6:#eb6834; --pie7:#e87ba4; --pie8:#008300;
   }
   /* flat, minimal chrome */
   #appRoot.light .mast{background:#FFFFFF;border-bottom:1px solid var(--line)}
@@ -316,6 +320,34 @@
   .cdot{font-size:9px;color:var(--faint);animation:blink 1.2s infinite}
   .cdot:nth-child(2){animation-delay:.2s} .cdot:nth-child(3){animation-delay:.4s}
   @keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+  /* ===== Executive dashboard: donut charts + position tiles (v5.7) ===== */
+  .donut-wrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .donut-wrap svg{flex:none}
+  .dleg{flex:1;min-width:180px;display:flex;flex-direction:column;gap:2px}
+  .dleg-i{display:flex;align-items:center;gap:8px;font-size:12.2px;padding:2.5px 0}
+  .dleg-i .sw{width:9px;height:9px;border-radius:2px;flex:none}
+  .dleg-i .dl-n{color:var(--soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dleg-i .dl-v{color:var(--ink);font-weight:600;white-space:nowrap}
+  .dleg-i .dl-v small{color:var(--faint);font-weight:400;margin-left:3px}
+  .pos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:13px}
+  @media(max-width:560px){.pos-grid{grid-template-columns:1fr}}
+  .pos{border:1px solid var(--line);border-radius:12px;padding:12px 13px;background:var(--card-2);position:relative;overflow:hidden}
+  .pos:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold)}
+  .pos.a:before{background:var(--pie1)} .pos.l:before{background:var(--pie5)} .pos.e:before{background:var(--pie2)}
+  .pos .pl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .pos .pv{font-size:21px;font-weight:700;margin-top:3px;white-space:nowrap}
+  .pos .ps{font-size:10.5px;color:var(--soft);margin-top:2px}
+  .pos.a .pv{color:var(--pie1)} .pos.e .pv{color:var(--ink)} .pos.l .pv{color:var(--pie5)}
+  .bizx{border:1px solid var(--line);border-radius:12px;padding:12px 13px;background:var(--card-2);margin-bottom:10px}
+  .bizx-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;font-size:13.5px;font-weight:600}
+  .bizx-h .tagx{font-weight:400}
+  .mini-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  @media(max-width:560px){.mini-kpi{grid-template-columns:1fr 1fr}}
+  .mini-kpi .mk{text-align:left}
+  .mini-kpi .mk .l{font-size:9.5px;color:var(--faint);letter-spacing:.03em;text-transform:uppercase}
+  .mini-kpi .mk .n{font-size:15px;font-weight:600;margin-top:1px;white-space:nowrap}
+  .marginbar{height:6px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:9px}
+  .marginbar i{display:block;height:100%;border-radius:4px}
   @media(prefers-reduced-motion:reduce){#appRoot *{animation:none!important;transition:none!important}.bar i,.progress i{width:var(--w)!important}}
 </style>
 
@@ -380,6 +412,26 @@
         </div>
       </div>
       <div class="card">
+        <div class="eyebrow"><span class="ic">🏛️</span>Financial Position</div>
+        <h2>ฐานะการเงินรวม <span class="hint">สินทรัพย์ · หนี้สิน · ส่วนของเจ้าของ</span></h2>
+        <div id="positionBox"></div>
+      </div>
+      <div class="card">
+        <div class="eyebrow"><span class="ic">📈</span>Investment Portfolio</div>
+        <h2>พอร์ตการลงทุน <span class="hint">ต้นทุน · มูลค่า · กำไร/ขาดทุน</span></h2>
+        <div id="portDashBox"></div>
+      </div>
+      <div class="card">
+        <div class="eyebrow"><span class="ic">💼</span>Business Performance</div>
+        <h2>ผลประกอบการรายธุรกิจ <span class="hint" id="bizDashMonth"></span></h2>
+        <div id="bizDashBox"></div>
+      </div>
+      <div class="card">
+        <div class="eyebrow"><span class="ic">💸</span>Expense Breakdown</div>
+        <h2>โครงสร้างรายจ่ายเดือนนี้</h2>
+        <div id="expDonutBox"></div>
+      </div>
+      <div class="card">
         <div class="eyebrow"><span class="ic">❤️</span>Financial Health</div>
         <h2>คะแนนสุขภาพการเงิน <span class="grade" id="gradeTag">—</span></h2>
         <div class="score-wrap">
@@ -390,7 +442,6 @@
       <div class="card"><h2><span class="h2ic">📌</span>กำหนดการใกล้ถึง <span class="hint">รวม to-do เอกสาร และประกัน</span></h2><div id="agendaBox"></div></div>
       <div class="card"><h2><span class="h2ic">💸</span>รายจ่ายเทียบงบ <span class="hint">แตะหมวดเพื่อดูรายการย่อย</span></h2><div id="budgetBox"></div></div>
       <div class="card"><h2><span class="h2ic">📉</span>กระแสเงินสด 6 เดือน</h2><div id="cfChart"></div></div>
-      <div class="card"><h2><span class="h2ic">🥧</span>สัดส่วนสินทรัพย์</h2><div id="allocBox"></div></div>
       <div class="card"><h2><span class="h2ic">🎯</span>ความคืบหน้าเป้าหมาย</h2><div id="goalMini"></div></div>
       <div class="card"><h2><span class="h2ic">🩺</span>สุขภาพล่าสุด</h2><div id="healthMini"></div></div>
       <div class="card"><h2><span class="h2ic">🔥</span>รายการที่กินเงินมากที่สุด</h2><div id="topItemBox"></div></div>
@@ -583,6 +634,7 @@
     </section>
 
     <section id="fin" hidden>
+      <div class="card"><div class="eyebrow"><span class="ic">🧾</span>Profit &amp; Loss</div><h2>งบกำไรขาดทุน (แยกธุรกิจ) <span class="hint" id="pnlMonth"></span></h2><div id="pnlBox"></div></div>
       <div class="card"><div class="eyebrow"><span class="ic">📑</span>Income Statement</div><h2>งบรายรับ-รายจ่าย <span class="hint" id="plMonth"></span></h2><div id="plBox"></div></div>
       <div class="card"><div class="eyebrow"><span class="ic">💵</span>Cash Flow</div><h2>งบกระแสเงินสด</h2><div id="cfBox"></div></div>
       <div class="card"><div class="eyebrow"><span class="ic">⚖️</span>Balance Sheet</div><h2>งบแสดงฐานะการเงิน</h2><div id="bsBox"></div></div>
@@ -598,10 +650,10 @@
         <div id="chatBox" class="chatbox"></div>
         <div class="chips" id="chatChips"></div>
         <div class="searchbar" style="margin-top:2px">
-          <input id="chatInput" type="text" placeholder="พิมพ์คำถาม เช่น ตอนนี้มีความเสี่ยงอะไรบ้าง">
+          <input id="chatInput" type="text" placeholder="ถามหรือสั่งงาน เช่น เตือน ต่อใบขับขี่ 2/8 · จ่ายค่ากิน 250 · ความเสี่ยงตอนนี้">
           <button class="btn sm" id="chatSendBtn" style="width:auto;flex:none">ส่ง ➤</button>
         </div>
-        <p class="note" style="margin-top:8px">โหมดออฟไลน์วิเคราะห์จากข้อมูลในเครื่องเท่านั้น (ไม่เดา) · เปิด "โหมด AI" ได้ที่แท็บตั้งค่าโดยใส่ Claude API Key ของคุณเอง — โหมด AI จะส่งสรุปข้อมูลการเงิน/สุขภาพของคุณไป Anthropic เพื่อวิเคราะห์ (มีค่าใช้จ่ายตาม key ของคุณ)</p>
+        <p class="note" style="margin-top:8px">พิมพ์ <b>สั่งงาน</b> ได้เลย (เตือน/เพิ่มงาน · จ่าย/รายรับ/ออม · ตั้งเป้า · เพิ่มธุรกิจ/สินทรัพย์/หนี้) ระบบจะทำให้จริงและอัปเดตทุกหน้าที่เกี่ยวข้อง · หรือถามเพื่อวิเคราะห์ (ไม่เดา ไม่แต่ง) · เปิด "โหมด AI" ที่แท็บตั้งค่าเพื่อคุยลึก ๆ — โหมด AI จะส่งสรุปข้อมูลของคุณไป Anthropic (มีค่าใช้จ่ายตาม key ของคุณ)</p>
       </div>
       <div class="card">
         <div class="eyebrow"><span class="ic">🧠</span>Multi-Agent Advisory</div>
@@ -1229,8 +1281,12 @@
 
     renderBudget(rows);
 
+    renderPosition();
+    renderPortfolioDash();
+    $('#bizDashMonth').textContent=thM(cursor);
+    renderBizDash();
+    renderExpenseDonut();
     renderCashflowChart();
-    $('#allocBox').innerHTML=allocHTML();
     $('#goalMini').innerHTML=goalMiniHTML();
     $('#healthMini').innerHTML=healthMiniHTML();
 
@@ -1329,17 +1385,128 @@
       '<div class="bx"><div class="l">จำนวนเดือน</div><div class="n num">'+ser.length+'</div></div></div>'+
       '<p class="note" style="margin-top:8px">เก็บค่าความมั่งคั่งสุทธิ (สินทรัพย์ − หนี้สิน) อัตโนมัติทุกครั้งที่บันทึกข้อมูล — อัปเดตมูลค่าพอร์ตเดือนละครั้งเพื่อให้เส้นแม่นยำ</p>';
   }
+  /* ---------- donut charts (validated categorical palette) ---------- */
+  var PIE_ROLE=['var(--pie1)','var(--pie2)','var(--pie3)','var(--pie4)','var(--pie5)','var(--pie6)','var(--pie7)','var(--pie8)'];
+  function pieColor(i){return PIE_ROLE[i%PIE_ROLE.length];}
+  /* fold >maxN slices into "อื่น ๆ" so hues are never cycled past the palette */
+  function foldSegs(segs,maxN){
+    segs=segs.filter(function(s){return num(s.value)>0;}).sort(function(a,b){return num(b.value)-num(a.value);});
+    maxN=maxN||7;
+    if(segs.length<=maxN)return segs;
+    var head=segs.slice(0,maxN-1),rest=segs.slice(maxN-1);
+    var o=rest.reduce(function(s,x){return s+num(x.value);},0);
+    head.push({label:'อื่น ๆ',value:o,_fold:rest.length});
+    return head;
+  }
+  function donutSVG(segs,opts){
+    opts=opts||{};
+    var total=0;segs.forEach(function(s){total+=Math.max(0,num(s.value));});
+    var size=opts.size||126,sw=opts.stroke||22,r=(size-sw)/2,cx=size/2,cy=size/2,C=2*Math.PI*r;
+    if(total<=0)return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="'+sw+'"/></svg>';
+    var off=0,arcs='',gap=total>0?(C*0.008):0;
+    segs.forEach(function(s,i){
+      var v=Math.max(0,num(s.value));if(v<=0)return;
+      var len=C*(v/total),draw=Math.max(0.5,len-gap),col=s.color||pieColor(i);
+      arcs+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="'+sw+'" '+
+        'stroke-dasharray="'+draw.toFixed(2)+' '+(C-draw).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'" transform="rotate(-90 '+cx+' '+cy+')">'+
+        '<title>'+esc(s.label)+': '+fmt(v)+' ('+Math.round(v/total*100)+'%)</title></circle>';
+      off+=len;
+    });
+    var ctr='';
+    if(opts.centerTop!=null)ctr='<text x="'+cx+'" y="'+(cy+(opts.centerSub?-2:4))+'" text-anchor="middle" font-size="'+(opts.centerSize||15)+'" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono,monospace">'+esc(opts.centerTop)+'</text>'+
+      (opts.centerSub?'<text x="'+cx+'" y="'+(cy+12)+'" text-anchor="middle" font-size="8.5" fill="var(--faint)">'+esc(opts.centerSub)+'</text>':'');
+    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="'+sw+'"/>'+arcs+ctr+'</svg>';
+  }
+  function donutLegend(segs){
+    var total=0;segs.forEach(function(s){total+=Math.max(0,num(s.value));});
+    return '<div class="dleg">'+segs.filter(function(s){return num(s.value)>0;}).map(function(s,i){
+      var p=total>0?Math.round(num(s.value)/total*100):0;
+      return '<div class="dleg-i"><span class="sw" style="background:'+(s.color||pieColor(i))+'"></span>'+
+        '<span class="dl-n">'+esc(s.label)+'</span><span class="dl-v num">'+fmt(s.value)+' <small>'+p+'%</small></span></div>';}).join('')+'</div>';
+  }
+  function donutBlock(segs,opts){
+    segs=foldSegs(segs,opts&&opts.maxN);
+    if(!segs.length)return empty((opts&&opts.empty)||'ยังไม่มีข้อมูล',(opts&&opts.emoji)||'📊',opts&&opts.go);
+    return '<div class="donut-wrap">'+donutSVG(segs,opts)+donutLegend(segs)+'</div>';
+  }
+
+  /* ---------- executive dashboard blocks ---------- */
+  function renderPosition(){
+    var box=$('#positionBox');if(!box)return;
+    var A=db.assets.reduce(function(s,a){return s+num(a.v);},0);
+    var D=db.debts.reduce(function(s,d){return s+num(d.v);},0);
+    var E=A-D;
+    var tiles='<div class="pos-grid">'+
+      '<div class="pos a"><div class="pl">💎 สินทรัพย์รวม</div><div class="pv num">'+fmt(A)+'</div><div class="ps">Assets · '+db.assets.length+' รายการ</div></div>'+
+      '<div class="pos l"><div class="pl">💳 หนี้สินรวม</div><div class="pv num">'+fmt(D)+'</div><div class="ps">Liabilities · '+db.debts.length+' ก้อน</div></div>'+
+      '<div class="pos e"><div class="pl">🏛️ ส่วนของเจ้าของ</div><div class="pv num" style="color:'+(E<0?'var(--red)':'var(--pie2)')+'">'+(E<0?'−':'')+fmt(Math.abs(E))+'</div><div class="ps">Equity = สินทรัพย์ − หนี้สิน</div></div></div>';
+    var by={cash:0,invest:0,other:0};
+    db.assets.forEach(function(a){by[CLS_LABEL[a.cls]?a.cls:'other']+=num(a.v);});
+    var segs=[{label:CLS_LABEL.cash,value:by.cash,color:'var(--pie1)'},{label:CLS_LABEL.invest,value:by.invest,color:'var(--pie3)'},{label:CLS_LABEL.other,value:by.other,color:'var(--pie4)'}];
+    var donut='<div class="asech" style="margin:6px 0 6px">🥧 สัดส่วนสินทรัพย์ตามประเภท</div>'+
+      donutBlock(segs,{centerTop:fmt(A),centerSub:'สินทรัพย์',maxN:8,empty:'ยังไม่มีสินทรัพย์',emoji:'💎',go:['port','ไปเพิ่มที่แท็บพอร์ต']});
+    var debtHtml='';
+    if(D>0){
+      var dsegs=db.debts.map(function(x){return {label:x.n,value:num(x.v)};});
+      debtHtml='<div class="asech" style="margin:12px 0 6px">💳 โครงสร้างหนี้สิน</div>'+donutBlock(dsegs,{centerTop:fmt(D),centerSub:'หนี้สิน',maxN:7});
+    }
+    box.innerHTML=tiles+donut+debtHtml;
+  }
+  function renderPortfolioDash(){
+    var box=$('#portDashBox');if(!box)return;
+    var inv=db.assets.filter(function(a){return a.cls==='invest';});
+    if(!inv.length){box.innerHTML=empty('ยังไม่มีสินทรัพย์ลงทุน','📈',['port','ไปเพิ่มที่แท็บพอร์ต']);return;}
+    var costSum=0,valSum=0;inv.forEach(function(a){costSum+=num(a.cost);valSum+=num(a.v);});
+    var pl=valSum-costSum;
+    var segs=inv.map(function(a){return {label:(catIcon(a.n)?catIcon(a.n)+' ':'')+a.n,value:num(a.v)};});
+    var kpi='<div class="mini-kpi" style="margin-bottom:4px">'+
+      '<div class="mk"><div class="l">ต้นทุนรวม</div><div class="n num">'+fmt(costSum)+'</div></div>'+
+      '<div class="mk"><div class="l">มูลค่าปัจจุบัน</div><div class="n num">'+fmt(valSum)+'</div></div>'+
+      '<div class="mk"><div class="l">กำไร/ขาดทุน</div><div class="n num" style="color:'+(pl<0?'var(--red)':pl>0?'var(--green)':'var(--faint)')+'">'+(pl<0?'−':pl>0?'+':'')+fmt(Math.abs(pl))+'</div></div>'+
+      '<div class="mk"><div class="l">% กำไร</div><div class="n num" style="color:'+(pl<0?'var(--red)':'var(--green)')+'">'+(costSum>0?(pl/costSum*100).toFixed(1):'0.0')+'%</div></div></div>';
+    box.innerHTML=kpi+donutBlock(segs,{centerTop:fmt(valSum),centerSub:'มูลค่าพอร์ต',maxN:8});
+  }
+  function renderBizDash(){
+    var box=$('#bizDashBox');if(!box)return;
+    var rows=monthRows(cursor),all=db.entries;
+    if(!db.businesses.length){box.innerHTML=empty('ยังไม่มีธุรกิจ','💼',['biz','ไปเพิ่มที่แท็บธุรกิจ']);return;}
+    var revSegs=db.businesses.map(function(b){return {label:(catIcon(b.n)||'🏢')+' '+b.n,value:bizStats(b.id,all).rev};});
+    var totRev=revSegs.reduce(function(s,x){return s+num(x.value);},0);
+    var h='';
+    if(totRev>0)h+='<div class="asech" style="margin:0 0 6px">🥧 สัดส่วนรายรับตามธุรกิจ (สะสม)</div>'+donutBlock(revSegs,{centerTop:fmt(totRev),centerSub:'รายรับรวม',maxN:8})+'<div style="height:12px"></div>';
+    h+=db.businesses.map(function(b){
+      var m=bizStats(b.id,rows),c=bizStats(b.id,all);
+      var pf=m.rev-m.exp,cpf=c.rev-c.exp;
+      var margin=c.rev>0?(cpf/c.rev*100):null;
+      var mcol=cpf<0?'var(--pie5)':'var(--pie1)';
+      var mbar=margin!=null?'<div class="marginbar"><i style="width:'+Math.max(0,Math.min(100,Math.abs(margin))).toFixed(0)+'%;background:'+mcol+'"></i></div>'+
+        '<div class="note" style="margin-top:4px">อัตรากำไรสะสม '+(margin<0?'−':'')+Math.abs(margin).toFixed(0)+'% · สะสม รายรับ '+fmt(c.rev)+' · รายจ่าย/ลงทุน '+fmt(c.exp)+'</div>':
+        (c.exp>0?'<div class="note" style="margin-top:6px">อยู่ช่วงลงทุน — ลงไปแล้ว '+fmt(c.exp)+' ยังไม่มีรายรับ</div>':'<div class="note" style="margin-top:6px">ยังไม่มีรายการผูกกับธุรกิจนี้</div>');
+      return '<div class="bizx"><div class="bizx-h"><span>'+(catIcon(b.n)||'🏢')+' '+esc(b.n)+'</span><span class="tagx">'+(cpf<0?'ขาดทุนสะสม':cpf>0?'กำไรสะสม':'—')+'</span></div>'+
+        '<div class="mini-kpi">'+
+        '<div class="mk"><div class="l">รายรับเดือนนี้</div><div class="n num" style="color:var(--green)">'+fmt(m.rev)+'</div></div>'+
+        '<div class="mk"><div class="l">รายจ่ายเดือนนี้</div><div class="n num" style="color:var(--red)">'+fmt(m.exp)+'</div></div>'+
+        '<div class="mk"><div class="l">กำไรเดือนนี้</div><div class="n num" style="color:'+(pf<0?'var(--red)':'var(--gold-2)')+'">'+(pf<0?'−':'')+fmt(Math.abs(pf))+'</div></div>'+
+        '<div class="mk"><div class="l">สุทธิสะสม</div><div class="n num" style="color:'+(cpf<0?'var(--red)':'var(--gold-2)')+'">'+(cpf<0?'−':'')+fmt(Math.abs(cpf))+'</div></div></div>'+
+        mbar+'</div>';}).join('');
+    box.innerHTML=h;
+  }
+  function renderExpenseDonut(){
+    var box=$('#expDonutBox');if(!box)return;
+    var rows=monthRows(cursor);
+    var map={};
+    rows.filter(function(e){return e.type==='expense';}).forEach(function(e){map[e.cat]=(map[e.cat]||0)+num(e.amount);});
+    var segs=Object.keys(map).map(function(k){return {label:(catIcon(k)?catIcon(k)+' ':'')+k,value:map[k]};});
+    var tot=segs.reduce(function(s,x){return s+num(x.value);},0);
+    box.innerHTML=donutBlock(segs,{centerTop:fmt(tot),centerSub:'รายจ่าย',maxN:8,empty:'ยังไม่มีรายจ่ายเดือนนี้',emoji:'💸'});
+  }
   function allocHTML(){
     var tot=db.assets.reduce(function(s,a){return s+num(a.v);},0);
     if(tot<=0)return empty('ยังไม่มีสินทรัพย์','📈',['port','ไปเพิ่มที่แท็บพอร์ต']);
     var by={cash:0,invest:0,other:0};
     db.assets.forEach(function(a){by[CLS_LABEL[a.cls]?a.cls:'other']+=num(a.v);});
-    var bar='<div class="alloc">',leg='<div class="leg">';
-    ['cash','invest','other'].forEach(function(k){
-      var p=by[k]/tot*100;
-      if(p>0)bar+='<i style="width:'+p.toFixed(1)+'%;background:'+CLS_COLOR[k]+'"></i>';
-      leg+='<span><span class="sw" style="background:'+CLS_COLOR[k]+'"></span>'+CLS_LABEL[k]+' <b class="num">'+p.toFixed(0)+'%</b> ('+fmt(by[k])+')</span>';});
-    return bar+'</div>'+leg+'</div>';
+    var segs=[{label:CLS_LABEL.cash,value:by.cash,color:'var(--pie1)'},{label:CLS_LABEL.invest,value:by.invest,color:'var(--pie3)'},{label:CLS_LABEL.other,value:by.other,color:'var(--pie4)'}];
+    return donutBlock(segs,{centerTop:fmt(tot),centerSub:'สินทรัพย์',maxN:8});
   }
   function goalCurrent(g){
     if(g.asset){var a=db.assets.filter(function(x){return x.n===g.asset;})[0];if(a)return num(a.v);}
@@ -1726,7 +1893,7 @@
       {id:'first',em:'🌱',n:'เปิดบัญชี',d:'บันทึกรายการแรก',ok:db.entries.length>=1},
       {id:'week',em:'🔥',n:'ต่อเนื่อง 7 วัน',d:'บันทึกติดกัน 7 วัน',ok:st>=7},
       {id:'month',em:'📅',n:'ปิดงบเดือนแรก',d:'มีข้อมูลครบ 1 เดือน',ok:nM>=1},
-      {id:'save30',em:'🐷',n:'ออม 30%',d:'ออม ≥30% ของรายรับ',ok:inc>0&&sv/inc>=0.3},
+      {id:'save30',em:'💵',n:'ออม 30%',d:'ออม ≥30% ของรายรับ',ok:inc>0&&sv/inc>=0.3},
       {id:'target',em:'🎯',n:'ถึงเป้าออม',d:'ออมครบเป้าต่อเดือน',ok:sv>=num(db.settings.saveTarget)&&num(db.settings.saveTarget)>0},
       {id:'ef50',em:'🛟',n:'สำรองครึ่งทาง',d:'เงินสำรอง ≥50% ของเป้า',ok:num(db.settings.efTarget)>0&&ef>=num(db.settings.efTarget)*0.5},
       {id:'ef100',em:'🏆',n:'สำรองเต็มเป้า',d:'เงินสำรองถึงเป้าหมาย',ok:num(db.settings.efTarget)>0&&ef>=num(db.settings.efTarget)},
@@ -1759,8 +1926,33 @@
   }
 
   /* ---------- statements ---------- */
+  function renderPnl(){
+    var box=$('#pnlBox');if(!box)return;
+    $('#pnlMonth').textContent=thM(cursor);
+    var rows=monthRows(cursor);
+    var inc=sumT(rows,'income'),ex=sumT(rows,'expense'),sv=sumT(rows,'saving');
+    if(!rows.length){box.innerHTML=empty('เดือนนี้ยังไม่มีรายการ — งบจะขึ้นทันทีที่กรอกรายการแรก','🧾',['add','ไปกรอกรายการ']);return;}
+    function line(l,v,cls){return '<tr class="'+(cls||'')+'"><td>'+l+'</td><td class="r num">'+(v<0?'('+fmt(Math.abs(v))+')':fmt(v))+'</td></tr>';}
+    function sec(t){return '<tr class="sechead"><td colspan="2">'+t+'</td></tr>';}
+    var h='<table class="stmt"><tbody>'+sec('รายได้ (Revenue)');
+    var revByBiz={},nonBiz=0;
+    rows.filter(function(e){return e.type==='income';}).forEach(function(e){if(e.biz)revByBiz[e.biz]=(revByBiz[e.biz]||0)+num(e.amount);else nonBiz+=num(e.amount);});
+    db.businesses.forEach(function(b){if(revByBiz[b.id]){h+='<tr class="lvl2"><td>'+(catIcon(b.n)||'🏢')+' '+esc(b.n)+'</td><td class="r num">'+fmt(revByBiz[b.id])+'</td></tr>';delete revByBiz[b.id];}});
+    Object.keys(revByBiz).forEach(function(id){h+='<tr class="lvl2"><td>(ธุรกิจถูกลบ)</td><td class="r num">'+fmt(revByBiz[id])+'</td></tr>';});
+    if(nonBiz)h+='<tr class="lvl2"><td>💵 รายได้ส่วนตัว/อื่น ๆ</td><td class="r num">'+fmt(nonBiz)+'</td></tr>';
+    h+=line('รวมรายได้',inc,'tot')+sec('ค่าใช้จ่ายดำเนินงาน (Operating Expenses)');
+    catList('expense').forEach(function(c){var v=sumCat(rows,'expense',c.n);if(v)h+='<tr class="lvl2"><td>'+(catIcon(c.n)?catIcon(c.n)+' ':'')+esc(c.n)+'</td><td class="r num">('+fmt(v)+')</td></tr>';});
+    var oE=orphan(rows,'expense');if(oE)h+='<tr class="lvl2"><td>(หมวดถูกลบ)</td><td class="r num">('+fmt(oE)+')</td></tr>';
+    h+=line('รวมค่าใช้จ่าย',-ex,'tot')+line('กำไรจากการดำเนินงาน (Operating Profit)',inc-ex,'tot')+sec('กันไว้ออม / ลงทุน');
+    catList('saving').forEach(function(c){var v=sumCat(rows,'saving',c.n);if(v)h+='<tr class="lvl2"><td>'+(catIcon(c.n)?catIcon(c.n)+' ':'')+esc(c.n)+'</td><td class="r num">('+fmt(v)+')</td></tr>';});
+    var oS=orphan(rows,'saving');if(oS)h+='<tr class="lvl2"><td>(หมวดถูกลบ)</td><td class="r num">('+fmt(oS)+')</td></tr>';
+    h+=line('รวมออม/ลงทุน',-sv,'tot')+line('กระแสเงินสดคงเหลือสุทธิ (Net Cash)',inc-ex-sv,'dbl')+'</tbody></table>';
+    var opm=inc>0?((inc-ex)/inc*100):null;
+    h+='<p class="note" style="margin-top:9px">อัตรากำไรจากการดำเนินงาน '+(opm!=null?(opm<0?'−':'')+Math.abs(opm).toFixed(0)+'% ของรายได้':'— (ยังไม่มีรายได้เดือนนี้)')+' · แยกรายได้ตามธุรกิจที่ผูกไว้ · ทุกตัวเลขมาจากรายการจริงที่บันทึก</p>';
+    box.innerHTML=h;
+  }
   function renderFin(){
-    renderNwTrend();
+    renderNwTrend();renderPnl();
     var rows=monthRows(cursor);
     $('#plMonth').textContent=thM(cursor);
     var inc=sumT(rows,'income'),ex=sumT(rows,'expense'),sv=sumT(rows,'saving');
@@ -1795,7 +1987,7 @@
       db.assets.map(function(a){return '<tr class="lvl2"><td>'+esc(a.n)+'</td><td class="r num">'+fmt(a.v)+'</td></tr>';}).join('')+
       line('รวมสินทรัพย์',A,'tot')+sec('หนี้สิน')+
       db.debts.map(function(d){return '<tr class="lvl2"><td>'+esc(d.n)+'</td><td class="r num">('+fmt(d.v)+')</td></tr>';}).join('')+
-      line('รวมหนี้สิน',-D,'tot')+line('ความมั่งคั่งสุทธิ',A-D,'dbl')+'</tbody></table>'+
+      line('รวมหนี้สิน',-D,'tot')+line('ส่วนของเจ้าของ · ความมั่งคั่งสุทธิ',A-D,'dbl')+'</tbody></table>'+
       '<p class="note" style="margin-top:9px">ยอดสินทรัพย์/หนี้สินอัปเดตที่แท็บพอร์ต — ควรปิดงบเดือนละครั้ง</p>';
     var mset={};db.entries.forEach(function(e){mset[String(e.date).slice(0,7)]=1;});
     var ms=Object.keys(mset).sort().reverse();
@@ -1882,7 +2074,7 @@
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='Tor Life OS v5.6 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v5.7 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
   }
 
   /* ---------- edit entry modal ---------- */
@@ -2369,9 +2561,9 @@
 
     renderAgentsList();
     renderChat();
-    var chips=['🛡️ ความเสี่ยงตอนนี้','💰 การเงินเดือนนี้','🧭 ควรทำอะไรก่อน','📈 พอร์ตเป็นยังไง','⚖️ เอกสารใกล้หมดอายุ','🧠 สรุปภาพรวม'];
+    var chips=[['🛡️ ความเสี่ยงตอนนี้','ความเสี่ยงตอนนี้'],['🧭 ควรทำอะไรก่อน','ควรทำอะไรก่อน'],['🧠 สรุปภาพรวม','สรุปภาพรวม'],['📈 พอร์ตเป็นยังไง','พอร์ตเป็นยังไง'],['⚡ ดูคำสั่งที่สั่งได้','คำสั่ง']];
     var cc=$('#chatChips');
-    if(cc){cc.innerHTML=chips.map(function(c){return '<button type="button" class="chip" data-q="'+esc(c.replace(/^[^ ]+ /,''))+'">'+esc(c)+'</button>';}).join('');
+    if(cc){cc.innerHTML=chips.map(function(c){return '<button type="button" class="chip" data-q="'+esc(c[1])+'">'+esc(c[0])+'</button>';}).join('');
       Array.prototype.forEach.call(cc.querySelectorAll('.chip'),function(b){b.onclick=function(){chatSend(b.getAttribute('data-q'));};});}
   }
   function renderAgentsList(){
@@ -2412,6 +2604,112 @@
     return out.join('\n');
   }
 
+  /* ---- advisor command parser (offline actions) ---- */
+  var THMON={'ม.ค.':0,'มกราคม':0,'มกรา':0,'ก.พ.':1,'กุมภาพันธ์':1,'กุมภา':1,'มี.ค.':2,'มีนาคม':2,'มีนา':2,'เม.ย.':3,'เมษายน':3,'เมษา':3,'พ.ค.':4,'พฤษภาคม':4,'พฤษภา':4,'มิ.ย.':5,'มิถุนายน':5,'มิถุนา':5,'ก.ค.':6,'กรกฎาคม':6,'กรกฎา':6,'ส.ค.':7,'สิงหาคม':7,'สิงหา':7,'ก.ย.':8,'กันยายน':8,'กันยา':8,'ต.ค.':9,'ตุลาคม':9,'ตุลา':9,'พ.ย.':10,'พฤศจิกายน':10,'พฤศจิกา':10,'ธ.ค.':11,'ธันวาคม':11,'ธันวา':11};
+  function parseAmount(t){
+    var m=String(t).replace(/,/g,'').match(/(\d+(?:\.\d+)?)\s*(ล้าน|แสน|หมื่น|พัน|k|บาท)?/i);
+    if(!m)return null;
+    var n=parseFloat(m[1]);if(!isFinite(n))return null;
+    var u=(m[2]||'').toLowerCase();
+    if(u==='ล้าน')n*=1000000;else if(u==='แสน')n*=100000;else if(u==='หมื่น')n*=10000;else if(u==='พัน'||u==='k')n*=1000;
+    return n;
+  }
+  function parseDate(t){
+    var today=new Date(),m;
+    if(/วันนี้/.test(t))return {ymd:todayStr(),m:'วันนี้'};
+    if(/พรุ่งนี้/.test(t)){var d1=new Date();d1.setDate(d1.getDate()+1);return {ymd:localYmd(d1),m:'พรุ่งนี้'};}
+    if(/มะรืน/.test(t)){var d2=new Date();d2.setDate(d2.getDate()+2);return {ymd:localYmd(d2),m:'มะรืน'};}
+    if(m=t.match(/อีก\s*(\d+)\s*วัน/)){var d3=new Date();d3.setDate(d3.getDate()+parseInt(m[1],10));return {ymd:localYmd(d3),m:m[0]};}
+    if(/สิ้นเดือนหน้า/.test(t)){var d4=new Date(today.getFullYear(),today.getMonth()+2,0);return {ymd:localYmd(d4),m:'สิ้นเดือนหน้า'};}
+    if(/สิ้นเดือน/.test(t)){var d5=new Date(today.getFullYear(),today.getMonth()+1,0);return {ymd:localYmd(d5),m:'สิ้นเดือน'};}
+    if(m=t.match(/(\d{4})-(\d{2})-(\d{2})/))return {ymd:m[0],m:m[0]};
+    if(m=t.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/)){
+      var dd=parseInt(m[1],10),mm=parseInt(m[2],10),yy=m[3]?parseInt(m[3],10):today.getFullYear();
+      if(yy<100)yy+=2000;if(yy>2400)yy-=543;
+      if(mm>=1&&mm<=12&&dd>=1&&dd<=31)return {ymd:yy+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0'),m:m[0]};
+    }
+    var keys=Object.keys(THMON).sort(function(a,b){return b.length-a.length;});
+    for(var i=0;i<keys.length;i++){
+      var esc2=keys[i].replace(/[.]/g,'\\.');
+      var re=new RegExp('(\\d{1,2})\\s*'+esc2);
+      if(m=t.match(re)){
+        var day=parseInt(m[1],10),mo=THMON[keys[i]],yr=today.getFullYear();
+        var cand=new Date(yr,mo,day);
+        if(cand.getTime()<new Date(yr,today.getMonth(),today.getDate()).getTime())cand=new Date(yr+1,mo,day);
+        return {ymd:localYmd(cand),m:m[0]};
+      }
+    }
+    return null;
+  }
+  function advisorCommand(q){
+    var t=String(q||'').trim();
+    var amt=parseAmount(t);
+    /* TODO / reminder */
+    if(/^(เพิ่มงาน|จดงาน|จดตาราง|เตือนฉัน|เตือนผม|เตือน|อย่าลืม|นัดหมาย|นัด|ตั้งเตือน)/i.test(t)){
+      var dt=parseDate(t);
+      var name=t.replace(/^(เพิ่มงาน|จดงาน|จดตาราง|เตือนฉัน|เตือนผม|เตือน|อย่าลืม|นัดหมาย|นัด|ตั้งเตือน)\s*(ว่า|ให้|คือ|เรื่อง)?\s*/i,'');
+      if(dt)name=name.replace(dt.m,'');
+      name=name.replace(/(ภายในวันที่|ภายใน|ก่อนวันที่|วันที่|ทุกเดือน|รายเดือน|ทุก ?ๆ ?เดือน)/g,'').replace(/\s+/g,' ').trim();
+      if(!name)return 'บอกชื่องานหน่อยครับ เช่น "เตือน ต่อใบขับขี่ 2/8" หรือ "เพิ่มงาน ผ่อนบ้าน สิ้นเดือน"';
+      var rep=/ทุกเดือน|รายเดือน|ทุก ?ๆ ?เดือน/.test(t);
+      db.todos.push({id:uid(),n:name,due:dt?dt.ymd:'',done:false,rep:rep});
+      save().then(function(){render();});
+      return '✅ เพิ่มงานแล้ว: '+(catIcon(name)?catIcon(name)+' ':'📌 ')+name+(dt?' · กำหนด '+thD(dt.ymd):' · ไม่ระบุกำหนด')+(rep?' · ทำซ้ำรายเดือน':'')+'\nดูได้ที่แท็บ 🗓️ ตาราง/เอกสาร';
+    }
+    /* MONEY: expense / income / saving (ต้องมีจำนวนเงิน) */
+    var isExp=/^(บันทึกรายจ่าย|รายจ่าย|จ่าย|ซื้อ|เสียเงิน|เสียค่า|ค่า)/i.test(t);
+    var isInc=/^(บันทึกรายรับ|รายรับ|รายได้|ได้เงิน|รับเงิน|ได้ค่า|เข้าเงิน)/i.test(t);
+    var isSav=/^(ออม|เก็บเงิน|ลงทุนเพิ่ม|กันเงิน|หยอด)/i.test(t);
+    if(amt>0&&(isExp||isInc||isSav)){
+      var type=isInc?'income':isSav?'saving':'expense';
+      var names=catNames(type),cat=null,ci;
+      for(ci=0;ci<names.length;ci++){if(t.indexOf(names[ci])>=0){cat=names[ci];break;}}
+      var item=t.replace(/^(บันทึกรายจ่าย|รายจ่าย|จ่ายค่า|จ่าย|ซื้อ|เสียเงินค่า|เสียเงิน|เสียค่า|ค่า|บันทึกรายรับ|รายรับ|รายได้|ได้เงินค่า|ได้เงิน|รับเงิน|ได้ค่า|เข้าเงิน|ออม|เก็บเงิน|ลงทุนเพิ่ม|กันเงิน|หยอด)\s*/i,'')
+        .replace(/[\d,]+(?:\.\d+)?\s*(ล้าน|แสน|หมื่น|พัน|k|บาท)?/i,'').replace(/\s+/g,' ').trim();
+      if(!cat){
+        /* หาหมวดจากไอคอนคำ ถ้าไม่เจอใช้ "อื่น ๆ" */
+        var ic=catIcon(item);
+        if(ic){for(ci=0;ci<names.length;ci++){if(catIcon(names[ci])===ic){cat=names[ci];break;}}}
+        if(!cat)cat=(names.indexOf('อื่น ๆ')>=0?'อื่น ๆ':(names[0]||'อื่น ๆ'));
+      }
+      db.entries.push({id:uid(),type:type,cat:cat,item:item,qty:1,pay:(db.settings.pays[0]||''),amount:amt,date:todayStr(),note:'',biz:guessBiz({type:type,cat:cat})||''});
+      save().then(function(){render();renderBadges(false);});
+      return '✅ บันทึก'+TNAME[type]+'แล้ว: '+(catIcon(item||cat)?catIcon(item||cat)+' ':'')+(item||cat)+' · '+fmt(amt)+' บาท · หมวด '+cat+' · วันนี้\nดูได้ที่แท็บ 📋 รายการ';
+    }
+    /* GOAL */
+    var goalStrong=/^(เพิ่มเป้าหมาย|ตั้งเป้าหมาย|ตั้งเป้า|สร้างเป้าหมาย)/i.test(t);
+    if(goalStrong||(/^เป้าหมาย/i.test(t)&&amt>0)){
+      if(!(amt>0))return 'บอกยอดเป้าหมายด้วยครับ เช่น "ตั้งเป้า เที่ยวญี่ปุ่น 50000"';
+      var gname=t.replace(/^(เพิ่มเป้าหมาย|ตั้งเป้าหมาย|ตั้งเป้า|สร้างเป้าหมาย|เป้าหมาย)\s*(ว่า|คือ|เรื่อง)?\s*/i,'').replace(/[\d,]+(?:\.\d+)?\s*(ล้าน|แสน|หมื่น|พัน|k|บาท)?/i,'').replace(/\s+/g,' ').trim()||'เป้าหมายใหม่';
+      db.goals.push({id:uid(),n:gname,cat:'การเงิน',target:amt,asset:'',current:0,monthly:0});
+      save().then(function(){render();});
+      return '✅ เพิ่มเป้าหมายแล้ว: '+(catIcon(gname)||'🎯')+' '+gname+' · ยอดเป้า '+fmt(amt)+' บาท\nดูได้ที่แท็บ 🎯 เป้าหมาย';
+    }
+    /* BUSINESS */
+    if(/^(เพิ่มธุรกิจ|สร้างธุรกิจ|ธุรกิจใหม่)/i.test(t)){
+      var bn=t.replace(/^(เพิ่มธุรกิจ|สร้างธุรกิจ|ธุรกิจใหม่)\s*(ชื่อ|คือ|ว่า)?\s*/i,'').trim();
+      if(!bn)return 'บอกชื่อธุรกิจด้วยครับ เช่น "เพิ่มธุรกิจ ร้านกาแฟ"';
+      if(db.businesses.some(function(b){return b.n===bn;}))return 'มีธุรกิจชื่อนี้อยู่แล้วครับ';
+      db.businesses.push({id:uid(),n:bn});save().then(function(){render();});
+      return '✅ เพิ่มธุรกิจแล้ว: '+(catIcon(bn)||'🏢')+' '+bn+'\nดูได้ที่แท็บ 💼 ธุรกิจ';
+    }
+    /* ASSET */
+    if(/^(เพิ่มสินทรัพย์|บันทึกสินทรัพย์)/i.test(t)){
+      if(!(amt>0))return 'บอกมูลค่าด้วยครับ เช่น "เพิ่มสินทรัพย์ ทองคำ 50000"';
+      var an=t.replace(/^(เพิ่มสินทรัพย์|บันทึกสินทรัพย์)\s*/i,'').replace(/[\d,]+(?:\.\d+)?\s*(ล้าน|แสน|หมื่น|พัน|k|บาท)?.*$/i,'').replace(/\s+/g,' ').trim()||'สินทรัพย์ใหม่';
+      var cls=guessCls(an);
+      db.assets.push({n:an,v:amt,cost:amt,cls:cls});save().then(function(){render();});
+      return '✅ เพิ่มสินทรัพย์แล้ว: '+(catIcon(an)||'💰')+' '+an+' · '+fmt(amt)+' บาท ('+CLS_LABEL[cls]+')\nดูได้ที่แท็บ 📈 พอร์ต';
+    }
+    /* DEBT */
+    if(/^(เพิ่มหนี้|บันทึกหนี้)/i.test(t)){
+      if(!(amt>0))return 'บอกยอดหนี้ด้วยครับ เช่น "เพิ่มหนี้ บัตรเครดิต 20000"';
+      var dn=t.replace(/^(เพิ่มหนี้|บันทึกหนี้)\s*/i,'').replace(/[\d,]+(?:\.\d+)?\s*(ล้าน|แสน|หมื่น|พัน|k|บาท)?.*$/i,'').replace(/\s+/g,' ').trim()||'หนี้ใหม่';
+      db.debts.push({n:dn,v:amt});save().then(function(){render();});
+      return '✅ เพิ่มหนี้แล้ว: 💳 '+dn+' · '+fmt(amt)+' บาท\nดูได้ที่แท็บ 📈 พอร์ต';
+    }
+    return null;
+  }
   /* ================= Advisor Chat (offline rule-based + optional Claude API) ================= */
   var chatMsgs=[];
   var RULES_TH=[
@@ -2482,10 +2780,11 @@
     var B=lastBoard||runBoard();lastBoard=B;
     var t=String(q||'').toLowerCase();
     function has(){for(var i=0;i<arguments.length;i++){if(t.indexOf(arguments[i])>=0)return true;}return false;}
-    if(has('สวัสดี','ทำอะไรได้','ช่วยอะไร','เมนู','help','เริ่ม')){
-      return 'สวัสดีครับ ผมคือคณะที่ปรึกษาแบบออฟไลน์ วิเคราะห์จากข้อมูลจริงในเครื่องเท่านั้น (ไม่เดา ไม่แต่ง)\n'+
-        'ลองถามได้ เช่น:\n• ตอนนี้มีความเสี่ยงอะไรบ้าง\n• การเงินเดือนนี้เป็นยังไง / รันเวย์เท่าไหร่\n• ธุรกิจไหนกำไร/ขาดทุน\n• พอร์ตลงทุนเป็นยังไง\n• เอกสารอะไรใกล้หมดอายุ\n• ควรทำอะไรก่อน (ลำดับความสำคัญ)\n• สรุปภาพรวมให้หน่อย\n\n'+
-        '(อยากคุยแบบถาม-ตอบทุกเรื่องแบบลึก ๆ เปิด "โหมด AI" ได้ที่แท็บตั้งค่า โดยใส่ Claude API Key ของคุณเอง)';
+    if(has('สวัสดี','ทำอะไรได้','ช่วยอะไร','เมนู','help','เริ่ม','คำสั่ง')){
+      return 'สวัสดีครับ ผมคือคณะที่ปรึกษาของระบบคุณ — วิเคราะห์จากข้อมูลจริงในเครื่องเท่านั้น (ไม่เดา ไม่แต่ง) และ "สั่งงาน" ผมได้ด้วย\n\n'+
+        '📊 ถามได้ เช่น:\n• ตอนนี้มีความเสี่ยงอะไรบ้าง\n• รันเวย์เท่าไหร่ / การเงินเดือนนี้เป็นยังไง\n• ธุรกิจไหนกำไร-ขาดทุน · พอร์ตเป็นยังไง\n• ควรทำอะไรก่อน · สรุปภาพรวม\n\n'+
+        '⚡ สั่งให้ผมทำได้เลย เช่น:\n• เตือน ต่อใบขับขี่ 2/8\n• เพิ่มงาน ผ่อนบ้าน สิ้นเดือน ทุกเดือน\n• จ่ายค่ากิน 250\n• รายรับ ฟรีแลนซ์ 28000\n• ออม 5000\n• ตั้งเป้า เที่ยวญี่ปุ่น 50000\n• เพิ่มธุรกิจ ร้านกาแฟ · เพิ่มหนี้ บัตรเครดิต 20000\n\n'+
+        '(อยากคุยลึก ๆ ทุกเรื่อง เปิด "โหมด AI" ที่แท็บตั้งค่าโดยใส่ Claude API Key ของคุณเอง — คำสั่งด้านบนยังทำงานได้เหมือนเดิม)';
     }
     var picks=[],ids={};
     function add(id){var r=findRep(B,id);if(r&&!ids[id]){ids[id]=1;picks.push(r);}}
@@ -2561,6 +2860,8 @@
     q=String(q||'').trim();if(!q)return;
     chatPush('user',q);
     var input=$('#chatInput');if(input)input.value='';
+    var cmd=advisorCommand(q);            /* คำสั่งทำงานได้ทั้งโหมดออฟไลน์และ AI */
+    if(cmd!==null){chatPush('assistant',cmd);return;}
     if(String(db.settings.aiKey||'').trim()){
       chatPush('assistant','',true);
       callLLM().then(function(ans){
