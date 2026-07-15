@@ -3211,11 +3211,10 @@
     if($('#profApp')&&document.activeElement!==$('#profApp'))$('#profApp').value=(db.settings&&db.settings.appName)||'';
   }
   /* ---------- masonry: tight, gap-free, full-width; ResizeObserver re-packs on any reflow ---------- */
-  var _mzObs=null,_mzRAF=null,_mzBusy=false;
+  var _mzObs=null,_mzRAF=null,_mzBusy=false,_mzSettle=null;
   function masonryLayout(){
     if(_mzBusy)return;_mzBusy=true;
     try{
-      if(_mzObs)_mzObs.disconnect();
       var wrap=document.querySelector('.wrap');if(!wrap){_mzBusy=false;return;}
       var secs=wrap.getElementsByTagName('section'),sec=null,i;
       for(i=0;i<secs.length;i++){if(!secs[i].hidden){sec=secs[i];break;}}
@@ -3263,17 +3262,28 @@
           sec.style.height=(top0+maxH)+'px';
         }
       }
-      /* (re)observe every direct child so any later reflow (fonts/images/content) re-packs */
-      if(window.ResizeObserver){
-        if(!_mzObs)_mzObs=new ResizeObserver(function(){scheduleMasonry();});
-        for(i=0;i<all.length;i++)_mzObs.observe(all[i]);
-      }
     }catch(e){}
     _mzBusy=false;
   }
-  function scheduleMasonry(){if(_mzRAF)cancelAnimationFrame(_mzRAF);_mzRAF=requestAnimationFrame(masonryLayout);}
+  /* Observe cards ONCE. Re-packing must NOT re-observe (observe() fires an initial callback,
+     which would loop forever and thrash section height → the page couldn't scroll). A short
+     "settle" window ignores the reflow our own width/height changes cause. */
+  function scheduleMasonry(){
+    if(_mzRAF)cancelAnimationFrame(_mzRAF);
+    _mzRAF=requestAnimationFrame(function(){
+      masonryLayout();
+      if(_mzSettle)clearTimeout(_mzSettle);
+      _mzSettle=setTimeout(function(){_mzSettle=null;},250); /* swallow self-induced RO ticks */
+    });
+  }
+  function setupMasonryObserver(){
+    if(!window.ResizeObserver||_mzObs)return;
+    _mzObs=new ResizeObserver(function(){ if(_mzSettle)return; scheduleMasonry(); });
+    var els=document.querySelectorAll('.wrap section > *'),t;
+    for(var i=0;i<els.length;i++){t=els[i].tagName;if(t!=='DATALIST'&&t!=='SCRIPT'&&t!=='STYLE'&&t!=='TEMPLATE')_mzObs.observe(els[i]);}
+  }
   window.addEventListener('resize',scheduleMasonry);
-  window.addEventListener('load',scheduleMasonry);
+  window.addEventListener('load',function(){setupMasonryObserver();scheduleMasonry();});
   if(document.fonts&&document.fonts.ready&&typeof document.fonts.ready.then==='function')document.fonts.ready.then(scheduleMasonry);
   function render(){applyTheme();renderBrand();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderBoard();renderSet();scheduleMasonry();}
 
