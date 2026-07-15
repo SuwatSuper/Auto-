@@ -393,17 +393,12 @@
   /* — Buttons: no emoji gap wobble; tighter, flatter — */
   .seg button,.chip{letter-spacing:.01em}
 
-  /* — Fill wide desktop screens: cards flex-grow to fill each row (every page) — */
+  /* — Fill wide desktop screens: JS masonry packs cards into shortest column — */
   @media(min-width:1160px){
     .wrap{padding-left:30px;padding-right:30px}
     .mast{padding-left:30px;padding-right:30px}
-    section:not([hidden]){display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
-    section:not([hidden])>.card,
-    section:not([hidden])>.countdown{flex:1 1 440px;min-width:0;margin-bottom:0}
-    section:not([hidden])>.monthbar{flex:1 1 100%;margin-bottom:0}
-    /* let a card opt into full width or a wider share */
-    section:not([hidden])>.card.span-full{flex-basis:100%}
-    section:not([hidden])>.card.span-wide{flex-basis:680px;flex-grow:2}
+    /* while masonry is active, entrance transforms must not shift measured height */
+    section.mz-on>.card,section.mz-on>.countdown{margin-bottom:0!important;animation:none!important}
   }
   @media(min-width:1720px){
     .wrap{max-width:1720px}
@@ -576,6 +571,7 @@
         <div class="chips" id="filterChips"></div>
         <div id="histBox"></div>
       </div>
+      <div class="card"><div class="eyebrow">Summary</div><h2>สรุปตามที่กรองอยู่ <span class="hint" id="sumScope"></span></h2><div id="histSumBox"></div></div>
       <div class="card"><h2><span class="h2ic">🏷️</span>ประวัติราคาต่อหน่วย <span class="hint">ของชิ้นเดิมแพงขึ้นไหม</span></h2><div id="priceBox"></div></div>
     </section>
 
@@ -790,7 +786,10 @@
         <div class="prof-row">
           <div class="prof-av" id="profAv">฿</div>
           <div style="flex:1;min-width:180px">
-            <div class="field" style="margin-bottom:8px"><label for="profName">ชื่อที่แสดง</label><input id="profName" type="text" placeholder="เช่น คุณต่อ / ผู้บริหาร" maxlength="40"></div>
+            <div class="row2" style="margin-bottom:8px">
+              <div class="field" style="margin-bottom:0"><label for="profApp">ชื่อระบบ (หัวมุมซ้ายบน)</label><input id="profApp" type="text" placeholder="Tor Life OS" maxlength="32"></div>
+              <div class="field" style="margin-bottom:0"><label for="profName">ชื่อที่แสดง (ของคุณ)</label><input id="profName" type="text" placeholder="เช่น คุณต่อ / ผู้บริหาร" maxlength="40"></div>
+            </div>
             <div class="prof-actions">
               <label class="btn ghost sm" for="profFile" style="cursor:pointer">เลือกรูปโปรไฟล์</label>
               <input id="profFile" type="file" accept="image/*" hidden>
@@ -1145,6 +1144,7 @@
       if(typeof p.settings.aiModel==='string'&&p.settings.aiModel)s.aiModel=p.settings.aiModel;
       if(typeof p.settings.avatar==='string')s.avatar=p.settings.avatar;
       if(typeof p.settings.userName==='string')s.userName=p.settings.userName;
+      if(typeof p.settings.appName==='string')s.appName=p.settings.appName;
     }
     if(p.badges&&typeof p.badges==='object')out.badges=p.badges;
     if(p.snapshots&&typeof p.snapshots==='object'){
@@ -1754,6 +1754,27 @@
       return (String(e.item||'')+' '+String(e.cat||'')+' '+String(e.note||'')+' '+bizName(e.biz)+' '+String(e.pay||'')).toLowerCase().indexOf(term)>=0;});
     $('#histMonth').textContent=searching?('ผลค้นหาทุกเดือน · '+rows.length+' รายการ'):thM(cursor);
     $('#histBox').innerHTML=rows.length?entTable(rows):(searching?empty('ไม่พบรายการที่ตรงกับคำค้น','🔍'):empty('ไม่มีรายการตามตัวกรองนี้','🔍'));
+    /* summary of the currently-filtered rows */
+    (function(){
+      var box=$('#histSumBox');if(!box)return;
+      $('#sumScope').textContent=(searching?'ทุกเดือน':thM(cursor))+(filter!=='all'?' · '+({expense:'รายจ่าย',income:'รายรับ',saving:'ออม/ลงทุน'}[filter]||''):'');
+      var sIn=0,sEx=0,sSv=0,byCat={};
+      rows.forEach(function(e){var a=num(e.amount);
+        if(e.type==='income')sIn+=a;else if(e.type==='saving')sSv+=a;else sEx+=a;
+        if(e.type==='expense'){byCat[e.cat]=(byCat[e.cat]||0)+a;}});
+      var net=sIn-sEx-sSv;
+      var topCat=Object.keys(byCat).map(function(k){return {n:k,v:byCat[k]};}).sort(function(a,b){return b.v-a.v;}).slice(0,5);
+      var kpis='<div class="mini-kpi" style="margin-bottom:11px">'+
+        '<div class="mk"><div class="l">รายรับ</div><div class="n" style="color:var(--green)">'+fmt(sIn)+'</div></div>'+
+        '<div class="mk"><div class="l">รายจ่าย</div><div class="n" style="color:var(--red)">'+fmt(sEx)+'</div></div>'+
+        '<div class="mk"><div class="l">ออม/ลงทุน</div><div class="n">'+fmt(sSv)+'</div></div>'+
+        '<div class="mk"><div class="l">คงเหลือสุทธิ</div><div class="n" style="color:'+(net<0?'var(--red)':'var(--green)')+'">'+fmt(net)+'</div></div></div>';
+      var catTbl=topCat.length?('<div class="eyebrow" style="margin:4px 0 6px">รายจ่ายสูงสุดตามหมวด</div><table><tbody>'+
+        topCat.map(function(c){var pc=sEx>0?Math.round(c.v/sEx*100):0;
+          return '<tr><td>'+(catIcon(c.n)?catIcon(c.n)+' ':'')+esc(c.n)+'</td><td class="r num">'+fmt(c.v)+'</td><td class="r num" style="color:var(--faint)">'+pc+'%</td></tr>';}).join('')+
+        '</tbody></table>'):'';
+      box.innerHTML=rows.length?(kpis+catTbl+'<p class="note" style="margin-top:9px">รวม '+rows.length+' รายการในมุมมองนี้</p>'):empty('ไม่มีรายการให้สรุป','📊');
+    })();
     var byItem={};
     db.entries.forEach(function(e){if(e.item&&num(e.qty)>0){(byItem[e.item]=byItem[e.item]||[]).push(e);}});
     var multi=Object.keys(byItem).filter(function(k){return byItem[k].length>1;});
@@ -2272,7 +2293,7 @@
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='Tor Life OS v6.2 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v6.3 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
   }
 
   /* ---------- edit entry modal ---------- */
@@ -3151,16 +3172,61 @@
   }
   function renderBrand(){
     var av=(db.settings&&db.settings.avatar)||'', nm=((db.settings&&db.settings.userName)||'').trim();
+    var app=((db.settings&&db.settings.appName)||'').trim()||'Tor Life OS';
     var crest=$('#brandCrest');
     if(crest){
       if(av){crest.innerHTML='<img class="avatar-img" src="'+av+'" alt="โปรไฟล์">';crest.classList.add('has-av');}
       else{crest.textContent='฿';crest.classList.remove('has-av');}
     }
+    if($('#brandName'))$('#brandName').textContent=app;
+    try{document.title=app;}catch(e){}
     if($('#brandSub'))$('#brandSub').textContent=nm?nm+' · Personal Operating System':'Personal Operating System · est. 2569';
     var pa=$('#profAv');if(pa){if(av)pa.innerHTML='<img src="'+av+'" alt="โปรไฟล์">';else pa.textContent='฿';}
     if($('#profName')&&document.activeElement!==$('#profName'))$('#profName').value=nm;
+    if($('#profApp')&&document.activeElement!==$('#profApp'))$('#profApp').value=(db.settings&&db.settings.appName)||'';
   }
-  function render(){applyTheme();renderBrand();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderBoard();renderSet();}
+  /* ---------- masonry: tight, gap-free, full-width card packing (desktop) ---------- */
+  function masonryLayout(){
+    var wrap=document.querySelector('.wrap');if(!wrap)return;
+    var secs=wrap.getElementsByTagName('section'),sec=null,i;
+    for(i=0;i<secs.length;i++){if(!secs[i].hidden){sec=secs[i];break;}}
+    if(!sec)return;
+    var items=[],ch=sec.children,el;
+    for(i=0;i<ch.length;i++){el=ch[i];if(el.classList&&(el.classList.contains('card')||el.classList.contains('countdown')))items.push(el);}
+    // reset any prior positioning first (so natural height/width is restored before measuring)
+    for(i=0;i<items.length;i++){el=items[i];el.style.position='';el.style.left='';el.style.top='';el.style.width='';}
+    sec.style.position='';sec.style.height='';sec.classList.remove('mz-on');
+    var W=sec.clientWidth,gap=22,minCol=380;
+    if(W<1120||!items.length)return; // mobile / empty → natural stacking
+    var cols=Math.floor((W+gap)/(minCol+gap));
+    if(cols>items.length)cols=items.length;
+    if(cols<2)return; // one column → natural flow reads better
+    var colW=(W-gap*(cols-1))/cols, colH=[],c;
+    for(c=0;c<cols;c++)colH.push(0);
+    var top0=0,mb=null;
+    for(i=0;i<ch.length;i++){if(ch[i].classList&&ch[i].classList.contains('monthbar')){mb=ch[i];break;}}
+    sec.classList.add('mz-on');
+    sec.style.position='relative';
+    if(mb)top0=mb.offsetTop+mb.offsetHeight+gap;
+    for(i=0;i<items.length;i++){
+      el=items[i];
+      el.style.position='absolute';
+      el.style.width=colW+'px';
+      var mi=0;for(c=1;c<cols;c++){if(colH[c]<colH[mi])mi=c;}
+      el.style.left=(mi*(colW+gap))+'px';
+      el.style.top=(top0+colH[mi])+'px';
+      colH[mi]+=el.offsetHeight+gap;
+    }
+    var maxH=0;for(c=0;c<cols;c++){if(colH[c]>maxH)maxH=colH[c];}
+    sec.style.height=(top0+maxH)+'px';
+  }
+  var _mzRAF=null;
+  function scheduleMasonry(){
+    if(_mzRAF)cancelAnimationFrame(_mzRAF);
+    _mzRAF=requestAnimationFrame(function(){masonryLayout();setTimeout(masonryLayout,140);});
+  }
+  window.addEventListener('resize',scheduleMasonry);
+  function render(){applyTheme();renderBrand();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderBoard();renderSet();scheduleMasonry();}
 
   /* ---------- events ---------- */
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
@@ -3169,6 +3235,7 @@
       ['dash','add','hist','biz','port','health','life','goal','fin','board','set'].forEach(function(id){$('#'+id).hidden=(id!==t.getAttribute('data-t'));});
       if(t.getAttribute('data-t')==='dash')renderDash();
       if(t.getAttribute('data-t')==='board')renderBoard();
+      scheduleMasonry();
     };});
   Array.prototype.forEach.call($('#typeSeg').querySelectorAll('button'),function(b){
     b.onclick=function(){
@@ -3378,6 +3445,7 @@
   if($('#profSave'))$('#profSave').onclick=function(){
     if(pendingAvatar)db.settings.avatar=pendingAvatar;
     db.settings.userName=String($('#profName').value||'').trim().slice(0,40);
+    db.settings.appName=String(($('#profApp')&&$('#profApp').value)||'').trim().slice(0,32);
     pendingAvatar=null;
     save().then(function(){render();toast('บันทึกโปรไฟล์แล้ว');});
   };
