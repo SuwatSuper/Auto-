@@ -19,12 +19,12 @@
   }
   /* ===== Executive White (private-bank light) ===== */
   #appRoot.light{
-    --bg:#F4F2EA; --bg-2:#FBFAF5; --card:#FFFFFF; --card-2:#FAF8F1; --line:#E8E3D5;
-    --ink:#1A1913; --soft:#6B6759; --faint:#A49E8C;
-    --gold:#8A6D2F; --gold-2:#A6853E; --gold-dim:rgba(138,109,47,.09);
-    --green:#2E7D5B; --green-dim:rgba(46,125,91,.09);
-    --red:#A8443B; --red-dim:rgba(168,68,59,.08);
-    --shadow:0 1px 2px rgba(27,26,20,.03), 0 14px 36px -22px rgba(27,26,20,.13);
+    --bg:#F5F7FB; --bg-2:#FFFFFF; --card:#FFFFFF; --card-2:#F2F5F9; --line:#E5EAF1;
+    --ink:#141A23; --soft:#57616F; --faint:#939DAC;
+    --gold:#8A6A1F; --gold-2:#B08A2C; --gold-dim:rgba(176,138,44,.10);
+    --green:#0E9E63; --green-dim:rgba(14,158,99,.10);
+    --red:#DA433D; --red-dim:rgba(218,67,61,.09);
+    --shadow:0 1px 2px rgba(20,26,36,.04), 0 10px 30px -20px rgba(20,26,36,.16);
     /* categorical chart palette (validated · light surface steps) */
     --pie1:#1baf7a; --pie2:#2a78d6; --pie3:#eda100; --pie4:#4a3aa7; --pie5:#e34948; --pie6:#eb6834; --pie7:#e87ba4; --pie8:#008300;
   }
@@ -39,7 +39,7 @@
   #appRoot.light .eyebrow{color:var(--faint);letter-spacing:.08em}
   #appRoot.light .tab::after{background:var(--gold)}
   #appRoot.light .btn{background:var(--ink);color:#FFFFFF;box-shadow:none;border-radius:10px}
-  #appRoot.light .btn:hover{background:#33302A;filter:none}
+  #appRoot.light .btn:hover{background:#2A303B;filter:none}
   #appRoot.light .btn.ghost{background:#FFFFFF;color:var(--ink);border:1px solid var(--line)}
   #appRoot.light .btn.ghost:hover{background:var(--card-2)}
   #appRoot.light .seg button[aria-pressed="true"]{background:var(--ink);color:#FFFFFF;border-color:var(--ink)}
@@ -98,7 +98,7 @@
     transform:scaleX(0);transition:transform .22s cubic-bezier(.4,0,.2,1)}
   .tab[aria-selected="true"]{color:var(--ink)} .tab[aria-selected="true"]::after{transform:scaleX(1)}
   .tab:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
-  .wrap{padding:15px 12px 0;max-width:980px;margin:0 auto}
+  .wrap{padding:16px 22px 0;max-width:1620px;margin:0 auto}
   section[hidden]{display:none}
   section:not([hidden]) .card{animation:rise .34s cubic-bezier(.2,.7,.3,1) both}
   section:not([hidden]) .card:nth-child(2){animation-delay:.04s}
@@ -392,6 +392,39 @@
   .countdown .cd-ic{filter:grayscale(.4);opacity:.9}
   /* — Buttons: no emoji gap wobble; tighter, flatter — */
   .seg button,.chip{letter-spacing:.01em}
+
+  /* — Fill wide desktop screens: multi-column card layout (masonry) — */
+  @media(min-width:1160px){
+    .wrap{padding-left:28px;padding-right:28px}
+    .mast{padding-left:28px;padding-right:28px}
+    section:not([hidden]){columns:2;column-gap:20px}
+    section:not([hidden])>.card,
+    section:not([hidden])>.countdown{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;margin-bottom:20px;display:inline-block;width:100%}
+    section:not([hidden])>.monthbar{column-span:all;-webkit-column-span:all}
+  }
+  @media(min-width:1620px){
+    section:not([hidden]){columns:3}
+  }
+  /* keep the entry form focused: full-width single column even on wide screens */
+  @media(min-width:1160px){
+    #add:not([hidden]){columns:1;max-width:720px;margin:0 auto}
+  }
+
+  /* — Document vault — */
+  .filepick{display:flex;align-items:center;gap:9px;border:1px dashed var(--line);border-radius:11px;
+    padding:12px 13px;cursor:pointer;color:var(--soft);font-size:12.8px;transition:.15s;background:var(--card-2)}
+  .filepick:hover{border-color:var(--gold);color:var(--ink)}
+  .filepick .fp-ic{font-size:15px;line-height:1;filter:grayscale(.3)}
+  .filepick.has{border-style:solid;border-color:var(--green);color:var(--green);background:var(--green-dim)}
+  .filepick.has .fp-ic{filter:none}
+  .docv-file{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--gold-2);cursor:pointer;
+    border:1px solid var(--line);border-radius:7px;padding:3px 9px;background:var(--card-2);white-space:nowrap;transition:.14s}
+  .docv-file:hover{border-color:var(--gold);color:var(--ink)}
+  #docList .tagx{margin-left:7px}
+  .docview-img{max-width:100%;max-height:68vh;border-radius:11px;display:block;margin:0 auto;border:1px solid var(--line)}
+  .docview-embed{width:100%;height:68vh;border:1px solid var(--line);border-radius:11px;background:var(--card-2)}
+  .docmeta{font-size:12px;color:var(--soft);margin:2px 0 13px;line-height:1.6}
+  .docmeta b{color:var(--ink);font-weight:600}
 </style>
 
 <div id="appRoot">
@@ -632,16 +665,37 @@
         <button class="btn ghost sm" id="addIns" style="margin-top:9px">เพิ่มประกัน/สิทธิ</button>
       </div>
       <div class="card">
-        <div class="eyebrow"><span class="ic">📁</span>Registry</div>
-        <h2>เอกสารสำคัญ</h2>
+        <div class="eyebrow">Document Vault</div>
+        <h2>คลังเอกสารสำคัญ <span class="hint" id="docCount"></span></h2>
         <div id="docList"></div>
-        <div class="row3" style="margin-top:9px">
-          <input id="dName" type="text" placeholder="ชื่อเอกสาร เช่น ใบขับขี่" style="grid-column:span 2">
-          <input id="dExp" type="date" title="วันหมดอายุ (ถ้ามี)">
+        <div class="row3" style="margin-top:11px">
+          <input id="dName" type="text" placeholder="ชื่อเอกสาร เช่น บัตรประชาชน" style="grid-column:span 2">
+          <select id="dCat" title="ประเภทเอกสาร">
+            <option value="บัตรประชาชน">บัตรประชาชน</option>
+            <option value="ทะเบียนบ้าน">ทะเบียนบ้าน</option>
+            <option value="ใบขับขี่">ใบขับขี่</option>
+            <option value="พาสปอร์ต">พาสปอร์ต</option>
+            <option value="สัญญา/นิติกรรม">สัญญา/นิติกรรม</option>
+            <option value="ประกัน">ประกัน</option>
+            <option value="การเงิน/ธนาคาร">การเงิน/ธนาคาร</option>
+            <option value="ภาษี">ภาษี</option>
+            <option value="การแพทย์">การแพทย์</option>
+            <option value="การศึกษา">การศึกษา</option>
+            <option value="ยานพาหนะ">ยานพาหนะ</option>
+            <option value="อื่น ๆ" selected>อื่น ๆ</option>
+          </select>
         </div>
-        <input id="dNote" type="text" placeholder="โน้ต เช่น เก็บไว้ที่ไหน" style="margin-top:9px">
-        <button class="btn ghost sm" id="addDoc" style="margin-top:9px">เพิ่มเอกสาร</button>
-        <p class="note" style="margin-top:9px">เก็บเป็นบันทึกข้อความเท่านั้น — เพื่อความปลอดภัย อย่ากรอกเลขบัตร/รหัสผ่านฉบับเต็มลงในนี้</p>
+        <div class="row2" style="margin-top:9px">
+          <input id="dExp" type="date" title="วันหมดอายุ (ถ้ามี)">
+          <input id="dNote" type="text" placeholder="โน้ต เช่น เก็บฉบับจริงไว้ที่ไหน">
+        </div>
+        <label class="filepick" id="dFileWrap" style="margin-top:9px" for="dFile">
+          <span class="fp-ic">📎</span>
+          <span id="dFileLabel">แนบไฟล์ (รูปถ่าย / สแกน / PDF) — ไม่บังคับ</span>
+          <input id="dFile" type="file" accept="image/*,application/pdf" hidden>
+        </label>
+        <button class="btn" id="addDoc" style="margin-top:11px">เพิ่มเข้าคลังเอกสาร</button>
+        <p class="note" style="margin-top:9px">ไฟล์เก็บอยู่ในเครื่องนี้เท่านั้น (ออฟไลน์) — รูปจะถูกย่อขนาดอัตโนมัติเพื่อประหยัดพื้นที่ · กด <b>สำรอง JSON</b> เพื่อเก็บเอกสารติดไปด้วย · เพดานพื้นที่รวมราว 5 MB</p>
       </div>
     </section>
 
@@ -805,6 +859,18 @@
       </div>
       <div class="field"><label for="eNote">โน้ต</label><input id="eNote" type="text" placeholder="ไม่ใส่ก็ได้"></div>
       <button class="btn" id="eSave">บันทึกการแก้ไข</button>
+    </div>
+  </div>
+  <div class="modal" id="docModal" hidden>
+    <div class="scrim" id="docScrim"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="ดูเอกสาร">
+      <h2 style="display:flex;justify-content:space-between;align-items:center">
+        <span id="docModalTitle">เอกสาร</span>
+        <button class="modal-x" id="docClose" aria-label="ปิด">✕</button>
+      </h2>
+      <div class="docmeta" id="docModalMeta"></div>
+      <div id="docModalBody"></div>
+      <button class="btn ghost sm" id="docDownload" style="margin-top:12px">ดาวน์โหลดไฟล์</button>
     </div>
   </div>
   <div class="toast" id="toast"></div>
@@ -1887,21 +1953,81 @@
         db.insurances=db.insurances.filter(function(i){return i.id!==b.getAttribute('data-iid');});
         save().then(function(){render();toast('ลบแล้ว');});};});
 
+    if($('#docCount'))$('#docCount').textContent=db.docs.length?db.docs.length+' ฉบับ'+(docFilesKB()>0?' · ไฟล์ '+docFilesKB()+' KB':''):'';
     $('#docList').innerHTML=!db.docs.length?empty('ยังไม่มีเอกสาร — เพิ่มด้านล่าง','📁')
-      :'<table><thead><tr><th>เอกสาร</th><th>หมดอายุ</th><th>โน้ต</th><th></th></tr></thead><tbody>'+
+      :'<table><thead><tr><th>เอกสาร</th><th>หมดอายุ</th><th>ไฟล์</th><th></th></tr></thead><tbody>'+
        db.docs.map(function(dc){
          var d=daysUntil(dc.expiry);
          var expTxt=dc.expiry?(d<0?'<span style="color:var(--red);font-weight:600">หมดอายุแล้ว</span> ('+thD(dc.expiry)+')':
            (d<=45?'<span style="color:var(--gold-2);font-weight:600">อีก '+d+' วัน</span> ('+thD(dc.expiry)+')':thD(dc.expiry))):'—';
-         return '<tr><td>📄 '+esc(dc.n)+'</td><td class="num">'+expTxt+'</td><td class="note">'+esc(dc.note)+'</td>'+
+         var cat=dc.cat||'อื่น ๆ';
+         var fileCell=dc.file?('<span class="docv-file dview" data-did="'+esc(dc.id)+'">'+(/^image\//.test(dc.fileType||'')?'🖼️':'📄')+' ดู</span>'):'<span class="note">—</span>';
+         return '<tr><td>'+docIcon(cat)+' '+esc(dc.n)+'<span class="tagx">'+esc(cat)+'</span>'+
+             (dc.note?'<div class="note" style="margin-top:2px">'+esc(dc.note)+'</div>':'')+'</td>'+
+           '<td class="num">'+expTxt+'</td><td>'+fileCell+'</td>'+
            '<td class="r"><button type="button" class="del ddel" data-did="'+esc(dc.id)+'">✕</button></td></tr>';}).join('')+
        '</tbody></table>';
+    Array.prototype.forEach.call(document.querySelectorAll('.dview'),function(b){
+      b.onclick=function(){openDocView(b.getAttribute('data-did'));};});
     Array.prototype.forEach.call(document.querySelectorAll('.ddel'),function(b){
       b.onclick=function(){
-        if(!confirm('ลบเอกสารนี้?'))return;
+        if(!confirm('ลบเอกสารนี้? (ไฟล์แนบจะถูกลบด้วย)'))return;
         db.docs=db.docs.filter(function(dc){return dc.id!==b.getAttribute('data-did');});
         save().then(function(){render();toast('ลบแล้ว');});};});
   }
+  /* ---------- document vault helpers ---------- */
+  var DOC_CATS=[['บัตรประชาชน','🪪'],['ทะเบียนบ้าน','🏠'],['ใบขับขี่','🚗'],['พาสปอร์ต','🛂'],
+    ['สัญญา/นิติกรรม','📜'],['ประกัน','🛡️'],['การเงิน/ธนาคาร','🏦'],['ภาษี','🧾'],
+    ['การแพทย์','🩺'],['การศึกษา','🎓'],['ยานพาหนะ','🚙'],['อื่น ๆ','📄']];
+  function docIcon(cat){for(var i=0;i<DOC_CATS.length;i++){if(DOC_CATS[i][0]===cat)return DOC_CATS[i][1];}return '📄';}
+  function docFilesKB(){var b=0;db.docs.forEach(function(d){if(d.file)b+=d.file.length;});return Math.round(b/1024);}
+  function fileToDoc(file,cb){
+    if(!file){cb(null);return;}
+    var isImg=/^image\//.test(file.type||'');
+    var reader=new FileReader();
+    reader.onerror=function(){cb(null,'อ่านไฟล์ไม่สำเร็จ');};
+    reader.onload=function(){
+      var dataUrl=String(reader.result||'');
+      if(isImg){
+        var img=new Image();
+        img.onload=function(){
+          var max=1600,w=img.width,h=img.height;
+          if(w>max||h>max){var s=max/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+          try{
+            var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+            cv.getContext('2d').drawImage(img,0,0,w,h);
+            var out=cv.toDataURL('image/jpeg',0.72);
+            if(out.length>dataUrl.length)out=dataUrl; /* ย่อแล้วใหญ่กว่าเดิม (เช่น PNG เล็ก) ใช้ต้นฉบับ */
+            cb({data:out,name:file.name,type:/jpeg/.test(out.slice(0,30))?'image/jpeg':(file.type||'image/png'),size:out.length});
+          }catch(e){cb({data:dataUrl,name:file.name,type:file.type||'image/png',size:dataUrl.length});}
+        };
+        img.onerror=function(){cb({data:dataUrl,name:file.name,type:file.type||'image/png',size:dataUrl.length});};
+        img.src=dataUrl;
+      }else{
+        if(dataUrl.length>2.4*1024*1024){cb(null,'ไฟล์ใหญ่เกินไป ('+Math.round(file.size/1024)+' KB) — ไฟล์ที่ไม่ใช่รูปควรไม่เกิน ~1.8 MB');return;}
+        cb({data:dataUrl,name:file.name,type:file.type||'application/octet-stream',size:dataUrl.length});
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+  function openDocView(id){
+    var dc=null,i;for(i=0;i<db.docs.length;i++){if(db.docs[i].id===id){dc=db.docs[i];break;}}
+    if(!dc||!dc.file)return;
+    $('#docModalTitle').textContent=dc.n;
+    $('#docModalMeta').innerHTML='<b>'+esc(dc.cat||'อื่น ๆ')+'</b>'+(dc.expiry?' · หมดอายุ '+esc(thD(dc.expiry)):'')+
+      (dc.fileName?' · '+esc(dc.fileName):'')+' · '+Math.round(dc.file.length/1024)+' KB';
+    var body;
+    if(/^image\//.test(dc.fileType||'')){body='<img class="docview-img" src="'+dc.file+'" alt="'+esc(dc.n)+'">';}
+    else if(/pdf/.test(dc.fileType||'')){body='<embed class="docview-embed" src="'+dc.file+'" type="application/pdf">';}
+    else{body='<p class="note">ไฟล์ชนิดนี้แสดงตัวอย่างในหน้านี้ไม่ได้ — กดปุ่มดาวน์โหลดเพื่อเปิดด้วยแอปอื่น</p>';}
+    $('#docModalBody').innerHTML=body;
+    $('#docDownload').onclick=function(){
+      try{var a=document.createElement('a');a.href=dc.file;a.download=dc.fileName||(dc.n+'');document.body.appendChild(a);a.click();document.body.removeChild(a);}
+      catch(e){toast('ดาวน์โหลดไม่สำเร็จบนเบราว์เซอร์นี้');}
+    };
+    $('#docModal').hidden=false;
+  }
+  function closeDocView(){$('#docModal').hidden=true;$('#docModalBody').innerHTML='';}
 
   /* ---------- goals + milestones ---------- */
   function renderGoal(){
@@ -2117,7 +2243,7 @@
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='Tor Life OS v6.0 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v6.1 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
   }
 
   /* ---------- edit entry modal ---------- */
@@ -2827,7 +2953,7 @@
       ธุรกิจ:db.businesses.map(function(b){var c=bizStats(b.id,db.entries);return {ชื่อ:b.n,รายรับสะสม:c.rev,รายจ่ายลงทุนสะสม:c.exp,สุทธิ:c.rev-c.exp};}),
       เป้าหมาย:db.goals.map(function(g){return {ชื่อ:g.n,ปัจจุบัน:goalCurrent(g),เป้า:num(g.target),ต่อเดือน:num(g.monthly)};}),
       งานค้าง:db.todos.filter(function(t){return !t.done;}).map(function(t){return {งาน:t.n,กำหนด:t.due||'ไม่ระบุ'};}),
-      เอกสาร:db.docs.map(function(dc){return {ชื่อ:dc.n,หมดอายุ:dc.expiry||'ไม่ระบุ'};}),
+      เอกสาร:db.docs.map(function(dc){return {ชื่อ:dc.n,ประเภท:dc.cat||'อื่น ๆ',หมดอายุ:dc.expiry||'ไม่ระบุ',มีไฟล์แนบ:dc.file?'มี':'ไม่มี'};}),
       ประกันและสิทธิ:db.insurances.map(function(i){return {ชื่อ:i.n,เบี้ยต่อเดือน:num(i.prem),สถานะ:i.status};}),
       สุขภาพ:digestHealth(),
       รายรับทั้งปีนี้ที่บันทึก:ctx.yearInc
@@ -3047,7 +3173,10 @@
     var el=$('#'+id);if(el)el.addEventListener('keydown',function(ev){
       if(ev.key==='Enter'){ev.preventDefault();saveEdit();}});});
   document.addEventListener('keydown',function(ev){
-    if(ev.key==='Escape'&&!$('#editModal').hidden)closeEdit();});
+    if(ev.key==='Escape'){
+      if(!$('#editModal').hidden)closeEdit();
+      if($('#docModal')&&!$('#docModal').hidden)closeDocView();
+    }});
   /* history search */
   (function(){var si=$('#histSearch');if(si)si.addEventListener('input',function(){histSearch=si.value;renderHist();});
     var sc=$('#histSearchClear');if(sc)sc.onclick=function(){histSearch='';if(si){si.value='';si.focus();}renderHist();};})();
@@ -3096,12 +3225,35 @@
     $('#iName').value='';$('#iPrem').value='';$('#iStatus').value='';$('#iDue').value='';
     save().then(function(){render();toast('เพิ่มประกัน/สิทธิแล้ว');});
   };
+  var pendingDoc=null;
+  function resetDocFile(){pendingDoc=null;var l=$('#dFileLabel'),w=$('#dFileWrap'),f=$('#dFile');
+    if(l)l.textContent='แนบไฟล์ (รูปถ่าย / สแกน / PDF) — ไม่บังคับ';if(w)w.classList.remove('has');if(f)f.value='';}
+  (function(){var f=$('#dFile');if(!f)return;
+    f.onchange=function(){
+      var file=f.files&&f.files[0];
+      if(!file){resetDocFile();return;}
+      $('#dFileLabel').textContent='กำลังอ่านไฟล์…';
+      fileToDoc(file,function(res,err){
+        if(!res){resetDocFile();toast(err||'แนบไฟล์ไม่สำเร็จ');return;}
+        pendingDoc=res;
+        $('#dFileLabel').textContent='✓ '+res.name+' ('+Math.round(res.size/1024)+' KB)';
+        $('#dFileWrap').classList.add('has');
+      });
+    };})();
   $('#addDoc').onclick=function(){
     var n=$('#dName').value.trim();if(!n){toast('ใส่ชื่อเอกสารก่อน');return;}
-    db.docs.push({id:uid(),n:n,expiry:$('#dExp').value||'',note:$('#dNote').value.trim()});
-    $('#dName').value='';$('#dExp').value='';$('#dNote').value='';
-    save().then(function(){render();toast('เพิ่มเอกสารแล้ว');});
+    var doc={id:uid(),n:n,cat:($('#dCat')&&$('#dCat').value)||'อื่น ๆ',expiry:$('#dExp').value||'',note:$('#dNote').value.trim(),
+      file:pendingDoc?pendingDoc.data:'',fileName:pendingDoc?pendingDoc.name:'',fileType:pendingDoc?pendingDoc.type:''};
+    if(doc.file){
+      var projected=JSON.stringify(db).length+doc.file.length+300;
+      if(projected>4.9*1024*1024){toast('พื้นที่ไม่พอเก็บไฟล์นี้ — กดสำรอง JSON แล้วลบไฟล์เก่าก่อน');return;}
+    }
+    db.docs.push(doc);
+    $('#dName').value='';$('#dExp').value='';$('#dNote').value='';if($('#dCat'))$('#dCat').selectedIndex=$('#dCat').options.length-1;
+    var hadFile=!!doc.file;resetDocFile();
+    save().then(function(){render();toast(hadFile?'เก็บเอกสาร + ไฟล์แล้ว':'เพิ่มเอกสารแล้ว');});
   };
+  (function(){var c=$('#docClose'),s=$('#docScrim');if(c)c.onclick=closeDocView;if(s)s.onclick=closeDocView;})();
   $('#addCat').onclick=function(){
     var n=$('#nName').value.trim();if(!n){toast('ใส่ชื่อหมวดก่อน');return;}
     var t=$('#nType').value;
