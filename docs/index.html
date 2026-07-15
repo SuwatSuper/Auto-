@@ -3228,17 +3228,29 @@
       var mi=0;for(c=1;c<cols;c++){if(colH[c]<colH[mi])mi=c;}
       el.style.left=(mi*(colW+gap))+'px';
       el.style.top=(top0+colH[mi])+'px';
-      colH[mi]+=el.offsetHeight+gap;
+      /* ceil the measured height so sub-pixel rounding can never overlap the next card */
+      colH[mi]+=Math.ceil(el.getBoundingClientRect().height)+gap;
     }
     var maxH=0;for(c=0;c<cols;c++){if(colH[c]>maxH)maxH=colH[c];}
     sec.style.height=(top0+maxH)+'px';
+    /* late-loading web fonts / images change heights → re-pack when they settle */
+    var imgs=sec.getElementsByTagName('img');
+    for(i=0;i<imgs.length;i++){if(!imgs[i].complete){try{imgs[i].addEventListener('load',scheduleMasonry,{once:true});}catch(e){imgs[i].addEventListener('load',scheduleMasonry);}}}
   }
   var _mzRAF=null;
   function scheduleMasonry(){
     if(_mzRAF)cancelAnimationFrame(_mzRAF);
-    _mzRAF=requestAnimationFrame(function(){masonryLayout();setTimeout(masonryLayout,140);});
+    _mzRAF=requestAnimationFrame(masonryLayout);
+    setTimeout(masonryLayout,160);
+    setTimeout(masonryLayout,520);
   }
   window.addEventListener('resize',scheduleMasonry);
+  window.addEventListener('load',scheduleMasonry);
+  /* CRITICAL: web fonts load after first paint and make text taller — re-pack when ready */
+  if(document.fonts&&document.fonts.ready&&typeof document.fonts.ready.then==='function'){
+    document.fonts.ready.then(scheduleMasonry);
+    try{document.fonts.addEventListener&&document.fonts.addEventListener('loadingdone',scheduleMasonry);}catch(e){}
+  }
   function render(){applyTheme();renderBrand();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderBoard();renderSet();scheduleMasonry();}
 
   /* ---------- events ---------- */
