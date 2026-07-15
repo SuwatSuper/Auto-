@@ -1,0 +1,21 @@
+{
+  "name": "Tor Life OS — Personal Operating System",
+  "short_name": "Tor Life OS",
+  "description": "ระบบจัดการชีวิตและการเงินส่วนตัวแบบออฟไลน์ ทำงานในเครื่อง ไม่ต้องต่อเซิร์ฟเวอร์",
+  "lang": "th",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "torlifeos",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#F4F2EA",
+  "theme_color": "#F4F2EA",
+  "categories": ["finance", "productivity", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

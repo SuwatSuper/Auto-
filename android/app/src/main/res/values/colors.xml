@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the app's Executive White background so launch has no flash. -->
+    <color name="app_bg">#F4F2EA</color>
+    <color name="ic_launcher_bg">#12110D</color>
+</resources>
