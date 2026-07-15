@@ -5,33 +5,33 @@
 
 <style>
   #appRoot{
-    --bg:#12110D; --bg-2:#181510;
-    --card:#1C1914; --card-2:#221E17;
-    --line:#2F2A20;
-    --ink:#F2EEE3; --soft:#B6AE9B; --faint:#77705F;
-    --gold:#CBAA62; --gold-2:#E3C888; --gold-dim:rgba(203,170,98,.13);
-    --green:#77B892; --green-dim:rgba(119,184,146,.13);
-    --red:#D28C82; --red-dim:rgba(210,140,130,.13);
-    --shadow:0 1px 0 rgba(255,255,255,.02) inset, 0 20px 44px -28px rgba(0,0,0,.85);
+    --bg:#14161C; --bg-2:#191C23;
+    --card:#1D2028; --card-2:#242832;
+    --line:#333845;
+    --ink:#EEF1F7; --soft:#AEB5C3; --faint:#727A8C;
+    --gold:#6E97E6; --gold-2:#93B4F2; --gold-dim:rgba(110,151,230,.16);
+    --green:#54C79A; --green-dim:rgba(84,199,154,.15);
+    --red:#E28A82; --red-dim:rgba(226,138,130,.15);
+    --shadow:0 1px 0 rgba(255,255,255,.02) inset, 0 20px 44px -28px rgba(0,0,0,.7);
     --suit:#1B2A41; --suit-2:#14202F; --skin:#C69C7B; --hair:#232833; --shirt:#F4F1E8;
     /* categorical chart palette (validated · dark surface steps) */
-    --pie1:#199e70; --pie2:#3987e5; --pie3:#c98500; --pie4:#9085e9; --pie5:#e66767; --pie6:#d95926; --pie7:#d55181; --pie8:#008300;
+    --pie1:#199e70; --pie2:#3987e5; --pie3:#12A3B0; --pie4:#9085e9; --pie5:#e66767; --pie6:#d95926; --pie7:#d55181; --pie8:#008300;
   }
   /* ===== Executive White (private-bank light) ===== */
   #appRoot.light{
     --bg:#F5F7FB; --bg-2:#FFFFFF; --card:#FFFFFF; --card-2:#F2F5F9; --line:#E5EAF1;
     --ink:#141A23; --soft:#57616F; --faint:#939DAC;
-    --gold:#8A6A1F; --gold-2:#B08A2C; --gold-dim:rgba(176,138,44,.10);
+    --gold:#3457B8; --gold-2:#4E74D6; --gold-dim:rgba(52,87,184,.10);
     --green:#0E9E63; --green-dim:rgba(14,158,99,.10);
     --red:#DA433D; --red-dim:rgba(218,67,61,.09);
     --shadow:0 1px 2px rgba(20,26,36,.04), 0 10px 30px -20px rgba(20,26,36,.16);
     /* categorical chart palette (validated · light surface steps) */
-    --pie1:#1baf7a; --pie2:#2a78d6; --pie3:#eda100; --pie4:#4a3aa7; --pie5:#e34948; --pie6:#eb6834; --pie7:#e87ba4; --pie8:#008300;
+    --pie1:#1baf7a; --pie2:#2a78d6; --pie3:#0E9BAA; --pie4:#4a3aa7; --pie5:#e34948; --pie6:#eb6834; --pie7:#e87ba4; --pie8:#008300;
   }
   /* flat, minimal chrome */
   #appRoot.light .mast{background:#FFFFFF;border-bottom:1px solid var(--line)}
   #appRoot.light .mast::after{display:none}
-  #appRoot.light .crest{background:linear-gradient(150deg,var(--gold-2),var(--gold));color:#1A1913;box-shadow:0 2px 10px -4px rgba(138,109,47,.5);border-radius:9px;font-weight:700}
+  #appRoot.light .crest{background:linear-gradient(150deg,var(--gold-2),var(--gold));color:#fff;box-shadow:0 2px 10px -4px rgba(52,87,184,.45);border-radius:9px;font-weight:700}
   #appRoot.light .brand h1{font-family:inherit;letter-spacing:-.01em}
   #appRoot.light .brand .sub{letter-spacing:.06em;color:var(--faint)}
   #appRoot.light .card{border:1px solid var(--line);border-radius:12px;box-shadow:none}
@@ -78,8 +78,8 @@
     background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.6}
   .brand{display:flex;align-items:center;gap:11px}
   .crest{width:36px;height:36px;border-radius:9px;flex:none;display:grid;place-items:center;
-    background:linear-gradient(150deg,var(--gold-2),var(--gold) 60%,#8C6E11);color:#141005;
-    font-weight:700;font-size:15px;box-shadow:0 3px 12px -4px rgba(201,162,39,.55)}
+    background:linear-gradient(150deg,var(--gold-2),var(--gold) 60%,#22357A);color:#fff;
+    font-weight:700;font-size:15px;box-shadow:0 3px 12px -4px rgba(52,87,184,.5)}
   .brand h1{margin:0;font-size:17.5px;font-weight:600}
   .brand .sub{font-size:10.5px;color:var(--faint);letter-spacing:.14em;text-transform:uppercase;margin-top:1px}
   .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:14px}
@@ -152,9 +152,9 @@
   .seg{display:flex;gap:6px;margin-bottom:11px}
   .seg button{flex:1;padding:10px 4px;border:1px solid var(--line);background:var(--card-2);border-radius:9px;
     font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;color:var(--soft);transition:.16s}
-  .seg button[aria-pressed="true"]{background:var(--gold);color:#141005;border-color:var(--gold);font-weight:600}
+  .seg button[aria-pressed="true"]{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:600}
   .btn{width:100%;padding:13px;border:0;border-radius:9px;cursor:pointer;font-family:inherit;font-size:14.5px;font-weight:600;
-    background:linear-gradient(150deg,var(--gold-2),var(--gold));color:#141005;box-shadow:0 8px 20px -12px var(--gold);transition:.14s}
+    background:linear-gradient(150deg,var(--gold-2),var(--gold));color:#fff;box-shadow:0 8px 20px -12px var(--gold);transition:.14s}
   .btn:hover{filter:brightness(1.05)} .btn:active{transform:translateY(1px)}
   .btn.ghost{background:transparent;color:var(--soft);border:1px solid var(--line);box-shadow:none}
   .btn.sm{width:auto;padding:8px 13px;font-size:12.5px}
@@ -162,7 +162,7 @@
   .chip{padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);
     font-family:inherit;font-size:12.5px;cursor:pointer;color:var(--soft);transition:.14s}
   .chip:hover{border-color:var(--gold);color:var(--gold-2)}
-  .chip.on{background:var(--gold);color:#141005;border-color:var(--gold);font-weight:600}
+  .chip.on{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:600}
   .empty{padding:22px 10px;text-align:center;color:var(--faint);font-size:13px}
   .note{font-size:11.5px;color:var(--faint);line-height:1.55}
   .flag{border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:11px;line-height:1.55;border:1px solid}
@@ -314,7 +314,7 @@
   .cmsg{display:flex;margin-bottom:8px}
   .cmsg.you{justify-content:flex-end}
   .cbub{max-width:88%;padding:9px 12px;border-radius:14px;font-size:12.8px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
-  .cmsg.you .cbub{background:var(--gold);color:#141005;border-bottom-right-radius:4px}
+  .cmsg.you .cbub{background:var(--gold);color:#fff;border-bottom-right-radius:4px}
   #appRoot.light .cmsg.you .cbub{background:#0D0D0D;color:#fff}
   .cmsg.bot .cbub{background:var(--card-2);border:1px solid var(--line);color:var(--ink);border-bottom-left-radius:4px}
   .cdot{font-size:9px;color:var(--faint);animation:blink 1.2s infinite}
@@ -393,21 +393,20 @@
   /* — Buttons: no emoji gap wobble; tighter, flatter — */
   .seg button,.chip{letter-spacing:.01em}
 
-  /* — Fill wide desktop screens: multi-column card layout (masonry) — */
+  /* — Fill wide desktop screens: cards flex-grow to fill each row (every page) — */
   @media(min-width:1160px){
-    .wrap{padding-left:28px;padding-right:28px}
-    .mast{padding-left:28px;padding-right:28px}
-    section:not([hidden]){columns:2;column-gap:20px}
+    .wrap{padding-left:30px;padding-right:30px}
+    .mast{padding-left:30px;padding-right:30px}
+    section:not([hidden]){display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
     section:not([hidden])>.card,
-    section:not([hidden])>.countdown{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;margin-bottom:20px;display:inline-block;width:100%}
-    section:not([hidden])>.monthbar{column-span:all;-webkit-column-span:all}
+    section:not([hidden])>.countdown{flex:1 1 440px;min-width:0;margin-bottom:0}
+    section:not([hidden])>.monthbar{flex:1 1 100%;margin-bottom:0}
+    /* let a card opt into full width or a wider share */
+    section:not([hidden])>.card.span-full{flex-basis:100%}
+    section:not([hidden])>.card.span-wide{flex-basis:680px;flex-grow:2}
   }
-  @media(min-width:1620px){
-    section:not([hidden]){columns:3}
-  }
-  /* keep the entry form focused: full-width single column even on wide screens */
-  @media(min-width:1160px){
-    #add:not([hidden]){columns:1;max-width:720px;margin:0 auto}
+  @media(min-width:1720px){
+    .wrap{max-width:1720px}
   }
 
   /* — Document vault — */
@@ -425,15 +424,25 @@
   .docview-embed{width:100%;height:68vh;border:1px solid var(--line);border-radius:11px;background:var(--card-2)}
   .docmeta{font-size:12px;color:var(--soft);margin:2px 0 13px;line-height:1.6}
   .docmeta b{color:var(--ink);font-weight:600}
+
+  /* — Profile picture (masthead avatar + settings) — */
+  button.crest{border:0;cursor:pointer;padding:0;overflow:hidden}
+  .crest.has-av{background:none!important;box-shadow:0 2px 10px -5px rgba(0,0,0,.45)!important}
+  .crest .avatar-img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
+  .prof-row{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+  .prof-av{width:66px;height:66px;border-radius:16px;flex:none;display:grid;place-items:center;overflow:hidden;
+    background:linear-gradient(150deg,var(--gold-2),var(--gold) 60%,#22357A);color:#fff;font-size:26px;font-weight:700;font-family:'Noto Serif Thai',serif}
+  .prof-av img{width:100%;height:100%;object-fit:cover}
+  .prof-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
 </style>
 
 <div id="appRoot">
   <header class="mast">
     <div class="brand">
-      <div class="crest serif">฿</div>
+      <button class="crest serif" id="brandCrest" type="button" title="เปลี่ยนรูปโปรไฟล์ / ไปตั้งค่า">฿</button>
       <div>
-        <h1 class="serif">Tor Life OS</h1>
-        <div class="sub">Personal Operating System · est. 2569</div>
+        <h1 class="serif" id="brandName">Tor Life OS</h1>
+        <div class="sub" id="brandSub">Personal Operating System · est. 2569</div>
       </div>
     </div>
     <div class="strip">
@@ -776,6 +785,23 @@
 
     <section id="set" hidden>
       <div class="card">
+        <div class="eyebrow">Profile</div>
+        <h2>โปรไฟล์ของฉัน</h2>
+        <div class="prof-row">
+          <div class="prof-av" id="profAv">฿</div>
+          <div style="flex:1;min-width:180px">
+            <div class="field" style="margin-bottom:8px"><label for="profName">ชื่อที่แสดง</label><input id="profName" type="text" placeholder="เช่น คุณต่อ / ผู้บริหาร" maxlength="40"></div>
+            <div class="prof-actions">
+              <label class="btn ghost sm" for="profFile" style="cursor:pointer">เลือกรูปโปรไฟล์</label>
+              <input id="profFile" type="file" accept="image/*" hidden>
+              <button class="btn ghost sm" id="profRemove" type="button">ลบรูป</button>
+              <button class="btn sm" id="profSave" type="button" style="width:auto">บันทึกโปรไฟล์</button>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:10px">รูปจะถูกย่อขนาดอัตโนมัติและเก็บในเครื่องนี้เท่านั้น · แสดงที่มุมบนซ้ายแทนสัญลักษณ์ ฿</p>
+      </div>
+      <div class="card">
         <h2><span class="h2ic">🎨</span>ธีม</h2>
         <div class="seg" id="themeSeg">
           <button data-th="light" aria-pressed="true">Clean White</button>
@@ -1095,7 +1121,8 @@
         return {id:i.id!=null?String(i.id):uid(),n:String(i.n),prem:num(i.prem),status:String(i.status||''),due:String(i.due||'')};});
     if((a=arr(p,'docs')))
       out.docs=a.filter(function(d){return d&&d.n;}).map(function(d){
-        return {id:d.id!=null?String(d.id):uid(),n:String(d.n),expiry:String(d.expiry||''),note:String(d.note||'')};});
+        return {id:d.id!=null?String(d.id):uid(),n:String(d.n),cat:String(d.cat||'อื่น ๆ'),expiry:String(d.expiry||''),note:String(d.note||''),
+          file:(typeof d.file==='string')?d.file:'',fileName:String(d.fileName||''),fileType:String(d.fileType||'')};});
     if((a=arr(p,'healthLogs')))
       out.healthLogs=a.filter(function(h){return h&&h.date;}).map(function(h){
         return {id:h.id!=null?String(h.id):uid(),date:String(h.date).slice(0,10),
@@ -1116,6 +1143,8 @@
       if(Array.isArray(p.settings.pays)&&p.settings.pays.length)s.pays=p.settings.pays.map(String);
       if(typeof p.settings.aiKey==='string')s.aiKey=p.settings.aiKey;
       if(typeof p.settings.aiModel==='string'&&p.settings.aiModel)s.aiModel=p.settings.aiModel;
+      if(typeof p.settings.avatar==='string')s.avatar=p.settings.avatar;
+      if(typeof p.settings.userName==='string')s.userName=p.settings.userName;
     }
     if(p.badges&&typeof p.badges==='object')out.badges=p.badges;
     if(p.snapshots&&typeof p.snapshots==='object'){
@@ -2243,7 +2272,7 @@
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='Tor Life OS v6.1 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v6.2 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
   }
 
   /* ---------- edit entry modal ---------- */
@@ -3118,9 +3147,20 @@
     var light=db.settings.theme==='light';
     if(light)root.classList.add('light');else root.classList.remove('light');
     try{document.body.style.margin='0';
-      document.body.style.background=light?'#F7F7F8':'#0C1220';}catch(e){}
+      document.body.style.background=light?'#F5F7FB':'#14161C';}catch(e){}
   }
-  function render(){applyTheme();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderBoard();renderSet();}
+  function renderBrand(){
+    var av=(db.settings&&db.settings.avatar)||'', nm=((db.settings&&db.settings.userName)||'').trim();
+    var crest=$('#brandCrest');
+    if(crest){
+      if(av){crest.innerHTML='<img class="avatar-img" src="'+av+'" alt="โปรไฟล์">';crest.classList.add('has-av');}
+      else{crest.textContent='฿';crest.classList.remove('has-av');}
+    }
+    if($('#brandSub'))$('#brandSub').textContent=nm?nm+' · Personal Operating System':'Personal Operating System · est. 2569';
+    var pa=$('#profAv');if(pa){if(av)pa.innerHTML='<img src="'+av+'" alt="โปรไฟล์">';else pa.textContent='฿';}
+    if($('#profName')&&document.activeElement!==$('#profName'))$('#profName').value=nm;
+  }
+  function render(){applyTheme();renderBrand();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderBoard();renderSet();}
 
   /* ---------- events ---------- */
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
@@ -3303,6 +3343,49 @@
     db.settings.aiModel=$('#sAiModel').value||'claude-opus-4-8';
     save().then(function(){render();toast(db.settings.aiKey?'เปิดโหมด AI แล้ว — ไปคุยที่แท็บที่ปรึกษาได้เลย':'บันทึกแล้ว (โหมดออฟไลน์)');});
   };
+  /* ---- profile picture ---- */
+  var pendingAvatar=null;
+  function imgToAvatar(file,cb){
+    if(!file){cb(null,'ไม่พบไฟล์');return;}
+    if(!/^image\//.test(file.type||'')){cb(null,'เลือกไฟล์รูปภาพเท่านั้น');return;}
+    var reader=new FileReader();
+    reader.onerror=function(){cb(null,'อ่านไฟล์ไม่สำเร็จ');};
+    reader.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var S=256,side=Math.min(img.width,img.height);
+          var cv=document.createElement('canvas');cv.width=S;cv.height=S;
+          cv.getContext('2d').drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,S,S);
+          cb(cv.toDataURL('image/jpeg',0.82));
+        }catch(e){cb(null,'ประมวลผลรูปไม่สำเร็จ');}
+      };
+      img.onerror=function(){cb(null,'ไฟล์รูปเสียหาย');};
+      img.src=String(reader.result||'');
+    };
+    reader.readAsDataURL(file);
+  }
+  (function(){var f=$('#profFile');if(!f)return;
+    f.onchange=function(){
+      var file=f.files&&f.files[0];if(!file)return;
+      imgToAvatar(file,function(data,err){
+        if(!data){toast(err||'แนบรูปไม่สำเร็จ');return;}
+        pendingAvatar=data;
+        var pa=$('#profAv');if(pa)pa.innerHTML='<img src="'+data+'" alt="โปรไฟล์">';
+        toast('เลือกรูปแล้ว — กดบันทึกโปรไฟล์');
+      });
+    };})();
+  if($('#profSave'))$('#profSave').onclick=function(){
+    if(pendingAvatar)db.settings.avatar=pendingAvatar;
+    db.settings.userName=String($('#profName').value||'').trim().slice(0,40);
+    pendingAvatar=null;
+    save().then(function(){render();toast('บันทึกโปรไฟล์แล้ว');});
+  };
+  if($('#profRemove'))$('#profRemove').onclick=function(){
+    pendingAvatar=null;db.settings.avatar='';
+    save().then(function(){render();toast('ลบรูปโปรไฟล์แล้ว');});
+  };
+  if($('#brandCrest'))$('#brandCrest').onclick=function(){goTab('set');};
   $('#reset').onclick=function(){
     if(!confirm('ลบรายการบัญชีทั้งหมด? กู้คืนไม่ได้ (แนะนำให้สำรอง JSON ก่อน)'))return;
     if(!confirm('ยืนยันอีกครั้ง — ลบรายการทั้งหมดจริงหรือไม่?'))return;

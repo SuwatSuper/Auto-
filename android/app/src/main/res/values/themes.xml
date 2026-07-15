@@ -2,8 +2,8 @@
 <resources>
     <!-- Platform Material theme — no AppCompat/Material dependency needed. -->
     <style name="Theme.TorLifeOS" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">#F4F2EA</item>
-        <item name="android:navigationBarColor">#F4F2EA</item>
+        <item name="android:statusBarColor">#F5F7FB</item>
+        <item name="android:navigationBarColor">#F5F7FB</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowBackground">@color/app_bg</item>

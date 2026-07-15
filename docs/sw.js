@@ -1,5 +1,5 @@
 /* Tor Life OS — service worker (offline-first shell cache) */
-var CACHE = 'torlifeos-v6-1';
+var CACHE = 'torlifeos-v6-2';
 var ASSETS = [
   './',
   './index.html',
