@@ -3220,9 +3220,18 @@
       var secs=wrap.getElementsByTagName('section'),sec=null,i;
       for(i=0;i<secs.length;i++){if(!secs[i].hidden){sec=secs[i];break;}}
       if(!sec){_mzBusy=false;return;}
-      var items=[],ch=sec.children,el;
-      for(i=0;i<ch.length;i++){el=ch[i];if(el.classList&&(el.classList.contains('card')||el.classList.contains('countdown')))items.push(el);}
-      for(i=0;i<items.length;i++){el=items[i];el.style.position='';el.style.left='';el.style.top='';el.style.width='';}
+      /* split direct children into full-width headers (monthbar, contract/honesty banners …)
+         and column items (.card/.countdown). ANY non-card block is a header so nothing is ever
+         left in normal flow hidden behind the absolutely-positioned cards. */
+      var items=[],heads=[],ch=sec.children,el,tg;
+      for(i=0;i<ch.length;i++){
+        el=ch[i];if(el.nodeType!==1)continue;tg=el.tagName;
+        if(tg==='DATALIST'||tg==='SCRIPT'||tg==='STYLE'||tg==='TEMPLATE')continue;
+        if(el.classList&&(el.classList.contains('card')||el.classList.contains('countdown')))items.push(el);
+        else heads.push(el);
+      }
+      var all=heads.concat(items);
+      for(i=0;i<all.length;i++){el=all[i];el.style.position='';el.style.left='';el.style.top='';el.style.width='';}
       sec.style.position='';sec.style.height='';sec.classList.remove('mz-on');
       var W=sec.clientWidth,gap=22,minCol=380;
       if(W>=1120&&items.length){
@@ -3231,25 +3240,33 @@
         if(cols>=2){
           var colW=(W-gap*(cols-1))/cols, colH=[],c;
           for(c=0;c<cols;c++)colH.push(0);
-          var top0=0,mb=null;
-          for(i=0;i<ch.length;i++){if(ch[i].classList&&ch[i].classList.contains('monthbar')){mb=ch[i];break;}}
           sec.classList.add('mz-on');sec.style.position='relative';
-          if(mb)top0=mb.offsetTop+mb.offsetHeight+gap;
+          /* columns start below ALL full-width header banners (kept in normal flow) */
+          var top0=0;
+          for(i=0;i<heads.length;i++){var hb=heads[i].offsetTop+heads[i].offsetHeight;if(hb>top0)top0=hb;}
+          if(top0>0)top0+=gap;
+          /* PASS 1: lock every card to the column width first, then force one reflow so any
+             @container query (which restacks inner number grids) has fully applied … */
+          for(i=0;i<items.length;i++){el=items[i];el.style.position='absolute';el.style.width=colW+'px';el.style.left='0';el.style.top='0';}
+          void sec.offsetWidth;
+          /* … PASS 2: now measured heights are final, so cards can never overlap. */
           for(i=0;i<items.length;i++){
-            el=items[i];el.style.position='absolute';el.style.width=colW+'px';
+            el=items[i];
+            var hh=Math.ceil(el.getBoundingClientRect().height);
+            if(hh<1){el.style.left='-99999px';el.style.top='0';continue;} /* park empty items offscreen */
             var mi=0;for(c=1;c<cols;c++){if(colH[c]<colH[mi])mi=c;}
             el.style.left=(mi*(colW+gap))+'px';
             el.style.top=(top0+colH[mi])+'px';
-            colH[mi]+=Math.ceil(el.getBoundingClientRect().height)+gap;
+            colH[mi]+=hh+gap;
           }
           var maxH=0;for(c=0;c<cols;c++){if(colH[c]>maxH)maxH=colH[c];}
           sec.style.height=(top0+maxH)+'px';
         }
       }
-      /* (re)observe the current section's cards so any later reflow (fonts/images/content) re-packs */
+      /* (re)observe every direct child so any later reflow (fonts/images/content) re-packs */
       if(window.ResizeObserver){
         if(!_mzObs)_mzObs=new ResizeObserver(function(){scheduleMasonry();});
-        for(i=0;i<items.length;i++)_mzObs.observe(items[i]);
+        for(i=0;i<all.length;i++)_mzObs.observe(all[i]);
       }
     }catch(e){}
     _mzBusy=false;
