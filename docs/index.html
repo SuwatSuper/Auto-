@@ -406,15 +406,27 @@
   /* — Buttons: no emoji gap wobble; tighter, flatter — */
   .seg button,.chip{letter-spacing:.01em}
 
-  /* — Fill wide desktop screens: JS masonry packs cards into shortest column — */
+  /* — Full-width desktop: JS masonry (ResizeObserver-driven) fills every page and re-packs
+       automatically whenever fonts/images/content change size, so it can never overlap — */
   @media(min-width:1160px){
     .wrap{padding-left:30px;padding-right:30px}
     .mast{padding-left:30px;padding-right:30px}
-    /* while masonry is active, entrance transforms must not shift measured height */
     section.mz-on>.card,section.mz-on>.countdown{margin-bottom:0!important;animation:none!important}
   }
-  @media(min-width:1720px){
-    .wrap{max-width:1720px}
+  @media(min-width:1720px){.wrap{max-width:1720px}}
+  /* — Container queries: inner number grids respond to CARD width (not viewport) so big
+       figures never get clipped in a narrow column — */
+  #appRoot .card{container-type:inline-size}
+  @container (max-width:540px){
+    .kpis{grid-template-columns:1fr 1fr}
+    .pos-grid{grid-template-columns:1fr}
+    .mini-kpi{grid-template-columns:1fr 1fr}
+    .biz-grid{grid-template-columns:1fr 1fr}
+    .databars{grid-template-columns:1fr}
+    .ceo-top{flex-direction:column}
+  }
+  @container (max-width:330px){
+    .kpis,.mini-kpi,.biz-grid{grid-template-columns:1fr}
   }
 
   /* — Document vault — */
@@ -2306,7 +2318,7 @@
     $('#sEfCat').innerHTML=catNames('saving').map(function(n){
       return '<option'+(n===db.settings.efCat?' selected':'')+' value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     var kb=(JSON.stringify(db).length/1024).toFixed(0);
-    $('#sizeHint').textContent='Tor Life OS v6.3 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
+    $('#sizeHint').textContent='Tor Life OS v6.4 · '+modeName()+' · ใช้พื้นที่ '+kb+' KB / 5,120 KB';
   }
 
   /* ---------- edit entry modal ---------- */
@@ -3198,59 +3210,54 @@
     if($('#profName')&&document.activeElement!==$('#profName'))$('#profName').value=nm;
     if($('#profApp')&&document.activeElement!==$('#profApp'))$('#profApp').value=(db.settings&&db.settings.appName)||'';
   }
-  /* ---------- masonry: tight, gap-free, full-width card packing (desktop) ---------- */
+  /* ---------- masonry: tight, gap-free, full-width; ResizeObserver re-packs on any reflow ---------- */
+  var _mzObs=null,_mzRAF=null,_mzBusy=false;
   function masonryLayout(){
-    var wrap=document.querySelector('.wrap');if(!wrap)return;
-    var secs=wrap.getElementsByTagName('section'),sec=null,i;
-    for(i=0;i<secs.length;i++){if(!secs[i].hidden){sec=secs[i];break;}}
-    if(!sec)return;
-    var items=[],ch=sec.children,el;
-    for(i=0;i<ch.length;i++){el=ch[i];if(el.classList&&(el.classList.contains('card')||el.classList.contains('countdown')))items.push(el);}
-    // reset any prior positioning first (so natural height/width is restored before measuring)
-    for(i=0;i<items.length;i++){el=items[i];el.style.position='';el.style.left='';el.style.top='';el.style.width='';}
-    sec.style.position='';sec.style.height='';sec.classList.remove('mz-on');
-    var W=sec.clientWidth,gap=22,minCol=380;
-    if(W<1120||!items.length)return; // mobile / empty → natural stacking
-    var cols=Math.floor((W+gap)/(minCol+gap));
-    if(cols>items.length)cols=items.length;
-    if(cols<2)return; // one column → natural flow reads better
-    var colW=(W-gap*(cols-1))/cols, colH=[],c;
-    for(c=0;c<cols;c++)colH.push(0);
-    var top0=0,mb=null;
-    for(i=0;i<ch.length;i++){if(ch[i].classList&&ch[i].classList.contains('monthbar')){mb=ch[i];break;}}
-    sec.classList.add('mz-on');
-    sec.style.position='relative';
-    if(mb)top0=mb.offsetTop+mb.offsetHeight+gap;
-    for(i=0;i<items.length;i++){
-      el=items[i];
-      el.style.position='absolute';
-      el.style.width=colW+'px';
-      var mi=0;for(c=1;c<cols;c++){if(colH[c]<colH[mi])mi=c;}
-      el.style.left=(mi*(colW+gap))+'px';
-      el.style.top=(top0+colH[mi])+'px';
-      /* ceil the measured height so sub-pixel rounding can never overlap the next card */
-      colH[mi]+=Math.ceil(el.getBoundingClientRect().height)+gap;
-    }
-    var maxH=0;for(c=0;c<cols;c++){if(colH[c]>maxH)maxH=colH[c];}
-    sec.style.height=(top0+maxH)+'px';
-    /* late-loading web fonts / images change heights → re-pack when they settle */
-    var imgs=sec.getElementsByTagName('img');
-    for(i=0;i<imgs.length;i++){if(!imgs[i].complete){try{imgs[i].addEventListener('load',scheduleMasonry,{once:true});}catch(e){imgs[i].addEventListener('load',scheduleMasonry);}}}
+    if(_mzBusy)return;_mzBusy=true;
+    try{
+      if(_mzObs)_mzObs.disconnect();
+      var wrap=document.querySelector('.wrap');if(!wrap){_mzBusy=false;return;}
+      var secs=wrap.getElementsByTagName('section'),sec=null,i;
+      for(i=0;i<secs.length;i++){if(!secs[i].hidden){sec=secs[i];break;}}
+      if(!sec){_mzBusy=false;return;}
+      var items=[],ch=sec.children,el;
+      for(i=0;i<ch.length;i++){el=ch[i];if(el.classList&&(el.classList.contains('card')||el.classList.contains('countdown')))items.push(el);}
+      for(i=0;i<items.length;i++){el=items[i];el.style.position='';el.style.left='';el.style.top='';el.style.width='';}
+      sec.style.position='';sec.style.height='';sec.classList.remove('mz-on');
+      var W=sec.clientWidth,gap=22,minCol=380;
+      if(W>=1120&&items.length){
+        var cols=Math.floor((W+gap)/(minCol+gap));
+        if(cols>items.length)cols=items.length;
+        if(cols>=2){
+          var colW=(W-gap*(cols-1))/cols, colH=[],c;
+          for(c=0;c<cols;c++)colH.push(0);
+          var top0=0,mb=null;
+          for(i=0;i<ch.length;i++){if(ch[i].classList&&ch[i].classList.contains('monthbar')){mb=ch[i];break;}}
+          sec.classList.add('mz-on');sec.style.position='relative';
+          if(mb)top0=mb.offsetTop+mb.offsetHeight+gap;
+          for(i=0;i<items.length;i++){
+            el=items[i];el.style.position='absolute';el.style.width=colW+'px';
+            var mi=0;for(c=1;c<cols;c++){if(colH[c]<colH[mi])mi=c;}
+            el.style.left=(mi*(colW+gap))+'px';
+            el.style.top=(top0+colH[mi])+'px';
+            colH[mi]+=Math.ceil(el.getBoundingClientRect().height)+gap;
+          }
+          var maxH=0;for(c=0;c<cols;c++){if(colH[c]>maxH)maxH=colH[c];}
+          sec.style.height=(top0+maxH)+'px';
+        }
+      }
+      /* (re)observe the current section's cards so any later reflow (fonts/images/content) re-packs */
+      if(window.ResizeObserver){
+        if(!_mzObs)_mzObs=new ResizeObserver(function(){scheduleMasonry();});
+        for(i=0;i<items.length;i++)_mzObs.observe(items[i]);
+      }
+    }catch(e){}
+    _mzBusy=false;
   }
-  var _mzRAF=null;
-  function scheduleMasonry(){
-    if(_mzRAF)cancelAnimationFrame(_mzRAF);
-    _mzRAF=requestAnimationFrame(masonryLayout);
-    setTimeout(masonryLayout,160);
-    setTimeout(masonryLayout,520);
-  }
+  function scheduleMasonry(){if(_mzRAF)cancelAnimationFrame(_mzRAF);_mzRAF=requestAnimationFrame(masonryLayout);}
   window.addEventListener('resize',scheduleMasonry);
   window.addEventListener('load',scheduleMasonry);
-  /* CRITICAL: web fonts load after first paint and make text taller — re-pack when ready */
-  if(document.fonts&&document.fonts.ready&&typeof document.fonts.ready.then==='function'){
-    document.fonts.ready.then(scheduleMasonry);
-    try{document.fonts.addEventListener&&document.fonts.addEventListener('loadingdone',scheduleMasonry);}catch(e){}
-  }
+  if(document.fonts&&document.fonts.ready&&typeof document.fonts.ready.then==='function')document.fonts.ready.then(scheduleMasonry);
   function render(){applyTheme();renderBrand();renderDash();renderForm();renderRecent();renderHist();renderBiz();renderPort();renderHealth();renderLife();renderGoal();renderFin();renderBoard();renderSet();scheduleMasonry();}
 
   /* ---------- events ---------- */
