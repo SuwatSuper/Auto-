@@ -1941,7 +1941,7 @@
   function renderPortfolioDash(){
     var box=$('#portDashBox');if(!box)return;
     var inv=db.assets.filter(function(a){return a.cls==='invest';});
-    if(!inv.length){box.innerHTML=empty('ยังไม่มีสินทรัพย์ลงทุน','📈',['port','ไปเพิ่มที่แท็บพอร์ต']);return;}
+    if(!inv.length){box.innerHTML=empty('ยังไม่มีสินทรัพย์ลงทุน','📈',['port','ไปเพิ่มที่แท็บพอร์ต']);setDrillMeta('portMeta','',false);return;}
     var costSum=0,valSum=0;inv.forEach(function(a){costSum+=num(a.cost);valSum+=num(a.v);});
     var pl=valSum-costSum;
     var segs=inv.map(function(a){return {label:(catIcon(a.n)?catIcon(a.n)+' ':'')+a.n,value:num(a.v)};});
