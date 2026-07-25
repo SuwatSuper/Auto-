@@ -1,0 +1,13 @@
+# ผลลัพธ์ที่ระบบสร้างตอนรัน (ไม่ต้องเก็บเข้า git)
+dashboard_daily.html
+daily_orders.csv
+daily_trade_journal.csv
+confirmed_strategies_daily.csv
+portfolio_trades_oos.csv
+price_cache_daily.csv
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
