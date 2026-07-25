@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SET Daily Edge Finder — ระบบเทรดหุ้นไทยรายวัน (ไฟล์เดียว เปิดแล้วรันจบ)</title>
+<style>
+:root{--bg:#FAF9F5;--card:#FFF;--line:#E8E4DA;--ink:#29261B;--sub:#6B6558;
+--coral:#D97757;--coral-dk:#C05F3C;--green:#6E8B5E;--red:#C24C3F;--amber:#C9A227}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.55;padding:20px;
+font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Sarabun",sans-serif}
+.wrap{max-width:1120px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px}
+h2{font-size:16px;margin:0 0 12px;color:var(--coral-dk)}
+.sub{color:var(--sub);font-size:13px;margin-bottom:16px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;
+font-size:12.5px;color:var(--sub)}
+.chip.ok{border-color:var(--green);color:var(--green)}
+.chip.warn{border-color:var(--amber);color:var(--amber)}
+.chip.bad{border-color:var(--red);color:var(--red)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;
+margin-bottom:16px;box-shadow:0 1px 3px rgba(41,38,27,.05)}
+.hero{border-left:5px solid var(--coral)}
+.honest{border-left:5px solid var(--amber);background:#FFFDF6}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile .v{font-size:20px;font-weight:600}
+.tile .k{font-size:12px;color:var(--sub)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--sub);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td.wrap-cell{white-space:normal;min-width:260px}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;color:#fff}
+.vcard{border:1px solid var(--line);border-left:4px solid var(--coral);border-radius:10px;
+padding:12px 14px;margin-bottom:10px;background:var(--bg)}
+.vcard.watch{border-left-color:var(--amber)}
+.muted{color:var(--sub);font-size:12.5px}
+.big{font-size:17px;font-weight:600}
+.pos{color:var(--green)}.neg{color:var(--red)}
+.empty{color:var(--sub);font-style:italic;padding:8px 0}
+.badge{display:inline-block;border-radius:8px;padding:2px 10px;font-weight:600;color:#fff}
+button{font:inherit;background:var(--coral);color:#fff;border:0;border-radius:9px;
+padding:8px 16px;cursor:pointer}
+button:hover{background:var(--coral-dk)}
+button.ghost{background:transparent;color:var(--coral-dk);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.bar{height:10px;background:var(--bg);border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:10px 0 6px}
+.bar>i{display:block;height:100%;background:var(--coral);width:0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:14px;text-align:center;color:var(--sub);font-size:13px}
+.drop.over{border-color:var(--coral);color:var(--coral-dk)}
+svg{display:block;width:100%;height:auto}
+.tstat{font-size:13px}
+.tfail{color:var(--red);font-weight:600}
+footer{color:var(--sub);font-size:12px;margin:8px 0 30px}
+@media(max-width:640px){body{padding:12px}h1{font-size:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📈 SET Daily Edge Finder</h1>
+  <div class="sub" id="subtitle">ระบบเทรดหุ้นไทยรายวัน — เปิดไฟล์นี้แล้วระบบรันเองครั้งเดียวจนจบ ไม่ต้องติดตั้งอะไร</div>
+
+  <div class="card" id="runcard">
+    <h2>สถานะการทำงาน</h2>
+    <div id="status">กำลังเริ่ม...</div>
+    <div class="bar"><i id="pbar"></i></div>
+    <div class="muted mono" id="plog">-</div>
+    <div class="row" style="margin-top:14px">
+      <button id="btn-rerun" disabled>รันใหม่อีกครั้ง</button>
+      <button id="btn-live" class="ghost">ลองดึงราคาสดจากอินเทอร์เน็ต</button>
+      <button id="btn-csv" class="ghost">โหลดไฟล์ราคา CSV</button>
+      <button id="btn-clear" class="ghost">ล้างสมุดบันทึก</button>
+      <input type="file" id="file" accept=".csv,text/csv" style="display:none">
+    </div>
+    <div class="drop" id="drop" style="margin-top:12px">
+      ลากไฟล์ CSV มาวางตรงนี้ก็ได้ — คอลัมน์ที่ต้องมี:
+      <span class="mono">Ticker,Date,Open,High,Low,Close,Volume</span>
+      (ไฟล์ <span class="mono">price_cache_daily.csv</span> จากเวอร์ชัน Python ใช้ได้เลย)
+    </div>
+  </div>
+
+  <div id="out"></div>
+  <footer id="foot"></footer>
+</div>
+<script>
+"use strict";
+/* ============================================================================
+ SET DAILY EDGE FINDER (HTML edition) — ไฟล์เดียวจบ ทำงานทั้งหมดในเบราว์เซอร์
+ ไม่มี library ภายนอก ไม่มีการส่งข้อมูลออก (ยกเว้นตอนกดปุ่ม "ดึงราคาสด" เท่านั้น)
+
+ ตรรกะทั้งหมดพอร์ตมาจากเวอร์ชัน Python (daily_edge_finder.py) แบบตรง ๆ:
+  * อินดิเคเตอร์ย้อนหลังล้วน -> ไม่มีการมองอนาคต (มีเทสต์ non-repainting ในไฟล์)
+  * คำนวณครั้งเดียวบนข้อมูลเต็ม แล้วแบ่ง in-sample/out-of-sample ด้วย mask + embargo
+  * ค้นสมการครบทุกความเป็นไปได้ (exhaustive) เฉพาะมิติที่แต่ละสมการใช้จริง
+  * gap เปิดทะลุ SL/TP -> คิดที่ราคาเปิดจริง | ชนกันในแท่งเดียว -> SL ชนะ (นับแพ้)
+  * "ชนะ" = กำไรสุทธิ > 0 หลังหักค่าคอมไป-กลับ (ไม่ใช่แค่แตะ TP)
+  * ยืนยัน 2 ช่วง out-of-sample -> เกรด A (ถึงเป้า) / B (มี edge จริงแต่ไม่ถึงเป้า) / ตก
+============================================================================ */
+
+const CFG = {
+  TARGET_WR: 80.0,          // เป้าที่ผู้ใช้สั่ง: อัตราชนะ > 80%
+  TARGET_NPD: 2.0,          // เป้าที่ผู้ใช้สั่ง: กำไร > 2% ต่อวัน
+  TARGET_NET: 2.0,          // กำไรต่อไม้ขั้นต่ำสำหรับเกรด A
+  FLOOR_WR: 55.0, FLOOR_NPD: 0.10, FLOOR_WLB: 50.0,
+  MIN_TRADES_IS: 40, MIN_TRADES_OOS: 12,
+  TOP_VALIDATE: 120, TOP_REPORT: 12,
+  FRICTION: 0.514,          // ค่าคอม+VAT ไป-กลับ (%)
+  TIE_SL_WINS: true,        // แท่งเดียวชนทั้ง TP/SL -> นับ SL (worst case)
+  LIMIT_DISC: 1.0,          // entry_mode=1: ตั้ง limit ต่ำกว่าราคาปิด 1%
+  MIN_PRICE: 1.0, MIN_TURNOVER: 20e6,
+  CAPITAL: 30000, MAX_POS: 3, LOT: 100,
+  IS_FRAC: 0.60, OOS1_FRAC: 0.20,
+  TOP_K: 5, MIN_AGREE: 2,
+  DEMO_TICKERS: 30, DEMO_DAYS: 1250,
+  JOURNAL_KEY: "set_daily_journal_v2",
+};
+const ONE_WAY = CFG.FRICTION / 200;
+
+const SPACE = {
+  rsi_period:[7,14], rsi_threshold:[10,20,30,40,50], bb_period:[10,20], bb_std:[1.5,2.0,2.5],
+  donchian_n:[5,10,20,40], ema_fast:[8,12,20], ema_slow:[26,50,100],
+  stoch_th:[10,15,20,25], gap_pct:[1.5,2.0,3.0], vol_mult:[1.5,2.0,3.0],
+  streak_n:[2,3,4], sma_n:[20,50], require_trend:[0,1],
+  hold_days:[1,2,3,5], adx_min:[0,25], vol_filter:[0,1], regime_filter:[0,1], entry_mode:[0,1],
+};
+const EXITS = [];               // [exit_mode, tp, sl] : 0 = %, 1 = ATR-multiple
+for (const tp of [1.0,1.5,2.0,3.0,4.0,5.0]) for (const sl of [1.0,1.5,2.0,3.0,5.0]) EXITS.push([0,tp,sl]);
+for (const tp of [1.0,1.5,2.0,3.0]) for (const sl of [1.0,1.5,2.0,3.0]) EXITS.push([1,tp,sl]);
+
+const FAM_NAME = ["MR_RSI_BB","DONCHIAN_BREAKOUT","TREND_PULLBACK","MACD_CROSS","STOCH_OVERSOLD",
+                  "GAP_DOWN_REVERSAL","VOLSPIKE_BREAKOUT","INSIDE_BAR_BREAK","DOWN_STREAK_BOUNCE",
+                  "SMA_RECLAIM"];
+const FAM_DESC = ["RSI ต่ำ + ราคาหลุด Bollinger ล่าง","ปิดทะลุจุดสูงสุด N วัน",
+                  "เทรนด์ขึ้น (EMA เร็ว>ช้า) + RSI ย่อ","MACD ตัดขึ้นเหนือเส้นสัญญาณ",
+                  "Stochastic %K ต่ำ (oversold)","เปิด gap ลงแรงแล้วปิดเหนือราคาเปิด",
+                  "วอลุ่มพุ่ง + ปิดทะลุจุดสูงสุด","แท่งก่อนเป็น inside bar แล้วปิดทะลุ",
+                  "ปิดลบติดกัน k วัน (ซื้อตอนย่อ)","ปิดตัดขึ้นเหนือเส้น SMA จากใต้เส้น"];
+// พารามิเตอร์ที่แต่ละสมการ "ใช้จริง" — หัวใจของการค้นแบบไม่ซ้ำซ้อน
+const FAM_PARAMS = [
+  ["rsi_period","rsi_threshold","bb_period","bb_std"],
+  ["donchian_n"],
+  ["ema_fast","ema_slow","rsi_period","rsi_threshold"],
+  ["ema_fast","ema_slow"],
+  ["stoch_th"],
+  ["gap_pct"],
+  ["donchian_n","vol_mult"],
+  ["require_trend"],
+  ["streak_n","require_trend"],
+  ["sma_n"],
+];
+const DEFAULTS = {rsi_period:14,rsi_threshold:30,bb_period:20,bb_std:2.0,donchian_n:20,
+  ema_fast:12,ema_slow:26,stoch_th:20,gap_pct:2.0,vol_mult:2.0,streak_n:3,sma_n:20,
+  require_trend:0,exit_mode:0,tp_val:2.0,sl_val:2.0,hold_days:3,adx_min:0,vol_filter:0,
+  regime_filter:0,entry_mode:0,fam:0};
+
+const SET50 = ["ADVANC","AOT","AWC","BANPU","BBL","BDMS","BEM","BGRIM","BH","BTS","CBG","CPALL",
+  "CPAXT","CPF","CPN","CRC","DELTA","EA","EGCO","GLOBAL","GPSC","GULF","HMPRO","INTUCH","IVL",
+  "KBANK","KCE","KTB","KTC","LH","MINT","MTC","OR","OSP","PTT","PTTEP","PTTGC","RATCH","SAWAD",
+  "SCB","SCC","SCGP","TIDLOR","TISCO","TLI","TOP","TRUE","TTB","TU","WHA"];
+
+/* ------------------------------------------------------------------ utils */
+const $ = id => document.getElementById(id);
+const isNum = v => typeof v === "number" && isFinite(v);
+const num = (v, d) => { const f = parseFloat(v); return isFinite(f) ? f : (d === undefined ? NaN : d); };
+const r2 = (x, nd) => { nd = nd === undefined ? 2 : nd; if (!isFinite(x)) return null;
+  const m = Math.pow(10, nd); return Math.round(x * m) / m; };
+const fmt = (x, suf, nd) => { suf = suf || ""; nd = nd === undefined ? 2 : nd;
+  const f = num(x); if (!isFinite(f)) return "-";
+  if (nd <= 0) return Math.round(f).toLocaleString("en-US") + suf;
+  return (Math.round(f * Math.pow(10, nd)) / Math.pow(10, nd)).toLocaleString("en-US",
+    {maximumFractionDigits: nd}) + suf; };
+const cls = x => { const f = num(x); return isFinite(f) ? (f >= 0 ? "pos" : "neg") : ""; };
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function wilsonLB(wins, n, z) {
+  z = z || 1.96;
+  if (!(n > 0)) return 0;
+  wins = Math.max(0, Math.min(wins, n));
+  const p = wins / n;
+  return (p + z*z/(2*n) - z*Math.sqrt((p*(1-p) + z*z/(4*n))/n)) / (1 + z*z/n);
+}
+function median(arr) {
+  if (!arr.length) return NaN;
+  const a = Float64Array.from(arr).sort();
+  const m = a.length >> 1;
+  return a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2;
+}
+function dstr(ms) {                      // timestamp -> "YYYY-MM-DD" (UTC, ไม่เพี้ยนข้ามโซนเวลา)
+  const d = new Date(ms);
+  const p = n => String(n).padStart(2, "0");
+  return d.getUTCFullYear() + "-" + p(d.getUTCMonth()+1) + "-" + p(d.getUTCDate());
+}
+function parseDate(s) {                  // รองรับ "2024-01-05", "2024-01-05 00:00:00", ms number
+  if (typeof s === "number") return s;
+  const t = String(s).trim().slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (m) return Date.UTC(+m[1], +m[2]-1, +m[3]);
+  const m2 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s).trim());
+  if (m2) return Date.UTC(+m2[3], +m2[1]-1, +m2[2]);
+  const v = Date.parse(t);
+  return isFinite(v) ? v : NaN;
+}
+
+/* ==========================================================================
+   DATA LAYER — ราคาสังเคราะห์ (สาธิต) / CSV ของผู้ใช้ / ดึงสด (ผ่านตัวกลาง)
+   ========================================================================== */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gaussFrom(rnd) {                 // Box-Muller
+  let u = 0, v = 0;
+  while (u === 0) u = rnd();
+  while (v === 0) v = rnd();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/** ราคาสังเคราะห์เสมือนจริง (เทรนด์ + สลับระบอบผันผวน + หางหนา + gap ข้ามคืน)
+ *  ใช้เพื่อพิสูจน์ว่าโปรแกรมทำงานครบเมื่อยังไม่มีราคาจริง — ไม่ใช่ตลาดจริง */
+function syntheticPrices(nTickers, nDays, seed) {
+  const rows = [];
+  const start = Date.UTC(2021, 0, 4);
+  const names = [];
+  for (let i = 0; i < nTickers; i++) names.push(SET50[i % SET50.length] + (i >= SET50.length ? "_" + i : ""));
+  for (let i = 0; i < names.length; i++) {
+    const rnd = mulberry32((seed || 20260725) + i * 7919);
+    const drift = 0.0003 + gaussFrom(rnd) * 0.0004;
+    let price = 100 * (0.15 + rnd() * 3.85);
+    let state = 0;
+    let day = start;
+    let prevClose = price;
+    for (let k = 0; k < nDays; k++) {
+      // ข้ามเสาร์-อาทิตย์
+      let wd = new Date(day).getUTCDay();
+      while (wd === 0 || wd === 6) { day += 864e5; wd = new Date(day).getUTCDay(); }
+      if (rnd() < 0.02) state = 1 - state;
+      const vol = state === 0 ? 0.010 : 0.026;
+      let z = gaussFrom(rnd);
+      if (rnd() < 0.05) z *= 3;                       // หางหนา (fat tail)
+      const ret = drift + vol * z;
+      price = Math.max(0.5, price * Math.exp(ret));
+      const gap = gaussFrom(rnd) * 0.004;
+      const open = Math.max(0.5, prevClose * (1 + gap));
+      const rngPct = Math.abs(gaussFrom(rnd)) * vol * 1.6 + 0.002;
+      const hi = Math.max(open, price) * (1 + rngPct * (0.3 + rnd() * 0.6));
+      const lo = Math.min(open, price) * (1 - rngPct * (0.3 + rnd() * 0.6));
+      const v = Math.exp(13 + gaussFrom(rnd) * 0.6) * (1 + 8 * Math.abs(ret));
+      rows.push({t: names[i], d: day, o: open, h: hi, l: lo, c: price, v: v});
+      prevClose = price;
+      day += 864e5;
+    }
+  }
+  return cleanPrices(rows);
+}
+
+/** ทำความสะอาดราคา + จัดโครงสร้างเป็น typed array (เรียงตาม ticker แล้วตามวัน) */
+function cleanPrices(rows) {
+  const good = [];
+  for (const r of rows) {
+    const o = num(r.o), h = num(r.h), l = num(r.l), c = num(r.c);
+    const d = typeof r.d === "number" ? r.d : parseDate(r.d);
+    let v = num(r.v, 0); if (!isFinite(v) || v < 0) v = 0;
+    if (!r.t || !isFinite(d)) continue;
+    if (!(o > 0 && h > 0 && l > 0 && c > 0)) continue;   // ราคา<=0/NaN = ข้อมูลเสีย
+    if (h < l) continue;                                  // High<Low = ข้อมูลเสีย
+    good.push({t: String(r.t).trim().toUpperCase(), d: d, o: o, h: h, l: l, c: c, v: v});
+  }
+  good.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : a.d - b.d);
+  const keep = [];
+  for (let i = 0; i < good.length; i++) {                 // ตัดวันซ้ำ (เก็บอันหลังสุด)
+    if (i + 1 < good.length && good[i].t === good[i+1].t && good[i].d === good[i+1].d) continue;
+    keep.push(good[i]);
+  }
+  const n = keep.length;
+  const ps = {n: n, tickers: [], start: [], end: [],
+    tid: new Int32Array(n), date: new Float64Array(n), O: new Float64Array(n),
+    H: new Float64Array(n), L: new Float64Array(n), C: new Float64Array(n), V: new Float64Array(n)};
+  let cur = null;
+  for (let i = 0; i < n; i++) {
+    const r = keep[i];
+    if (r.t !== cur) {
+      if (cur !== null) ps.end.push(i);
+      ps.tickers.push(r.t); ps.start.push(i); cur = r.t;
+    }
+    ps.tid[i] = ps.tickers.length - 1;
+    ps.date[i] = r.d; ps.O[i] = r.o; ps.H[i] = r.h; ps.L[i] = r.l; ps.C[i] = r.c; ps.V[i] = r.v;
+  }
+  if (n) ps.end.push(n);
+  ps.start = Int32Array.from(ps.start); ps.end = Int32Array.from(ps.end);
+  return ps;
+}
+
+/** อ่าน CSV ของผู้ใช้ (รองรับ , หรือ tab, มี/ไม่มีเครื่องหมายคำพูด) */
+function parseCSV(text) {
+  const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim().length);
+  if (!lines.length) throw new Error("ไฟล์ว่าง");
+  const sep = (lines[0].split("\t").length > lines[0].split(",").length) ? "\t" : ",";
+  const splitLine = ln => {
+    const out = []; let cur = "", q = false;
+    for (let i = 0; i < ln.length; i++) {
+      const ch = ln[i];
+      if (ch === '"') { if (q && ln[i+1] === '"') { cur += '"'; i++; } else q = !q; }
+      else if (ch === sep && !q) { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur); return out;
+  };
+  const head = splitLine(lines[0]).map(h => h.trim().toLowerCase());
+  const col = names => { for (const nm of names) { const i = head.indexOf(nm); if (i >= 0) return i; } return -1; };
+  const iT = col(["ticker","symbol","name","หุ้น"]), iD = col(["date","datetime","วันที่"]);
+  const iO = col(["open"]), iH = col(["high"]), iL = col(["low"]);
+  const iC = col(["close","adj close","adjclose"]), iV = col(["volume","vol"]);
+  if (Math.min(iT, iD, iO, iH, iL, iC) < 0)
+    throw new Error("CSV ต้องมีคอลัมน์: Ticker, Date, Open, High, Low, Close (Volume ใส่ด้วยยิ่งดี)");
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const f = splitLine(lines[i]);
+    if (f.length <= iC) continue;
+    rows.push({t: f[iT], d: parseDate(f[iD]), o: num(f[iO]), h: num(f[iH]),
+               l: num(f[iL]), c: num(f[iC]), v: iV >= 0 ? num(f[iV], 0) : 0});
+  }
+  const ps = cleanPrices(rows);
+  if (!ps.n) throw new Error("อ่านไฟล์ได้ 0 แถวที่ใช้ได้ — ตรวจรูปแบบวันที่/ราคาอีกครั้ง");
+  return ps;
+}
+
+/** ดึงราคาสดจาก Yahoo ผ่านตัวกลางที่เปิด CORS — อาจไม่สำเร็จ (เน็ต/ตัวกลางล่ม/ถูกบล็อก)
+ *  ล้มเหลว = ไม่ใช่บั๊กของระบบ; ให้ใช้ไฟล์ CSV แทนได้ทันที */
+async function fetchLive(tickers, onProgress) {
+  const proxies = [
+    u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
+    u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+    u => u,
+  ];
+  const rows = [];
+  let okCount = 0, failCount = 0, workingProxy = null;
+  const getJSON = async (url) => {
+    const order = workingProxy !== null ? [workingProxy].concat(proxies.map((_, i) => i)) : proxies.map((_, i) => i);
+    for (const pi of order) {
+      try {
+        const ctl = new AbortController();
+        const tm = setTimeout(() => ctl.abort(), 20000);
+        const res = await fetch(proxies[pi](url), {signal: ctl.signal});
+        clearTimeout(tm);
+        if (!res.ok) continue;
+        const j = await res.json();
+        workingProxy = pi;
+        return j;
+      } catch (e) { /* ลองตัวกลางถัดไป */ }
+    }
+    return null;
+  };
+  for (let i = 0; i < tickers.length; i++) {
+    const t = tickers[i];
+    const url = "https://query1.finance.yahoo.com/v8/finance/chart/" + t +
+                ".BK?range=5y&interval=1d";
+    const j = await getJSON(url);
+    let n0 = 0;
+    try {
+      const R = j.chart.result[0], ts = R.timestamp, q = R.indicators.quote[0];
+      const adj = R.indicators.adjclose ? R.indicators.adjclose[0].adjclose : null;
+      for (let k = 0; k < ts.length; k++) {
+        const c = q.close[k];
+        if (!isFinite(c) || c === null) continue;
+        const ratio = (adj && isFinite(adj[k]) && c > 0) ? adj[k] / c : 1;
+        rows.push({t: t, d: Math.floor(ts[k] / 86400) * 86400000,
+          o: q.open[k] * ratio, h: q.high[k] * ratio, l: q.low[k] * ratio,
+          c: c * ratio, v: q.volume[k] || 0});
+        n0++;
+      }
+    } catch (e) { /* ข้อมูลตัวนี้ใช้ไม่ได้ */ }
+    if (n0 > 0) okCount++; else failCount++;
+    if (onProgress) onProgress(i + 1, tickers.length, okCount, failCount);
+  }
+  if (!okCount) throw new Error("ดึงราคาสดไม่สำเร็จ (เบราว์เซอร์บล็อก CORS หรือตัวกลางล่ม)");
+  return {ps: cleanPrices(rows), ok: okCount, fail: failCount};
+}
+
+/* ==========================================================================
+   INDICATORS — คำนวณย้อนหลังล้วน (ค่าที่แท่ง t ใช้เฉพาะข้อมูลถึงแท่ง t)
+   ========================================================================== */
+function smaInto(src, s, e, p, out) {
+  let sum = 0;
+  for (let i = s; i < e; i++) {
+    sum += src[i];
+    if (i - s >= p) sum -= src[i - p];
+    out[i] = (i - s >= p - 1) ? sum / p : NaN;
+  }
+}
+function stdInto(src, s, e, p, out) {          // sample std (ddof=1) ให้ตรงกับ pandas
+  let sum = 0, sq = 0;
+  for (let i = s; i < e; i++) {
+    sum += src[i]; sq += src[i] * src[i];
+    if (i - s >= p) { sum -= src[i - p]; sq -= src[i - p] * src[i - p]; }
+    if (i - s >= p - 1 && p > 1) {
+      const v = (sq - sum * sum / p) / (p - 1);
+      out[i] = v > 0 ? Math.sqrt(v) : 0;
+    } else out[i] = NaN;
+  }
+}
+function emaInto(src, s, e, span, out) {
+  const a = 2 / (span + 1);
+  let prev = NaN;
+  for (let i = s; i < e; i++) {
+    prev = (i === s) ? src[i] : prev + a * (src[i] - prev);
+    out[i] = prev;
+  }
+}
+function wilderInto(src, s, e, period, out) {  // ewm(alpha=1/period, adjust=False)
+  const a = 1 / period;
+  let prev = NaN;
+  for (let i = s; i < e; i++) {
+    prev = (i === s) ? src[i] : prev + a * (src[i] - prev);
+    out[i] = prev;
+  }
+}
+function rsiInto(C, s, e, period, out) {
+  const a = 1 / period;
+  let ag = NaN, al = NaN;
+  for (let i = s; i < e; i++) {
+    if (i === s) { out[i] = NaN; ag = 0; al = 0; continue; }
+    const d = C[i] - C[i-1];
+    const g = d > 0 ? d : 0, l = d < 0 ? -d : 0;
+    ag = (i === s + 1) ? g : ag + a * (g - ag);
+    al = (i === s + 1) ? l : al + a * (l - al);
+    if (ag === 0 && al === 0) out[i] = 50;
+    else if (al === 0) out[i] = 100;
+    else out[i] = 100 - 100 / (1 + ag / al);
+  }
+}
+function atrInto(H, L, C, s, e, period, out) {
+  const a = 1 / period;
+  let prev = NaN;
+  for (let i = s; i < e; i++) {
+    const tr = (i > s)
+      ? Math.max(H[i] - L[i], Math.abs(H[i] - C[i-1]), Math.abs(L[i] - C[i-1]))
+      : (H[i] - L[i]);
+    prev = (i === s) ? tr : prev + a * (tr - prev);
+    out[i] = prev;
+  }
+}
+function adxInto(H, L, C, s, e, period, out) {
+  const a = 1 / period;
+  let tr = NaN, pdm = NaN, mdm = NaN, adx = NaN;
+  for (let i = s; i < e; i++) {
+    let up = 0, dn = 0, t = H[i] - L[i];
+    if (i > s) {
+      up = H[i] - H[i-1]; dn = L[i-1] - L[i];
+      t = Math.max(H[i] - L[i], Math.abs(H[i] - C[i-1]), Math.abs(L[i] - C[i-1]));
+    }
+    const p = (up > dn && up > 0) ? up : 0;
+    const m = (dn > up && dn > 0) ? dn : 0;
+    // แท่งแรกยังไม่มี directional movement (ต้องมีแท่งก่อนหน้าเทียบ) -> เริ่มค่าเฉลี่ยที่แท่งที่ 2
+    // ให้ตรงกับเวอร์ชัน Python เป๊ะ (ของเดิมเริ่มที่ 0 ทำให้ ADX ต่ำกว่าจริงช่วงต้น)
+    tr = (i === s) ? t : tr + a * (t - tr);
+    if (i > s) {
+      pdm = isFinite(pdm) ? pdm + a * (p - pdm) : p;
+      mdm = isFinite(mdm) ? mdm + a * (m - mdm) : m;
+    }
+    let dx = NaN;
+    if (tr > 0 && isFinite(pdm) && isFinite(mdm)) {
+      const pdi = 100 * pdm / tr, mdi = 100 * mdm / tr;
+      const den = pdi + mdi;
+      dx = den > 0 ? 100 * Math.abs(pdi - mdi) / den : NaN;
+    }
+    if (isFinite(dx)) adx = isFinite(adx) ? adx + a * (dx - adx) : dx;
+    out[i] = isFinite(adx) ? Math.min(100, Math.max(0, adx)) : NaN;
+  }
+}
+function stochInto(H, L, C, s, e, p, out) {
+  for (let i = s; i < e; i++) {
+    if (i - s < p - 1) { out[i] = NaN; continue; }
+    let hh = -Infinity, ll = Infinity;
+    for (let k = i - p + 1; k <= i; k++) { if (H[k] > hh) hh = H[k]; if (L[k] < ll) ll = L[k]; }
+    const rng = hh - ll;
+    out[i] = rng > 0 ? 100 * (C[i] - ll) / rng : NaN;
+  }
+}
+function donchianInto(C, s, e, p, out) {       // จุดสูงสุดของ "ราคาปิด" p แท่งก่อนหน้า (ไม่รวมแท่งนี้)
+  for (let i = s; i < e; i++) {
+    if (i - s < p) { out[i] = NaN; continue; }
+    let hh = -Infinity;
+    for (let k = i - p; k <= i - 1; k++) if (C[k] > hh) hh = C[k];
+    out[i] = hh;
+  }
+}
+
+/* ==========================================================================
+   PRECOMPUTE — คำนวณครั้งเดียวบนข้อมูลเต็ม (แล้วค่อยแบ่งช่วงด้วย mask ทีหลัง)
+   เหตุผล: ถ้าแบ่งข้อมูลก่อนคำนวณ อินดิเคเตอร์ยาว (SMA200) จะต้อง warm-up ใหม่
+   ทำให้ช่วง out-of-sample แทบไม่มีสัญญาณ = ยืนยันไม่ผ่านตลอด (บั๊กของระบบเดิม)
+   ========================================================================== */
+const MAX_HOLD = Math.max.apply(null, SPACE.hold_days);
+
+function precompute(ps, onStep) {
+  const n = ps.n;
+  if (!n) throw new Error("ไม่มีข้อมูลราคา");
+  const X = {};
+  const A = k => (X[k] = new Float64Array(n));
+  const smaNs = [20, 50, 200];
+  for (const p of smaNs) A("SMA" + p);
+  A("VSMA20"); A("TURN20"); A("ATR14"); A("ADX14");
+  for (const p of SPACE.rsi_period) A("RSI" + p);
+  for (const bp of SPACE.bb_period) for (const bs of SPACE.bb_std) A("BBL" + bp + "_" + bs);
+  const spans = Array.from(new Set(SPACE.ema_fast.concat(SPACE.ema_slow)));
+  for (const s of spans) A("EMA" + s);
+  for (const f of SPACE.ema_fast) for (const s of SPACE.ema_slow) A("MACDX" + f + "_" + s);
+  for (const d of SPACE.donchian_n) A("DON" + d);
+  A("STOCH"); A("GAP"); A("INSIDE"); A("STREAK");
+  for (const s of SPACE.sma_n) A("RECLAIM" + s);
+  A("TRADABLE"); A("BREADTH");
+  const rowsToEnd = new Int32Array(n);
+  const turn = new Float64Array(n);
+  const tmp1 = new Float64Array(n), tmp2 = new Float64Array(n), tmp3 = new Float64Array(n);
+  const O = ps.O, H = ps.H, L = ps.L, C = ps.C, V = ps.V;
+  for (let i = 0; i < n; i++) turn[i] = C[i] * V[i];
+
+  for (let ti = 0; ti < ps.tickers.length; ti++) {
+    const s = ps.start[ti], e = ps.end[ti];
+    for (let i = s; i < e; i++) rowsToEnd[i] = e - 1 - i;
+    for (const p of smaNs) smaInto(C, s, e, p, X["SMA" + p]);
+    smaInto(V, s, e, 20, X.VSMA20);
+    smaInto(turn, s, e, 20, X.TURN20);
+    atrInto(H, L, C, s, e, 14, X.ATR14);
+    adxInto(H, L, C, s, e, 14, X.ADX14);
+    for (const p of SPACE.rsi_period) rsiInto(C, s, e, p, X["RSI" + p]);
+    for (const bp of SPACE.bb_period) {
+      smaInto(C, s, e, bp, tmp1); stdInto(C, s, e, bp, tmp2);
+      for (const bs of SPACE.bb_std) {
+        const out = X["BBL" + bp + "_" + bs];
+        for (let i = s; i < e; i++) out[i] = tmp1[i] - bs * tmp2[i];
+      }
+    }
+    for (const sp of spans) emaInto(C, s, e, sp, X["EMA" + sp]);
+    for (const f of SPACE.ema_fast) for (const sl of SPACE.ema_slow) {
+      const fa = X["EMA" + f], sa = X["EMA" + sl], out = X["MACDX" + f + "_" + sl];
+      // MACD line = EMAf - EMAs ; signal = EMA9 ของ MACD line ; ตัดขึ้น = ข้ามจากล่างไปบน
+      for (let i = s; i < e; i++) tmp1[i] = fa[i] - sa[i];
+      emaInto(tmp1, s, e, 9, tmp2);
+      for (let i = s; i < e; i++)
+        out[i] = (i > s && tmp1[i] > tmp2[i] && tmp1[i-1] <= tmp2[i-1]) ? 1 : 0;
+    }
+    for (const d of SPACE.donchian_n) donchianInto(C, s, e, d, X["DON" + d]);
+    stochInto(H, L, C, s, e, 14, X.STOCH);
+    for (let i = s; i < e; i++) {
+      const pc = i > s ? C[i-1] : NaN;
+      X.GAP[i] = (isFinite(pc) && pc > 0) ? (O[i] / pc - 1) * 100 : NaN;
+      X.INSIDE[i] = (i >= s + 2 && H[i-1] < H[i-2] && L[i-1] > L[i-2] && C[i] > H[i-1]) ? 1 : 0;
+      X.STREAK[i] = (i > s && C[i] < C[i-1]) ? X.STREAK[i-1] + 1 : 0;
+    }
+    for (const sn of SPACE.sma_n) {
+      smaInto(C, s, e, sn, tmp3);
+      const out = X["RECLAIM" + sn];
+      for (let i = s; i < e; i++)
+        out[i] = (i > s && C[i] > tmp3[i] && C[i-1] <= tmp3[i-1]) ? 1 : 0;
+    }
+    if (onStep) onStep(ti, ps.tickers.length);
+  }
+  // สภาพคล่อง: ราคาต่ำเกิน/ซื้อขายบางเกิน = เข้าไม่ได้จริง -> ตัดตั้งแต่ต้น
+  for (let i = 0; i < n; i++)
+    X.TRADABLE[i] = (C[i] >= CFG.MIN_PRICE && X.TURN20[i] >= CFG.MIN_TURNOVER) ? 1 : 0;
+  // market breadth ต่อวัน = สัดส่วนหุ้นที่ยืนเหนือ SMA50 (ใช้เป็นตัวกรองสภาพตลาด)
+  const sum = new Map(), cnt = new Map();
+  for (let i = 0; i < n; i++) {
+    const s50 = X.SMA50[i];
+    if (!isFinite(s50)) continue;
+    const d = ps.date[i];
+    sum.set(d, (sum.get(d) || 0) + (C[i] > s50 ? 1 : 0));
+    cnt.set(d, (cnt.get(d) || 0) + 1);
+  }
+  for (let i = 0; i < n; i++) {
+    const d = ps.date[i], c0 = cnt.get(d);
+    X.BREADTH[i] = c0 ? sum.get(d) / c0 : NaN;
+  }
+  return {ps: ps, X: X, n: n, rowsToEnd: rowsToEnd};
+}
+
+/* ==========================================================================
+   ENTRY SIGNALS — ทางเดียวที่ใช้ทั้ง backtest และสัญญาณของวันนี้ (เพี้ยนกันไม่ได้)
+   ========================================================================== */
+function entryMask(D, fam, p, out) {
+  const n = D.n, X = D.X, C = D.ps.C;
+  out = out || new Uint8Array(n);
+  out.fill(0);
+  const P = k => (p[k] !== undefined ? p[k] : DEFAULTS[k]);
+  if (fam === 0) {
+    const rsi = X["RSI" + P("rsi_period")], bbl = X["BBL" + P("bb_period") + "_" + P("bb_std")];
+    const th = P("rsi_threshold");
+    for (let i = 0; i < n; i++) if (rsi[i] < th && C[i] < bbl[i]) out[i] = 1;
+  } else if (fam === 1) {
+    const dh = X["DON" + P("donchian_n")];
+    for (let i = 0; i < n; i++) if (C[i] > dh[i]) out[i] = 1;
+  } else if (fam === 2) {
+    const ef = X["EMA" + P("ema_fast")], es = X["EMA" + P("ema_slow")];
+    const rsi = X["RSI" + P("rsi_period")], th = P("rsi_threshold");
+    for (let i = 0; i < n; i++) if (ef[i] > es[i] && rsi[i] < th) out[i] = 1;
+  } else if (fam === 3) {
+    const m = X["MACDX" + P("ema_fast") + "_" + P("ema_slow")];
+    for (let i = 0; i < n; i++) if (m[i] === 1) out[i] = 1;
+  } else if (fam === 4) {
+    const k = X.STOCH, th = P("stoch_th");
+    for (let i = 0; i < n; i++) if (k[i] < th) out[i] = 1;
+  } else if (fam === 5) {
+    const g = X.GAP, O = D.ps.O, gp = P("gap_pct");
+    for (let i = 0; i < n; i++) if (g[i] <= -gp && C[i] > O[i]) out[i] = 1;
+  } else if (fam === 6) {
+    const dh = X["DON" + P("donchian_n")], vs = X.VSMA20, V = D.ps.V, vm = P("vol_mult");
+    for (let i = 0; i < n; i++) if (V[i] >= vm * vs[i] && C[i] > dh[i]) out[i] = 1;
+  } else if (fam === 7) {
+    const ins = X.INSIDE, s200 = X.SMA200, tr = P("require_trend");
+    for (let i = 0; i < n; i++) if (ins[i] === 1 && (!tr || C[i] > s200[i])) out[i] = 1;
+  } else if (fam === 8) {
+    const st = X.STREAK, s200 = X.SMA200, k = P("streak_n"), tr = P("require_trend");
+    for (let i = 0; i < n; i++) if (st[i] >= k && (!tr || C[i] > s200[i])) out[i] = 1;
+  } else if (fam === 9) {
+    const rc = X["RECLAIM" + P("sma_n")];
+    for (let i = 0; i < n; i++) if (rc[i] === 1) out[i] = 1;
+  } else throw new Error("ไม่รู้จัก entry family: " + fam);
+  return out;                     // การเทียบกับ NaN ให้ false เสมอ -> ช่วง warm-up ถูกตัดเอง
+}
+
+function filterMask(D, adxMin, volF, regF, out) {
+  const n = D.n, X = D.X, V = D.ps.V;
+  out = out || new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    let ok = X.TRADABLE[i] === 1;
+    if (ok && adxMin > 0) ok = X.ADX14[i] >= adxMin;
+    if (ok && volF) ok = V[i] > X.VSMA20[i];
+    if (ok && regF) ok = X.BREADTH[i] > 0.5;
+    out[i] = ok ? 1 : 0;
+  }
+  return out;
+}
+
+/** รายการแถวที่ยิงสัญญาณ (entry AND ตัวกรอง AND ช่วงข้อมูล) */
+function signalRows(D, st, seg) {
+  const em = entryMask(D, st.fam, st);
+  const fm = filterMask(D, st.adx_min | 0, st.vol_filter | 0, st.regime_filter | 0);
+  const out = [];
+  for (let i = 0; i < D.n; i++) if (em[i] && fm[i] && (!seg || seg[i])) out.push(i);
+  return out;
+}
+
+/* ==========================================================================
+   SIMULATION — bracket order ต่อไม้ (กติกาเดียวกับเวอร์ชัน Python เป๊ะ)
+   k=1 คือแท่งที่เข้าไม้ | k>=2 เช็ค gap ที่ราคาเปิดก่อน | tie -> SL ชนะ
+   ========================================================================== */
+function runTrades(D, idx, entry, hold, xm, tpv, slv, skip1, wantNets) {
+  const O = D.ps.O, H = D.ps.H, L = D.ps.L, C = D.ps.C, ATR = D.X.ATR14;
+  const TIE = CFG.TIE_SL_WINS, FR = CFG.FRICTION;
+  const m = idx.length;
+  let wins = 0, sumNet = 0, sumBars = 0, gain = 0, loss = 0;
+  let nTp = 0, nSl = 0, nTime = 0, worst = Infinity, best = -Infinity;
+  const nets = wantNets ? new Float64Array(m) : null;
+  let nValid = 0;                       // นับเฉพาะไม้ที่คำนวณผลได้จริง (กันตัวหารเพี้ยน)
+  for (let j = 0; j < m; j++) {
+    const i = idx[j], e = entry[j];
+    let tp, sl;
+    if (xm === 0) { tp = e * (1 + tpv / 100); sl = e * (1 - slv / 100); }
+    else { const a = ATR[i]; tp = e + tpv * a; sl = e - slv * a; }
+    // SL <= 0 = จุดตัดขาดทุนที่ไม่มีวันโดนชน -> ชนะปลอม; TP/ราคาเข้าเสีย -> คำนวณไม่ได้
+    if (!(sl > 0) || !isFinite(tp) || !(e > 0)) { if (nets) nets[j] = 0; continue; }
+    let exitPx = NaN, out = 0, bars = hold;
+    for (let k = 1; k <= hold; k++) {
+      const b = i + k, o = O[b], h = H[b], l = L[b];
+      if (k > 1) {
+        if (o <= sl) { exitPx = o; out = -1; bars = k; break; }   // gap ทะลุ SL -> ราคาเปิดจริง
+        if (o >= tp) { exitPx = o; out = 1; bars = k; break; }    // gap ทะลุ TP -> ราคาเปิดจริง
+      }
+      const slHit = l <= sl, tpHit = (h >= tp) && !(skip1 && k === 1);
+      if (TIE && slHit) { exitPx = sl; out = -1; bars = k; break; }
+      if (tpHit) { exitPx = tp; out = 1; bars = k; break; }
+      if (slHit) { exitPx = sl; out = -1; bars = k; break; }
+      if (k === hold) { exitPx = C[b]; out = 0; bars = hold; }
+    }
+    const net = (exitPx / e - 1) * 100 - FR;
+    if (!isFinite(net)) { if (nets) nets[j] = 0; continue; }
+    if (nets) nets[j] = net;
+    nValid++;
+    sumNet += net; sumBars += bars;
+    if (net > 0) { wins++; gain += net; } else loss -= net;
+    if (out === 1) nTp++; else if (out === -1) nSl++; else nTime++;
+    if (net < worst) worst = net;
+    if (net > best) best = net;
+  }
+  const nT = nValid;
+  if (!nT) return null;
+  const avgNet = sumNet / nT, avgHold = sumBars / nT;
+  return {n_trades: nT, wins: wins, win_rate: r2(wins / nT * 100),
+    wilson_lb: r2(wilsonLB(wins, nT) * 100), avg_net: r2(avgNet),
+    avg_hold: r2(avgHold), net_per_day: avgHold > 0 ? r2(avgNet / avgHold) : null,
+    profit_factor: loss > 0 ? r2(gain / loss) : (gain > 0 ? 999 : null),
+    worst: r2(worst), best: r2(best), n_tp: nTp, n_sl: nSl, n_time: nTime,
+    median_net: nets ? r2(median(nets)) : null};
+}
+
+/** เตรียมราคาเข้าจริงต่อสัญญาณ (market = เปิดแท่งถัดไป, limit = ต่ำกว่าปิด x% ติดวันแรกเท่านั้น) */
+function prepareEntries(D, rows, hold, emode) {
+  const O = D.ps.O, L = D.ps.L, C = D.ps.C, rte = D.rowsToEnd;
+  const idx = [], ent = [];
+  for (let z = 0; z < rows.length; z++) {
+    const i = rows[z];
+    if (rte[i] < hold) continue;                      // ข้อมูลอนาคตไม่พอปิดไม้ -> ไม่นับ
+    if (emode === 0) {
+      const e = O[i+1];
+      if (!(e > 0) || !isFinite(e)) continue;
+      idx.push(i); ent.push(e);
+    } else {
+      const lim = C[i] * (1 - CFG.LIMIT_DISC / 100);
+      if (!(lim > 0) || !isFinite(lim) || !(L[i+1] <= lim)) continue;   // ไม่ติด = ไม่เข้า
+      idx.push(i); ent.push(lim);
+    }
+  }
+  return {idx: idx, entry: ent, skip1: emode !== 0};
+}
+
+/** ประเมินสมการหนึ่งบนช่วงข้อมูลที่กำหนด (คืน null ถ้าไม่มีไม้) */
+function evaluate(D, st, seg, wantNets) {
+  const rows = signalRows(D, st, seg);
+  if (!rows.length) return null;
+  const hold = st.hold_days | 0;
+  const pe = prepareEntries(D, rows, hold, st.entry_mode | 0);
+  if (!pe.idx.length) return null;
+  if ((st.exit_mode | 0) === 1) {                     // ATR=0/NaN -> TP=entry -> ชนะจอมปลอม
+    const keepI = [], keepE = [];
+    for (let j = 0; j < pe.idx.length; j++) {
+      const a = D.X.ATR14[pe.idx[j]];
+      if (isFinite(a) && a > 0 && pe.entry[j] - st.sl_val * a > 0) { keepI.push(pe.idx[j]); keepE.push(pe.entry[j]); }
+    }
+    pe.idx = keepI; pe.entry = keepE;
+    if (!pe.idx.length) return null;
+  }
+  const m = runTrades(D, pe.idx, pe.entry, hold, st.exit_mode | 0, st.tp_val, st.sl_val,
+                      pe.skip1, wantNets !== false);
+  if (m) m.n_signals = rows.length;
+  return m;
+}
+
+/* ==========================================================================
+   SEARCH — ค้นครบทุกความเป็นไปได้ (exhaustive) เฉพาะมิติที่แต่ละสมการใช้จริง
+   ========================================================================== */
+function makeStrategy(fam, ep, xm, tpv, slv, hold, adx, volf, regf, emode) {
+  const st = Object.assign({}, DEFAULTS, ep);
+  st.fam = fam; st.exit_mode = xm; st.tp_val = tpv; st.sl_val = slv; st.hold_days = hold;
+  st.adx_min = adx; st.vol_filter = volf; st.regime_filter = regf; st.entry_mode = emode;
+  return st;
+}
+function stratLabel(st) {
+  const parts = FAM_PARAMS[st.fam].map(k => k + "=" + st[k]);
+  parts.push("TP/SL=" + st.tp_val + "/" + st.sl_val + (st.exit_mode === 0 ? "%" : "ATR"));
+  parts.push("ถือ " + st.hold_days + " วัน");
+  if (st.adx_min) parts.push("ADX>=" + st.adx_min);
+  if (st.vol_filter) parts.push("วอลุ่มเหนือเฉลี่ย");
+  if (st.regime_filter) parts.push("ตลาดเป็นใจ");
+  parts.push(st.entry_mode === 0 ? "ซื้อราคาเปิด" : "ตั้ง limit -" + CFG.LIMIT_DISC + "%");
+  return FAM_NAME[st.fam] + " [" + parts.join(", ") + "]";
+}
+function score(m) {
+  if (!m) return -1e9;
+  const w = num(m.wilson_lb, 0), npd = num(m.net_per_day, 0);
+  if (!isFinite(w) || !isFinite(npd)) return -1e9;
+  return (w / 100) * Math.max(npd, 0);
+}
+function entryCombos(fam) {
+  const keys = FAM_PARAMS[fam];
+  let out = [{}];
+  for (const k of keys) {
+    const next = [];
+    for (const base of out) for (const v of SPACE[k]) {
+      const o = Object.assign({}, base); o[k] = v; next.push(o);
+    }
+    out = next;
+  }
+  return out;
+}
+function countSpace(fams) {
+  const nf = SPACE.adx_min.length * SPACE.vol_filter.length * SPACE.regime_filter.length;
+  const nx = SPACE.entry_mode.length * SPACE.hold_days.length * EXITS.length;
+  const list = fams || FAM_NAME.map((_, i) => i);
+  let t = 0;
+  for (const f of list) t += entryCombos(f).length * nf * nx;
+  return t;
+}
+
+async function runSearch(D, seg, opts) {
+  opts = opts || {};
+  const minTrades = opts.minTrades || CFG.MIN_TRADES_IS;
+  const keepTop = opts.keepTop || CFG.TOP_VALIDATE;
+  const onProgress = opts.onProgress;
+  const filtCombos = [];
+  for (const a of SPACE.adx_min) for (const v of SPACE.vol_filter) for (const g of SPACE.regime_filter)
+    filtCombos.push([a, v, g, filterMask(D, a, v, g)]);
+  const fams = opts.families || FAM_NAME.map((_, i) => i);
+  const total = countSpace(fams);
+  let done = 0, passed = 0;
+  let pool = [];
+  const cap = keepTop * 8;
+  const emBuf = new Uint8Array(D.n);
+  let t0 = performance.now(), tYield = t0;
+
+  for (const fam of fams) {
+    for (const ep of entryCombos(fam)) {
+      entryMask(D, fam, ep, emBuf);
+      for (const fc of filtCombos) {
+        const fm = fc[3];
+        const rows = [];
+        for (let i = 0; i < D.n; i++) if (emBuf[i] && fm[i] && seg[i]) rows.push(i);
+        const perFilt = SPACE.entry_mode.length * SPACE.hold_days.length * EXITS.length;
+        if (rows.length < minTrades) { done += perFilt; continue; }
+        for (const emode of SPACE.entry_mode) {
+          for (const hold of SPACE.hold_days) {
+            const pe = prepareEntries(D, rows, hold, emode);
+            if (pe.idx.length < minTrades) { done += EXITS.length; continue; }
+            let idxA = pe.idx, entA = pe.entry, idxB = null, entB = null;
+            for (const ex of EXITS) {
+              done++;
+              const xm = ex[0], tpv = ex[1], slv = ex[2];
+              let ii = idxA, ee = entA;
+              if (xm === 1) {
+                if (idxB === null) {                 // กรอง ATR<=0 ครั้งเดียว ใช้ซ้ำทุกคู่ TP/SL
+                  idxB = []; entB = [];
+                  for (let j = 0; j < idxA.length; j++) {
+                    const a = D.X.ATR14[idxA[j]];
+                    if (isFinite(a) && a > 0) { idxB.push(idxA[j]); entB.push(entA[j]); }
+                  }
+                }
+                ii = idxB; ee = entB;
+                if (ii.length < minTrades) continue;
+              }
+              const m = runTrades(D, ii, ee, hold, xm, tpv, slv, pe.skip1, false);
+              if (!m) continue;
+              if (!(m.avg_net > 0)) continue;
+              if (!(m.win_rate >= CFG.FLOOR_WR)) continue;
+              if (!(m.net_per_day >= CFG.FLOOR_NPD)) continue;
+              passed++;
+              const st = makeStrategy(fam, ep, xm, tpv, slv, hold, fc[0], fc[1], fc[2], emode);
+              pool.push({st: st, m: m, sc: score(m)});
+              if (pool.length > cap) {
+                pool.sort((a, b) => b.sc - a.sc);
+                pool.length = Math.min(pool.length, keepTop * 4);
+              }
+            }
+          }
+        }
+        const now = performance.now();
+        if (now - tYield > 60) {                     // คืนเวลาให้เบราว์เซอร์ -> ไม่ค้าง
+          if (onProgress) onProgress(done, total, passed, (now - t0) / 1000);
+          tYield = now;
+          await sleep(0);
+        }
+      }
+    }
+  }
+  pool.sort((a, b) => b.sc - a.sc);
+  if (onProgress) onProgress(total, total, passed, (performance.now() - t0) / 1000);
+  return {cands: dedupCands(pool, keepTop), evaluated: done, passed: passed,
+          secs: (performance.now() - t0) / 1000};
+}
+
+/** คัดผู้เข้ารอบให้หลากหลายจริง: ตัดสมการที่ให้ "ผลลัพธ์เหมือนกันเป๊ะ" และจำกัดจำนวนต่อกลุ่ม */
+function dedupCands(pool, keepTop, maxPerGroup) {
+  maxPerGroup = maxPerGroup || 4;
+  const seen = new Set(), grp = new Map(), out = [];
+  for (const c of pool) {
+    const key = FAM_PARAMS[c.st.fam].map(k => c.st[k]).join("|");
+    const sig = c.st.fam + "|" + key + "|" + c.m.n_trades + "|" + c.m.wins + "|" +
+                c.m.avg_net + "|" + c.m.avg_hold;
+    if (seen.has(sig)) continue;
+    const g = c.st.fam + "|" + key;
+    const gc = grp.get(g) || 0;
+    if (gc >= maxPerGroup) continue;
+    seen.add(sig); grp.set(g, gc + 1); out.push(c);
+    if (out.length >= keepTop) break;
+  }
+  return out;
+}
+
+/* ==========================================================================
+   SEGMENTS + VALIDATION — ยืนยันบนข้อมูลที่ไม่เคยเห็น 2 ช่วง ต้องผ่านทั้งคู่
+   ========================================================================== */
+function makeSegments(D) {
+  const uniq = Array.from(new Set(Array.from(D.ps.date))).sort((a, b) => a - b);
+  const nd = uniq.length;
+  if (nd < 60) throw new Error("ข้อมูลสั้นเกินไป (" + nd + " วัน) — ต้องมีอย่างน้อย 60 วันทำการ");
+  const emb = MAX_HOLD;
+  let i1 = Math.max(1, Math.min(Math.floor(nd * CFG.IS_FRAC), nd - 3));
+  let i2 = Math.max(i1 + 1, Math.min(Math.floor(nd * (CFG.IS_FRAC + CFG.OOS1_FRAC)), nd - 2));
+  const cut1 = uniq[i1], cut2 = uniq[i2];
+  const emb1 = uniq[Math.max(0, i1 - emb)], emb2 = uniq[Math.max(0, i2 - emb)];
+  const is_ = new Uint8Array(D.n), o1 = new Uint8Array(D.n), o2 = new Uint8Array(D.n),
+        oo = new Uint8Array(D.n);
+  for (let i = 0; i < D.n; i++) {
+    const d = D.ps.date[i];
+    if (d < emb1) is_[i] = 1;                        // embargo: กันไม้ของ IS ไปกินแท่งของ OOS
+    else if (d >= cut1 && d < emb2) { o1[i] = 1; oo[i] = 1; }
+    else if (d >= cut2) { o2[i] = 1; oo[i] = 1; }
+  }
+  return {is_: is_, oos1: o1, oos2: o2, oos: oo, cut1: cut1, cut2: cut2, nDays: nd, embargo: emb};
+}
+
+function gradeOf(o1, o2, comb) {
+  if (!o1 || !o2 || !comb) return "-";
+  if (Math.min(o1.n_trades, o2.n_trades) < CFG.MIN_TRADES_OOS) return "-";
+  const f = (m, k) => num(m[k], -1e9);
+  const hitA = f(o1,"win_rate") >= CFG.TARGET_WR && f(o2,"win_rate") >= CFG.TARGET_WR &&
+    f(comb,"win_rate") >= CFG.TARGET_WR && f(o1,"net_per_day") >= CFG.TARGET_NPD &&
+    f(o2,"net_per_day") >= CFG.TARGET_NPD && f(comb,"net_per_day") >= CFG.TARGET_NPD &&
+    f(comb,"avg_net") >= CFG.TARGET_NET;
+  if (hitA) return "A";
+  const hitB = f(o1,"win_rate") >= CFG.FLOOR_WR && f(o2,"win_rate") >= CFG.FLOOR_WR &&
+    f(o1,"net_per_day") >= CFG.FLOOR_NPD && f(o2,"net_per_day") >= CFG.FLOOR_NPD &&
+    f(o1,"avg_net") > 0 && f(o2,"avg_net") > 0 && f(comb,"wilson_lb") >= CFG.FLOOR_WLB;
+  return hitB ? "B" : "-";
+}
+
+async function validateAll(D, cands, segs, onProgress) {
+  const out = [];
+  for (let i = 0; i < cands.length; i++) {
+    const st = cands[i].st;
+    const o1 = evaluate(D, st, segs.oos1, false);
+    const o2 = evaluate(D, st, segs.oos2, false);
+    const comb = evaluate(D, st, segs.oos, true);
+    out.push({st: st, label: stratLabel(st), grade: gradeOf(o1, o2, comb),
+              is: cands[i].m, o1: o1, o2: o2, oos: comb, sc: score(comb)});
+    if (i % 20 === 0) { if (onProgress) onProgress(i + 1, cands.length); await sleep(0); }
+  }
+  const rank = {A: 0, B: 1, "-": 2};
+  out.sort((a, b) => (rank[a.grade] - rank[b.grade]) || (b.sc - a.sc));
+  if (onProgress) onProgress(cands.length, cands.length);
+  return out;
+}
+
+/* ==========================================================================
+   PORTFOLIO — จำลองพอร์ตจริงวันต่อวัน (เงินจำกัด, board lot, ค่าคอม 2 ขา)
+   ตอบคำถาม "กำไรกี่ % ต่อวัน" ด้วยเงินที่มีจริง ไม่ใช่ค่าเฉลี่ยต่อไม้
+   ========================================================================== */
+function portfolioBacktest(D, st, seg, capital, maxPos) {
+  // [แก้บั๊ก] ใช้ ?? แทน || ไม่ได้ในเบราว์เซอร์เก่า — เช็ค undefined/null ตรง ๆ
+  // ของเดิม (maxPos || CFG.MAX_POS) ทำให้ค่า 0 ที่ผิดพลาดถูกแทนด้วยค่าปริยายเงียบ ๆ
+  if (capital === undefined || capital === null) capital = CFG.CAPITAL;
+  if (maxPos === undefined || maxPos === null) maxPos = CFG.MAX_POS;
+  if (!(capital > 0) || !(maxPos >= 1)) throw new Error("ทุนต้อง > 0 และจำนวนไม้ต้อง >= 1");
+  const ps = D.ps, O = ps.O, H = ps.H, L = ps.L, C = ps.C;
+  const hold = st.hold_days | 0, emode = st.entry_mode | 0;
+  const uniq = Array.from(new Set(Array.from(ps.date))).sort((a, b) => a - b);
+  const dateId = new Map(); uniq.forEach((d, i) => dateId.set(d, i));
+  const nT = ps.tickers.length, nD = uniq.length;
+  const lut = new Int32Array(nT * nD).fill(-1);
+  const rowDate = new Int32Array(ps.n);
+  for (let i = 0; i < ps.n; i++) {
+    const di = dateId.get(ps.date[i]);
+    rowDate[i] = di; lut[ps.tid[i] * nD + di] = i;
+  }
+  const rows = signalRows(D, st, seg);
+  const sigSet = new Uint8Array(ps.n);
+  for (const i of rows) sigSet[i] = 1;
+  const candByDate = new Map();                      // สัญญาณเมื่อวาน -> เข้าที่ราคาเปิดวันนี้
+  for (const i of rows) {
+    const j = i + 1;
+    if (j >= ps.n || ps.tid[j] !== ps.tid[i]) continue;
+    const dd = rowDate[j];
+    if (!candByDate.has(dd)) candByDate.set(dd, []);
+    candByDate.get(dd).push(j);
+  }
+  let dStart = 0, dEnd = nD - 1;
+  if (seg) {
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < ps.n; i++) if (seg[i]) { const d = rowDate[i]; if (d < lo) lo = d; if (d > hi) hi = d; }
+    if (lo <= hi) { dStart = lo; dEnd = Math.min(nD - 1, hi + hold + 1); }
+  }
+  let cash = capital;
+  const pos = new Map(), trades = [], equity = [];
+  let skipCash = 0, skipSlot = 0;
+  const closeTrade = (tid, p, px, dateMs, kind) => {
+    const gross = (px / p.entry - 1) * 100;
+    trades.push({ticker: ps.tickers[tid], entryDate: p.entryDate, exitDate: dateMs,
+      entry: r2(p.entry, 4), exit: r2(px, 4), shares: p.shares, bars: p.bars, kind: kind,
+      net: r2(gross - CFG.FRICTION, 4),
+      pnl: r2(p.shares * (px * (1 - ONE_WAY) - p.entry * (1 + ONE_WAY)), 2)});
+  };
+  for (let d = dStart; d <= dEnd; d++) {
+    for (const [tid, p] of Array.from(pos)) {        // 1) ออกก่อนเข้าเสมอ
+      const r = lut[tid * nD + d];
+      if (r < 0 || r <= p.row) continue;             // วันนี้ไม่มีแท่ง (พักการซื้อขาย)
+      p.bars++; p.lastClose = C[r];
+      let px = null, kind = "";
+      if (O[r] <= p.sl) { px = O[r]; kind = "SL_GAP"; }
+      else if (O[r] >= p.tp) { px = O[r]; kind = "TP_GAP"; }
+      else if (CFG.TIE_SL_WINS && L[r] <= p.sl) { px = p.sl; kind = "SL"; }
+      else if (H[r] >= p.tp) { px = p.tp; kind = "TP"; }
+      else if (L[r] <= p.sl) { px = p.sl; kind = "SL"; }
+      else if (p.bars >= hold) { px = C[r]; kind = "TIME"; }
+      if (px !== null) {
+        cash += p.shares * px * (1 - ONE_WAY);
+        closeTrade(tid, p, px, uniq[d], kind);
+        pos.delete(tid);
+      }
+    }
+    let mtm = 0;                                      // 2) ตีราคาพอร์ต
+    for (const [tid, p] of pos) {
+      const r = lut[tid * nD + d];
+      if (r >= 0) p.lastClose = C[r];
+      mtm += p.shares * p.lastClose;
+    }
+    const eqOpen = cash + mtm;
+    for (const r of (candByDate.get(d) || [])) {       // 3) เปิดไม้ใหม่
+      if (pos.size >= maxPos) { skipSlot++; continue; }
+      const tid = ps.tid[r];
+      if (pos.has(tid)) continue;
+      const sigRow = r - 1;
+      let price;
+      if (emode === 0) price = O[r];
+      else {
+        const lim = C[sigRow] * (1 - CFG.LIMIT_DISC / 100);
+        if (!(isFinite(lim) && L[r] <= lim)) continue;
+        price = Math.min(lim, O[r]);                  // เปิดต่ำกว่า limit -> ได้ราคาเปิด (ดีกว่า)
+      }
+      if (!(price > 0) || !isFinite(price)) continue;
+      let tp, sl;
+      if ((st.exit_mode | 0) === 0) { tp = price * (1 + st.tp_val / 100); sl = price * (1 - st.sl_val / 100); }
+      else {
+        const a = D.X.ATR14[sigRow];
+        if (!(isFinite(a) && a > 0)) continue;
+        tp = price + st.tp_val * a; sl = price - st.sl_val * a;
+      }
+      if (!(sl > 0) || !isFinite(tp)) continue;
+      const budget = Math.min(cash, eqOpen / maxPos);
+      const unit = price * (1 + ONE_WAY) * CFG.LOT;
+      const lots = unit > 0 ? Math.floor(budget / unit) : 0;
+      if (lots < 1) { skipCash++; continue; }
+      const shares = lots * CFG.LOT;
+      cash -= shares * price * (1 + ONE_WAY);
+      const p = {row: r, entry: price, tp: tp, sl: sl, shares: shares, bars: 1,
+                 lastClose: C[r], entryDate: uniq[d]};
+      let px = null, kind = "";                       // แท่งแรก: limit ไม่นับ TP (ไม่รู้ลำดับ intraday)
+      if (CFG.TIE_SL_WINS && L[r] <= sl) { px = sl; kind = "SL"; }
+      else if (emode === 0 && H[r] >= tp) { px = tp; kind = "TP"; }
+      else if (L[r] <= sl) { px = sl; kind = "SL"; }
+      else if (hold <= 1) { px = C[r]; kind = "TIME"; }
+      if (px !== null) { cash += shares * px * (1 - ONE_WAY); closeTrade(tid, p, px, uniq[d], kind); }
+      else pos.set(tid, p);
+    }
+    let mtm2 = 0;
+    for (const [, p] of pos) mtm2 += p.shares * p.lastClose;
+    equity.push({d: uniq[d], eq: cash + mtm2, open: pos.size});
+  }
+  for (const [tid, p] of pos) closeTrade(tid, p, p.lastClose, uniq[dEnd], "OPEN_END");
+  return portfolioStats(trades, equity, capital, rows.length, skipCash, skipSlot, maxPos);
+}
+
+function portfolioStats(trades, equity, capital, nSignals, skipCash, skipSlot, maxPos) {
+  const s = {n_signals: nSignals, n_trades: trades.length, skipped_no_cash: skipCash,
+    skipped_no_slot: skipSlot, capital: capital, max_positions: maxPos,
+    budget_per_trade: Math.floor(capital / maxPos), trades: trades, equity: equity};
+  if (!equity.length) {
+    Object.assign(s, {final_equity: capital, total_return_pct: 0, n_days: 0,
+      avg_daily_pct: null, max_drawdown_pct: null, cagr_pct: null, win_rate: null,
+      avg_net_pct: null, exposure: null, days_target_hit: 0});
+    return s;
+  }
+  const eq = equity.map(e => e.eq);
+  const rets = [];
+  for (let i = 1; i < eq.length; i++) if (eq[i-1] > 0) rets.push((eq[i] / eq[i-1] - 1) * 100);
+  let peak = -Infinity, dd = 0;
+  for (const v of eq) { if (v > peak) peak = v; if (peak > 0) dd = Math.min(dd, (v - peak) / peak * 100); }
+  const wins = trades.filter(t => t.net > 0).length;
+  const years = equity.length / 252;
+  const totalRet = (eq[eq.length-1] / capital - 1) * 100;
+  Object.assign(s, {
+    final_equity: r2(eq[eq.length-1]), total_return_pct: r2(totalRet), n_days: equity.length,
+    avg_daily_pct: rets.length ? r2(rets.reduce((a, b) => a + b, 0) / rets.length, 4) : null,
+    best_day_pct: rets.length ? r2(Math.max.apply(null, rets), 3) : null,
+    worst_day_pct: rets.length ? r2(Math.min.apply(null, rets), 3) : null,
+    days_target_hit: rets.filter(x => x >= CFG.TARGET_NPD).length,
+    max_drawdown_pct: r2(dd),
+    cagr_pct: (years > 0 && eq[eq.length-1] > 0) ? r2((Math.pow(eq[eq.length-1] / capital, 1 / years) - 1) * 100) : null,
+    win_rate: trades.length ? r2(wins / trades.length * 100) : null,
+    wilson_lb: trades.length ? r2(wilsonLB(wins, trades.length) * 100) : null,
+    avg_net_pct: trades.length ? r2(trades.reduce((a, t) => a + t.net, 0) / trades.length) : null,
+    total_pnl_thb: r2(trades.reduce((a, t) => a + t.pnl, 0)),
+    exposure: r2(equity.reduce((a, e) => a + e.open, 0) / equity.length / maxPos * 100),
+  });
+  return s;
+}
+
+/* ==========================================================================
+   VERDICT AGENT — ฟันธง "วันทำการถัดไปเข้าตัวไหน" จากแท่งล่าสุดที่ปิดแล้ว
+   ใช้ mask ชุดเดียวกับ backtest -> สัญญาณสดกับผลทดสอบเป็นตรรกะเดียวกันเสมอ
+   ========================================================================== */
+function decideVerdict(D, confirmed, opts) {
+  opts = opts || {};
+  const topK = opts.topK || CFG.TOP_K, minAgree = opts.minAgree || CFG.MIN_AGREE;
+  const maxOrders = opts.maxOrders || CFG.MAX_POS;
+  const budget = opts.budget !== undefined ? opts.budget : Math.floor(CFG.CAPITAL / CFG.MAX_POS);
+  let lastDate = -Infinity;
+  for (let i = 0; i < D.n; i++) if (D.ps.date[i] > lastDate) lastDate = D.ps.date[i];
+  const asof = dstr(lastDate);
+  const usable = (confirmed || []).filter(c => c.grade === "A" || c.grade === "B").slice(0, topK);
+  if (!usable.length)
+    return {overall: "ไม่เข้า (NO_TRADE) — ไม่มีสมการผ่านการยืนยัน out-of-sample",
+            grade: "-", k: 0, asof: asof, orders: []};
+  const k = usable.length, effMin = Math.min(minAgree, k);
+  const bestGrade = usable.some(c => c.grade === "A") ? "A" : "B";
+  const hits = new Map();
+  usable.forEach((c, rank) => {
+    const em = entryMask(D, c.st.fam, c.st);
+    const fm = filterMask(D, c.st.adx_min | 0, c.st.vol_filter | 0, c.st.regime_filter | 0);
+    for (let i = 0; i < D.n; i++) {
+      if (D.ps.date[i] !== lastDate || !em[i] || !fm[i]) continue;
+      const tk = D.ps.tickers[D.ps.tid[i]];
+      if (!hits.has(tk)) hits.set(tk, []);
+      hits.get(tk).push({rank: rank, row: i, c: c});
+    }
+  });
+  const cands = [];
+  for (const tk of Array.from(hits.keys()).sort()) {
+    const lst = hits.get(tk).sort((a, b) => a.rank - b.rank);
+    const h0 = lst[0], st = h0.c.st, i = h0.row;
+    const close = D.ps.C[i];
+    const buy = st.entry_mode === 0 ? close : close * (1 - CFG.LIMIT_DISC / 100);
+    let tp, sl;
+    if (st.exit_mode === 0) { tp = buy * (1 + st.tp_val / 100); sl = buy * (1 - st.sl_val / 100); }
+    else {
+      const a = D.X.ATR14[i];
+      if (!(isFinite(a) && a > 0)) continue;
+      tp = buy + st.tp_val * a; sl = buy - st.sl_val * a;
+    }
+    if (!(sl > 0) || !isFinite(tp)) continue;
+    const unit = buy * CFG.LOT;
+    const lots = unit > 0 ? Math.floor(budget / unit) : 0;
+    const reasons = [];
+    if (lots < 1) reasons.push("งบไม่พอ 1 lot (ต้องใช้ " + fmt(unit, " บาท/lot", 0) + ")");
+    if (lst.length < effMin) reasons.push("ฉันทามติ " + lst.length + "/" + k + " ต่ำกว่าเกณฑ์ " + effMin);
+    cands.push({ticker: tk, agree: lst.length, rank: h0.rank, st: st, c: h0.c, lots: lots,
+      buy: buy, tp: tp, sl: sl, unit: unit, reasons: reasons,
+      npd: num((h0.c.oos || {}).net_per_day, 0)});
+  }
+  cands.sort((a, b) => (b.agree - a.agree) || (a.rank - b.rank) || (b.npd - a.npd) ||
+                       (a.ticker < b.ticker ? -1 : 1));
+  const orders = [];
+  let nTrade = 0;
+  for (const d of cands) {
+    let ok = d.agree >= effMin && d.lots >= 1;
+    if (ok && nTrade >= maxOrders) { ok = false; d.reasons.push("เกินจำนวนไม้สูงสุดที่ถือพร้อมกัน (" + maxOrders + ")"); }
+    if (ok) nTrade++;
+    const oos = d.c.oos || {};
+    orders.push({ticker: d.ticker, action: ok ? "เข้า (TRADE)" : "เฝ้าดู (WATCH)",
+      agree: d.agree, ofK: k, grade: d.c.grade, strategy: d.c.label,
+      order_type: d.st.entry_mode === 0 ? "ซื้อที่ราคาเปิด (Market@Open)"
+                                        : "ตั้งซื้อรอ (Limit -" + CFG.LIMIT_DISC + "%)",
+      buy_ref: r2(d.buy), sell_tp: r2(d.tp), stop_sl: r2(d.sl),
+      tp_pct: r2((d.tp / d.buy - 1) * 100, 3), sl_pct: r2((1 - d.sl / d.buy) * 100, 3),
+      lots: d.lots, shares: d.lots * CFG.LOT, cost: r2(d.lots * d.unit),
+      hold_days: d.st.hold_days, entry_mode: d.st.entry_mode,
+      expected_wr: oos.win_rate, expected_npd: oos.net_per_day, expected_wlb: oos.wilson_lb,
+      reasons: d.reasons.length ? d.reasons.join("; ") : "-"});
+  }
+  let overall;
+  if (nTrade > 0) overall = "เข้า " + nTrade + " ตัว (เกรด " + bestGrade + " · ฉันทามติ >= " + effMin + "/" + k + " สมการ)";
+  else if (orders.length) overall = "เฝ้าดูอย่างเดียว — มีสัญญาณแต่ไม่ผ่านเกณฑ์ฉันทามติ/งบ/จำนวนไม้";
+  else overall = "ไม่เข้า (NO_TRADE) — วันที่ " + asof + " ไม่มีหุ้นเข้าเงื่อนไขสมการที่ยืนยันแล้ว";
+  return {overall: overall, grade: bestGrade, k: k, asof: asof, orders: orders};
+}
+
+/* ==========================================================================
+   TRADE JOURNAL — เก็บใน localStorage ของเบราว์เซอร์ (track record ข้ามวัน)
+   ========================================================================== */
+let MEM_JOURNAL = null;                    // สำรองเมื่อเบราว์เซอร์ปิด localStorage
+function loadJournal() {
+  try {
+    const s = localStorage.getItem(CFG.JOURNAL_KEY);
+    if (!s) return [];
+    const j = JSON.parse(s);
+    return Array.isArray(j) ? j : [];
+  } catch (e) { return MEM_JOURNAL || []; }
+}
+function saveJournal(j) {
+  MEM_JOURNAL = j;
+  try { localStorage.setItem(CFG.JOURNAL_KEY, JSON.stringify(j)); return true; }
+  catch (e) { return false; }
+}
+function tickerRange(ps) {
+  const map = new Map();
+  for (let ti = 0; ti < ps.tickers.length; ti++) map.set(ps.tickers[ti], [ps.start[ti], ps.end[ti]]);
+  return map;
+}
+/** ตัดสินผลออร์เดอร์ที่ยังค้าง ด้วยราคาจริงล่าสุด — กติกาเดียวกับ backtest เป๊ะ */
+function resolveJournal(j, ps) {
+  if (!j || !j.length || !ps || !ps.n) return j || [];
+  const rng = tickerRange(ps);
+  for (const row of j) {
+    if (row.status !== "PENDING") continue;
+    const rr = rng.get(String(row.ticker).toUpperCase());
+    if (!rr) { row.status = "NO_DATA"; continue; }
+    const sig = parseDate(row.signal_date);
+    if (!isFinite(sig)) { row.status = "NO_DATA"; continue; }
+    let s = rr[0];
+    while (s < rr[1] && ps.date[s] <= sig) s++;
+    if (s >= rr[1]) continue;                        // ยังไม่มีแท่งใหม่ -> คงค้างไว้
+    const hold = Math.max(1, num(row.hold_days, 3) | 0);
+    const emode = num(row.entry_mode, 0) | 0;
+    let fill;
+    let skipTpFirst = false;
+    if (emode === 0) fill = ps.O[s];
+    else {
+      const ref = num(row.buy_ref);
+      if (!(ref > 0)) continue;
+      if (ps.L[s] > ref) { row.status = "NOT_FILLED"; continue; }
+      fill = Math.min(ref, ps.O[s]);
+      skipTpFirst = true;
+    }
+    if (!(fill > 0) || !isFinite(fill)) continue;
+    let tp, sl;
+    const tpP = num(row.tp_pct), slP = num(row.sl_pct);
+    if (isFinite(tpP) && isFinite(slP)) { tp = fill * (1 + tpP / 100); sl = fill * (1 - slP / 100); }
+    else { tp = num(row.sell_tp); sl = num(row.stop_sl); }
+    if (!(isFinite(tp) && isFinite(sl) && sl > 0)) continue;   // ตัดสินไม่ได้ -> ไม่เดา
+    const avail = Math.min(hold, rr[1] - s);
+    let status = null, px = null, exitI = -1;
+    for (let k = 0; k < avail; k++) {
+      const b = s + k;
+      if (k > 0 && ps.O[b] <= sl) { status = "FILLED_SL"; px = ps.O[b]; }
+      else if (k > 0 && ps.O[b] >= tp) { status = "FILLED_TP"; px = ps.O[b]; }
+      else if (CFG.TIE_SL_WINS && ps.L[b] <= sl) { status = "FILLED_SL"; px = sl; }
+      else if (ps.H[b] >= tp && !(skipTpFirst && k === 0)) { status = "FILLED_TP"; px = tp; }
+      else if (ps.L[b] <= sl) { status = "FILLED_SL"; px = sl; }
+      if (status) { exitI = b; break; }
+    }
+    if (!status) {
+      if (rr[1] - s >= hold) { status = "FILLED_TIME"; exitI = s + hold - 1; px = ps.C[exitI]; }
+      else { row.fill_price = r2(fill, 4); continue; }
+    }
+    row.status = status;
+    row.fill_price = r2(fill, 4);
+    row.exit_price = r2(px, 4);
+    row.exit_date = dstr(ps.date[exitI]);
+    row.net = r2((px / fill - 1) * 100 - CFG.FRICTION);
+  }
+  return j;
+}
+function journalStats(j) {
+  if (!j || !j.length) return {n_orders: 0};
+  const filled = j.filter(r => ["FILLED_TP","FILLED_SL","FILLED_TIME"].indexOf(r.status) >= 0);
+  const nets = filled.map(r => num(r.net)).filter(isFinite);
+  const wins = nets.filter(x => x > 0).length;
+  return {n_orders: j.length,
+    n_pending: j.filter(r => r.status === "PENDING").length,
+    n_not_filled: j.filter(r => r.status === "NOT_FILLED").length,
+    n_filled: filled.length, n_resolved: nets.length, wins: wins,
+    realized_wr: nets.length ? r2(wins / nets.length * 100) : null,
+    realized_wlb: nets.length ? r2(wilsonLB(wins, nets.length) * 100) : null,
+    realized_avg: nets.length ? r2(nets.reduce((a, b) => a + b, 0) / nets.length) : null,
+    cum_net: nets.length ? r2(nets.reduce((a, b) => a + b, 0)) : null,
+    best: nets.length ? r2(Math.max.apply(null, nets)) : null,
+    worst: nets.length ? r2(Math.min.apply(null, nets)) : null};
+}
+/** บันทึกเฉพาะออร์เดอร์ "เข้า" และห้ามซ้ำ (รันกี่ครั้งในวันเดียวกันก็ได้) */
+function appendOrders(j, vr, runDate) {
+  const seen = new Set(j.map(r => r.signal_date + "|" + r.ticker));
+  for (const o of vr.orders) {
+    if (o.action.indexOf("เข้า") !== 0) continue;
+    const key = vr.asof + "|" + o.ticker;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    j.push({signal_date: vr.asof, ticker: o.ticker, strategy: o.strategy, grade: o.grade,
+      order_type: o.order_type, entry_mode: o.entry_mode, buy_ref: o.buy_ref,
+      sell_tp: o.sell_tp, stop_sl: o.stop_sl, tp_pct: o.tp_pct, sl_pct: o.sl_pct,
+      hold_days: o.hold_days, status: "PENDING", fill_price: null, exit_date: null,
+      exit_price: null, net: null, expected_wr: o.expected_wr, expected_npd: o.expected_npd,
+      run_date: runDate});
+  }
+  return j;
+}
+
+/* ==========================================================================
+   RENDER — แดชบอร์ด (SVG ล้วน ไม่มี library ภายนอก)
+   ========================================================================== */
+const STATUS_TH = {FILLED_TP: ["ชนะ (TP)", "#6E8B5E"], FILLED_SL: ["แพ้ (SL)", "#C24C3F"],
+  FILLED_TIME: ["หมดเวลา", "#8A8375"], PENDING: ["รอผล", "#C9A227"],
+  NOT_FILLED: ["limit ไม่ติด", "#A39B8B"], NO_DATA: ["ไม่มีข้อมูล", "#999999"]};
+
+function sparkline(vals, labels, color, height) {
+  height = height || 180;
+  const n = vals.length;
+  if (n < 2) return '<div class="empty">ข้อมูลยังไม่พอวาดกราฟ</div>';
+  const W = 1000, H = height, pad = 28;
+  let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  if (!(hi > lo)) { hi = lo + 1; lo -= 1; }
+  const x = i => pad + i * (W - 2 * pad) / (n - 1);
+  const y = v => H - pad - (v - lo) * (H - 2 * pad) / (hi - lo);
+  let d = "", area = "";
+  for (let i = 0; i < n; i++) d += (i ? "L" : "M") + x(i).toFixed(1) + " " + y(vals[i]).toFixed(1) + " ";
+  area = d + "L" + x(n-1).toFixed(1) + " " + (H - pad) + " L" + x(0).toFixed(1) + " " + (H - pad) + " Z";
+  const first = labels ? labels[0] : "", last = labels ? labels[n-1] : "";
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img">' +
+    '<line x1="' + pad + '" y1="' + (H-pad) + '" x2="' + (W-pad) + '" y2="' + (H-pad) +
+    '" stroke="#E8E4DA"/>' +
+    '<path d="' + area + '" fill="' + color + '22"/>' +
+    '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2.5"/>' +
+    '<text x="' + pad + '" y="16" font-size="20" fill="#6B6558">ต่ำสุด ' + esc(fmt(lo, "", 2)) +
+    ' · สูงสุด ' + esc(fmt(hi, "", 2)) + ' · ล่าสุด ' + esc(fmt(vals[n-1], "", 2)) + '</text>' +
+    '<text x="' + pad + '" y="' + (H-6) + '" font-size="18" fill="#6B6558">' + esc(first) + '</text>' +
+    '<text x="' + (W-pad) + '" y="' + (H-6) + '" font-size="18" fill="#6B6558" text-anchor="end">' +
+    esc(last) + '</text></svg>';
+}
+
+function honestNote(nA, nB, best, port) {
+  if (nA > 0) return "มีสมการถึงเป้า " + nA + " ตัว (WR≥" + CFG.TARGET_WR + "% และ ≥" +
+    CFG.TARGET_NPD + "%/วัน บนข้อมูลที่ไม่เคยเห็นทั้ง 2 ช่วง) — ยังต้องดูผลจริงในสมุดบันทึกก่อนเชื่อเต็มร้อย";
+  if (nB > 0 && best) {
+    let s = "ไม่มีสมการใดถึงเป้า WR>" + CFG.TARGET_WR + "% + " + CFG.TARGET_NPD + "%/วัน. " +
+      "ดีที่สุดที่ยืนยันได้จริงคือ WR " + fmt(best.oos.win_rate, "%") + ", กำไร " +
+      fmt(best.oos.net_per_day, "%") + "/วัน (" + fmt(best.oos.avg_net, "%") + "/ไม้, " +
+      best.oos.n_trades + " ไม้). ";
+    if (port && port.avg_daily_pct !== null)
+      s += "พอร์ตจำลองด้วยเงินจริงได้ " + fmt(port.avg_daily_pct, "%", 4) + "/วัน (รวม " +
+        fmt(port.total_return_pct, "%") + ", ขาดทุนสูงสุด " + fmt(port.max_drawdown_pct, "%") + "). ";
+    s += "เหตุผลเชิงคณิตศาสตร์: ค่าคอมไป-กลับ " + CFG.FRICTION +
+      "% กินกำไรทุกไม้ และ WR สูงมากต้องมาคู่กับ TP เล็ก (กำไรต่อไม้ต่ำ) เสมอ — " +
+      "จะได้ทั้งสองอย่างพร้อมกันจึงหายากมากในตลาดจริง";
+    return s;
+  }
+  return "ไม่มีสมการใดผ่านการยืนยัน out-of-sample รอบนี้ = คำตอบที่ซื่อสัตย์คือ 'ยังไม่ควรเข้า'. " +
+    "ลองใส่ข้อมูลจริงที่ยาวขึ้น/หุ้นมากขึ้น แล้วรันใหม่";
+}
+
+function renderAll(R) {
+  const grade = R.best ? R.best.grade : "-";
+  const gcolor = grade === "A" ? "#6E8B5E" : grade === "B" ? "#C9A227" : "#C24C3F";
+  const gtext = grade === "A" ? "เกรด A — ถึงเป้าที่ตั้งไว้"
+    : grade === "B" ? "เกรด B — มี edge จริงแต่ไม่ถึงเป้า" : "ไม่ผ่าน — ไม่มีสมการที่ยืนยันได้";
+  let h = "";
+
+  // ---- chips ----
+  h += '<div class="chips">' +
+    '<span class="chip">' + esc(R.source) + ' · ' + R.nTickers + ' หุ้น · ' +
+      fmt(R.nRows, " แถว", 0) + '</span>' +
+    '<span class="chip">ข้อมูล ' + esc(R.firstBar) + ' → ' + esc(R.lastBar) + '</span>' +
+    '<span class="chip">ค้นครบ ' + fmt(R.space, " สมการ", 0) + ' ใน ' + fmt(R.searchSecs, " วิ", 1) + '</span>' +
+    '<span class="chip ' + (grade === "A" ? "ok" : grade === "B" ? "warn" : "bad") + '">เป้า WR≥' +
+      CFG.TARGET_WR + '% & กำไร≥' + CFG.TARGET_NPD + '%/วัน</span>' +
+    '<span class="chip ' + (R.tests.failed ? "bad" : "ok") + '">เทสต์ ' +
+      (R.tests.passed) + '/' + (R.tests.total) + ' ผ่าน</span>' +
+    (R.demo ? '<span class="chip bad">DEMO — ข้อมูลสังเคราะห์ ไม่ใช่ราคาจริง</span>' : '') +
+    '</div>';
+
+  // ---- verdict ----
+  let vc = "";
+  if (R.verdict.orders.length) {
+    for (const o of R.verdict.orders) {
+      vc += '<div class="' + (o.action.indexOf("เข้า") === 0 ? "vcard" : "vcard watch") + '">' +
+        '<b>' + esc(o.ticker) + '</b> — ' + esc(o.action) +
+        ' <span class="muted">(' + o.agree + '/' + o.ofK + ' สมการเห็นตรงกัน · เกรด ' +
+        esc(o.grade) + ' · คาด WR ' + fmt(o.expected_wr, "%") + ' · ' +
+        fmt(o.expected_npd, "%/วัน") + ')</span><br>' + esc(o.order_type) +
+        ' · ซื้อ <b>' + fmt(o.buy_ref) + '</b> · TP <b>' + fmt(o.sell_tp) + '</b> (+' +
+        fmt(o.tp_pct, "%") + ') · SL <b>' + fmt(o.stop_sl) + '</b> (-' + fmt(o.sl_pct, "%") +
+        ') · ' + o.lots + ' lot (' + fmt(o.shares, " หุ้น", 0) + ' ≈ ' + fmt(o.cost, " บาท", 0) +
+        ') · ถือสูงสุด ' + o.hold_days + ' วัน' +
+        (o.reasons === "-" ? "" : '<div class="muted">เหตุผล: ' + esc(o.reasons) + '</div>') +
+        '</div>';
+    }
+  } else vc = '<div class="empty">วันนี้: ไม่มีคำสั่งเข้า</div>';
+  h += '<div class="card hero"><h2>คำฟันธงสำหรับวันทำการถัดไป (จากแท่งวันที่ ' +
+    esc(R.verdict.asof) + ')</h2><div class="big">' + esc(R.verdict.overall) + '</div>' + vc + '</div>';
+
+  // ---- honest ----
+  h += '<div class="card honest"><h2>เป้าที่สั่ง vs ผลจริง (ห้ามโกหก)</h2>' +
+    '<span class="badge" style="background:' + gcolor + '">' + esc(gtext) + '</span>' +
+    '<div class="tiles" style="margin-top:12px">' +
+    '<div class="tile"><div class="v">' + CFG.TARGET_WR + '% / ' + CFG.TARGET_NPD +
+      '%</div><div class="k">เป้า: WR / กำไรต่อวัน</div></div>' +
+    '<div class="tile"><div class="v">' + R.nA + '</div><div class="k">สมการถึงเป้า (เกรด A)</div></div>' +
+    '<div class="tile"><div class="v">' + R.nB + '</div><div class="k">สมการมี edge จริง (เกรด B)</div></div>' +
+    '<div class="tile"><div class="v">' + (R.best ? fmt(R.best.oos.win_rate, "%") : "-") +
+      '</div><div class="k">WR ดีสุดที่ยืนยันได้ (OOS)</div></div>' +
+    '<div class="tile"><div class="v">' + (R.best ? fmt(R.best.oos.net_per_day, "%") : "-") +
+      '</div><div class="k">กำไร/วัน ดีสุดที่ยืนยันได้</div></div></div>' +
+    '<div class="muted" style="margin-top:10px">' + esc(R.honest) + '</div></div>';
+
+  // ---- portfolio ----
+  const p = R.port;
+  if (p) {
+    h += '<div class="card"><h2>พอร์ตจำลองด้วยเงินจริง ' + fmt(p.capital, " บาท", 0) +
+      ' (ถือพร้อมกันสูงสุด ' + p.max_positions + ' ไม้ · ช่วง out-of-sample)</h2>' +
+      '<div class="tiles">' +
+      '<div class="tile"><div class="v ' + cls(p.avg_daily_pct) + '">' + fmt(p.avg_daily_pct, "%", 4) +
+        '</div><div class="k">กำไรเฉลี่ยต่อวัน (ของจริง)</div></div>' +
+      '<div class="tile"><div class="v ' + cls(p.total_return_pct) + '">' + fmt(p.total_return_pct, "%") +
+        '</div><div class="k">ผลตอบแทนรวมช่วงทดสอบ</div></div>' +
+      '<div class="tile"><div class="v">' + fmt(p.cagr_pct, "%") + '</div><div class="k">ต่อปี (CAGR)</div></div>' +
+      '<div class="tile"><div class="v neg">' + fmt(p.max_drawdown_pct, "%") +
+        '</div><div class="k">ขาดทุนสูงสุด (max DD)</div></div>' +
+      '<div class="tile"><div class="v">' + fmt(p.win_rate, "%") + '</div><div class="k">WR พอร์ต (' +
+        p.n_trades + ' ไม้)</div></div>' +
+      '<div class="tile"><div class="v">' + fmt(p.exposure, "%") + '</div><div class="k">ใช้เงินเฉลี่ย</div></div>' +
+      '</div><div class="muted" style="margin-top:10px">วันที่ทำได้ถึงเป้า ' + CFG.TARGET_NPD + '%: ' +
+      p.days_target_hit + '/' + p.n_days + ' วัน' +
+      (p.skipped_no_cash ? ' · พลาดสัญญาณเพราะงบไม่พอ 1 lot ' + p.skipped_no_cash +
+        ' ครั้ง (งบต่อไม้ ' + fmt(p.budget_per_trade, " บาท", 0) + ') — เพิ่มทุนหรือลดจำนวนไม้จะเข้าได้มากขึ้น' : '') +
+      '</div></div>';
+    if (p.equity && p.equity.length > 1) {
+      h += '<div class="card"><h2>เส้นทางเงินทุน (บาท)</h2>' +
+        sparkline(p.equity.map(e => e.eq), p.equity.map(e => dstr(e.d)), "#D97757") + '</div>';
+    }
+  } else {
+    h += '<div class="card"><h2>พอร์ตจำลอง</h2><div class="empty">ยังไม่มีสมการที่ยืนยันได้ จึงยังไม่มีผลพอร์ต</div></div>';
+  }
+
+  // ---- track record ----
+  const s = R.jstats;
+  let tiles;
+  if (s.n_orders) {
+    tiles = '<div class="tiles">' +
+      '<div class="tile"><div class="v">' + s.n_orders + '</div><div class="k">ออร์เดอร์สะสม</div></div>' +
+      '<div class="tile"><div class="v">' + s.n_pending + '</div><div class="k">รอผล</div></div>' +
+      '<div class="tile"><div class="v">' + s.n_not_filled + '</div><div class="k">limit ไม่ติด</div></div>' +
+      '<div class="tile"><div class="v">' + fmt(s.realized_wr, "%") + '</div><div class="k">WR จริง (LB ' +
+        fmt(s.realized_wlb, "%") + ')</div></div>' +
+      '<div class="tile"><div class="v ' + cls(s.realized_avg) + '">' + fmt(s.realized_avg, "%") +
+        '</div><div class="k">กำไรจริงเฉลี่ย/ไม้</div></div>' +
+      '<div class="tile"><div class="v ' + cls(s.cum_net) + '">' + fmt(s.cum_net, "%") +
+        '</div><div class="k">กำไรสะสมจริง</div></div></div>';
+  } else tiles = '<div class="empty">ยังไม่มีประวัติ — ระบบเริ่มบันทึกอัตโนมัติจากรอบนี้ (เก็บในเบราว์เซอร์)</div>';
+  h += '<div class="card"><h2>Track Record — ผลจริงสะสมจากคำฟันธงที่ผ่านมา</h2>' + tiles;
+  const nets = R.journal.filter(r => isFinite(num(r.net))).map(r => num(r.net));
+  if (nets.length > 1) {
+    let acc = 0;
+    const cum = nets.map(v => (acc += v));
+    h += '<div style="margin-top:14px">' + sparkline(cum, cum.map((_, i) => "ไม้ " + (i+1)), "#6E8B5E", 160) + '</div>';
+  }
+  if (R.journal.length) {
+    let rows = "";
+    for (const r of R.journal.slice(-15).reverse()) {
+      const stt = STATUS_TH[r.status] || [r.status, "#999"];
+      rows += '<tr><td>' + esc(r.signal_date) + '</td><td><b>' + esc(r.ticker) + '</b></td>' +
+        '<td>' + esc(r.order_type) + '</td><td>' + fmt(r.buy_ref) + '</td><td>' + fmt(r.sell_tp) +
+        '</td><td>' + fmt(r.stop_sl) + '</td><td><span class="pill" style="background:' + stt[1] +
+        '">' + esc(stt[0]) + '</span></td><td class="' + cls(r.net) + '">' +
+        (isFinite(num(r.net)) ? fmt(r.net, "%") : "-") + '</td></tr>';
+    }
+    h += '<div class="scroll" style="margin-top:14px"><table><tr><th>วันสัญญาณ</th><th>หุ้น</th>' +
+      '<th>ออร์เดอร์</th><th>ซื้อ</th><th>TP</th><th>SL</th><th>สถานะ</th><th>กำไรสุทธิ</th></tr>' +
+      rows + '</table></div>';
+  }
+  h += '</div>';
+
+  // ---- confirmed strategies ----
+  const show = R.confirmed.filter(c => c.grade !== "-").slice(0, CFG.TOP_REPORT);
+  if (show.length) {
+    let rows = "";
+    for (const c of show) {
+      rows += '<tr><td><b>' + c.grade + '</b></td><td class="wrap-cell">' + esc(c.label) + '</td>' +
+        '<td>' + c.is.n_trades + '</td><td>' + c.oos.n_trades + '</td><td>' + fmt(c.oos.win_rate, "%") +
+        '</td><td>' + fmt(c.oos.wilson_lb, "%") + '</td><td>' + fmt(c.oos.avg_net, "%") + '</td><td>' +
+        fmt(c.oos.net_per_day, "%") + '</td><td>' + fmt(c.oos.profit_factor) + '</td><td>' +
+        fmt(c.oos.avg_hold, " วัน", 1) + '</td></tr>';
+    }
+    h += '<div class="card"><h2>สมการที่ยืนยันผ่าน out-of-sample ทั้ง 2 ช่วง</h2>' +
+      '<div class="scroll"><table><tr><th>เกรด</th><th>สมการ</th><th>ไม้ (IS)</th><th>ไม้ (OOS)</th>' +
+      '<th>WR%</th><th>WR ขอบล่าง</th><th>กำไร%/ไม้</th><th>กำไร%/วัน</th><th>PF</th><th>ถือเฉลี่ย</th>' +
+      '</tr>' + rows + '</table></div>' +
+      '<div class="muted" style="margin-top:8px">WR ขอบล่าง = Wilson 95% lower bound ' +
+      '(ความมั่นใจขั้นต่ำจริง ไม่ใช่ตัวเลขสวย ๆ จากกลุ่มตัวอย่างเล็ก)</div></div>';
+  } else {
+    h += '<div class="card"><h2>สมการที่ยืนยันผ่าน out-of-sample</h2>' +
+      '<div class="empty">รอบนี้ไม่มีสมการใดผ่านทั้ง 2 ช่วง</div></div>';
+  }
+
+  // ---- families + tests ----
+  let fam = "";
+  for (let i = 0; i < FAM_NAME.length; i++)
+    fam += '<tr><td>' + i + '</td><td><b>' + FAM_NAME[i] + '</b></td><td class="wrap-cell">' +
+      FAM_DESC[i] + '</td><td>' + FAM_PARAMS[i].join(", ") + '</td></tr>';
+  h += '<div class="card"><h2>สมการจุดเข้าทั้งหมดที่ระบบค้น (10 ตระกูล)</h2><div class="scroll">' +
+    '<table><tr><th>#</th><th>ชื่อ</th><th>เงื่อนไขเข้า</th><th>พารามิเตอร์ที่ค้น</th></tr>' +
+    fam + '</table></div></div>';
+
+  let tst = '<div class="tstat">ผ่าน ' + R.tests.passed + '/' + R.tests.total + ' รายการ ใน ' +
+    fmt(R.tests.secs, " วินาที", 2) + '</div>';
+  if (R.tests.failed) {
+    tst += '<div class="tfail" style="margin-top:8px">ไม่ผ่าน ' + R.tests.failed + ' รายการ:</div><ul>';
+    for (const f of R.tests.fails) tst += '<li class="mono">' + esc(f) + '</li>';
+    tst += '</ul>';
+  } else {
+    tst += '<div class="muted" style="margin-top:6px">ครอบคลุม: อินดิเคเตอร์, การไม่มองอนาคต ' +
+      '(non-repainting) ครบทุกตระกูล, กฎการเข้า/ออก/gap/tie, การนับชนะหลังหักต้นทุน, ' +
+      'การแบ่งข้อมูลและ embargo, พอร์ตจำลอง, สมุดบันทึก และการอ่าน CSV</div>';
+  }
+  h += '<div class="card"><h2>ผลตรวจตัวเองของระบบ (self-test)</h2>' + tst + '</div>';
+  $("out").innerHTML = h;
+  $("foot").innerHTML = "ทุกตัวเลขหักค่าคอมไป-กลับ " + CFG.FRICTION +
+    "% แล้ว · ไม้ที่ชนทั้ง TP และ SL ในแท่งเดียวนับเป็นแพ้ · gap ทะลุคิดที่ราคาเปิดจริง · " +
+    "ระบบนี้ไม่การันตีผลอนาคต ไม่ใช่คำแนะนำการลงทุน ผู้ใช้รับความเสี่ยงเอง";
+}
+
+/* ==========================================================================
+   SELF-TESTS — ระบบตรวจตัวเองก่อนแสดงผลทุกครั้ง (ถ้าไม่ผ่านจะขึ้นเตือนสีแดง)
+   ========================================================================== */
+const TESTS = [];
+function test(name, fn) { TESTS.push([name, fn]); }
+function ok(cond, msg) { if (!cond) throw new Error(msg || "เงื่อนไขไม่เป็นจริง"); }
+function near(a, b, tol, msg) {
+  if (!(Math.abs(a - b) <= (tol === undefined ? 1e-9 : tol)))
+    throw new Error((msg || "ค่าไม่ตรง") + ": " + a + " != " + b);
+}
+function throws(fn, msg) {
+  try { fn(); } catch (e) { return; }
+  throw new Error(msg || "ควรจะโยน error แต่ไม่โยน");
+}
+function bars(name, c, o, h, l, v) {
+  const rows = [];
+  let day = Date.UTC(2021, 0, 4);
+  for (let i = 0; i < c.length; i++) {
+    let wd = new Date(day).getUTCDay();
+    while (wd === 0 || wd === 6) { day += 864e5; wd = new Date(day).getUTCDay(); }
+    rows.push({t: name, d: day, o: o ? o[i] : c[i], h: h ? h[i] : c[i] * 1.01,
+               l: l ? l[i] : c[i] * 0.99, c: c[i], v: v ? (v.length ? v[i] : v) : 1e6});
+    day += 864e5;
+  }
+  return rows;
+}
+function walk(n, seed, base) {
+  const rnd = mulberry32(seed || 7);
+  const out = [];
+  let p = base || 100;
+  for (let i = 0; i < n; i++) { p = Math.max(5, p * (1 + gaussFrom(rnd) * 0.015)); out.push(p); }
+  return out;
+}
+function D_of(rows) { return precompute(cleanPrices(rows)); }
+function S(fam, ov) { return Object.assign(makeStrategy(fam, {}, 0, 2, 2, 3, 0, 0, 0, 0), ov || {}); }
+function fullSeg(D) { return new Uint8Array(D.n).fill(1); }
+
+/* ---- อินดิเคเตอร์ ---- */
+test("RSI ราคานิ่ง = 50 (ไม่หารศูนย์)", () => {
+  const D = D_of(bars("X", new Array(40).fill(100)));
+  ok(D.X.RSI14[39] === 50);
+});
+test("RSI ขึ้นล้วน = 100", () => {
+  const c = []; for (let i = 0; i < 40; i++) c.push(100 + i);
+  const D = D_of(bars("X", c));
+  ok(D.X.RSI14[39] === 100);
+});
+test("EMA ตรงกับสูตรมาตรฐาน", () => {
+  const src = Float64Array.from([1, 2, 3, 4, 5]), out = new Float64Array(5);
+  emaInto(src, 0, 5, 3, out);
+  let p = 1; for (let i = 1; i < 5; i++) p = p + 0.5 * (src[i] - p);
+  near(out[4], p, 1e-12);
+});
+test("SMA/STD ถูกต้อง (std แบบ ddof=1)", () => {
+  const src = Float64Array.from([2, 4, 4, 4, 5, 5, 7, 9]);
+  const sm = new Float64Array(8), sd = new Float64Array(8);
+  smaInto(src, 0, 8, 4, sm); stdInto(src, 0, 8, 4, sd);
+  near(sm[3], 3.5, 1e-12);
+  near(sd[3], Math.sqrt(((2-3.5)**2 + 3*(4-3.5)**2) / 3), 1e-9);
+});
+test("ATR ไม่ติดลบ", () => {
+  const D = D_of(bars("X", walk(60, 3)));
+  for (let i = 0; i < D.n; i++) ok(!(D.X.ATR14[i] < 0));
+});
+test("ADX อยู่ในช่วง 0-100 เสมอ (ช่วงตั้งต้นที่ยังคำนวณไม่ได้ = NaN ถูกต้องแล้ว)", () => {
+  const D = D_of(bars("X", walk(120, 5)));
+  let finite = 0;
+  for (let i = 0; i < D.n; i++) {
+    const v = D.X.ADX14[i];
+    if (!isFinite(v)) { ok(i < 3, "ADX ต้องเป็น NaN เฉพาะช่วงตั้งต้นเท่านั้น (แท่งที่ " + i + ")"); continue; }
+    finite++;
+    ok(v >= 0 && v <= 100, "ADX=" + v);
+  }
+  ok(finite > 100);
+});
+test("Stochastic อยู่ในช่วง 0-100 และราคานิ่งไม่พัง", () => {
+  const D = D_of(bars("X", walk(80, 9)));
+  for (let i = 0; i < D.n; i++) ok(!isFinite(D.X.STOCH[i]) || (D.X.STOCH[i] >= 0 && D.X.STOCH[i] <= 100));
+  const F = D_of(bars("F", new Array(40).fill(50), new Array(40).fill(50),
+                      new Array(40).fill(50), new Array(40).fill(50)));
+  for (let i = 0; i < F.n; i++) ok(!isFinite(F.X.STOCH[i]) || F.X.STOCH[i] >= 0);
+});
+test("นับวันปิดลบติดกันถูกต้อง", () => {
+  const D = D_of(bars("X", [10, 9, 8, 7, 8, 7]));
+  ok(Array.from(D.X.STREAK).join(",") === "0,1,2,3,0,1");
+});
+test("Donchian ไม่รวมแท่งปัจจุบัน (ไม่มองอนาคต)", () => {
+  const c = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const D = D_of(bars("X", c));
+  near(D.X.DON5[6], 6, 1e-12);           // สูงสุดของ 5 แท่งก่อนหน้า (2..6)
+});
+test("Wilson lower bound มีคุณสมบัติถูกต้อง", () => {
+  ok(wilsonLB(0, 0) === 0);
+  ok(wilsonLB(8, 10) < 0.8);
+  ok(wilsonLB(800, 1000) > wilsonLB(8, 10));
+  const w = wilsonLB(15, 10); ok(w >= 0 && w <= 1);
+});
+
+/* ---- data layer ---- */
+test("ตัดแถวข้อมูลเสียออก (ราคา<=0, NaN, High<Low)", () => {
+  const rows = bars("X", [100, 100, 100, 100]);
+  rows[1].c = 0; rows[2].h = NaN; rows[3].h = 90; rows[3].l = 110;
+  ok(cleanPrices(rows).n === 1);
+});
+test("ตัดวันซ้ำและเรียงข้อมูลให้ถูก", () => {
+  const rows = bars("B", [10, 10]).concat(bars("A", [20, 20]));
+  const ps = cleanPrices(rows.concat([rows[0]]));
+  ok(ps.n === 4 && ps.tickers[0] === "A");
+});
+test("อ่าน CSV ได้ และฟ้องเมื่อคอลัมน์ไม่ครบ", () => {
+  const csv = "Ticker,Date,Open,High,Low,Close,Volume\nPTT,2024-01-02,10,11,9,10.5,1000\n" +
+              "PTT,2024-01-03,10.5,11,10,11,2000\n";
+  const ps = parseCSV(csv);
+  ok(ps.n === 2 && ps.tickers[0] === "PTT" && ps.C[1] === 11);
+  throws(() => parseCSV("a,b\n1,2\n"), "CSV ไม่ครบต้องฟ้อง");
+});
+test("อ่านวันที่ได้หลายรูปแบบ", () => {
+  ok(parseDate("2024-01-05") === Date.UTC(2024, 0, 5));
+  ok(parseDate("2024-01-05 00:00:00") === Date.UTC(2024, 0, 5));
+  ok(!isFinite(parseDate("ไม่ใช่วันที่")));
+});
+test("ข้อมูลสาธิตสร้างซ้ำได้เหมือนเดิมทุกครั้ง (seed เดียวกัน)", () => {
+  const a = syntheticPrices(2, 60, 11), b = syntheticPrices(2, 60, 11);
+  ok(a.n === b.n && a.C[10] === b.C[10] && a.O[50] === b.O[50]);
+  for (let i = 0; i < a.n; i++) ok(a.H[i] >= a.L[i] && a.C[i] > 0);
+});
+
+/* ---- precompute ---- */
+test("นับจำนวนแท่งที่เหลือของแต่ละหุ้นถูกต้อง", () => {
+  const D = D_of(bars("A", walk(30, 1)).concat(bars("B", walk(20, 2))));
+  ok(D.rowsToEnd[0] === 29 && D.rowsToEnd[29] === 0 && D.rowsToEnd[30] === 19);
+});
+test("Breadth อยู่ในช่วง 0-1", () => {
+  const D = D_of(bars("A", walk(120, 3)).concat(bars("B", walk(120, 4))));
+  for (let i = 0; i < D.n; i++) ok(!isFinite(D.X.BREADTH[i]) || (D.X.BREADTH[i] >= 0 && D.X.BREADTH[i] <= 1));
+});
+test("ตัวกรองสภาพคล่อง (ราคา/มูลค่าซื้อขาย) ทำงาน", () => {
+  const oldT = CFG.MIN_TURNOVER, oldP = CFG.MIN_PRICE;
+  try {
+    CFG.MIN_TURNOVER = 1e12; CFG.MIN_PRICE = 1;
+    let D = D_of(bars("X", new Array(40).fill(100), null, null, null, 1000));
+    ok(Array.from(D.X.TRADABLE).every(v => v === 0));
+    CFG.MIN_TURNOVER = 0;
+    D = D_of(bars("Y", new Array(40).fill(0.5), null, null, null, 1e9));
+    ok(Array.from(D.X.TRADABLE).every(v => v === 0));
+  } finally { CFG.MIN_TURNOVER = oldT; CFG.MIN_PRICE = oldP; }
+});
+test("ไม่มองอนาคต (non-repainting) ครบทั้ง 10 ตระกูล", () => {
+  const c = walk(130, 42);
+  const o = c.map((v, i) => i ? c[i-1] * 1.001 : v);
+  const h = c.map((v, i) => Math.max(v, o[i]) * 1.012);
+  const l = c.map((v, i) => Math.min(v, o[i]) * 0.988);
+  const rowsAll = bars("X", c, o, h, l);
+  const full = D_of(rowsAll);
+  for (let fam = 0; fam < 10; fam++) {
+    const mf = entryMask(full, fam, DEFAULTS);
+    for (let t = 118; t < 130; t++) {
+      const pre = D_of(rowsAll.slice(0, t + 1));
+      const mp = entryMask(pre, fam, DEFAULTS);
+      ok(mp[pre.n - 1] === mf[t], "ตระกูล " + fam + " เปลี่ยนค่าย้อนหลังที่แท่ง " + t);
+    }
+  }
+});
+
+/* ---- สัญญาณแต่ละตระกูล ---- */
+test("ตระกูล 0 (MR) ยิงเมื่อ RSI ต่ำและหลุด Bollinger", () => {
+  const c = new Array(40).fill(100).concat([95, 90, 86, 83, 80], new Array(10).fill(82));
+  const D = D_of(bars("X", c));
+  const m = entryMask(D, 0, {rsi_period: 7, rsi_threshold: 40, bb_period: 10, bb_std: 1.5});
+  ok(Array.from(m).some(v => v === 1));
+});
+test("ตระกูล 1 (breakout) ยิงเมื่อทำจุดสูงสุดใหม่", () => {
+  const c = []; for (let i = 0; i < 60; i++) c.push(100 + i);
+  const D = D_of(bars("X", c));
+  ok(entryMask(D, 1, {donchian_n: 10})[59] === 1);
+});
+test("ตระกูล 2 (pullback) ต้องมีทั้งเทรนด์ขึ้นและ RSI ย่อ", () => {
+  const c = [];
+  for (let i = 0; i < 120; i++) c.push(80 + i * 0.5);
+  c.push(138, 133, 128);
+  const D = D_of(bars("X", c));
+  ok(Array.from(entryMask(D, 2, {ema_fast: 8, ema_slow: 26, rsi_period: 7, rsi_threshold: 40}))
+     .some(v => v === 1));
+});
+test("ตระกูล 3 (MACD) ยิงตอนตัดขึ้นเท่านั้น", () => {
+  const c = walk(150, 21);
+  const D = D_of(bars("X", c));
+  const m = entryMask(D, 3, {ema_fast: 12, ema_slow: 26});
+  const mac = D.X["MACDX12_26"];
+  for (let i = 0; i < D.n; i++) ok(m[i] === (mac[i] === 1 ? 1 : 0));
+});
+test("ตระกูล 4 (Stochastic) ยิงตอน oversold", () => {
+  const c = [];
+  for (let i = 0; i < 50; i++) c.push(120 - i * 0.8);
+  for (let i = 0; i < 30; i++) c.push(80 + i * 0.5);
+  const D = D_of(bars("X", c));
+  ok(Array.from(entryMask(D, 4, {stoch_th: 25})).some(v => v === 1));
+});
+test("ตระกูล 5 (gap down reversal) ยิงเฉพาะแท่งที่ gap ลงแล้วฟื้น", () => {
+  const c = new Array(60).fill(100), o = new Array(60).fill(100);
+  o[40] = 97; c[40] = 99;
+  const D = D_of(bars("X", c, o));
+  const m = entryMask(D, 5, {gap_pct: 2.0});
+  ok(m[40] === 1 && Array.from(m).reduce((a, b) => a + b, 0) === 1);
+});
+test("ตระกูล 6 (volume spike breakout) ยิงเมื่อวอลุ่มพุ่ง + ทะลุ", () => {
+  const c = [], v = [];
+  for (let i = 0; i < 60; i++) { c.push(90 + i * 0.2); v.push(1e6); }
+  v[50] = 5e6;
+  const D = D_of(bars("X", c, null, null, null, v));
+  ok(entryMask(D, 6, {donchian_n: 10, vol_mult: 2.0})[50] === 1);
+});
+test("ตระกูล 7 (inside bar break) ยิงหลัง inside bar", () => {
+  const n = 40, c = new Array(n).fill(100), o = new Array(n).fill(100);
+  const h = new Array(n).fill(102), l = new Array(n).fill(98);
+  h[30] = 101; l[30] = 99; c[31] = 101.5; h[31] = 102;
+  const D = D_of(bars("X", c, o, h, l));
+  ok(entryMask(D, 7, {require_trend: 0})[31] === 1);
+});
+test("ตระกูล 8 (down streak) ยิงเมื่อครบจำนวนวันที่กำหนด", () => {
+  const c = new Array(30).fill(100).concat([99, 98, 97], new Array(10).fill(100));
+  const D = D_of(bars("X", c));
+  const m = entryMask(D, 8, {streak_n: 3, require_trend: 0});
+  ok(m[32] === 1 && m[31] === 0);
+});
+test("ตระกูล 9 (SMA reclaim) ยิงตอนตัดขึ้นเหนือเส้น", () => {
+  const c = [];
+  for (let i = 0; i < 40; i++) c.push(120 - i);
+  for (let i = 0; i < 15; i++) c.push(95);
+  const D = D_of(bars("X", c));
+  ok(Array.from(entryMask(D, 9, {sma_n: 20})).some(v => v === 1));
+});
+test("ตระกูลที่ไม่รู้จักต้องฟ้อง error", () => {
+  const D = D_of(bars("X", walk(40, 2)));
+  throws(() => entryMask(D, 99, DEFAULTS));
+});
+test("ตัวกรองทำให้สัญญาณลดลงเท่านั้น (ไม่เพิ่ม)", () => {
+  const D = D_of(bars("A", walk(200, 6)).concat(bars("B", walk(200, 7))));
+  const base = filterMask(D, 0, 0, 0).reduce((a, b) => a + b, 0);
+  for (const f of [[25,0,0],[0,1,0],[0,0,1],[25,1,1]])
+    ok(filterMask(D, f[0], f[1], f[2]).reduce((a, b) => a + b, 0) <= base);
+});
+
+/* ---- การจำลองการเทรด ---- */
+function simOne(entryPrice, futureBars, hold, xm, tp, sl, skip1) {
+  // สร้างข้อมูลที่แท่ง 0 เป็นแท่งสัญญาณ แล้วตามด้วยแท่งอนาคตที่กำหนดเอง
+  const c = [entryPrice], o = [entryPrice], h = [entryPrice], l = [entryPrice];
+  for (const b of futureBars) { o.push(b[0]); h.push(b[1]); l.push(b[2]); c.push(b[3]); }
+  const ps = cleanPrices(bars("X", c, o, h, l));
+  const D = {ps: ps, X: {ATR14: new Float64Array(ps.n).fill(1)}, n: ps.n,
+             rowsToEnd: new Int32Array(ps.n)};
+  for (let i = 0; i < ps.n; i++) D.rowsToEnd[i] = ps.n - 1 - i;
+  return runTrades(D, [0], [futureBars[0][0]], hold, xm, tp, sl, !!skip1, true);
+}
+test("ชน TP -> กำไรตรงตามที่ตั้ง (หักค่าคอมแล้ว)", () => {
+  const m = simOne(100, [[100, 101, 99, 100], [100, 104, 99.5, 103]], 2, 0, 3, 3);
+  ok(m.n_tp === 1 && m.wins === 1);
+  near(m.avg_net, r2(3 - CFG.FRICTION), 0.011);
+});
+test("ชน SL -> ขาดทุนตรงตามที่ตั้ง", () => {
+  const m = simOne(100, [[100, 101, 96.5, 97], [100, 104, 99, 103]], 2, 0, 3, 3);
+  ok(m.n_sl === 1 && m.wins === 0);
+  near(m.avg_net, r2(-3 - CFG.FRICTION), 0.011);
+});
+test("เปิด gap ทะลุ SL -> คิดที่ราคาเปิดจริง (ขาดทุนมากกว่า SL)", () => {
+  const m = simOne(100, [[100, 101, 98, 99], [90, 92, 89, 91]], 2, 0, 3, 3);
+  ok(m.n_sl === 1 && m.avg_net < -9, "ต้องขาดทุนมากกว่า 9% ได้ " + m.avg_net);
+});
+test("เปิด gap ทะลุ TP -> คิดที่ราคาเปิดจริง (กำไรมากกว่า TP)", () => {
+  const m = simOne(100, [[100, 101, 98, 99], [110, 112, 109, 111]], 2, 0, 3, 3);
+  ok(m.n_tp === 1 && m.avg_net > 9);
+});
+test("แท่งแรกไม่นับเป็น gap (ราคาเปิดคือราคาที่เข้าไม้เอง)", () => {
+  const m = simOne(100, [[100, 100.5, 99.5, 100]], 1, 0, 1, 1);
+  ok(m.n_time === 1, "ควรออกด้วยเวลา ไม่ใช่ gap");
+});
+test("ชนทั้ง TP และ SL ในแท่งเดียว -> นับเป็นแพ้ (worst case)", () => {
+  const m = simOne(100, [[100, 103, 97, 100]], 1, 0, 2, 2);
+  ok(m.n_sl === 1 && m.wins === 0);
+});
+test("ถือครบกำหนด -> ออกที่ราคาปิด", () => {
+  const m = simOne(100, [[100,101,99,100.5],[100,102,99,101.5],[101,103,100,102.5]], 3, 0, 20, 20);
+  ok(m.n_time === 1);
+  near(m.avg_net, r2(2.5 - CFG.FRICTION), 0.011);
+});
+test("โหมด limit: วันที่ order ติด ไม่นับ TP (ไม่รู้ลำดับ intraday)", () => {
+  const a = simOne(100, [[100, 200, 99, 100], [100, 100.2, 99, 100]], 2, 0, 1, 10, true);
+  ok(a.n_tp === 0);
+  const b = simOne(100, [[100, 200, 99, 100], [100, 100.2, 99, 100]], 2, 0, 1, 10, false);
+  ok(b.n_tp === 1);
+});
+test("โหมด limit: วันที่ order ติด ยังเช็ค SL ตามปกติ", () => {
+  const m = simOne(100, [[100, 101, 98, 99]], 1, 0, 10, 1, true);
+  ok(m.n_sl === 1);
+});
+test('"ชนะ" คือกำไรสุทธิ > 0 ไม่ใช่แค่แตะ TP', () => {
+  const m = simOne(100, [[100, 100.5, 99.9, 100.4]], 1, 0, 0.4, 5);
+  ok(m.n_tp === 1 && m.wins === 0, "TP เล็กกว่าค่าคอมต้องไม่ถูกนับว่าชนะ");
+});
+test("กำไรต่อวัน = กำไรต่อไม้ ÷ จำนวนวันที่ถือ", () => {
+  const m = simOne(100, [[100,101,99,100],[100,101,99,100],[100,110,99,109]], 3, 0, 6, 20);
+  ok(m.avg_hold === 3);
+  near(m.net_per_day, r2(m.avg_net / 3), 0.02);
+});
+test("SL ที่คำนวณแล้วติดลบ (ATR ใหญ่กว่าราคา) ต้องถูกตัดทิ้ง ไม่นับเป็นชนะ", () => {
+  const c = [10, 10, 10, 10], o = c.slice(), h = [10, 12, 12, 12], l = [10, 8, 8, 8];
+  const ps = cleanPrices(bars("X", c, o, h, l));
+  const D = {ps: ps, X: {ATR14: new Float64Array(ps.n).fill(100)}, n: ps.n,
+             rowsToEnd: new Int32Array(ps.n)};
+  for (let i = 0; i < ps.n; i++) D.rowsToEnd[i] = ps.n - 1 - i;
+  ok(runTrades(D, [0], [10], 2, 1, 1, 3, false, true) === null, "SL=-290 ต้องไม่ถูกนับเป็นไม้");
+  const m = runTrades(D, [0], [10], 2, 0, 5, 5, false, true);   // โหมด % ยังทำงานปกติ
+  ok(m && m.n_trades === 1);
+});
+test("ATR = 0 (ราคานิ่งสนิท) ต้องไม่สร้างไม้ชนะจอมปลอม", () => {
+  const flat = new Array(80).fill(100);
+  const D = D_of(bars("F", flat, flat, flat, flat));
+  const st = S(0, {rsi_threshold: 60, exit_mode: 1, tp_val: 2, sl_val: 2});
+  ok(evaluate(D, st, fullSeg(D)) === null);
+});
+
+/* ---- ค้นหา / ยืนยัน ---- */
+test("จำนวนสมการที่ค้นตรงกับการคำนวณมือ", () => {
+  const nf = SPACE.adx_min.length * SPACE.vol_filter.length * SPACE.regime_filter.length;
+  const nx = SPACE.entry_mode.length * SPACE.hold_days.length * EXITS.length;
+  let manual = 0;
+  for (let f = 0; f < 10; f++) manual += entryCombos(f).length * nf * nx;
+  ok(countSpace() === manual && manual > 100000);
+});
+test("ตัดสมการที่ให้ผลลัพธ์เหมือนกันเป๊ะออก", () => {
+  const mk = i => ({st: makeStrategy(0, {rsi_period:7,rsi_threshold:30,bb_period:10,bb_std:1.5},
+    0, 2, i, 3, 0, 0, 0, 0), m: {n_trades: 50, wins: 40, avg_net: 1, avg_hold: 2}, sc: 1});
+  const pool = []; for (let i = 0; i < 10; i++) pool.push(mk(i));
+  ok(dedupCands(pool, 10).length === 1);
+});
+test("จำกัดจำนวนสมการต่อกลุ่มพารามิเตอร์เดียวกัน", () => {
+  const pool = [];
+  for (let i = 0; i < 20; i++) pool.push({st: makeStrategy(0, {rsi_period:7,rsi_threshold:30,
+    bb_period:10,bb_std:1.5}, 0, 2, 2, 3, 0, 0, 0, 0),
+    m: {n_trades: 50 + i, wins: 40, avg_net: 1, avg_hold: 2}, sc: 1});
+  ok(dedupCands(pool, 20, 4).length === 4);
+});
+test("แบ่งข้อมูล 3 ช่วงไม่ทับกัน และมี embargo กันชน", () => {
+  const D = D_of(bars("A", walk(300, 12)).concat(bars("B", walk(300, 13))));
+  const s = makeSegments(D);
+  for (let i = 0; i < D.n; i++) {
+    ok(!(s.is_[i] && s.oos1[i]) && !(s.oos1[i] && s.oos2[i]) && !(s.is_[i] && s.oos2[i]));
+    ok(s.oos[i] === (s.oos1[i] || s.oos2[i] ? 1 : 0));
+  }
+  let maxIs = 0;
+  for (let i = 0; i < D.n; i++) if (s.is_[i]) maxIs = Math.max(maxIs, D.ps.date[i]);
+  ok(maxIs < s.cut1, "in-sample ต้องจบก่อนวันคั่นจริง (embargo)");
+});
+test("ข้อมูลสั้นเกินไปต้องฟ้อง", () => {
+  throws(() => makeSegments(D_of(bars("X", walk(30, 1)))));
+});
+test("การให้เกรด A/B/ตก ตรงตามเกณฑ์ที่ประกาศ", () => {
+  const good = {n_trades: 50, win_rate: 85, net_per_day: 3, avg_net: 3, wilson_lb: 75};
+  const mid = {n_trades: 50, win_rate: 62, net_per_day: 0.5, avg_net: 1, wilson_lb: 55};
+  const bad = {n_trades: 50, win_rate: 40, net_per_day: -0.5, avg_net: -1, wilson_lb: 30};
+  const thin = {n_trades: 3, win_rate: 100, net_per_day: 9, avg_net: 9, wilson_lb: 40};
+  ok(gradeOf(good, good, good) === "A");
+  ok(gradeOf(mid, mid, mid) === "B");
+  ok(gradeOf(bad, bad, bad) === "-");
+  ok(gradeOf(thin, thin, thin) === "-");
+  ok(gradeOf(good, bad, good) === "-");
+  ok(gradeOf(null, good, good) === "-");
+});
+test("ค้นเจอ edge ที่ปลูกไว้จริง (ย่อแล้วเด้งเป็นจังหวะ)", async () => {
+  const rnd = mulberry32(9);
+  const c = []; let p = 100;
+  for (let i = 0; i < 420; i++) {
+    const k = i % 20;
+    if (k < 4) p *= 0.985; else if (k < 7) p *= 1.02; else p *= 1 + gaussFrom(rnd) * 0.004;
+    c.push(p);
+  }
+  const D = D_of(bars("P", c, null, c.map(v => v * 1.012), c.map(v => v * 0.995)));
+  const res = await runSearch(D, fullSeg(D), {minTrades: 10, keepTop: 5, families: [0, 4]});
+  ok(res.cands.length > 0, "ควรหาสมการที่ผ่านเกณฑ์ได้");
+  ok(res.cands[0].m.win_rate >= 70 && res.cands[0].m.avg_net > 0);
+});
+
+/* ---- พอร์ตจำลอง ---- */
+test("พอร์ตไม่ถือเกินจำนวนไม้ที่กำหนด และเงินไม่ติดลบ", () => {
+  const rows = [];
+  for (let i = 0; i < 6; i++) rows.push.apply(rows, bars("T" + i, walk(220, 30 + i)));
+  const D = D_of(rows);
+  const p = portfolioBacktest(D, S(4, {stoch_th: 25, hold_days: 3}), null, 500000, 2);
+  ok(p.equity.every(e => e.open <= 2 && e.eq > 0));
+});
+test("พอร์ตเดินเฉพาะช่วงที่ทดสอบ", () => {
+  const D = D_of(bars("A", walk(300, 15)).concat(bars("B", walk(300, 16))));
+  const segs = makeSegments(D);
+  const st = S(4, {stoch_th: 25});
+  const p = portfolioBacktest(D, st, segs.oos2, 300000, 3);
+  const days = new Set();
+  for (let i = 0; i < D.n; i++) if (segs.oos2[i]) days.add(D.ps.date[i]);
+  ok(p.n_days >= days.size && p.n_days <= days.size + st.hold_days + 2);
+});
+test("พอร์ตให้ผลเหมือนเดิมทุกครั้ง (deterministic)", () => {
+  const D = D_of(bars("A", walk(200, 17)).concat(bars("B", walk(200, 18))));
+  const st = S(0, {rsi_threshold: 40});
+  const a = portfolioBacktest(D, st, null, 200000, 3);
+  const b = portfolioBacktest(D, st, null, 200000, 3);
+  ok(a.final_equity === b.final_equity && a.n_trades === b.n_trades);
+});
+test("ผลตอบแทนรวมของพอร์ตตรงกับเส้นทางเงินทุน", () => {
+  const D = D_of(bars("A", walk(220, 19)).concat(bars("B", walk(220, 20))));
+  const p = portfolioBacktest(D, S(4, {stoch_th: 25, hold_days: 2}), null, 150000, 3);
+  near(p.total_return_pct, (p.equity[p.equity.length-1].eq / 150000 - 1) * 100, 0.02);
+});
+test("ไม่มีสัญญาณ -> เงินทุนคงเดิม ไม่มีไม้", () => {
+  const D = D_of(bars("A", walk(200, 21)));
+  const p = portfolioBacktest(D, S(0, {rsi_threshold: 1, bb_std: 2.5}), null, 50000, 3);
+  ok(p.n_trades === 0 && p.final_equity === 50000 && p.total_return_pct === 0);
+});
+test("ทุน/จำนวนไม้ที่ไม่ถูกต้องต้องฟ้อง", () => {
+  const D = D_of(bars("A", walk(120, 22)));
+  throws(() => portfolioBacktest(D, S(0), null, 0, 3));
+  throws(() => portfolioBacktest(D, S(0), null, 1000, 0));
+});
+test("พอร์ตบันทึกการหลุด SL แบบ gap ไว้ต่างหาก", () => {
+  const c = new Array(40).fill(100).concat([92, 100, 80], new Array(10).fill(80));
+  const o = c.slice(); o[41] = 100; o[42] = 80;
+  const h = c.map(v => v * 1.005), l = c.map(v => v * 0.995);
+  const D = D_of(bars("G", c, o, h, l));
+  const st = S(0, {rsi_period: 7, rsi_threshold: 45, bb_period: 10, bb_std: 1.5,
+                   hold_days: 5, tp_val: 5, sl_val: 5});
+  const p = portfolioBacktest(D, st, null, 200000, 1);
+  ok(p.n_trades >= 1);
+  ok(p.trades.some(t => t.kind === "SL_GAP" && t.net < -5));
+});
+
+/* ---- verdict ---- */
+function fireData(price, ticker) {
+  const p = price || 10;
+  const c = new Array(116).fill(p).concat([p*0.99, p*0.98, p*0.97, p*0.96]);
+  return D_of(bars(ticker || "CHEAP", c));
+}
+function confirmedFrom(st, n, grade) {
+  const out = [];
+  for (let i = 0; i < (n || 5); i++)
+    out.push({st: st, label: stratLabel(st), grade: grade || "B",
+      is: {n_trades: 100}, o1: {}, o2: {},
+      oos: {n_trades: 40, win_rate: 75 - i, wilson_lb: 60, avg_net: 1.5, net_per_day: 0.5,
+            profit_factor: 2, avg_hold: 3}, sc: 0.4});
+  return out;
+}
+test("ไม่มีสมการยืนยัน -> ตอบ 'ไม่เข้า' ตรง ๆ", () => {
+  const vr = decideVerdict(fireData(), []);
+  ok(vr.k === 0 && vr.orders.length === 0 && vr.overall.indexOf("ไม่เข้า") === 0);
+});
+test("สมการเห็นตรงกัน + งบพอ -> สั่งเข้า", () => {
+  const D = fireData();
+  const vr = decideVerdict(D, confirmedFrom(S(8, {streak_n: 3, hold_days: 3})), {minAgree: 2});
+  ok(vr.orders.length === 1);
+  const o = vr.orders[0];
+  ok(o.ticker === "CHEAP" && o.action.indexOf("เข้า") === 0 && o.lots >= 1);
+  ok(o.sell_tp > o.buy_ref && o.buy_ref > o.stop_sl);
+});
+test("งบไม่พอ 1 lot -> เปลี่ยนเป็นเฝ้าดู พร้อมบอกเหตุผล", () => {
+  const D = fireData(5000, "PRICY");
+  const vr = decideVerdict(D, confirmedFrom(S(8, {streak_n: 3})), {budget: 10000});
+  ok(vr.orders.length === 1 && vr.orders[0].action.indexOf("เฝ้าดู") === 0);
+  ok(vr.orders[0].reasons.indexOf("งบไม่พอ") >= 0);
+});
+test("จำกัดจำนวนออร์เดอร์ตามจำนวนไม้สูงสุด", () => {
+  const rows = [];
+  for (let i = 0; i < 4; i++) {
+    const p = 10 + i;
+    const c = new Array(116).fill(p).concat([p*0.99, p*0.98, p*0.97, p*0.96]);
+    rows.push.apply(rows, bars("S" + i, c));
+  }
+  const D = D_of(rows);
+  const vr = decideVerdict(D, confirmedFrom(S(8, {streak_n: 3})), {maxOrders: 2, minAgree: 1});
+  ok(vr.orders.filter(o => o.action.indexOf("เข้า") === 0).length === 2);
+  ok(vr.orders.some(o => o.reasons.indexOf("เกินจำนวนไม้สูงสุด") >= 0));
+});
+test("ฉันทามติไม่ถึงเกณฑ์ -> เฝ้าดู", () => {
+  const D = fireData();
+  const conf = confirmedFrom(S(8, {streak_n: 3}), 1).concat(confirmedFrom(S(1, {donchian_n: 40}), 4));
+  const vr = decideVerdict(D, conf, {topK: 5, minAgree: 3});
+  ok(vr.orders.length && vr.orders.every(o => o.action.indexOf("เฝ้าดู") === 0));
+});
+test("สัญญาณสดใช้ตรรกะเดียวกับ backtest (ไม่ใช่โค้ดคนละชุด)", () => {
+  const D = fireData();
+  const conf = confirmedFrom(S(8, {streak_n: 3}));
+  const vr = decideVerdict(D, conf, {minAgree: 1});
+  let last = -Infinity;
+  for (let i = 0; i < D.n; i++) last = Math.max(last, D.ps.date[i]);
+  const em = entryMask(D, conf[0].st.fam, conf[0].st);
+  const fm = filterMask(D, 0, 0, 0);
+  const set = new Set();
+  for (let i = 0; i < D.n; i++) if (D.ps.date[i] === last && em[i] && fm[i]) set.add(D.ps.tickers[D.ps.tid[i]]);
+  ok(set.size === vr.orders.length);
+  for (const o of vr.orders) ok(set.has(o.ticker));
+});
+
+/* ---- สมุดบันทึก ---- */
+function jrow(ov) {
+  return Object.assign({signal_date: "2021-01-04", ticker: "X", strategy: "s", grade: "B",
+    order_type: "ซื้อที่ราคาเปิด (Market@Open)", entry_mode: 0, buy_ref: 100, sell_tp: 105,
+    stop_sl: 95, tp_pct: 5, sl_pct: 5, hold_days: 3, status: "PENDING", fill_price: null,
+    exit_date: null, exit_price: null, net: null, expected_wr: 75, expected_npd: 0.5,
+    run_date: "2021-01-04"}, ov || {});
+}
+function psFrom(o, h, l, c) { return cleanPrices(bars("X", c, o, h, l)); }
+test("ตัดสินผล: ชน TP -> บันทึกกำไรถูกต้อง", () => {
+  const ps = psFrom([99, 100, 101], [99, 101, 106], [99, 99, 100], [99, 100, 105]);
+  const j = resolveJournal([jrow()], ps);
+  ok(j[0].status === "FILLED_TP" && j[0].fill_price === 100);
+  near(j[0].net, r2(5 - CFG.FRICTION), 0.011);
+});
+test("ตัดสินผล: เปิด gap ทะลุ SL -> คิดที่ราคาเปิดจริง", () => {
+  const ps = psFrom([99, 100, 80], [99, 101, 81], [99, 99, 78], [99, 100, 79]);
+  const j = resolveJournal([jrow()], ps);
+  ok(j[0].status === "FILLED_SL" && j[0].exit_price === 80 && j[0].net < -19);
+});
+test("ตัดสินผล: คิด TP/SL ใหม่จากราคาที่ได้จริง", () => {
+  const ps = psFrom([99, 90, 94], [99, 92, 95], [99, 89, 93], [99, 91, 94.6]);
+  const j = resolveJournal([jrow()], ps);
+  ok(j[0].fill_price === 90 && j[0].status === "FILLED_TP");
+  near(j[0].exit_price, 94.5, 1e-9);
+});
+test("ตัดสินผล: limit ไม่ติด -> NOT_FILLED (ไม่เสียอะไร)", () => {
+  const ps = psFrom([99, 100], [99, 101], [99, 96], [99, 100]);
+  const j = resolveJournal([jrow({entry_mode: 1, buy_ref: 95})], ps);
+  ok(j[0].status === "NOT_FILLED");
+});
+test("ตัดสินผล: ยังไม่ครบวันถือ -> คงสถานะรอผล", () => {
+  const ps = psFrom([99, 100], [99, 101], [99, 99], [99, 100]);
+  const j = resolveJournal([jrow({tp_pct: 50, sl_pct: 50})], ps);
+  ok(j[0].status === "PENDING" && j[0].fill_price === 100);
+});
+test("ตัดสินผล: ไม่มีข้อมูลหุ้นตัวนั้น -> NO_DATA (ไม่พัง)", () => {
+  const ps = psFrom([10], [10], [10], [10]);
+  ok(resolveJournal([jrow({ticker: "GONE"})], ps)[0].status === "NO_DATA");
+});
+test("ตัดสินผล: ข้อมูลในสมุดเสีย -> ไม่เดา ไม่พัง", () => {
+  const ps = psFrom([99, 100, 101], [99, 106, 101], [99, 98, 100], [99, 104, 101]);
+  ok(resolveJournal([jrow({tp_pct: null, sl_pct: null, sell_tp: null, stop_sl: null})], ps)[0]
+     .status === "PENDING");
+  ok(resolveJournal([jrow({signal_date: "ไม่ใช่วันที่"})], ps)[0].status === "NO_DATA");
+  ok(resolveJournal([], ps).length === 0);
+});
+test("บันทึกออร์เดอร์ซ้ำวันเดิมไม่เพิ่มซ้ำ (idempotent)", () => {
+  const vr = {asof: "2021-01-04", orders: [
+    {ticker: "A", action: "เข้า (TRADE)", grade: "B", strategy: "s",
+     order_type: "x", entry_mode: 0, buy_ref: 10, sell_tp: 11, stop_sl: 9, tp_pct: 10,
+     sl_pct: 10, lots: 1, shares: 100, cost: 1000, hold_days: 3, expected_wr: 70,
+     expected_npd: 0.5, reasons: "-"},
+    {ticker: "B", action: "เฝ้าดู (WATCH)", grade: "B", strategy: "s", order_type: "x",
+     entry_mode: 0, buy_ref: 10, sell_tp: 11, stop_sl: 9, tp_pct: 10, sl_pct: 10, lots: 0,
+     shares: 0, cost: 0, hold_days: 3, expected_wr: 70, expected_npd: 0.5, reasons: "-"}]};
+  let j = appendOrders([], vr, "2021-01-04");
+  j = appendOrders(j, vr, "2021-01-04");
+  ok(j.length === 1 && j[0].ticker === "A" && j[0].hold_days === 3);
+});
+test("สถิติสมุดบันทึกคำนวณถูก", () => {
+  const j = [jrow({status: "FILLED_TP", net: 4.49}), jrow({status: "FILLED_TP", net: 4.49}),
+             jrow({status: "FILLED_SL", net: -5.51}), jrow({status: "FILLED_TIME", net: 0.5}),
+             jrow({status: "NOT_FILLED"}), jrow({status: "PENDING"})];
+  const s = journalStats(j);
+  ok(s.n_orders === 6 && s.n_pending === 1 && s.n_not_filled === 1);
+  ok(s.n_resolved === 4 && s.wins === 3 && s.realized_wr === 75);
+  near(s.cum_net, r2(4.49 + 4.49 - 5.51 + 0.5), 0.011);
+});
+test("วงจรครบ: ฟันธง -> บันทึก -> ตัดสินผลจากราคาจริง", () => {
+  const D = fireData();
+  const vr = decideVerdict(D, confirmedFrom(S(8, {streak_n: 3, hold_days: 3})), {minAgree: 1});
+  ok(vr.orders.length === 1);
+  const j = appendOrders([], vr, vr.asof);
+  ok(j.length === 1 && j[0].status === "PENDING");
+  const ps = psFrom([99, 100, 101], [99, 101, 106], [99, 99, 100], [99, 100, 105]);
+  j[0].ticker = "X"; j[0].signal_date = dstr(ps.date[0]);
+  const jr = resolveJournal(j, ps);
+  ok(["FILLED_TP", "FILLED_SL", "FILLED_TIME"].indexOf(jr[0].status) >= 0);
+});
+
+async function runTests() {
+  const t0 = performance.now();
+  const fails = [];
+  let passed = 0;
+  const oldT = CFG.MIN_TURNOVER, oldP = CFG.MIN_PRICE;
+  CFG.MIN_TURNOVER = 0; CFG.MIN_PRICE = 0;      // เทสต์ใช้ข้อมูลจำลองเล็ก ๆ
+  try {
+    for (const [name, fn] of TESTS) {
+      try { await fn(); passed++; }
+      catch (e) { fails.push(name + " -> " + (e && e.message ? e.message : e)); }
+    }
+  } finally { CFG.MIN_TURNOVER = oldT; CFG.MIN_PRICE = oldP; }
+  return {total: TESTS.length, passed: passed, failed: fails.length, fails: fails,
+          secs: (performance.now() - t0) / 1000};
+}
+
+/* ==========================================================================
+   MAIN — เปิดไฟล์แล้วรันครั้งเดียวจนจบ (ไม่มีอะไรทำงานค้างเบื้องหลัง)
+   ========================================================================== */
+let LAST_PS = null, LAST_SOURCE = "", LAST_DEMO = true, RUNNING = false, TEST_RESULT = null;
+
+function setStatus(msg, pct, log) {
+  $("status").textContent = msg;
+  if (pct !== undefined && pct !== null) $("pbar").style.width = Math.max(0, Math.min(100, pct)) + "%";
+  if (log !== undefined) $("plog").textContent = log;
+}
+function setBusy(b) {
+  RUNNING = b;
+  for (const id of ["btn-rerun", "btn-live", "btn-csv", "btn-clear"]) $(id).disabled = b;
+}
+
+async function runPipeline(ps, sourceLabel, isDemo) {
+  if (RUNNING) return;
+  setBusy(true);
+  window.__DONE__ = false;
+  const t0 = performance.now();
+  try {
+    if (!ps || !ps.n) throw new Error("ไม่มีข้อมูลราคา");
+    LAST_PS = ps; LAST_SOURCE = sourceLabel; LAST_DEMO = !!isDemo;
+
+    if (!TEST_RESULT) {
+      setStatus("1/7 ตรวจสอบตัวเองก่อนใช้งาน (self-test) ...", 3);
+      await sleep(0);
+      TEST_RESULT = await runTests();
+    }
+    const tests = TEST_RESULT;
+    setStatus("2/7 เตรียมข้อมูล + คำนวณอินดิเคเตอร์ ...", 8,
+      "หุ้น " + ps.tickers.length + " ตัว · " + fmt(ps.n, " แถว", 0) +
+      " · เทสต์ผ่าน " + tests.passed + "/" + tests.total);
+    await sleep(0);
+    const D = precompute(ps);
+    const segs = makeSegments(D);
+
+    setStatus("3/7 ค้นหาสมการทั้งหมด (exhaustive) บนช่วง in-sample ...", 12);
+    await sleep(0);
+    const sr = await runSearch(D, segs.is_, {
+      minTrades: CFG.MIN_TRADES_IS, keepTop: CFG.TOP_VALIDATE,
+      onProgress: (done, total, passed, secs) => {
+        setStatus("3/7 ค้นหาสมการทั้งหมด (exhaustive) ...", 12 + 58 * done / total,
+          fmt(done, "", 0) + "/" + fmt(total, " สมการ", 0) + " · ผ่านเกณฑ์พื้น " +
+          fmt(passed, "", 0) + " · " + fmt(secs, " วิ", 1));
+      }});
+
+    setStatus("4/7 ยืนยันบนข้อมูลที่ไม่เคยเห็น 2 ช่วง ...", 72,
+      "ผู้เข้ารอบ " + sr.cands.length + " สมการ");
+    await sleep(0);
+    const confirmed = await validateAll(D, sr.cands, segs, (i, n) =>
+      setStatus("4/7 ยืนยัน out-of-sample ...", 72 + 12 * i / n, "ยืนยันแล้ว " + i + "/" + n));
+
+    const nA = confirmed.filter(c => c.grade === "A").length;
+    const nB = confirmed.filter(c => c.grade === "B").length;
+    const best = (confirmed.length && confirmed[0].grade !== "-") ? confirmed[0] : null;
+
+    setStatus("5/7 จำลองพอร์ตด้วยเงินจริง ...", 86);
+    await sleep(0);
+    const port = best ? portfolioBacktest(D, best.st, segs.oos, CFG.CAPITAL, CFG.MAX_POS) : null;
+
+    setStatus("6/7 ตัดสินผลออร์เดอร์เก่า + ฟันธงวันถัดไป ...", 92);
+    await sleep(0);
+    let journal = resolveJournal(loadJournal(), ps);
+    const vr = decideVerdict(D, confirmed);
+    journal = appendOrders(journal, vr, dstr(Date.now()));
+    const saved = saveJournal(journal);
+
+    setStatus("7/7 สร้างรายงาน ...", 97);
+    await sleep(0);
+    let first = Infinity, last = -Infinity;
+    for (let i = 0; i < ps.n; i++) { if (ps.date[i] < first) first = ps.date[i]; if (ps.date[i] > last) last = ps.date[i]; }
+    const R = {source: sourceLabel, demo: isDemo, nTickers: ps.tickers.length, nRows: ps.n,
+      firstBar: dstr(first), lastBar: dstr(last), space: countSpace(), searchSecs: sr.secs,
+      tests: tests, confirmed: confirmed, nA: nA, nB: nB, best: best, port: port,
+      verdict: vr, journal: journal, jstats: journalStats(journal),
+      honest: honestNote(nA, nB, best, port)};
+    renderAll(R);
+    const secs = (performance.now() - t0) / 1000;
+    setStatus("เสร็จสิ้น — จบการทำงานแล้ว (ใช้เวลา " + fmt(secs, " วินาที", 1) + ")", 100,
+      "ค้น " + fmt(sr.evaluated, "", 0) + " สมการ · ผ่านเกณฑ์พื้น " + fmt(sr.passed, "", 0) +
+      " · ยืนยันผ่าน A=" + nA + " B=" + nB + (saved ? "" : " · (เบราว์เซอร์ปิด localStorage: สมุดบันทึกจะไม่ถูกเก็บข้ามครั้ง)"));
+    window.__RESULT__ = {tests: {total: tests.total, passed: tests.passed, failed: tests.failed,
+        fails: tests.fails}, nA: nA, nB: nB, nCand: sr.cands.length, evaluated: sr.evaluated,
+      passedFloor: sr.passed, searchSecs: r2(sr.secs, 2), totalSecs: r2(secs, 2),
+      orders: vr.orders.length, overall: vr.overall,
+      bestWR: best ? best.oos.win_rate : null, bestNPD: best ? best.oos.net_per_day : null,
+      portDaily: port ? port.avg_daily_pct : null, rows: ps.n, tickers: ps.tickers.length};
+  } catch (e) {
+    console.error(e);
+    setStatus("เกิดข้อผิดพลาด: " + (e && e.message ? e.message : e), 100, "");
+    $("out").innerHTML = '<div class="card"><h2>ทำงานไม่สำเร็จ</h2><div class="muted">' +
+      esc(e && e.stack ? e.stack : String(e)) + '</div></div>';
+    window.__RESULT__ = {error: String(e && e.message ? e.message : e)};
+  } finally {
+    setBusy(false);
+    window.__DONE__ = true;
+  }
+}
+
+/* ---------------------------------------------------------------- events */
+function wire() {
+  $("btn-rerun").addEventListener("click", () => {
+    if (LAST_PS) runPipeline(LAST_PS, LAST_SOURCE, LAST_DEMO);
+  });
+  $("btn-clear").addEventListener("click", () => {
+    saveJournal([]);
+    setStatus("ล้างสมุดบันทึกแล้ว — กด 'รันใหม่อีกครั้ง' เพื่ออัปเดตรายงาน", null, "");
+  });
+  $("btn-csv").addEventListener("click", () => $("file").click());
+  $("file").addEventListener("change", ev => {
+    const f = ev.target.files && ev.target.files[0];
+    if (f) readCSVFile(f);
+    ev.target.value = "";
+  });
+  const drop = $("drop");
+  ["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => {
+    e.preventDefault(); drop.classList.add("over");
+  }));
+  ["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => {
+    e.preventDefault(); drop.classList.remove("over");
+  }));
+  drop.addEventListener("drop", e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) readCSVFile(f);
+  });
+  $("btn-live").addEventListener("click", async () => {
+    if (RUNNING) return;
+    setBusy(true);
+    try {
+      setStatus("กำลังลองดึงราคาสด (อาจถูกเบราว์เซอร์บล็อก) ...", 2, "");
+      const res = await fetchLive(SET50, (i, n, okN, badN) =>
+        setStatus("กำลังดึงราคาสด ...", 2 + 8 * i / n,
+          "ดึงแล้ว " + i + "/" + n + " · สำเร็จ " + okN + " · ล้มเหลว " + badN));
+      setBusy(false);
+      await runPipeline(res.ps, "ราคาสดจาก Yahoo Finance", false);
+    } catch (e) {
+      setBusy(false);
+      setStatus("ดึงราคาสดไม่สำเร็จ: " + (e && e.message ? e.message : e), null,
+        "ทางออกที่ชัวร์กว่า: ใช้ปุ่ม 'โหลดไฟล์ราคา CSV' (ไฟล์ price_cache_daily.csv จากเวอร์ชัน Python ใช้ได้เลย)");
+    }
+  });
+}
+function readCSVFile(f) {
+  const rd = new FileReader();
+  rd.onload = async () => {
+    try {
+      const ps = parseCSV(String(rd.result));
+      await runPipeline(ps, "ไฟล์ CSV: " + f.name, false);
+    } catch (e) {
+      setStatus("อ่านไฟล์ไม่สำเร็จ: " + (e && e.message ? e.message : e), null, "");
+    }
+  };
+  rd.onerror = () => setStatus("อ่านไฟล์ไม่สำเร็จ", null, "");
+  rd.readAsText(f, "utf-8");
+}
+
+async function boot() {
+  wire();
+  setStatus("กำลังสร้างข้อมูลสาธิต (ยังไม่มีราคาจริง) ...", 1, "");
+  await sleep(0);
+  const params = new URLSearchParams(location.search);
+  const nT = Math.max(2, Math.min(50, parseInt(params.get("tickers") || CFG.DEMO_TICKERS, 10) || CFG.DEMO_TICKERS));
+  const nD = Math.max(120, Math.min(2600, parseInt(params.get("days") || CFG.DEMO_DAYS, 10) || CFG.DEMO_DAYS));
+  const ps = syntheticPrices(nT, nD, 20260725);
+  await runPipeline(ps, "ข้อมูลสาธิต (สังเคราะห์)", true);
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+else boot();
+</script>
+</body>
+</html>
