@@ -4191,7 +4191,10 @@ function planInstalled(){
 function injectPlan(force){
   if(!Array.isArray(db.todos)||!Array.isArray(db.events))return 0;
   if(!db.meta||typeof db.meta!=='object')db.meta={};
-  if(!force&&db.meta.enginePlan==='v3')return 0;
+  /* ต้องเช็ก "เคยตัดสินใจแล้วหรือยัง" ไม่ใช่แค่ "ใส่อยู่ไหมตอนนี้"
+     เดิมเช็คแค่ ==='v3' → พอ removePlan() เซ็ตเป็น '' แล้วรีโหลดหน้า init() จะเห็นว่า
+     ไม่ใช่ 'v3' แล้วยัดแผนกลับเข้ามาใหม่ทันที ทั้งที่ตอเพิ่งกด "ถอนแผนออก" ไปเอง */
+  if(!force&&db.meta.enginePlan)return 0;
   var have={}, haveE={}, added=0;
   db.todos.forEach(function(x){if(x)have[String(x.due)+'|'+String(x.n)]=1;});
   db.events.forEach(function(e){if(e)haveE[String(e.d)+'|'+String(e.n)]=1;});
@@ -4210,7 +4213,7 @@ function removePlan(){
   var before=db.todos.length+db.events.length;
   db.todos=db.todos.filter(function(x){return !(x&&String(x.id).indexOf(PLAN_TAG)===0);});
   db.events=db.events.filter(function(x){return !(x&&String(x.id).indexOf(PLAN_TAG)===0);});
-  db.meta.enginePlan='';
+  db.meta.enginePlan='removed';   /* ค่าที่ไม่ใช่ 'v3' แต่ยัง "truthy" กัน init() ยัดกลับเข้ามาเอง */
   return before-(db.todos.length+db.events.length);
 }
 function renderPlanCard(){
@@ -5473,8 +5476,13 @@ function selfTest(){
     var noDup=(n2===0);
     var removed=removePlan();
     var clean=(!planInstalled())&&(db.todos.length+db.events.length===base)&&removed===n1;
+    /* ⚠️ บั๊กเดิม: removePlan() เซ็ต enginePlan='' แล้ว injectPlan(false) เช็คแค่ ==='v3'
+       ทำให้เปิดโปรแกรมรอบถัดไป (force=false เหมือนตอน init จริง) ยัดแผนกลับเข้ามาเอง
+       ทั้งที่ตอเพิ่งกด "ถอนแผนออก" ไป — ต้องจำการตัดสินใจ ไม่ใช่จำแค่สถานะปัจจุบัน */
+    var stays=(injectPlan(false)===0)&&!planInstalled();
     db.todos=snapT; db.events=snapE; db.meta.enginePlan=snapM;
-    return installed&&noDup&&clean;}));
+    return installed&&noDup&&clean&&stays;}),
+    'ถอนแผนออกแล้วต้องไม่ถูกยัดกลับเข้ามาเองตอนเปิดโปรแกรมรอบถัดไป');
   chk('การ์ดแผนวาดออกมาจริงเมื่อแผนอยู่ในระบบ',sf(function(){
     var snapT=db.todos.slice(), snapE=db.events.slice(), snapM=db.meta.enginePlan;
     injectPlan(true); renderPlanCard();
@@ -6395,6 +6403,15 @@ function bindAll(){
       var v=$(p[0])?$(p[0]).value:'';
       if(v&&!validISO(v)){bad=p[2];return;}});
     if(bad){toast('⚠️ วันที่ "'+bad+'" ไม่ถูกต้อง');return;}
+    /* ทุกช่องในหน้านี้ห้ามติดลบ (เหมือนกฎเดียวกับ askNum ทั้งระบบ)
+       ⚠️ เดิมไม่เช็ก: พิมพ์ -5000 ติดลบไปแล้ว C จะพังทั้งเซสชันจนกว่าจะรีโหลด
+       (ตอนรีโหลด applyConsts() จะกรองค่าติดลบทิ้งเองอยู่แล้ว แต่ระหว่างนั้นเลขทั้งระบบเพี้ยน) */
+    var NKEYS=['#csStudy','#csXcap','#csGsl','#csEng','#csSalary','#csBuffer','#csWeekly',
+      '#csRt1','#csRt2','#csBamStart','#csBamMo','#csRent','#csGap'];
+    for(var ni=0;ni<NKEYS.length;ni++){
+      var nv=$(NKEYS[ni])?$(NKEYS[ni]).value:'';
+      if(nv!==''&&num(nv)<0){toast('⚠️ ห้ามใส่ค่าติดลบ');return;}
+    }
     C.LIVING=L;C.DAY_NET=D;C.STUDY_T=num($('#csStudy').value)||10;
     C.XCAP=num($('#csXcap').value)||5000;C.GSL=num($('#csGsl').value);
     C.ENG_TARGET=num($('#csEng').value)||30000;
