@@ -1,0 +1,29 @@
+# [2026-08-04] แพ็กเกจนี้ 'ถอด vendor/wheels ออกแล้ว' เพื่อลดขนาด (73 MB → 0)
+#   ติดตั้งออนไลน์:  pip install -r requirements.txt --break-system-packages
+#   ต้องการ offline install: ดาวน์โหลด wheel ตาม pin ด้านล่างไว้ล่วงหน้าแล้วใช้
+#     pip download -r requirements.txt -d vendor/wheels
+#     pip install --no-index --find-links vendor/wheels -r requirements.txt
+#   pin เหล่านี้คือชุดที่ golden 814c7cf0 ถูกสร้าง — เปลี่ยนเวอร์ชัน = golden อาจขยับ
+
+# ปุ้มปุ้ย v9 — เวอร์ชันที่พิสูจน์แล้ว (golden master baseline ทำบนชุดนี้)
+# ⚠️ Python 3.12 (ไลบรารีด้านล่างเทสต์บน 3.12). เวอร์ชันใหม่กว่ารันได้แต่ fingerprint อาจต่าง.
+#    ติดตั้ง: pip install -r requirements.txt
+
+pandas==2.2.2
+xlrd==2.0.1
+openpyxl==3.1.5
+rapidfuzz==3.10.1
+matplotlib==3.9.2
+plotly==5.24.1
+tqdm==4.67.1
+
+# ⚠️ pythainlp==5.0.5 — OPTIONAL (display/text เสริมเท่านั้น) · จงใจ "ไม่" auto-install
+#    golden master ถูกสร้าง + พิสูจน์ "โดยไม่มี pythainlp" — typo 51 ตัวมาจาก CONSTRUCTION_DICT
+#    ไม่ใช่ pythainlp (ดู CLAUDE.md landmine #6). ติดตั้งเข้าสาย golden/production แล้วเสี่ยง
+#    golden hash drift เงียบ. เชิงประจักษ์: golden ae84d3f0 reproduce ได้โดยไม่มี pythainlp
+#    (พิสูจน์ 2026-06-22 บน 148 ไฟล์จริง — engine==agent==baseline).  ← ADR-060
+#    ถ้าจำเป็นต้องใช้ feature ที่พึ่ง pythainlp จริง ให้ติดตั้งแยกเองโดยรู้ความเสี่ยง:
+#        pip install pythainlp==5.0.5
+#    (constraints.txt ยังตรึง 5.0.5 ไว้ให้ — มีผลเฉพาะเมื่อถูกติดตั้งแยก)
+#    [ADR-164 · 2026-07-02] พิสูจน์ซ้ำบนโค้ด/corpus ปัจจุบัน: "มี pythainlp==5.0.5" → fixture ad0c9dad
+#    + real f05358aa เป๊ะเดิมทั้งคู่ → 5.0.5 ปลอดภัยทั้งสองสถานะ (มี/ไม่มี) · เวอร์ชันอื่นยังห้าม.
