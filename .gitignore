@@ -33,3 +33,6 @@ company_summary_ฉบับแก้แล้ว.xlsx
 
 # golden rebaseline backups (local only — ห้าม commit)
 *.json.*.bak
+
+# คอร์ปัสขอบที่ oracle_edge_corpus.py สร้างขึ้น (regenerate ได้ — ไม่ commit)
+_edge_corpus/

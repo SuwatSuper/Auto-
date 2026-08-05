@@ -43,6 +43,9 @@ ALLOWLIST_TOOLS = {
     "oracle_itm_matrix",       # เมทริกซ์บรรทัดรายการ: ผิดจริงแล้วกฎไหนจับ (จับ false-clean ITM)
     "oracle_zero_lines",       # วัดผลกระทบช่องโหว่ 'ศูนย์ถูกมองเป็นค่าหาย' บนข้อมูลจริง
     "oracle_failopen",         # จับกฎที่กลืน exception แล้วรายงานว่า 'ผ่าน' (fail-open)
+    "oracle_provenance",       # [ADR-195] เงินที่ระบบ 'เติมเอง' ถูกแจ้งหรือไม่ (บทเรียน ADR-182)
+    "oracle_rule_liveness",    # §3.2 กฎที่ 'ไม่เคยฟ้องเลย' — ข้อมูลสะอาด หรือกฎพัง
+    "oracle_edge_corpus",      # §3.5 สร้างคอร์ปัสขอบแล้ววัดว่าระบบ 'ไม่เงียบ'
     "qa_toolchain_gate",       # [ADR-194] เครื่องมือเกตต้องตรง pin — standalone CLI, มี __main__
 }
 # test-support: โมดูลที่ "ตั้งใจให้เทสใช้" (ไม่ใช่ production path) — เช่น registry รหัสกลางสำหรับ guard
