@@ -587,7 +587,15 @@ def r_itm001(b,m,c):
     out = []
     checkable = 0
     for it in b['items']:
-        if not (it['qty'] and it['price'] and it['amount']): continue
+        # [ADR-193] "ศูนย์" ไม่ใช่ "ค่าหาย" — เดิมคัดด้วยความจริงเชิงตรรกะ
+        #   `not (qty and price and amount)` ซึ่งใน Python ทำให้ 0/0.0 (ค่าที่ "อ่านได้จริง"
+        #   จากเซลล์) ถูกจัดชั้นเดียวกับ None (ค่าที่ "หาย") แล้วข้ามเงียบ. ผลคือบรรทัด
+        #   qty=5 price=0 amount=500 หลุด ITM001 ; และหลุด ITM018 ด้วย (ทุกสาขาที่เทียบ
+        #   qty×price ต้องการ price_f > 0) → ไม่มีกฎไหนจับ = false-clean (ยอดไม่ถูกตรวจ
+        #   แต่รีพอร์ตขึ้น "ตรง"). คัดด้วย `is None` = "ค่าหายจริง" เท่านั้น ตรงเจตนาเดิม.
+        #   0×0=0 ยังลงตัว → บรรทัดศูนย์ล้วนเงียบเหมือนเดิม (ไม่เกิด false positive).
+        #   corpus จริง 0 บรรทัดที่มีศูนย์ (real_cases 0/80, fixtures 0/3) → golden-NEUTRAL.
+        if it['qty'] is None or it['price'] is None or it['amount'] is None: continue
         # [ADR-107/P4] qty==price==amount = เป็นไปไม่ได้จริง (amount=amount² ได้เฉพาะ amount≤1) →
         #   artifact การ map คอลัมน์ (ราคา/หน่วย==ยอด ถูกคว้าเป็นทั้ง qty/price ในใบเหมารวม/บริการ)
         #   ไม่ใช่ error จริง → ข้าม ไม่นับ checkable ไม่ flag. (root fix อยู่ที่ parser

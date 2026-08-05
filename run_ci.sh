@@ -156,6 +156,7 @@ run "[4b2] unit language note (ADR-091 — flag เฉพาะหน่วย�
 run "[4b3] unit missing rules (ADR-105/106 — ITM020 ทั้งบิลไม่มีหน่วย + ZWNJ/header)" "$PY" test_unit_missing_rules.py
 run "[4b4] ITM001 lump-sum guard (ADR-107 — กัน V×V≠V ปลอม + parser ไม่เดา qty/price)" "$PY" test_itm001_lumpsum.py
 run "[4b5] ITM020 collapse (ADR-108 — ยุบ 'ทั้งบิลไม่มีหน่วย' เป็นสรุปต่อไฟล์ ไม่ร่ายทีละบิล)" "$PY" test_itm020_collapse.py
+run "[4b6] ITM001 ศูนย์≠ค่าหาย (ADR-193 — price=0/amount=500 เคยหลุดทั้ง ITM001+ITM018)" "$PY" test_adr193_itm001_zero_line.py
 run "[4c] real cases (false-positive ที่ลูกค้ารายงาน)" "$PY" test_realcases_v9_2.py
 run "[5] agent contracts (fixture)" "$PY" test_agents.py . tests/fixtures
 run "[5b] agent meta-conformance (structural, ทุก agent ยึดสัญญาฐาน)" "$PY" test_agent_conformance.py .
@@ -194,6 +195,11 @@ elif command -v pip-audit >/dev/null 2>&1; then
 else
   _strict_skip "[9] pip-audit" "pip install pip-audit --break-system-packages"
 fi
+
+# [ADR-194] ก่อนรันเกตที่พึ่งเครื่องมือ — ยืนยันว่าเครื่องมือ "ตรง pin" (ไม่ใช่แค่ "มี").
+#   เครื่องมือคนละเวอร์ชัน = เกตแปลคนละอย่าง (ruff 0.16.1 → [11] แดง 73 ข้อ ทั้งที่โค้ดไม่ขยับ).
+#   ไม่ได้ติดตั้ง = ข้าม (คงพฤติกรรมเดิม) ; ติดตั้งแล้วผิดเวอร์ชัน = ตก พร้อมคำสั่งแก้.
+run "[9pre] QA toolchain pin (ADR-194 — เครื่องมือเกตต้องตรง requirements-dev.txt)" "$PY" qa_toolchain_gate.py
 
 # ── OBJ-TEST: coverage gate + lint/format/type (graceful — ไม่มี tool = ข้าม ไม่ทำ CI ตก) ──
 LINT_SCOPE="offline_guard.py file_guard.py agents/verification_lenses.py agents/verification_agent.py test_offline_audit.py test_input_hardening.py test_validators_coverage.py test_verification_lens_pin.py test_verification_lenses_unit.py"

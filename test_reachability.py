@@ -36,6 +36,14 @@ ALLOWLIST_TOOLS = {
     "sanitize_for_sharing",    # [ADR-159] สร้างแพ็ก shareable ปลอด PII — standalone CLI, มี __main__
     "machine_check",           # [ADR-163] เช็คเครื่องใหม่/ซ้อมกู้ (stdlib ล้วน) — standalone CLI, มี __main__
     "backup_kit",              # [ADR-163] bundle สำรอง+verify (ปิด gap 3-2-1) — standalone CLI, มี __main__
+    # [ADR-193] ORACLE อิสระ (§3.1 BUGHUNT) — โปรแกรมแยกที่อ่าน/คำนวณเองแล้วเทียบกับ engine
+    #   ใช้พิสูจน์บั๊กและ reproduce หลักฐานซ้ำได้ (ไม่อยู่ใน production path โดยตั้งใจ:
+    #   oracle ต้อง "ไม่แชร์โค้ด" กับสิ่งที่มันตรวจ มิฉะนั้นบั๊กเดียวกันจะกลบกันเอง). standalone CLI.
+    "oracle_suite",            # เทียบยอด/provenance/บรรทัด/ครบชีต/เลขซ้ำ/normalize/เลขคณิต/เลขภาษี
+    "oracle_itm_matrix",       # เมทริกซ์บรรทัดรายการ: ผิดจริงแล้วกฎไหนจับ (จับ false-clean ITM)
+    "oracle_zero_lines",       # วัดผลกระทบช่องโหว่ 'ศูนย์ถูกมองเป็นค่าหาย' บนข้อมูลจริง
+    "oracle_failopen",         # จับกฎที่กลืน exception แล้วรายงานว่า 'ผ่าน' (fail-open)
+    "qa_toolchain_gate",       # [ADR-194] เครื่องมือเกตต้องตรง pin — standalone CLI, มี __main__
 }
 # test-support: โมดูลที่ "ตั้งใจให้เทสใช้" (ไม่ใช่ production path) — เช่น registry รหัสกลางสำหรับ guard
 ALLOWLIST_TEST_SUPPORT = {"code_registry"}
