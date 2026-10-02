@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Thai-language B2B catalog site for **โปรคลีน ซัพพลาย ไทยแลนด์ (PROCLEAN SUPPLY THAILAND)**, a distributor (not a manufacturer) of cleaning concentrates from the BIOMATE, SAFECO, and RIVERRA brands. There is no backend and no checkout. Every call to action goes to LINE (`@672xlnwi`) or phone (`tel:+66811764104`).
+A Thai-language B2B catalog site for **โปรคลีน ซัพพลาย ไทยแลนด์ (PROCLEAN SUPPLY THAILAND)**, a distributor (not a manufacturer) of cleaning concentrates from the BIOMATE, SAFECO, and RIVERRA brands. There is no backend and no checkout. Every call to action goes to LINE (`@672xlnwi`), phone (`tel:+66811764104`), or email (`mailto:suwat10928@gmail.com`). `check.py` fails if links use more than one of each.
 
 The entire site is **one self-contained file, `index.html`** (~2 MB). It has no build step and no dependencies. Fonts and images are inlined as base64.
 

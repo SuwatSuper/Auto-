@@ -94,6 +94,14 @@ for name, opts in re.findall(r'<select name="(\w+)">(.*?)</select>', form, re.S)
     if used - values:
         fail(f"filter '{name}' missing options for {sorted(used - values)}")
 
+# Contact channels must be consistent everywhere (one LINE account, one phone, one email)
+for label, pattern in [("LINE account", r'href="https://line\.me/R/oaMessage/([^/"]+)/'),
+                       ("phone", r'href="tel:([^"]+)"'),
+                       ("email", r'href="mailto:([^"?]+)')]:
+    found = set(re.findall(pattern, src))
+    if len(found) != 1:
+        fail(f"expected one {label} in links, found {sorted(found)}")
+
 if 'name="robots" content="noindex"' in src:
     fail("robots noindex present (blocks search engines on the live site)")
 

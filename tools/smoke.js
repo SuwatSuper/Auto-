@@ -140,6 +140,8 @@ const step = async (name, fn) => { try { await fn(); } catch (e) { fails.push(`$
     expect(await dp.isVisible("#dlg-qr svg"), "dialog QR not rendered");
     expect((await dp.textContent("#dlg-msg")) === "ขอใบเสนอราคา: BIOMATE ผลิตภัณฑ์ปั่นเงาพื้น", "dialog message: " + (await dp.textContent("#dlg-msg")));
     expect((await dp.getAttribute("#dlg-open", "href")) === href, "open-in-app link differs from the button link");
+    const mail = decodeURIComponent(await dp.getAttribute("#dlg-mail", "href"));
+    expect(mail === "mailto:suwat10928@gmail.com?subject=ขอใบเสนอราคา: BIOMATE ผลิตภัณฑ์ปั่นเงาพื้น", "dialog email link: " + mail);
     await dp.keyboard.press("Escape");
     expect(!(await dp.evaluate(() => document.getElementById("line-dlg").open)), "Escape did not close the dialog");
     await dctx.close();
