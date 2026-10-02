@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตรวจลูกเล่นเว็บ | โปรคลีน ซัพพลาย</title>
+<style>
+:root{--ink:#112133;--ink-2:#5B6472;--line:#E3EAF2;--blue:#0163CA;--ok:#1B7F3B;--warn:#B45309;--bad:#C62828;--bg:#FFFFFF;--surface:#F6FAFE}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:560px;margin:0 auto;padding:28px 16px 48px}
+h1{font-size:24px;line-height:1.3;margin:0 0 6px}
+p{margin:0 0 12px}
+.muted{color:var(--ink-2);font-size:14.5px}
+.stage{position:relative;height:72px;margin:20px 0 6px;border-radius:14px;background:var(--surface);overflow:hidden}
+/* ตั้งใจไม่ปิดตามการตั้งค่าลดการเคลื่อนไหว: กล่องนี้ใช้ตรวจว่าหน้าจอนี้แสดงภาพเคลื่อนไหวได้หรือไม่ */
+.box{position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:10px;background:var(--blue);animation:move 1.6s ease-in-out infinite alternate}
+@keyframes move{to{transform:translateX(calc(min(560px,100vw) - 104px))}}
+ul{list-style:none;padding:0;margin:20px 0 0;border-top:1px solid var(--line)}
+li{padding:14px 0;border-bottom:1px solid var(--line)}
+li b{display:block;font-size:15px}
+.st{font-weight:600}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.how{margin:8px 0 0;padding:10px 12px;border-radius:10px;background:var(--surface);font-size:14.5px}
+.how[hidden]{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>ตรวจว่าเครื่องนี้แสดงลูกเล่นเว็บได้ไหม</h1>
+<p class="muted">เปิดไฟล์นี้ด้วยวิธีเดียวกับที่เปิดเว็บ (เครื่องเดียวกัน แอปเดียวกัน) แล้วดูผลด้านล่าง</p>
+
+<div class="stage" aria-hidden="true"><div class="box"></div></div>
+<p class="muted">ถ้ากล่องสีฟ้าเลื่อนไปมา = หน้าจอนี้แสดงภาพเคลื่อนไหวได้</p>
+
+<ul>
+<li><b>1. JavaScript</b>
+<span class="st bad" id="js">✗ ไม่ทำงาน — กำลังเปิดในหน้าพรีวิว ลูกเล่นตอนเลื่อนหน้าและเมนูของเว็บจะไม่ทำงาน ให้เปิดไฟล์ด้วย Chrome หรือ Safari แทน</span></li>
+<li><b>2. การตั้งค่า "ลดการเคลื่อนไหว" ของเครื่อง</b>
+<span class="st" id="rm">—</span>
+<p class="how" id="how" hidden></p></li>
+<li><b>3. เครื่องและเบราว์เซอร์</b>
+<span id="ua" class="muted">—</span></li>
+</ul>
+
+<p class="muted" style="margin-top:20px">ตรวจว่าเว็บที่ขึ้นจริงเป็นไฟล์ล่าสุด: เลื่อนลงล่างสุดของเว็บ ถ้าเห็นอีเมล suwat10928@gmail.com ในส่วนท้าย แปลว่าเป็นไฟล์ล่าสุดแล้ว ถ้าไม่เห็น ให้อัปโหลด index.html ใหม่</p>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var ua = navigator.userAgent;
+  var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var os = ios ? "ios" : /Android/.test(ua) ? "android" : /Windows/.test(ua) ? "windows" : /Mac OS X/.test(ua) ? "mac" : "other";
+  var browser = /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Line\//.test(ua) ? "เบราว์เซอร์ในแอป LINE" : /FBAN|FBAV|Instagram/.test(ua) ? "เบราว์เซอร์ในแอป Facebook/Instagram"
+    : /Edg\//.test(ua) ? "Edge" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /FxiOS|Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "ไม่ทราบ";
+  var osName = { ios: "iPhone / iPad", android: "Android", windows: "Windows", mac: "Mac", other: "อื่น ๆ" }[os];
+  var HOW = {
+    ios: "ปิดได้ที่: การตั้งค่า (Settings) › การช่วยการเข้าถึง (Accessibility) › การเคลื่อนไหว (Motion) › ลดการเคลื่อนไหว (Reduce Motion) → ปิด",
+    android: "ปิดได้ที่: การตั้งค่า › การช่วยเหลือพิเศษ (Accessibility) › นำภาพเคลื่อนไหวออก (Remove animations) → ปิด · Samsung: การช่วยเหลือพิเศษ › การปรับปรุงการมองเห็น › ลด/นำภาพเคลื่อนไหวออก → ปิด",
+    windows: "Windows 11: Settings › Accessibility › Visual effects › Animation effects → เปิด (On) · Windows 10: Settings › Ease of Access › Display › Show animations in Windows → เปิด · ถ้าตั้ง Performance Options เป็น \"Adjust for best performance\" ให้ติ๊ก \"Animate controls and elements inside windows\" กลับมา",
+    mac: "ปิดได้ที่: System Settings › Accessibility › Display (หรือ Motion) › Reduce motion → ปิด",
+    other: "ปิดการตั้งค่า \"ลดการเคลื่อนไหว / Reduce motion\" ในหมวดการช่วยการเข้าถึงของเครื่อง"
+  }[os];
+
+  var js = $("js");
+  js.className = "st ok";
+  js.textContent = "✓ ทำงาน";
+
+  var mq = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  function update() {
+    var rm = $("rm"), how = $("how");
+    if (mq && mq.matches) {
+      rm.className = "st warn";
+      rm.textContent = "⚠ เปิดอยู่ — เว็บจะแสดงแค่ค่อย ๆ จางเข้า ไม่มีภาพลอย/เลื่อน/แสงวิ่ง (ตั้งใจออกแบบไว้เพื่อผู้ที่ไม่สบายตากับภาพเคลื่อนไหว)";
+      how.textContent = HOW + " · ชื่อเมนูอาจต่างเล็กน้อยตามรุ่นเครื่อง";
+      how.hidden = false;
+    } else {
+      rm.className = "st ok";
+      rm.textContent = "✓ ปิดอยู่ — จะเห็นลูกเล่นครบ";
+      how.hidden = true;
+    }
+  }
+  update();
+  if (mq) { if (mq.addEventListener) mq.addEventListener("change", update); else if (mq.addListener) mq.addListener(update); }
+
+  $("ua").textContent = osName + " · " + browser;
+})();
+</script>
+</body>
+</html>

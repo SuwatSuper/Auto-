@@ -100,14 +100,27 @@ const step = async (name, fn) => { try { await fn(); } catch (e) { fails.push(`$
     expect(await page.evaluate(() => [...document.querySelectorAll("main .grid > *, main .tl > li")].every((e) => getComputedStyle(e).opacity === "1")), "revealed blocks not fully opaque");
   });
 
-  // Reduced motion: no hidden-until-revealed content and no CSS animations
+  // Reduced motion: movement removed (no rise/float/sweep/transform), gentle opacity fades kept, nothing left hidden
   await step("reduced motion", async () => {
     const rctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" });
     const rp = await rctx.newPage();
     await rp.goto(url);
-    expect(await rp.evaluate(() => !document.querySelector(".rv, .w")), "motion classes applied under reduced motion");
     expect(await rp.evaluate(() => getComputedStyle(document.querySelector(".lineup > img")).animationName === "none"), "hero float runs under reduced motion");
+    expect(await rp.evaluate(() => !document.querySelector(".card .shinebox")), "light sweep injected under reduced motion");
+    expect(await rp.evaluate(() => [...document.querySelectorAll(".rv, .w")].every((e) => getComputedStyle(e).transform === "none")), "reveal moves elements under reduced motion");
+    await rp.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await rp.waitForTimeout(1500);
+    expect(await rp.evaluate(() => !document.querySelector("main .rv:not(.in)")), "content left hidden under reduced motion");
     await rctx.close();
+  });
+
+  // First load of the home page is painted before the script runs: blocks already on screen must not be hidden again
+  await step("no first-paint flicker", async () => {
+    const tctx = await browser.newContext({ viewport: { width: 1280, height: 1500 } });
+    const tp = await tctx.newPage();
+    await tp.goto(url);
+    expect(await tp.evaluate(() => !document.querySelector(".cat").classList.contains("rv")), "on-screen category tile re-hidden after first paint");
+    await tctx.close();
   });
 
   // Focus moves to the new page heading after navigation

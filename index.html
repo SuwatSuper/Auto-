@@ -56,7 +56,7 @@ ul,ol{padding-left:1.2em;margin:0 0 1em}
 .center{text-align:center}.center p{margin-left:auto;margin-right:auto}
 
 
-.preview{display:block;background:var(--surface-2);color:var(--blue-700);font-size:12.5px;text-align:center;padding:5px 12px}
+.preview{display:block;max-width:none;margin:0;background:var(--surface-2);color:var(--blue-700);font-size:12.5px;text-align:center;padding:5px 12px}
 
 
 .hdr{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);border-bottom:1px solid var(--line)}
@@ -135,8 +135,8 @@ ul,ol{padding-left:1.2em;margin:0 0 1em}
 .media::after{content:"";position:absolute;z-index:0;left:24%;right:24%;bottom:4%;height:7%;background:radial-gradient(closest-side,rgba(17,33,51,.16),rgba(17,33,51,0))}
 .media img{position:relative;z-index:1;width:100%;height:auto;transition:transform .5s var(--ease)}
 .media--pair::after{left:12%;right:12%}
-.shinebox{position:absolute;inset:0;z-index:2;pointer-events:none;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
-.shinebox::before{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.55) 50%,transparent 62%);transform:translateX(-110%)}
+.shinebox{position:absolute;top:0;right:0;bottom:0;left:0;z-index:2;pointer-events:none;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.shinebox::before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.55) 50%,transparent 62%);transform:translateX(-110%)}
 .go .shinebox::before{animation:sweep 1s var(--ease) 1 both}
 @keyframes sweep{to{transform:translateX(110%)}}
 
@@ -148,7 +148,7 @@ ul,ol{padding-left:1.2em;margin:0 0 1em}
 .card__brand{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;color:var(--blue-600)}
 .card__t{font-size:16px;font-weight:600;line-height:1.45;margin:2px 0 0}
 .card__t a{color:var(--ink);text-decoration:none}
-.card__t a::after{content:"";position:absolute;inset:0;z-index:3}
+.card__t a::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;z-index:3}
 .card__s{font-size:14px;color:var(--ink-2);line-height:1.55;margin:2px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card__foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:8px}
 .card__sz{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
@@ -329,8 +329,9 @@ a.pill:hover{background:#DCEBFF;color:var(--blue-700)}
 .w{display:inline-block;opacity:0;filter:blur(8px);transform:translateY(8px);transition:opacity .45s,filter .45s,transform .45s}
 .in .w{opacity:1;filter:none;transform:none}
 @media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation:none!important;transition:none!important}
-  .w{opacity:1;filter:none;transform:none}
+  /* ผู้ใช้ตั้งค่าลดการเคลื่อนไหว: ตัดการเคลื่อนที่ทั้งหมด (ลอย/เลื่อน/แสงวิ่ง) เหลือแค่ค่อย ๆ จางเข้า */
+  *,*::before,*::after{animation:none!important;transition-property:opacity,color,background-color,border-color!important}
+  .w,.rv,.cat.rv img,.feat.rv::before,.svc.rv::before,.tl li.rv::before,.tl li.rv .tl__dot{transform:none!important;filter:none!important}
 }
 @media print{.w,.rv{opacity:1!important;filter:none!important;transform:none!important}.mbar{display:none}}
 
@@ -365,10 +366,11 @@ a.pill:hover{background:#DCEBFF;color:var(--blue-700)}
 .pd__vis .media::after{animation:floatShadow 7s ease-in-out 1.6s infinite}
 /* ปุ่มหลัก: แสงวิ่งผ่านเมื่อชี้ และวิ่งเองหนึ่งครั้งที่ปุ่มหน้าแรก */
 .btn--pri{position:relative;overflow:hidden}
-.btn--pri::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.38) 50%,transparent 65%);transform:translateX(-120%);pointer-events:none}
+.btn--pri::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.38) 50%,transparent 65%);transform:translateX(-120%);pointer-events:none}
 .btn--pri:hover::after{transform:translateX(120%);transition:transform .7s var(--ease)}
 .hero .btn--pri::after{animation:btnShine 1.1s var(--ease) 1.4s 1}
 /* บล็อกเนื้อหาไล่กันขึ้นเมื่อเลื่อนถึง (JS ใส่ .rv และ --d ไว้หน่วงเวลาให้ไล่กัน แล้วถอดออกเมื่อจบ) */
+.rv-init,.rv-init *,.rv-init::before,.rv-init *::before{transition:none!important}
 .rv{opacity:0;transform:translateY(18px);transition:opacity .6s var(--ease) var(--d,0s),transform .7s var(--ease) var(--d,0s)}
 .rv.in{opacity:1;transform:none}
 .cat.rv img{opacity:0;transform:translateY(26px) rotate(-6deg);transition:opacity .5s var(--ease) calc(var(--d,0s) + .15s),transform .8s cubic-bezier(.2,1.3,.4,1) calc(var(--d,0s) + .15s)}
@@ -404,6 +406,7 @@ button.btn{cursor:pointer}
 </style>
 </head>
 <body>
+<noscript><p class="preview">เบราว์เซอร์หรือหน้าพรีวิวนี้ปิด JavaScript อยู่ เมนูและลูกเล่นบางส่วนจะไม่ทำงาน — เปิดด้วย Chrome หรือ Safari เพื่อดูเว็บเต็มรูปแบบ</p></noscript>
 <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
 <header class="hdr"><div class="wrap hdr__in">
 <a class="brand" href="/" aria-label="โปรคลีน ซัพพลาย ไทยแลนด์ หน้าแรก"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTIgMjE1Ij48cGF0aCBmaWxsPSIjMTEyMTMzIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xMzguMzggMjA1LjI1QzE0NC44OCAyMDQuOTkgMTQ3LjA5IDIwNC44NCAxNTQuMTYgMjA0LjE0QzE2MS44NiAyMDMuMzkgMTcxLjUzIDIwMS44NCAxNzkuODggMjAwLjA0QzE4MS4xMSAxOTkuNzcgMTgyLjk3IDE5OS4zNyAxODQuMDAgMTk5LjE1QzE4NS4wMyAxOTguOTIgMTg2LjM4IDE5OC41OSAxODcuMDAgMTk4LjQwQzE4Ny42MiAxOTguMjIgMTg5LjA4IDE5Ny44MiAxOTAuMjUgMTk3LjUxQzE5MS40MiAxOTcuMjEgMTkyLjk5IDE5Ni43NSAxOTMuNzUgMTk2LjQ5QzE5NC41MSAxOTYuMjQgMTk2LjQwIDE5NS42MyAxOTcuOTUgMTk1LjE0QzIwMi41MyAxOTMuNzAgMjExLjM5IDE5MC4wNiAyMTYuMDAgMTg3LjczQzIyOC41MCAxODEuNDEgMjM3LjExIDE3My40NSAyNDAuMjUgMTY1LjI4QzI0MS43NyAxNjEuMzMgMjQyLjExIDE1Ny4zMSAyNDEuMjQgMTUzLjU3QzIzOS4yOSAxNDUuMjAgMjMzLjM1IDEzOC4yNSAyMjIuMzggMTMxLjQ5QzIxOS41OCAxMjkuNzYgMjEyLjQ5IDEyNi4wMyAyMTEuMzggMTI1LjY4QzIxMS4xMCAxMjUuNjAgMjEwLjIwIDEyNS4yNCAyMDkuMzggMTI0Ljg4QzIwNy44OCAxMjQuMjQgMjA2LjE0IDEyMy41NCAyMDMuMTkgMTIyLjQwQzIwMC41NSAxMjEuMzcgMTk0LjA3IDExOS4yNiAxOTAuMDUgMTE4LjEwQzE4Ni4xNiAxMTYuOTggMTg0LjQ0IDExNi43NyAxODMuNzMgMTE3LjMyQzE4Mi42OCAxMTguMTMgMTgyLjQ1IDExOS44MCAxODMuMjQgMTIwLjgxQzE4My44NCAxMjEuNTcgMTg0LjM3IDEyMS43OCAxODcuODggMTIyLjYzQzE5OS43NiAxMjUuNTAgMjE0LjU3IDEzMS43NCAyMjIuNTAgMTM3LjIxQzIzMi4xOCAxNDMuODkgMjM2Ljc5IDE1MC41MCAyMzYuODMgMTU3Ljc1QzIzNi44NiAxNjIuNjAgMjM0LjcyIDE2Ny4xMyAyMzAuMTUgMTcxLjk1QzIyNi43MyAxNzUuNTUgMjIxLjI4IDE3OS40OSAyMTUuNzUgMTgyLjM2QzIxNC45OSAxODIuNzYgMjEzLjY0IDE4My40NiAyMTIuNzUgMTgzLjkzQzIwNi4wMCAxODcuNDcgMTkzLjQyIDE5MS45MCAxODMuMTIgMTk0LjM2QzE4MS42MSAxOTQuNzMgMTc5LjQ3IDE5NS4yNCAxNzguMzggMTk1LjUwQzE3NC4zOCAxOTYuNDYgMTY3LjMzIDE5Ny42NiAxNjAuODggMTk4LjQ5QzE1Mi45NyAxOTkuNTAgMTUwLjA5IDE5OS43NiAxNDEuMTggMjAwLjI4QzEzMy44MCAyMDAuNzAgMTMwLjQ4IDIwMC43NyAxMjMuMjUgMjAwLjY2QzExNC4zMiAyMDAuNTIgMTAzLjE0IDE5OS45NyAxMDAuMjEgMTk5LjUzQzk5LjM0IDE5OS4zOSA5Ny43OCAxOTkuMjIgOTYuNzUgMTk5LjEzQzg5LjU2IDE5OC41NCA3NS45OCAxOTYuMTMgNjcuMTIgMTkzLjg4QzYxLjg5IDE5Mi41NSA1NS40NiAxOTAuNTggNTEuNjIgMTg5LjEzQzUwLjY2IDE4OC43NiA0OS4zMSAxODguMjYgNDguNjIgMTg4LjAxQzQ2LjQxIDE4Ny4yMSA0MC43MiAxODQuNjEgMzcuMTIgMTgyLjc1QzMzLjM0IDE4MC44MCAyOC42NyAxNzcuNzkgMjUuODggMTc1LjQ5QzIzLjc0IDE3My43NCAyMC4xOCAxNzAuMDcgMTguOTQgMTY4LjM2QzE0LjgwIDE2Mi42MSAxNC4xMiAxNTYuMjcgMTcuMDMgMTUwLjM3QzE5LjIwIDE0NS45NyAyMy45MiAxNDEuMDMgMjkuNTAgMTM3LjMxQzMxLjEyIDEzNi4yNCAzOC4zOCAxMzIuMDAgMzguNjEgMTMyLjAwQzM4LjY2IDEzMi4wMCAzOS44MCAxMzEuNDkgNDEuMTYgMTMwLjg2QzQ1LjU3IDEyOC44MiA0Ni4wNyAxMjguNjIgNTEuNjIgMTI2LjUwQzU0LjY1IDEyNS4zNSA2NC4zOCAxMjIuNDggNjcuMjcgMTIxLjg5QzY5LjIyIDEyMS40OSA2OS45MyAxMTkuMTQgNjguNTIgMTE3LjczQzY3LjYzIDExNi44NCA2Ni43NiAxMTYuNzkgNjQuMzQgMTE3LjUwQzYzLjQwIDExNy43OCA2MS43OCAxMTguMjQgNjAuNzUgMTE4LjU0QzU0LjU1IDEyMC4zMCA1MC4zMyAxMjEuODEgNDEuNjAgMTI1LjM4QzM4Ljc1IDEyNi41NSAzMy44MSAxMjkuMDUgMzAuOTEgMTMwLjgxQzIxLjcyIDEzNi4zNiAxNi4wMiAxNDEuNjkgMTMuMTQgMTQ3LjQ0QzExLjg3IDE0OS45NyAxMS4yOCAxNTEuNjMgMTAuNzQgMTU0LjIyQzEwLjEzIDE1Ny4xNSAxMC4xMiAxNTguNTkgMTAuNzMgMTYxLjUzQzExLjkyIDE2Ny4yOCAxNS4zMSAxNzIuNjUgMjAuNzUgMTc3LjQzQzI3LjQ5IDE4My4zNiAzNS40MiAxODcuOTcgNDUuODggMTkyLjA2QzQ5LjYwIDE5My41MiA1MC4yMSAxOTMuNzQgNTQuNTAgMTk1LjE2QzYzLjI5IDE5OC4wNyA3MC45OSAyMDAuMDAgNzkuNzUgMjAxLjQ5QzgxLjQ3IDIwMS43OSA4My43OCAyMDIuMTggODQuODggMjAyLjM4QzkyLjIxIDIwMy42OCAxMDQuNjYgMjA0Ljg3IDExNS42MiAyMDUuMzNDMTIwLjIxIDIwNS41MiAxMzIuNTQgMjA1LjQ4IDEzOC4zOCAyMDUuMjVaTTE0MS4zOCAxODYuMjRDMTQ0LjgxIDE4NS45NyAxNDguMjQgMTg1LjY0IDE0OS4wMCAxODUuNTFDMTQ5Ljc2IDE4NS4zOCAxNTEuNDQgMTg1LjE2IDE1Mi43NSAxODUuMDFDMTU3Ljc5IDE4NC40MyAxNjQuMjIgMTgzLjA4IDE3Mi4yNSAxODAuOTBDMTc0LjA5IDE4MC40MCAxNzcuMjYgMTc5LjM2IDE3OS4yNSAxNzguNTlDMTkwLjQ3IDE3NC4yNyAxOTcuMzkgMTY5LjgzIDIwMS40NCAxNjQuMzhDMjA1LjE4IDE1OS4zNCAyMDUuODQgMTUzLjc1IDIwMy4zMiAxNDguNjZDMjAxLjU2IDE0NS4xMiAxOTguMTcgMTQxLjQxIDE5NC4xMiAxMzguNjBDMTkwLjQ1IDEzNi4wNSAxODIuMTUgMTMyLjA0IDE4MC4wOCAxMzEuODJDMTc4Ljk0IDEzMS43MCAxNzguNzIgMTMxLjc2IDE3OC4xNiAxMzIuMzJDMTc2LjY1IDEzMy44MiAxNzcuMjYgMTM1LjQ3IDE3OS42OCAxMzYuNDhDMTg0LjM3IDEzOC40MyAxODcuMjYgMTM5LjkxIDE5MC4wOCAxNDEuNzhDMTk0Ljk4IDE0NS4wNSAxOTcuMzMgMTQ3LjQyIDE5OC45NCAxNTAuNzJDMTk5Ljc1IDE1Mi4zOCAxOTkuODggMTUyLjkwIDE5OS45NiAxNTQuNzdDMjAwLjAzIDE1Ni41NyAxOTkuOTUgMTU3LjE0IDE5OS40OCAxNTguMjdDMTk3LjQ5IDE2My4wNCAxOTIuMDQgMTY3LjYwIDE4My41MCAxNzEuNjhDMTgwLjA2IDE3My4zMiAxNzQuNTUgMTc1LjM2IDE3MS42MiAxNzYuMDhDMTcxLjM1IDE3Ni4xNCAxNzAuMDYgMTc2LjQ5IDE2OC43NSAxNzYuODVDMTY0LjM1IDE3OC4wNiAxNTkuNTYgMTc5LjA0IDE1MS41MCAxODAuMzdDMTQ4LjkxIDE4MC44MCAxNDMuMjkgMTgxLjMzIDEzNi42MiAxODEuNzhDMTMxLjg1IDE4Mi4xMCAxMTUuNjQgMTgxLjkzIDExMi4zOCAxODEuNTJDMTExLjI4IDE4MS4zOCAxMDguOTcgMTgxLjE1IDEwNy4yNSAxODEuMDFDOTkuNDEgMTgwLjM1IDg3LjU5IDE3OC4yMSA4MS4zOCAxNzYuMzJDNjUuMTAgMTcxLjM3IDU0Ljg4IDE2NC43OSA1Mi40OSAxNTcuNzNDNTAuNzEgMTUyLjQ4IDUzLjk5IDE0Ny4wOCA2Mi4yNSAxNDEuNjNDNjUuMTMgMTM5Ljc0IDY3LjI4IDEzOC41OSA3MC43NSAxMzcuMDlDNzIuMTkgMTM2LjQ3IDczLjc3IDEzNS43OSA3NC4yNSAxMzUuNThDNzQuNzMgMTM1LjM3IDc2LjI3IDEzNC44MyA3Ny42OCAxMzQuMzZDNzkuMDggMTMzLjkwIDgwLjQ3IDEzMy40MCA4MC43NSAxMzMuMjVDODEuNjIgMTMyLjc5IDgyLjE2IDEzMy4xOSA4My41OCAxMzUuMzJDODkuNjIgMTQ0LjM5IDk5LjUzIDE1MS45NCAxMDkuNjggMTU1LjIxQzExMS4yOCAxNTUuNzIgMTExLjIyIDE1Ni4yNCAxMTEuMTUgMTQxLjEzQzExMS4xMSAxMzMuNjUgMTExLjE2IDEyNy40MCAxMTEuMjUgMTI3LjI0QzExMS41MCAxMjYuODUgMTEyLjg1IDEyNi41OCAxMTYuNzUgMTI2LjEyQzEyOC42MSAxMjQuNzUgMTM2LjAxIDEyMi4wNCAxNDAuNDEgMTE3LjQ2QzE0NC4wOCAxMTMuNjQgMTQ1LjgzIDEwOS4yMCAxNDUuODMgMTAzLjc1QzE0NS44MyA5OC4yNyAxNDQuMDcgOTMuODAgMTQwLjQxIDkwLjA0QzEzNy44NCA4Ny40MCAxMzQuOTcgODUuNjggMTMxLjQ4IDg0LjcxQzEyOC43NyA4My45NiAxMjMuODAgODMuOTAgMTIxLjI1IDg0LjYwQzExNS4wNyA4Ni4yOSAxMTAuMTEgOTAuNzcgMTA3LjczIDk2LjgxQzEwNi41NiA5OS43OCAxMDYuNDIgMTAxLjMwIDEwNi4zMSAxMTIuMTJDMTA2LjI1IDExOC43NyAxMDYuMTIgMTIyLjQ4IDEwNS45NSAxMjIuNjhDMTA1LjgxIDEyMi44NiAxMDUuMzYgMTIzLjAwIDEwNC45NiAxMjMuMDBDMTAzLjExIDEyMy4wMCA5My40NyAxMjQuODIgODguODYgMTI2LjAzQzg0LjQxIDEyNy4yMSA4NC41NiAxMjcuMjQgODMuNDQgMTI1LjAwQzgxLjU3IDEyMS4yNCA4MC4xNCAxMTUuNDQgNzkuODYgMTEwLjUwQzc5LjU1IDEwNC45MSA4MC41OSA5OC4wMSA4Mi41NCA5Mi43NUM4NC41NSA4Ny4zMiA4Ny4zNCA4MS40OSA5MC4xNSA3Ni44MkM5Mi40MSA3My4wNiA5OS4xNCA2Mi44NiAxMDIuNjMgNTcuODhDMTAzLjk5IDU1Ljk1IDEwNi4xMSA1Mi45MyAxMDcuMzYgNTEuMTVDMTExLjc1IDQ0LjkxIDExNi45MCAzNy4wNyAxMTguOTQgMzMuNTBDMTE5LjIyIDMzLjAyIDEyMC4yMCAzMS4zMyAxMjEuMTMgMjkuNzVDMTIyLjA2IDI4LjE3IDEyMy40NCAyNS42MSAxMjQuMjAgMjQuMDZDMTI1LjE2IDIyLjA5IDEyNS43MSAyMS4yNSAxMjYuMDEgMjEuMjVDMTI2LjMxIDIxLjI1IDEyNi44NSAyMi4wNyAxMjcuNzcgMjMuOTRDMTMwLjQzIDI5LjMwIDEzOC40NSA0Mi4yMyAxNDQuMDAgNTAuMTBDMTUzLjkwIDY0LjEzIDE1OS43NSA3Mi44MiAxNjIuNTEgNzcuNjJDMTY0LjQ0IDgxLjAwIDE2Ny4zOSA4Ny4wNiAxNjguNjQgOTAuMjVDMTY5LjkzIDkzLjU0IDE3MC42NCA5NS45MyAxNzEuNDIgOTkuNTRDMTcyLjAzIDEwMi4zNyAxNzIuMDkgMTAzLjEwIDE3Mi4wOSAxMDguMzhDMTcyLjEwIDExMy41MSAxNzIuMDQgMTE0LjM4IDE3MS41MyAxMTYuNTBDMTY4LjgxIDEyNy44NyAxNjMuODAgMTM1LjkyIDE1NS4xMiAxNDIuODdDMTUwLjIxIDE0Ni44MCAxNDYuNDcgMTQ4LjgxIDE0MC40MiAxNTAuNzdDMTM1LjQ0IDE1Mi4zOSAxMzIuMjUgMTUyLjg1IDEyNS44OCAxNTIuODdDMTE5LjgzIDE1Mi45MCAxMTkuNDYgMTUyLjk3IDExOS4wMiAxNTQuMzNDMTE4LjYxIDE1NS41NCAxMTkuMDYgMTU2LjYwIDEyMC4yMCAxNTcuMTZDMTIxLjU2IDE1Ny44MiAxMjguMTYgMTU3Ljk0IDEzMi40NCAxNTcuMzhDMTQxLjAwIDE1Ni4yNiAxNDguMTIgMTUzLjYyIDE1NC44OCAxNDkuMDZDMTYyLjIyIDE0NC4xMSAxNjcuNjIgMTM4LjAwIDE3MS45NCAxMjkuNzVDMTczLjc2IDEyNi4yNyAxNzUuMDggMTIyLjMzIDE3Ni4zMCAxMTYuNzVDMTc2LjgxIDExNC40MiAxNzYuODcgMTEzLjQ1IDE3Ni44NyAxMDguMTJDMTc2Ljg3IDEwMS43OCAxNzYuNzIgMTAwLjYzIDE3NS4yMSA5NS4wMUMxNzQuNTggOTIuNjUgMTcyLjgxIDg3LjQyIDE3Mi4zNSA4Ni41NEMxNzIuMTYgODYuMTcgMTcyLjAwIDg1Ljc5IDE3Mi4wMCA4NS42OEMxNzIuMDAgODUuNDUgMTY5LjE4IDc5Ljc4IDE2Ny44NyA3Ny4zN0MxNjQuNzQgNzEuNjAgMTYwLjIwIDY0LjYzIDE1Mi42MCA1My44OEMxNDkuMTkgNDkuMDUgMTQxLjI4IDM3LjMyIDEzOC4zNiAzMi43NUMxMzcuMzMgMzEuMTQgMTM0LjM2IDI1LjkwIDEzMy4yNiAyMy43NUMxMzAuNzQgMTguODQgMTI5LjgzIDE3LjAwIDEyOC45NiAxNS4xMkMxMjcuNTcgMTIuMTIgMTI3LjMwIDExLjQ3IDEyNi45NCAxMC4zOEMxMjYuNzIgOS42OCAxMjYuNDggOS4zOCAxMjYuMTUgOS4zOEMxMjUuNTkgOS4zOCAxMjUuNjEgOS4zMyAxMjMuOTggMTMuMTJDMTIxLjk3IDE3LjgxIDExOC4wMyAyNS41OCAxMTUuNTQgMjkuNzVDMTE0LjkzIDMwLjc4IDExNC4zMCAzMS44NSAxMTQuMTQgMzIuMTJDMTEzLjA2IDM0LjAxIDEwNC41MiA0Ni44NyAxMDEuNjggNTAuODhDMTAwLjkwIDUxLjk4IDk5LjY0IDUzLjc3IDk4Ljg3IDU0Ljg4Qzk4LjEwIDU1Ljk4IDk2LjgwIDU3LjgzIDk1Ljk3IDU5LjAwQzk0LjAyIDYxLjc2IDg4LjQ0IDcwLjE2IDg3LjkxIDcxLjEyQzg3LjY4IDcxLjU0IDg3LjM1IDcyLjA5IDg3LjE4IDcyLjM2Qzg1LjY3IDc0Ljc0IDg0LjcxIDc2LjQ1IDgyLjI3IDgxLjEyQzc5LjE2IDg3LjA2IDc3LjE5IDkyLjcxIDc1LjY4IDEwMC4wMEM3NC45MCAxMDMuNzkgNzQuOTAgMTExLjg2IDc1LjY5IDExNS45M0M3Ni40MyAxMTkuNzggNzcuNzQgMTI0LjIxIDc4Ljk1IDEyNy4wM0M3OS4yMyAxMjcuNjYgNzkuMzYgMTI4LjMxIDc5LjI2IDEyOC40OEM3OS4xNiAxMjguNjUgNzguMDEgMTI5LjE3IDc2LjcyIDEyOS42M0M3MC42MCAxMzEuODEgNjUuMDUgMTM0LjMzIDYwLjg4IDEzNi44M0M1Ni40MiAxMzkuNTAgNTMuMTIgMTQyLjM0IDUwLjcxIDE0NS41OEM0NC40OSAxNTMuOTQgNDYuNjQgMTYyLjU0IDU2Ljg4IDE3MC4yNEM2MC4wNyAxNzIuNjQgNjUuOTEgMTc1LjkwIDY5LjI1IDE3Ny4xNEM2OS43MyAxNzcuMzIgNzAuNzQgMTc3LjcxIDcxLjUwIDE3OC4wMEM3My4zMCAxNzguNzAgNzguNTAgMTgwLjQzIDgwLjI1IDE4MC45MEM5MC41NCAxODMuNzEgOTkuODYgMTg1LjM2IDEwOS4yMyAxODYuMDJDMTExLjI0IDE4Ni4xNiAxMTMuODMgMTg2LjM2IDExNS4wMCAxODYuNDhDMTE2LjE3IDE4Ni41OSAxMjEuMTggMTg2LjcwIDEyNi4xMyAxODYuNzJDMTMzLjE4IDE4Ni43NCAxMzYuNDkgMTg2LjY0IDE0MS4zOCAxODYuMjRaTTEwMy4xMiAxNDcuMDhDOTkuNjcgMTQ1LjA5IDk0Ljg5IDE0MS4zMCA5Mi4xOCAxMzguNDFDOTAuMjUgMTM2LjM1IDg3LjI1IDEzMi4zMiA4Ny4yNSAxMzEuNzhDODcuMjUgMTMxLjQzIDg3LjQ4IDEzMS4yNCA4OC4wNiAxMzEuMTNDODguNTEgMTMxLjA0IDg5LjY2IDEzMC43NSA5MC42MiAxMzAuNTBDOTMuMjIgMTI5Ljc5IDk2LjUwIDEyOS4wOSA5OS44OCAxMjguNTBDMTAxLjUzIDEyOC4yMSAxMDMuNDcgMTI3Ljg2IDEwNC4yMCAxMjcuNzJDMTA2LjM5IDEyNy4yOSAxMDYuMjYgMTI2LjYzIDEwNi4xOSAxMzguMTBDMTA2LjExIDE0OS43OCAxMDYuMzkgMTQ4Ljk3IDEwMy4xMiAxNDcuMDhaTTExMS4zMCAxMjEuNTFDMTExLjIxIDEyMS4yNSAxMTEuMTMgMTE2Ljg5IDExMS4xMyAxMTEuODNDMTExLjE0IDEwMS40OSAxMTEuMjYgMTAwLjUxIDExMi45NCA5Ny4wMEMxMTQuMTkgOTQuNDEgMTE2Ljk0IDkxLjY2IDExOS41MiA5MC40M0MxMjIuMTQgODkuMTggMTIzLjI1IDg4LjkzIDEyNi4zOCA4OC45NEMxMjguNzAgODguOTQgMTI5LjQxIDg5LjA0IDEzMC45NyA4OS41OUMxMzMuMzcgOTAuNDQgMTM0LjY1IDkxLjIxIDEzNi40MyA5Mi44NUMxMzguMTkgOTQuNDggMTM5LjU2IDk2LjcyIDE0MC4zOCA5OS4zM0MxNDEuMjEgMTAxLjk1IDE0MS4yNiAxMDYuMDAgMTQwLjQ4IDEwOC4zMEMxMzguOTkgMTEyLjc0IDEzNi4zMyAxMTUuNTcgMTMxLjU3IDExNy44MEMxMjguMjUgMTE5LjM2IDEyNC41OSAxMjAuMjQgMTE2LjY4IDEyMS4zN0MxMTEuMzUgMTIyLjEzIDExMS41MyAxMjIuMTIgMTExLjMwIDEyMS41MVoiLz48L3N2Zz4=" data-img="mark" width="44" height="38" alt=""><span class="brand__t"><span class="brand__en">PROCLEAN SUPPLY THAILAND</span><span class="brand__th">โปรคลีน ซัพพลาย ไทยแลนด์</span></span></a>
@@ -2569,6 +2572,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     });
   }
 
+  function swap(node, child) {
+    if (node.replaceChildren) { node.replaceChildren(child); return; }
+    while (node.firstChild) node.removeChild(node.firstChild);
+    node.appendChild(child);
+  }
+
   function hydrate(scope) {
     scope.querySelectorAll("img[data-img]").forEach(function (i) {
       if (!i.getAttribute("src") && IMG[i.dataset.img]) i.setAttribute("src", IMG[i.dataset.img]);
@@ -2620,28 +2629,44 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   var pending = [], ticking = false;
   function check() {
     ticking = false;
-    var lim = window.innerHeight * 0.9, n = 0;
-    pending = pending.filter(function (el) {
-      if (!el.isConnected) return false;
-      if (el.getBoundingClientRect().top < lim) { reveal(el, el.classList.contains("rv") ? n++ : 0); return false; }
-      return true;
+    // อ่านตำแหน่งทั้งหมดก่อน (บังคับคำนวณสไตล์ครั้งเดียว ขณะยังซ่อนแบบไม่มี transition) แล้วค่อยเผย
+    var lim = window.innerHeight * 0.9, n = 0, keep = [];
+    var tops = pending.map(function (el) { return el.getBoundingClientRect().top; });
+    // เลื่อนถึงท้ายหน้าแล้ว (หรือกรอบพรีวิวที่ยืดสูงเท่าเอกสาร) ไม่มีอะไรเลื่อนเข้ามาอีก: เผยที่เหลือทั้งหมด ไม่ให้ค้างโปร่งใส
+    var end = window.pageYOffset + window.innerHeight >= root.scrollHeight - 2;
+    pending.forEach(function (el, i) {
+      if (el.isConnected === false) return;
+      el.classList.remove("rv-init");
+      if (end || tops[i] < lim) reveal(el, el.classList.contains("rv") ? n++ : 0); else keep.push(el);
     });
+    pending = keep;
   }
   function schedule() { if (!ticking && pending.length) { ticking = true; requestAnimationFrame(check); } }
   window.addEventListener("scroll", schedule, { passive: true });
   window.addEventListener("resize", schedule);
-  function motion(scope) {
+  window.addEventListener("load", schedule);                         // รูป/ฟอนต์โหลดเสร็จ ตำแหน่งอาจขยับ
+  if (d.fonts && d.fonts.ready) d.fonts.ready.then(schedule);
+  function motion(scope, painted) {
     pending = [];
-    if (reduce) return;
-    scope.querySelectorAll("[data-words]").forEach(function (el) { if (words(el)) pending.push(el); });
+    // ตั้งค่าลดการเคลื่อนไหว: ยังค่อย ๆ จางเข้า (CSS ตัดการเลื่อน/ลอยออก) แต่ไม่มีแสงวิ่ง
+    var heads = [].slice.call(scope.querySelectorAll("[data-words]"));
+    var blocks = [].slice.call(scope.querySelectorAll(".grid > *, .feats > *, .tl > li, .rows > li, .contact-grid > *"));
+    // หน้าแรกตอนโหลดครั้งแรก เบราว์เซอร์วาดให้เห็นก่อนสคริปต์นี้ทำงาน (ไฟล์ใหญ่):
+    // ส่วนที่อยู่ในจอแล้วไม่ซ่อนซ้ำ ไม่งั้นจะกะพริบ (เห็น → หาย → ค่อย ๆ โผล่)
+    var vh = window.innerHeight;
+    var seen = painted ? heads.concat(blocks).map(function (el) { return el.getBoundingClientRect().top < vh; }) : [];
+    heads.forEach(function (el, i) { if (!seen[i] && words(el)) pending.push(el); });
     scope.querySelectorAll("[data-count]").forEach(function (el) { pending.push(el); });
-    scope.querySelectorAll(".card .media:not(.sweep)").forEach(function (m) {   // ประกายวิ่งผ่านขวดในการ์ดสินค้า
-      var sb = d.createElement("span"); sb.className = "shinebox"; sb.setAttribute("aria-hidden", "true");
-      m.appendChild(sb); m.classList.add("sweep");
-    });
-    scope.querySelectorAll(".sweep").forEach(function (el) { pending.push(el); });
-    scope.querySelectorAll(".grid > *, .feats > *, .tl > li, .rows > li, .contact-grid > *").forEach(function (el) {
-      el.classList.add("rv"); pending.push(el);
+    if (!reduce) {
+      scope.querySelectorAll(".card .media:not(.sweep)").forEach(function (m) {   // ประกายวิ่งผ่านขวดในการ์ดสินค้า
+        var sb = d.createElement("span"); sb.className = "shinebox"; sb.setAttribute("aria-hidden", "true");
+        m.appendChild(sb); m.classList.add("sweep");
+      });
+      scope.querySelectorAll(".sweep").forEach(function (el) { pending.push(el); });
+    }
+    blocks.forEach(function (el, i) {
+      if (seen[heads.length + i]) return;
+      el.classList.add("rv", "rv-init"); pending.push(el);
     });
     schedule();
   }
@@ -2672,8 +2697,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     try { msg = decodeURIComponent((href.split("?")[1] || "").replace(/\+/g, " ")); } catch (err) {}
     // QR ใช้ข้อความแบบสั้น (ตัดคำทักทาย ขนาด และ "จากหน้าเว็บ") ให้ QR ไม่แน่นเกินไปจนสแกนยาก แต่ยังมีชื่อสินค้า
     msg = msg.replace(/^สวัสดีครับ\s*/, "").replace(/\s*—\s*จากหน้าเว็บ$/, "").replace(/\s*\([^)]*\)$/, "");
-    try { box.replaceChildren(qrSvg(href.split("?")[0] + (msg ? "?" + encodeURIComponent(msg) : ""))); }
-    catch (err) { var img = d.createElement("img"); img.src = IMG.qr; img.alt = "QR เพิ่มเพื่อน LINE @672xlnwi"; box.replaceChildren(img); }
+    try { swap(box, qrSvg(href.split("?")[0] + (msg ? "?" + encodeURIComponent(msg) : ""))); }
+    catch (err) { var img = d.createElement("img"); img.src = IMG.qr; img.alt = "QR เพิ่มเพื่อน LINE @672xlnwi"; swap(box, img); }
     d.getElementById("dlg-msg").textContent = msg;
     d.getElementById("dlg-msg").hidden = !msg;
     d.getElementById("dlg-copy").hidden = !msg;
@@ -2736,7 +2761,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     var path = full.split("?")[0], qs = full.indexOf("?") > -1 ? full.slice(full.indexOf("?") + 1) : "";
     if (path.slice(-5) !== ".html" && path.slice(-1) !== "/") path += "/";
     var t = T[path] || T["/404.html"];
-    if (!(first && path === "/")) { main.replaceChildren(t.content.cloneNode(true)); }
+    if (!(first && path === "/")) { swap(main, t.content.cloneNode(true)); }
     hydrate(d); links(d);
     d.title = t.dataset.title;
     if (mbarLine && t.dataset.mbar) mbarLine.setAttribute("href", t.dataset.mbar);
@@ -2745,10 +2770,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     navLinks.forEach(function (a) {
       if (sec && a.getAttribute("href") === "#/" + sec + "/") a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
-    motion(main); filters(main, qs, path);
+    motion(main, first && path === "/"); filters(main, qs, path);
     if (!first) {
       window.scrollTo(0, 0);
-      if (!reduce && main.animate) main.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 320, easing: "cubic-bezier(.2,.7,.2,1)" });
+      if (main.animate) main.animate(reduce ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: reduce ? 200 : 320, easing: "cubic-bezier(.2,.7,.2,1)" });
       // ย้ายโฟกัสไปหัวข้อหน้าใหม่ ให้ผู้ใช้คีย์บอร์ด/โปรแกรมอ่านหน้าจอรู้ว่าเปลี่ยนหน้าแล้ว
       var h1 = main.querySelector("h1");
       if (h1) { h1.setAttribute("tabindex", "-1"); h1.focus({ preventScroll: true }); }
