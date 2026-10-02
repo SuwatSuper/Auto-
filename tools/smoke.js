@@ -123,6 +123,40 @@ const step = async (name, fn) => { try { await fn(); } catch (e) { fails.push(`$
     expect((await page.title()).startsWith("เกี่ยวกับเรา") && (await page.evaluate(() => !document.querySelector("details.menu[open]"))), "menu link");
   });
 
+  // LINE links only work in the LINE phone app; on a desktop they must open the QR dialog
+  // instead of navigating to LINE's "download the app" page
+  await step("line desktop", async () => {
+    const dctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    const dp = await dctx.newPage();
+    dp.setDefaultTimeout(3000);
+    dp.on("pageerror", (e) => errors.push(e.message));
+    let lineHits = 0;
+    await dp.route("https://line.me/**", (r) => { lineHits++; r.fulfill({ body: "line" }); });
+    await dp.goto(url + "#/products/biomate-floor-buff/");
+    const href = await dp.getAttribute(".quote .btn--pri", "href");
+    await dp.click(".quote .btn--pri");
+    expect(await dp.evaluate(() => document.getElementById("line-dlg").open), "desktop LINE click did not open the dialog");
+    expect(lineHits === 0, "desktop LINE click navigated to line.me");
+    expect(await dp.isVisible("#dlg-qr svg"), "dialog QR not rendered");
+    expect((await dp.textContent("#dlg-msg")) === "ขอใบเสนอราคา: BIOMATE ผลิตภัณฑ์ปั่นเงาพื้น", "dialog message: " + (await dp.textContent("#dlg-msg")));
+    expect((await dp.getAttribute("#dlg-open", "href")) === href, "open-in-app link differs from the button link");
+    await dp.keyboard.press("Escape");
+    expect(!(await dp.evaluate(() => document.getElementById("line-dlg").open)), "Escape did not close the dialog");
+    await dctx.close();
+  });
+
+  // On phones the same link goes straight to LINE (the app opens via universal/app link)
+  await step("line mobile", async () => {
+    const mctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const mp = await mctx.newPage();
+    mp.setDefaultTimeout(3000);
+    await mp.route("https://line.me/**", (r) => r.fulfill({ body: "line" }));
+    await mp.goto(url + "#/products/biomate-floor-buff/");
+    await mp.tap(".quote .btn--pri");
+    await mp.waitForURL(/^https:\/\/line\.me\/R\/oaMessage\//);
+    await mctx.close();
+  });
+
   expect(!errors.length, "page errors: " + errors.join("; "));
   await browser.close();
   server.close();
