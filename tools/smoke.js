@@ -1,0 +1,132 @@
+// Browser smoke test for index.html (needs the `playwright` package + Chromium).
+// Usage: node tools/smoke.js [path/to/index.html]
+const { chromium } = require("playwright");
+const fs = require("fs");
+const http = require("http");
+
+const file = process.argv[2] || "index.html";
+const url = "http://127.0.0.1:8787/";
+const fails = [];
+const expect = (ok, msg) => { if (!ok) fails.push(msg); };
+// Run one scenario; a thrown error (e.g. missing element) is reported as a failure, not a crash
+const step = async (name, fn) => { try { await fn(); } catch (e) { fails.push(`${name}: ${e.message.split("\n")[0]}`); } };
+
+(async () => {
+  // Serve over HTTP like a real host (file:// blocks new-tab navigation in Chromium)
+  const server = http.createServer((req, res) => {
+    if (req.url !== "/") { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(fs.readFileSync(file));
+  });
+  await new Promise((ok) => server.listen(8787, "127.0.0.1", ok));
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 740 } });
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(3000);
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  const hash = () => page.evaluate(() => decodeURIComponent(location.hash));
+  const go = async (h) => { await page.goto("about:blank"); await page.goto(url + h); await page.waitForTimeout(120); };
+
+  // Every route renders: one h1, all images hydrated, no horizontal scroll on a phone
+  let routes = [];
+  await step("routes", async () => {
+    await go("");
+    routes = await page.evaluate(() => [...document.querySelectorAll("template[data-route]")].map((t) => t.dataset.route));
+    for (const r of routes) {
+      await page.evaluate((r) => { location.hash = "#" + r; }, r);
+      await page.waitForTimeout(60);
+      const s = await page.evaluate(() => ({
+        h1: document.querySelectorAll("main h1").length,
+        noSrc: [...document.querySelectorAll("img")].filter((i) => !i.getAttribute("src")).length,
+        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      }));
+      expect(s.h1 === 1 && !s.noSrc && !s.overflow, `${r}: ${JSON.stringify(s)}`);
+    }
+  });
+
+  // Internal links are rewritten to #/ so new-tab / copy-link work on single-file hosting
+  await step("links", async () => {
+    await go("");
+    expect(await page.evaluate(() => !document.querySelector('a[href^="/"]:not([href^="//"])')), "internal links not rewritten to #/");
+    const [tab] = await Promise.all([
+      ctx.waitForEvent("page", { timeout: 2000 }).catch(() => null),
+      page.click('.cat[href$="/categories/bathroom/"]', { modifiers: ["Control"] }),
+    ]);
+    if (tab) await tab.waitForURL(/#\/categories\/bathroom\/$/).catch(() => {});
+    expect(tab && tab.url().endsWith("#/categories/bathroom/"), "ctrl-click did not open the route in a new tab: " + (tab && tab.url()));
+    expect((await hash()) === "", "ctrl-click navigated the current tab");
+    if (tab) await tab.close();
+  });
+
+  // Filters: deep link, live search, Enter keeps scroll position and a clean URL
+  await step("filters", async () => {
+    await go("#/products/?brand=riverra");
+    expect((await page.textContent("#count")) === "พบ 4 รายการ", "deep-link brand filter");
+    await page.fill("input[name=q]", "ถู พื้น");
+    expect((await page.textContent("#count")) === "พบ 1 รายการ", "live search");
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await page.press("input[name=q]", "Enter");
+    await page.waitForTimeout(150);
+    expect((await page.evaluate(() => scrollY)) === 300, "Enter in search re-rendered the page");
+    expect((await hash()) === "#/products/?q=ถู พื้น&brand=riverra".replace(" ", "+"), "filter URL: " + (await hash()));
+    await page.fill("input[name=q]", "zzzz");
+    expect(await page.isVisible("#empty"), "empty state not shown");
+  });
+
+  // 404 search form navigates to the catalog without empty params
+  await step("404 search", async () => {
+    await go("#/no-such-page/");
+    await page.fill("main input[name=q]", "กระจก");
+    await page.click("main button[type=submit]");
+    await page.waitForTimeout(120);
+    expect((await hash()) === "#/products/?q=กระจก", "404 search URL: " + (await hash()));
+  });
+
+  // Scroll-reveal headings must not stay invisible when the user jumps past them
+  await step("reveal", async () => {
+    await go("#/services/");
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(800);
+    expect(await page.evaluate(() => document.getElementById("band-h").classList.contains("in")), "band heading never revealed after jump");
+  });
+
+  // Focus moves to the new page heading after navigation
+  await step("focus", async () => {
+    await go("");
+    await page.click('.rows a[href$="/industries/hotel/"]');
+    await page.waitForTimeout(120);
+    expect(await page.evaluate(() => document.activeElement.tagName === "H1"), "focus not moved to h1");
+  });
+
+  // Skip link focuses <main> without dropping the current route
+  await step("skip link", async () => {
+    await go("#/about/");
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
+    expect((await hash()) === "#/about/", "skip link changed the route");
+    expect(await page.evaluate(() => document.activeElement.id === "main"), "skip link did not focus main");
+  });
+
+  // Mobile menu closes on link, outside click and Escape
+  await step("menu", async () => {
+    await go("");
+    await page.click(".menu summary");
+    await page.mouse.click(20, 650);
+    expect(await page.evaluate(() => !document.querySelector("details.menu[open]")), "menu stayed open after outside click");
+    await page.click(".menu summary");
+    await page.keyboard.press("Escape");
+    expect(await page.evaluate(() => !document.querySelector("details.menu[open]")), "menu stayed open after Escape");
+    await page.click(".menu summary");
+    await page.click('.menu a[href$="/about/"]');
+    await page.waitForTimeout(120);
+    expect((await page.title()).startsWith("เกี่ยวกับเรา") && (await page.evaluate(() => !document.querySelector("details.menu[open]"))), "menu link");
+  });
+
+  expect(!errors.length, "page errors: " + errors.join("; "));
+  await browser.close();
+  server.close();
+  console.log(`${routes.length} routes checked`);
+  fails.forEach((f) => console.log("FAIL", f));
+  process.exit(fails.length ? 1 : 0);
+})();
