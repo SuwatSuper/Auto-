@@ -333,7 +333,7 @@ a.pill:hover{background:#DCEBFF;color:var(--blue-700)}
   *,*::before,*::after{animation:none!important;transition-property:opacity,color,background-color,border-color!important}
   .w,.rv,.cat.rv img,.feat.rv::before,.svc.rv::before,.tl li.rv::before,.tl li.rv .tl__dot{transform:none!important;filter:none!important}
 }
-@media print{.w,.rv{opacity:1!important;filter:none!important;transform:none!important}.mbar{display:none}}
+@media print{.w,.rv,.cat.rv img{opacity:1!important;filter:none!important;transform:none!important;transition:none!important}.feat.rv::before,.svc.rv::before,.tl li.rv::before,.tl li.rv .tl__dot{transform:none!important}.mbar{display:none}}
 
 /* ---------- การเคลื่อนไหว (ปิดทั้งหมดเมื่อผู้ใช้ตั้งค่าลดการเคลื่อนไหว) ----------
    ใช้เฉพาะ transform/opacity · ภาพหลักและ h1 ขยับแค่ตำแหน่ง ไม่ซ่อน เพื่อไม่ให้ LCP ช้าลง */
@@ -2557,7 +2557,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   var IMG = window.__IMG || {};
   // เก็บภาพที่ฝังอยู่ในหน้าแรกไว้ใช้ซ้ำ (ไม่ต้องฝังซ้ำในไฟล์)
   d.querySelectorAll("img[data-img]").forEach(function (i) { if (i.getAttribute("src")) IMG[i.dataset.img] = i.getAttribute("src"); });
-  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var rmq = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null, reduce = !!(rmq && rmq.matches);
+  if (rmq) { var onRm = function () { reduce = rmq.matches; }; if (rmq.addEventListener) rmq.addEventListener("change", onRm); else if (rmq.addListener) rmq.addListener(onRm); }
   var T = {};
   d.querySelectorAll("template[data-route]").forEach(function (t) { T[t.dataset.route] = t; });
   var mbarLine = d.querySelector(".mbar .btn--pri");
@@ -2631,13 +2632,16 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     ticking = false;
     // อ่านตำแหน่งทั้งหมดก่อน (บังคับคำนวณสไตล์ครั้งเดียว ขณะยังซ่อนแบบไม่มี transition) แล้วค่อยเผย
     var lim = window.innerHeight * 0.9, n = 0, keep = [];
-    var tops = pending.map(function (el) { return el.getBoundingClientRect().top; });
+    var rects = pending.map(function (el) { return el.getBoundingClientRect(); });
     // เลื่อนถึงท้ายหน้าแล้ว (หรือกรอบพรีวิวที่ยืดสูงเท่าเอกสาร) ไม่มีอะไรเลื่อนเข้ามาอีก: เผยที่เหลือทั้งหมด ไม่ให้ค้างโปร่งใส
     var end = window.pageYOffset + window.innerHeight >= root.scrollHeight - 2;
     pending.forEach(function (el, i) {
       if (el.isConnected === false) return;
       el.classList.remove("rv-init");
-      if (end || tops[i] < lim) reveal(el, el.classList.contains("rv") ? n++ : 0); else keep.push(el);
+      var r = rects[i];
+      if (!r.width && !r.height) keep.push(el);                         // ถูกตัวกรองซ่อนอยู่: รอจนกลับมาแสดง
+      else if (end || r.top < lim) reveal(el, el.classList.contains("rv") ? n++ : 0);
+      else keep.push(el);
     });
     pending = keep;
   }
@@ -2654,9 +2658,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     // หน้าแรกตอนโหลดครั้งแรก เบราว์เซอร์วาดให้เห็นก่อนสคริปต์นี้ทำงาน (ไฟล์ใหญ่):
     // ส่วนที่อยู่ในจอแล้วไม่ซ่อนซ้ำ ไม่งั้นจะกะพริบ (เห็น → หาย → ค่อย ๆ โผล่)
     var vh = window.innerHeight;
-    var seen = painted ? heads.concat(blocks).map(function (el) { return el.getBoundingClientRect().top < vh; }) : [];
+    var counts = [].slice.call(scope.querySelectorAll("[data-count]"));
+    var seen = painted ? heads.concat(blocks, counts).map(function (el) { return el.getBoundingClientRect().top < vh; }) : [];
     heads.forEach(function (el, i) { if (!seen[i] && words(el)) pending.push(el); });
-    scope.querySelectorAll("[data-count]").forEach(function (el) { pending.push(el); });
+    counts.forEach(function (el, i) { if (!seen[heads.length + blocks.length + i]) pending.push(el); });
     if (!reduce) {
       scope.querySelectorAll(".card .media:not(.sweep)").forEach(function (m) {   // ประกายวิ่งผ่านขวดในการ์ดสินค้า
         var sb = d.createElement("span"); sb.className = "shinebox"; sb.setAttribute("aria-hidden", "true");
@@ -2746,6 +2751,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         c.hidden = !ok; if (ok) n++;
       });
       countEl.textContent = "พบ " + n + " รายการ"; empty.hidden = n !== 0;
+      schedule();   // การ์ดที่ผ่านตัวกรองอาจขยับขึ้นมาในจอโดยไม่มีการเลื่อน: ต้องตรวจเผยใหม่ ไม่งั้นค้างโปร่งใส
       if (push) { var p = new URLSearchParams(); K.forEach(function (k) { var v = f.get(k); if (v) p.set(k, v); });
         var s = p.toString(); history.replaceState(null, "", "#" + path + (s ? "?" + s : "")); }
     }

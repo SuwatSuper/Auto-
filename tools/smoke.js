@@ -114,12 +114,39 @@ const step = async (name, fn) => { try { await fn(); } catch (e) { fails.push(`$
     await rctx.close();
   });
 
+  // Filtering moves cards into view without a scroll: they must be revealed, not left at opacity 0
+  await step("filter reveal", async () => {
+    for (const reducedMotion of ["no-preference", "reduce"]) {
+      const fctx = await browser.newContext({ viewport: { width: 1366, height: 800 }, reducedMotion });
+      const fp = await fctx.newPage();
+      await fp.goto(url + "#/products/");
+      await fp.waitForTimeout(800);
+      await fp.selectOption("select[name=brand]", "riverra");
+      await fp.waitForTimeout(1500);
+      const stuck = await fp.evaluate(() => [...document.querySelectorAll("[data-pid]:not([hidden])")]
+        .filter((c) => c.getBoundingClientRect().top < innerHeight && getComputedStyle(c).opacity === "0").length);
+      expect(stuck === 0, `filter (${reducedMotion}): ${stuck} matching cards left invisible`);
+      await fctx.close();
+    }
+  });
+
+  // Print / Save as PDF must not drop anything the reveal state hides
+  await step("print", async () => {
+    await go("");
+    await page.emulateMedia({ media: "print" });
+    const hidden = await page.evaluate(() => [...document.querySelectorAll("main .rv, main .rv img, main .w")]
+      .filter((e) => getComputedStyle(e).opacity === "0").length);
+    expect(hidden === 0, `print: ${hidden} elements invisible`);
+    await page.emulateMedia({ media: "screen" });
+  });
+
   // First load of the home page is painted before the script runs: blocks already on screen must not be hidden again
   await step("no first-paint flicker", async () => {
     const tctx = await browser.newContext({ viewport: { width: 1280, height: 1500 } });
     const tp = await tctx.newPage();
     await tp.goto(url);
     expect(await tp.evaluate(() => !document.querySelector(".cat").classList.contains("rv")), "on-screen category tile re-hidden after first paint");
+    expect(await tp.evaluate(() => !document.querySelector(".facts-row [data-count]").matches(".counting") && document.querySelector(".facts-row [data-count]").textContent === "17"), "on-screen count reset after first paint");
     await tctx.close();
   });
 
