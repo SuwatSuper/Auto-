@@ -91,9 +91,31 @@ const step = async (name, fn) => { try { await fn(); } catch (e) { fails.push(`$
     expect(await page.evaluate(() => document.getElementById("band-h").classList.contains("in")), "band heading never revealed after jump");
   });
 
+  // Scroll-reveal blocks (.rv) must all end up visible and cleaned up, even after a jump
+  await step("block reveal", async () => {
+    await go("");
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(2300);
+    expect(await page.evaluate(() => document.querySelectorAll("main .rv").length === 0), "some .rv blocks never revealed");
+    expect(await page.evaluate(() => [...document.querySelectorAll("main .grid > *, main .tl > li")].every((e) => getComputedStyle(e).opacity === "1")), "revealed blocks not fully opaque");
+  });
+
+  // Reduced motion: no hidden-until-revealed content and no CSS animations
+  await step("reduced motion", async () => {
+    const rctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" });
+    const rp = await rctx.newPage();
+    await rp.goto(url);
+    expect(await rp.evaluate(() => !document.querySelector(".rv, .w")), "motion classes applied under reduced motion");
+    expect(await rp.evaluate(() => getComputedStyle(document.querySelector(".lineup > img")).animationName === "none"), "hero float runs under reduced motion");
+    await rctx.close();
+  });
+
   // Focus moves to the new page heading after navigation
   await step("focus", async () => {
     await go("");
+    // wait for the scroll-reveal to finish so the link is stable before clicking
+    await page.locator('.rows a[href$="/industries/hotel/"]').scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => !document.querySelector('.rows a[href$="/industries/hotel/"]').closest("li").classList.contains("rv"), null, { timeout: 5000 });
     await page.click('.rows a[href$="/industries/hotel/"]');
     await page.waitForTimeout(120);
     expect(await page.evaluate(() => document.activeElement.tagName === "H1"), "focus not moved to h1");

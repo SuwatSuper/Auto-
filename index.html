@@ -332,7 +332,56 @@ a.pill:hover{background:#DCEBFF;color:var(--blue-700)}
   *,*::before,*::after{animation:none!important;transition:none!important}
   .w{opacity:1;filter:none;transform:none}
 }
-@media print{.w{opacity:1;filter:none;transform:none}.mbar{display:none}}
+@media print{.w,.rv{opacity:1!important;filter:none!important;transform:none!important}.mbar{display:none}}
+
+/* ---------- การเคลื่อนไหว (ปิดทั้งหมดเมื่อผู้ใช้ตั้งค่าลดการเคลื่อนไหว) ----------
+   ใช้เฉพาะ transform/opacity · ภาพหลักและ h1 ขยับแค่ตำแหน่ง ไม่ซ่อน เพื่อไม่ให้ LCP ช้าลง */
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+@keyframes riseT{from{transform:translateY(22px)}}
+@keyframes float{50%{transform:translateY(-8px)}}
+@keyframes floatRefl{0%,100%{transform:scaleY(-1)}50%{transform:translateY(8px) scaleY(-1)}}
+@keyframes floatShadow{50%{transform:scaleX(.9);opacity:.7}}
+@keyframes btnShine{from{transform:translateX(-120%)}to{transform:translateX(120%)}}
+/* หน้าแรก: ข้อความไล่กันขึ้น ภาพสินค้าลอยขึ้นแล้วลอยค้างเบา ๆ */
+.hero .eyebrow{animation:rise .7s var(--ease) .05s both}
+.hero h1{animation:riseT .8s var(--ease) .1s both}
+.hero .lead{animation:rise .7s var(--ease) .22s both}
+.hero .btns{animation:rise .7s var(--ease) .32s both}
+.lineup{animation:riseT 1s var(--ease) .25s both}
+.lineup>img{animation:float 6s ease-in-out 1.3s infinite}
+.lineup .refl img{animation:floatRefl 6s ease-in-out 1.3s infinite}
+.lineup::after{animation:floatShadow 6s ease-in-out 1.3s infinite}
+.facts-row{animation:rise .7s var(--ease) .45s both}
+/* หัวหน้าย่อยและหน้าสินค้า */
+.ph-head>*,.pd>div:last-child>*{animation:rise .6s var(--ease) both}
+.ph-head>h1,.pd h1{animation-name:riseT}
+.ph-head>:nth-child(2),.pd>div:last-child>:nth-child(2){animation-delay:.06s}
+.ph-head>:nth-child(3),.pd>div:last-child>:nth-child(3){animation-delay:.12s}
+.pd>div:last-child>:nth-child(4){animation-delay:.18s}
+.pd>div:last-child>:nth-child(5){animation-delay:.24s}
+.pd>div:last-child>:nth-child(n+6){animation-delay:.3s}
+.pd__vis{animation:riseT .9s var(--ease) both}
+.pd__vis .media img{animation:float 7s ease-in-out 1.6s infinite}
+.pd__vis .media::after{animation:floatShadow 7s ease-in-out 1.6s infinite}
+/* ปุ่มหลัก: แสงวิ่งผ่านเมื่อชี้ และวิ่งเองหนึ่งครั้งที่ปุ่มหน้าแรก */
+.btn--pri{position:relative;overflow:hidden}
+.btn--pri::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.38) 50%,transparent 65%);transform:translateX(-120%);pointer-events:none}
+.btn--pri:hover::after{transform:translateX(120%);transition:transform .7s var(--ease)}
+.hero .btn--pri::after{animation:btnShine 1.1s var(--ease) 1.4s 1}
+/* บล็อกเนื้อหาไล่กันขึ้นเมื่อเลื่อนถึง (JS ใส่ .rv และ --d ไว้หน่วงเวลาให้ไล่กัน แล้วถอดออกเมื่อจบ) */
+.rv{opacity:0;transform:translateY(18px);transition:opacity .6s var(--ease) var(--d,0s),transform .7s var(--ease) var(--d,0s)}
+.rv.in{opacity:1;transform:none}
+.cat.rv img{opacity:0;transform:translateY(26px) rotate(-6deg);transition:opacity .5s var(--ease) calc(var(--d,0s) + .15s),transform .8s cubic-bezier(.2,1.3,.4,1) calc(var(--d,0s) + .15s)}
+.cat.rv.in img{opacity:1;transform:none}
+.card .go .shinebox::before{animation-delay:calc(var(--d,0s) + .35s)}
+.feat.rv,.svc.rv{position:relative;border-top-color:transparent}
+.feat.rv::before,.svc.rv::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:var(--ink);transform:scaleX(0);transform-origin:left;transition:transform .9s var(--ease) calc(var(--d,0s) + .1s)}
+.feat.rv.in::before,.svc.rv.in::before{transform:none}
+.tl li.rv::before{transform:scaleY(0);transform-origin:top;transition:transform .7s var(--ease) calc(var(--d,0s) + .25s)}
+.tl li.rv.in::before{transform:none}
+.tl li.rv .tl__dot{transform:scale(0);transition:transform .45s cubic-bezier(.2,1.5,.4,1) calc(var(--d,0s) + .1s)}
+.tl li.rv.in .tl__dot{transform:none}
+@media(min-width:1024px){.tl li.rv::before{transform:scaleX(0);transform-origin:left}.tl li.rv.in::before{transform:none}}
 button.btn{cursor:pointer}
 .dlg{border:0;padding:0;border-radius:var(--r-lg);width:min(420px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;color:var(--ink);background:#fff;box-shadow:0 24px 60px rgba(17,33,51,.18)}
 .dlg::backdrop{background:rgba(17,33,51,.45)}
@@ -2550,7 +2599,15 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       el.textContent = String(Math.round(end * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(step); }
     el.textContent = "0"; requestAnimationFrame(step);
   }
-  function reveal(el) {
+  function reveal(el, i) {
+    if (el.classList.contains("rv")) {
+      // หน่วงให้ชิ้นที่โผล่พร้อมกันไล่กันขึ้น แล้วถอดคลาสเมื่อจบ ให้ hover เดิมของการ์ด/หมวดทำงานตามปกติ
+      var delay = Math.min(i * 70, 420);
+      el.style.setProperty("--d", delay + "ms");
+      el.classList.add("in");
+      setTimeout(function () { el.classList.remove("rv", "in"); el.style.removeProperty("--d"); }, delay + 1600);
+      return;
+    }
     if (el.hasAttribute("data-words")) el.classList.add("in");
     if (el.hasAttribute("data-count")) count(el);
     if (el.classList.contains("sweep")) {
@@ -2563,10 +2620,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   var pending = [], ticking = false;
   function check() {
     ticking = false;
-    var lim = window.innerHeight * 0.9;
+    var lim = window.innerHeight * 0.9, n = 0;
     pending = pending.filter(function (el) {
       if (!el.isConnected) return false;
-      if (el.getBoundingClientRect().top < lim) { reveal(el); return false; }
+      if (el.getBoundingClientRect().top < lim) { reveal(el, el.classList.contains("rv") ? n++ : 0); return false; }
       return true;
     });
   }
@@ -2578,7 +2635,14 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (reduce) return;
     scope.querySelectorAll("[data-words]").forEach(function (el) { if (words(el)) pending.push(el); });
     scope.querySelectorAll("[data-count]").forEach(function (el) { pending.push(el); });
+    scope.querySelectorAll(".card .media:not(.sweep)").forEach(function (m) {   // ประกายวิ่งผ่านขวดในการ์ดสินค้า
+      var sb = d.createElement("span"); sb.className = "shinebox"; sb.setAttribute("aria-hidden", "true");
+      m.appendChild(sb); m.classList.add("sweep");
+    });
     scope.querySelectorAll(".sweep").forEach(function (el) { pending.push(el); });
+    scope.querySelectorAll(".grid > *, .feats > *, .tl > li, .rows > li, .contact-grid > *").forEach(function (el) {
+      el.classList.add("rv"); pending.push(el);
+    });
     schedule();
   }
 
@@ -2684,6 +2748,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     motion(main); filters(main, qs, path);
     if (!first) {
       window.scrollTo(0, 0);
+      if (!reduce && main.animate) main.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 320, easing: "cubic-bezier(.2,.7,.2,1)" });
       // ย้ายโฟกัสไปหัวข้อหน้าใหม่ ให้ผู้ใช้คีย์บอร์ด/โปรแกรมอ่านหน้าจอรู้ว่าเปลี่ยนหน้าแล้ว
       var h1 = main.querySelector("h1");
       if (h1) { h1.setAttribute("tabindex", "-1"); h1.focus({ preventScroll: true }); }
