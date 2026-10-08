@@ -229,6 +229,84 @@ function check(name, ok, detail) {
   }
   await other.close(); await ctx3.close();
 
+  /* ---------- 9) เปิดไฟล์รุ่นเก่าค้างไว้อีกหน้าต่าง แล้วรุ่นเก่าบันทึกทับ ---------- */
+  if (OLD) {
+    const ctx4 = await browser.newContext({ timezoneId: 'Asia/Bangkok' });
+    const oldTab = await ctx4.newPage(); watch(oldTab, 'oldTab');
+    await oldTab.goto('file://' + OLD);
+    const newTab = await ctx4.newPage(); watch(newTab, 'newTab');
+    await newTab.goto('file://' + NEW);
+    const issued = await newTab.evaluate(() => { const P = window.PROCLEAN; const d = P.newDoc('IV'); d.partyId = 'x'; d.status = 'sent';
+      d.items = [{ id: 'a', name: 'ออกให้ลูกค้าแล้ว', qty: 1, unit: 'ชิ้น', price: 100, disc: 0, discType: 'thb' }]; P.saveDoc(d); return d.no; });
+    await oldTab.waitForTimeout(300);
+    await oldTab.evaluate(() => { window.PROCLEAN.db.company.phone = '000'; window.PROCLEAN.save(); });   // รุ่นเก่าบันทึกข้อมูลเก่าทับ
+    await newTab.waitForTimeout(600);
+    const st = await newTab.evaluate(no => ({ mem: window.PROCLEAN.db.docs.some(d => d.no === no), next: window.PROCLEAN.newDoc('IV').no,
+      stored: JSON.parse(localStorage.getItem('proclean.office.v1')).docs.some(d => d.no === no) }), issued);
+    check('ไฟล์รุ่นเก่าที่เปิดค้างบันทึกทับ: เอกสารที่เพิ่งออกไม่หาย', st.mem && st.stored, JSON.stringify(st));
+    check('ไฟล์รุ่นเก่าที่เปิดค้างบันทึกทับ: เลขที่เอกสารถัดไปไม่ซ้ำกับที่ออกไปแล้ว', st.next !== issued, st.next + ' vs ' + issued);
+    await ctx4.close();
+
+    /* ---------- 10) เอกสาร VAT ที่ออกด้วยรุ่นเก่า พิมพ์ซ้ำต้องได้หัวเอกสารเดิม ---------- */
+    const ctx5 = await browser.newContext({ timezoneId: 'Asia/Bangkok' });
+    const o5 = await ctx5.newPage(); watch(o5, 'vatOld');
+    await o5.goto('file://' + OLD);
+    const oldTitles = await o5.evaluate(() => { const P = window.PROCLEAN, db = P.db; db.company.vatRegistered = true; db.company.taxId = '0105555555555';
+      const mk = (t, f, st) => { const d = f ? P.convertDoc(f, t) : P.newDoc(t); d.partyId = 'x'; d.vat = true; if (!f) d.items = [{ id: 'a', name: 'x', qty: 1, unit: 'ชิ้น', price: 100, disc: 0, discType: 'thb' }]; d.status = st; return P.saveDoc(d); };
+      const q = mk('QT', null, 'won'), dn = mk('DN', q, 'delivered'), iv = mk('IV', dn, 'sent'), rc = mk('RC', iv, 'issued');
+      P.save();
+      const tx = h => { const e = document.createElement('div'); e.innerHTML = h; return e.querySelector('.sh-title').textContent; };
+      return [dn, iv, rc].map(d => ({ id: d.id, t: tx(P.sheetHTML(d, null)) })); });
+    const n5 = await ctx5.newPage(); watch(n5, 'vatNew');
+    await n5.goto('file://' + NEW);
+    const newTitles = await n5.evaluate(ids => ids.map(x => { const P = window.PROCLEAN; const e = document.createElement('div');
+      e.innerHTML = P.sheetHTML(P.db.docs.find(d => d.id === x.id), null); return { id: x.id, t: e.querySelector('.sh-title').textContent }; }), oldTitles);
+    check('เอกสาร VAT จากรุ่นเก่า พิมพ์ซ้ำได้หัวเอกสาร “ใบกำกับภาษี” เหมือนเดิมทุกใบ', JSON.stringify(oldTitles) === JSON.stringify(newTitles),
+      JSON.stringify(oldTitles) + ' => ' + JSON.stringify(newTitles));
+    await ctx5.close();
+  }
+
+  /* ---------- 10b) เอกสารทุกชนิด (ไทย/อังกฤษ) ที่ออกด้วยรุ่นเก่า พิมพ์ซ้ำต้องได้ข้อความเดิมทุกตัวอักษร ---------- */
+  if (OLD) {
+    const ctx7 = await browser.newContext({ timezoneId: 'Asia/Bangkok' });
+    const o7 = await ctx7.newPage(); watch(o7, 'fidOld');
+    await o7.goto('file://' + OLD);
+    const TX = `(h=>{const e=document.createElement('div');e.innerHTML=h;return e.textContent.replace(/\\s+/g,' ').replace(/(พิมพ์เมื่อ|Printed on) [^·]*$/,'');})`;
+    const oldT = await o7.evaluate(TX => { const tx = eval(TX); const P = window.PROCLEAN, db = P.db;
+      db.company.bankName = 'ธนาคารกสิกรไทย'; db.company.bankAcctName = 'สุวัฒน์'; db.company.bankAcctNo = '123-4-56789-0';
+      db.customers.push({ id: 'cf', name: 'บริษัท ลูกค้า จำกัด', branch: 'สำนักงานใหญ่', taxId: '0105555555555', addr1: '99/9 ถนนทดสอบ', addr2: 'กรุงเทพมหานคร 10110',
+        contact: 'คุณเอ', phone: '02-000-0000', email: 'a@b.c', creditDays: 30, nameEn: 'Customer Co., Ltd.', addrEn1: '99/9 Test Rd', addrEn2: 'Bangkok', branchEn: 'Head Office', docLang: '' });
+      const ids = [];
+      ['SM', 'QT', 'DN', 'IV', 'BN', 'RC', 'CN', 'PO'].forEach(t => ['th', 'en'].forEach(lang => {
+        const d = P.newDoc(t); d.partyId = 'cf'; d.lang = lang; d.poRef = 'PO-77'; d.contactRef = 'คุณเอ';
+        d.items = [0, 1, 2].map(i => { const p = db.products[i * 2]; return { id: 'i' + i, productId: p.id, sku: p.sku, name: p.name, nameEn: p.nameEn, pack: p.pack, packEn: p.packEn,
+          unit: p.unit, unitEn: p.unitEn, dilution: p.dilution, dilutionEn: p.dilutionEn, qty: i + 2, price: 1234.5 + i, disc: i === 1 ? 10 : 0, discType: i === 1 ? 'pct' : 'thb', note: i === 2 ? 'หมายเหตุ' : '' }; });
+        d.disc = 100; d.wht = (t === 'IV'); d.whtRate = 3; d.note = 'เงื่อนไข\nบรรทัดสอง'; d.payMethod = 'โอนเงิน'; d.payRef = 'REF1';
+        P.saveDoc(d); ids.push(d.id); }));
+      P.save();
+      return ids.map(id => ({ id, t: tx(P.sheetHTML(P.db.docs.find(d => d.id === id), 'ต้นฉบับ')) })); }, TX);
+    const n7 = await ctx7.newPage(); watch(n7, 'fidNew');
+    await n7.goto('file://' + NEW);
+    const newT = await n7.evaluate(([ids, TX]) => { const tx = eval(TX); const P = window.PROCLEAN;
+      return ids.map(x => ({ id: x.id, t: tx(P.sheetHTML(P.db.docs.find(d => d.id === x.id), 'ต้นฉบับ')) })); }, [oldT, TX]);
+    const bad = oldT.filter((x, i) => x.t !== newT[i].t).length;
+    check('เอกสาร 8 ชนิด × 2 ภาษา ที่ออกด้วยรุ่นเก่า พิมพ์ซ้ำได้ข้อความเดิมทุกตัวอักษร (' + oldT.length + ' ฉบับ)', bad === 0, bad + ' ฉบับต่างกัน');
+    await ctx7.close();
+  }
+
+  /* ---------- 11) ส่วนขยายเบราว์เซอร์แทรกสไตล์ → ต้องไม่ติดไปในไฟล์ที่ส่งออก ---------- */
+  const ctx6 = await browser.newContext({ timezoneId: 'Asia/Bangkok' });
+  await ctx6.addInitScript(() => {
+    new MutationObserver(() => { if (document.head && !document.getElementById('ext-injected')) {
+      const st = document.createElement('style'); st.id = 'ext-injected'; st.textContent = 'body{background:#000}'; document.head.appendChild(st);
+      document.documentElement.setAttribute('data-ext-mode', 'dark'); } }).observe(document, { childList: true, subtree: true });
+  });
+  const p6 = await ctx6.newPage(); watch(p6, 'ext');
+  await p6.goto('file://' + NEW);
+  const src6 = await p6.evaluate(() => window.PROCLEAN.buildDataHTML(window.PROCLEAN.db));
+  check('ไฟล์พร้อมข้อมูลไม่พาสิ่งที่ส่วนขยายเบราว์เซอร์แทรกติดไปด้วย', src6.length > 1000 && src6.indexOf('ext-injected') < 0 && src6.indexOf('data-ext-mode') < 0);
+  await ctx6.close();
+
   check('ไม่มีข้อผิดพลาด JavaScript ระหว่างทดสอบ', errors.length === 0, errors.join(' | '));
   await browser.close();
   console.log(failed ? '\n' + failed + ' FAILED' : '\nALL PASSED');
