@@ -428,6 +428,8 @@ textarea{resize:vertical;min-height:64px}
 <div id="app"></div>
 <div id="modal-root"></div>
 <div id="toasts"></div>
+<!-- ข้อมูลที่ฝังมากับไฟล์ (สร้างจากปุ่ม “ดาวน์โหลดไฟล์ระบบพร้อมข้อมูล”) ไฟล์ต้นฉบับเว้นว่างไว้ -->
+<script type="application/json" id="pc-embedded"></script>
 <script>
 /* ================================================================
    PROCLEAN OFFICE v1.1
@@ -440,6 +442,22 @@ textarea{resize:vertical;min-height:64px}
    ================================================================ */
 (function(){
 'use strict';
+
+/* ซอร์สของหน้านี้ ณ ตอนเปิด (ก่อนวาดหน้าจอ) ใช้สร้างไฟล์ระบบพร้อมข้อมูล */
+var PAGE_SRC=(function(){
+  try{ return '<!DOCTYPE html>\n'+document.documentElement.outerHTML; }catch(e){ return ''; }
+})();
+/* ข้อมูลที่ฝังมากับไฟล์ — อ่านอย่างเดียว ไม่เคยเขียนทับข้อมูลในเครื่องโดยอัตโนมัติ */
+var EMBEDDED=(function(){
+  try{
+    var el=document.getElementById('pc-embedded');
+    var t=el?String(el.textContent||'').trim():'';
+    if(!t) return null;
+    var o=JSON.parse(t);
+    return (o && typeof o==='object' && o.meta && Array.isArray(o.products)) ? o : null;
+  }catch(e){ return null; }
+})();
+var EMBED_STATE='';   // '' ไม่มีข้อมูลฝัง · loaded โหลดเข้าเครื่องแล้ว · differs มีรายการที่เครื่องนี้ยังไม่มี · same · dismissed
 
 /* ---------------------------------------------------------------
    1. ชั้นเก็บข้อมูล (Storage Layer)
@@ -468,6 +486,7 @@ var Store=(function(){
     locked:function(){return locked;},
     lock:function(on){ locked=!!on; },
     sandbox:function(on){ sandbox=!!on; sbMem=null; },
+    inSandbox:function(){ return sandbox; },
     raw:function(){ try{ return rawGet(); }catch(e){ return null; } },
     /* อ่านแบบแยกสถานะ: ไม่มีข้อมูล / อ่านได้ / มีข้อมูลแต่เสียหาย */
     readState:function(){
@@ -941,6 +960,7 @@ function seedDB(){
       owner:'นายสุวัฒน์ สุวรรณรัตน์',
       ownerEn:'Mr. Suwat Suwannarat',
       regNo:'1103703299468',
+      branch:'สำนักงานใหญ่', branchEn:'Head Office',
       taxId:'',
       vatRegistered:false,
       vatRate:7,
@@ -1059,8 +1079,198 @@ function load(){
     DB=migrate(seedDB());
     return;
   }
-  if(r.state==='empty'){ DB=seedDB(); save(); return; }
+  if(r.state==='empty'){
+    /* เครื่องนี้ยังไม่มีข้อมูล แต่ไฟล์มีข้อมูลฝังมา → ใช้ข้อมูลจากไฟล์ทั้งหมด */
+    if(EMBEDDED && !Store.inSandbox()){
+      DB=migrate(JSON.parse(JSON.stringify(EMBEDDED))); recomputeStock();
+      EMBED_STATE='loaded'; save(); return;
+    }
+    DB=seedDB(); save(); return;
+  }
   DB=migrate(r.data);
+  /* เครื่องนี้มีข้อมูลอยู่แล้ว: ไม่ทับเด็ดขาด แค่ตรวจว่าไฟล์มีรายการที่เครื่องยังไม่มีหรือไม่ แล้วให้ผู้ใช้เลือกเอง */
+  if(EMBEDDED && !Store.inSandbox() && EMBED_STATE!=='dismissed'){
+    EMBED_STATE = mergePreview(DB, EMBEDDED).total>0 ? 'differs' : 'same';
+  }
+}
+
+/* ---------------------------------------------------------------
+   5b. รวมข้อมูลจากไฟล์อื่น (ไฟล์สำรอง .json หรือไฟล์ระบบที่ฝังข้อมูล)
+   หลักการ: เพิ่มเฉพาะรายการที่เครื่องนี้ยังไม่มี ไม่ลบและไม่ทับของเดิม
+   - เอกสารเดียวกัน (id เดียวกัน) ใช้ฉบับที่แก้ไขล่าสุด
+   - สินค้าจับคู่ด้วย id ก่อน แล้วจึงด้วยรหัสสินค้า (SKU) เพื่อไม่ให้สินค้าซ้ำ
+     ราคาและข้อมูลสินค้าในเครื่องนี้คงเดิม
+   - ประวัติสต็อกที่เกิดจากเอกสาร ใช้ตามฉบับเอกสารที่ถูกเลือก (กันตัดสต็อกซ้ำ)
+   - ข้อมูลกิจการและค่าตั้งค่าในเครื่องนี้คงเดิม เติมเฉพาะช่องที่ยังว่าง
+--------------------------------------------------------------- */
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function isBlankDB(x){
+  return !x.docs.length && !x.customers.length && !x.suppliers.length && !x.moves.length &&
+    x.products.every(function(p){ return !num(p.price) && !num(p.cost); });
+}
+function mergeData(base,inc,dry){
+  var rep={docs:0, docsUpdated:0, customers:0, suppliers:0, products:0, productsMatched:0,
+           moves:0, guides:0, dupNos:[], total:0};
+  /* สินค้า: หา id ปลายทางของสินค้าที่เข้ามา */
+  var pid={}, bySku={}, baseIds={};
+  base.products.forEach(function(p){ baseIds[p.id]=1; if(p.sku) bySku[String(p.sku).trim().toUpperCase()]=p.id; });
+  var newProducts=[];
+  inc.products.forEach(function(p){
+    if(!p || !p.id) return;
+    if(baseIds[p.id]){ pid[p.id]=p.id; return; }
+    var k=String(p.sku||'').trim().toUpperCase();
+    if(k && bySku[k]){ pid[p.id]=bySku[k]; rep.productsMatched++; return; }
+    pid[p.id]=p.id; newProducts.push(p); rep.products++;
+  });
+  function mapPid(v){ return (v && pid[v]) ? pid[v] : v; }
+
+  /* ทะเบียนลูกค้า / ผู้ขาย */
+  var addParties={customers:[], suppliers:[]};
+  ['customers','suppliers'].forEach(function(k){
+    var have={}; base[k].forEach(function(x){ have[x.id]=1; });
+    inc[k].forEach(function(x){ if(x && x.id && !have[x.id]){ addParties[k].push(x); rep[k]++; } });
+  });
+
+  /* เอกสาร */
+  var dIdx={}; base.docs.forEach(function(d,i){ dIdx[d.id]=i; });
+  var addDocs=[], updDocs=[], touched={};
+  inc.docs.forEach(function(d){
+    if(!d || !d.id) return;
+    if(dIdx[d.id]===undefined){ addDocs.push(d); touched[d.id]=1; rep.docs++; }
+    else if(String(d.updatedAt||'') > String(base.docs[dIdx[d.id]].updatedAt||'')){
+      updDocs.push(d); touched[d.id]=1; rep.docsUpdated++;
+    }
+  });
+
+  /* ประวัติสต็อก */
+  var haveMv={}; base.moves.forEach(function(m){ haveMv[m.id]=1; });
+  var addMoves=[];
+  inc.moves.forEach(function(m){
+    if(!m || !m.id) return;
+    if(m.refId){ if(touched[m.refId]) addMoves.push(m); return; }   // ตามเอกสารที่ถูกเลือก
+    if(!haveMv[m.id]) addMoves.push(m);
+  });
+  rep.moves=addMoves.length;
+
+  /* คู่มือ */
+  var haveG={}; base.guides.forEach(function(g){ haveG[g.code]=1; });
+  var addGuides=inc.guides.filter(function(g){ return g && g.code && !haveG[g.code]; });
+  rep.guides=addGuides.length;
+
+  rep.total=rep.docs+rep.docsUpdated+rep.customers+rep.suppliers+rep.products+rep.moves+rep.guides;
+  if(dry) return rep;
+
+  /* ---- ลงมือรวม ---- */
+  newProducts.forEach(function(p){ base.products.push(clone(p)); });
+  ['customers','suppliers'].forEach(function(k){ addParties[k].forEach(function(x){ base[k].push(clone(x)); }); });
+  function fixDoc(d){
+    var x=clone(d);
+    (x.items||[]).forEach(function(it){ it.productId=mapPid(it.productId); });
+    return x;
+  }
+  addDocs.forEach(function(d){ base.docs.push(fixDoc(d)); });
+  updDocs.forEach(function(d){ base.docs[dIdx[d.id]]=fixDoc(d); });
+  base.moves=base.moves.filter(function(m){ return !(m.refId && touched[m.refId]); });
+  addMoves.forEach(function(m){ var x=clone(m); x.productId=mapPid(x.productId); base.moves.push(x); });
+  addGuides.forEach(function(g){ base.guides.push(clone(g)); });
+  /* เลขรันเอกสาร: ใช้ค่าสูงสุดของทั้งสองฝั่ง กันออกเลขซ้ำกับเอกสารที่เพิ่งรวมเข้ามา */
+  for(var b in (inc.counters||{})){
+    if(num(inc.counters[b])>num(base.counters[b])) base.counters[b]=num(inc.counters[b]);
+  }
+  /* ข้อมูลกิจการ/ค่าตั้งค่า: คงของเครื่องนี้ เติมเฉพาะช่องว่าง */
+  ['company','settings'].forEach(function(k){
+    var src=inc[k]||{}, dst=base[k];
+    for(var f in src){
+      var cur=dst[f];
+      if((cur===undefined||cur===null||cur==='') && src[f]!==undefined && src[f]!==null && src[f]!=='') dst[f]=clone(src[f]);
+    }
+  });
+  /* เลขที่เอกสารซ้ำกันคนละฉบับ (เช่น ออกจากสองเครื่อง) — แจ้งให้ตรวจ ไม่เปลี่ยนเลขให้เอง
+     เพราะเอกสารที่ออกให้ลูกค้าไปแล้วต้องคงเลขเดิม */
+  var seenNo={};
+  base.docs.forEach(function(d){
+    var key=d.type+'|'+d.no;
+    if(seenNo[key] && rep.dupNos.indexOf(d.no)<0) rep.dupNos.push(d.no);
+    seenNo[key]=1;
+  });
+  return rep;
+}
+function mergePreview(base,inc){ return mergeData(base, migrate(clone(inc)), true); }
+function mergeSummary(r){
+  var parts=[];
+  if(r.docs) parts.push('เอกสาร '+r.docs+' ฉบับ');
+  if(r.docsUpdated) parts.push('เอกสารที่แก้ไขล่าสุด '+r.docsUpdated+' ฉบับ');
+  if(r.customers) parts.push('ลูกค้า '+r.customers+' ราย');
+  if(r.suppliers) parts.push('ผู้ขาย '+r.suppliers+' ราย');
+  if(r.products) parts.push('สินค้า '+r.products+' รายการ');
+  if(r.moves) parts.push('ประวัติสต็อก '+r.moves+' รายการ');
+  if(r.guides) parts.push('คู่มือ '+r.guides+' ฉบับ');
+  return parts.length?parts.join(' · '):'ไม่มีรายการใหม่';
+}
+/* รวมข้อมูลเข้าเครื่องนี้ (สำรองข้อมูลปัจจุบันเป็นไฟล์ให้อัตโนมัติก่อนเสมอ) */
+function applyIncoming(inc,mode,label){
+  var data=migrate(clone(inc));
+  if(Store.locked() || mode==='replace' || isBlankDB(DB)){
+    if(!Store.locked() && !isBlankDB(DB)) doBackup();
+    DB=data; recomputeStock();
+    Store.lock(false); LOAD_PROBLEM=null;
+    save();
+    return {replaced:true, docs:DB.docs.length};
+  }
+  doBackup();
+  var r=mergeData(DB,data,false);
+  recomputeStock(); save();
+  return r;
+}
+function reportIncoming(r,label){
+  if(r.replaced){
+    toast(label+' แล้ว · เอกสาร '+r.docs+' ฉบับ'+(Store.persistent()?'':' (ยังบันทึกถาวรไม่ได้ กรุณาสำรองข้อมูล)'),'good',6000);
+    return;
+  }
+  toast(label+' แล้ว · เพิ่ม '+mergeSummary(r)+' · ข้อมูลเดิมในเครื่องอยู่ครบ','good',7000);
+  if(r.productsMatched) toast('สินค้า '+r.productsMatched+' รายการจับคู่กับสินค้าเดิมด้วยรหัสสินค้า ราคาในเครื่องนี้คงเดิม','',6000);
+  if(r.dupNos.length) toast('พบเลขที่เอกสารซ้ำ '+r.dupNos.slice(0,5).join(', ')+(r.dupNos.length>5?' …':'')+
+    ' กรุณาตรวจสอบ (ระบบไม่เปลี่ยนเลขให้เอง)','bad',9000);
+}
+function mergeEmbeddedNow(){
+  if(!EMBEDDED) return;
+  var pv=mergePreview(DB,EMBEDDED);
+  confirmBox('รวมข้อมูลจากไฟล์นี้',
+    'จะเพิ่มรายการที่เครื่องนี้ยังไม่มี: <b>'+esc(mergeSummary(pv))+'</b><br><br>'+
+    'ข้อมูลเดิมในเครื่องนี้จะไม่ถูกลบหรือเขียนทับ และระบบจะดาวน์โหลดไฟล์สำรองของข้อมูลปัจจุบันให้ก่อนรวม',
+    'รวมข้อมูล',function(){
+      var r=applyIncoming(EMBEDDED,'merge');
+      EMBED_STATE='same'; render(); reportIncoming(r,'รวมข้อมูลจากไฟล์');
+    });
+}
+function useEmbeddedNow(){
+  if(!EMBEDDED) return;
+  confirmBox('ใช้ข้อมูลที่ฝังในไฟล์นี้',
+    'ไฟล์นี้มีเอกสาร '+(EMBEDDED.docs||[]).length+' ฉบับ บันทึกเมื่อ '+
+    esc(EMBEDDED.meta&&EMBEDDED.meta.savedAt?new Date(EMBEDDED.meta.savedAt).toLocaleString('th-TH'):'-')+'<br><br>'+
+    'กรุณากด “ดาวน์โหลดข้อมูลเดิม” เก็บไว้ก่อนหากยังไม่ได้ทำ','ใช้ข้อมูลจากไฟล์',function(){
+      var r=applyIncoming(EMBEDDED,'replace');
+      EMBED_STATE='same'; go('dash'); reportIncoming(r,'โหลดข้อมูลจากไฟล์');
+    },true);
+}
+/* สร้างไฟล์ระบบ (.html) ที่มีข้อมูลทั้งหมดฝังอยู่ในไฟล์ — ย้ายเครื่องหรือเก็บสำรองได้ด้วยไฟล์เดียว
+   เปิดบนเครื่องที่ยังไม่มีข้อมูล ระบบจะโหลดข้อมูลจากไฟล์ให้ทันที
+   เปิดบนเครื่องที่มีข้อมูลอยู่แล้ว ระบบจะไม่ทับ แต่ให้เลือกรวมเฉพาะรายการที่ยังไม่มี */
+var EMBED_RE=/(<script type="application\/json" id="pc-embedded">)([\s\S]*?)(<\/script>)/;
+function buildDataHTML(data){
+  if(!PAGE_SRC || !EMBED_RE.test(PAGE_SRC)) return '';
+  /* กันข้อความในข้อมูลปิดแท็ก script ก่อนกำหนด */
+  var json=JSON.stringify(data).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+  return PAGE_SRC.replace(EMBED_RE,function(m,a,b,c){ return a+json+c; });
+}
+function exportWithData(){
+  if(!buildDataHTML({})){
+    toast('สร้างไฟล์พร้อมข้อมูลไม่สำเร็จ กรุณาใช้ “สำรองเป็นไฟล์ JSON” แทน','bad',6000); return;
+  }
+  DB.meta.lastBackupAt=new Date().toISOString();
+  save();
+  download('PROCLEAN-OFFICE-พร้อมข้อมูล-'+stampNow()+'.html', buildDataHTML(DB), 'text/html');
+  toast('ดาวน์โหลดไฟล์ระบบพร้อมข้อมูลแล้ว — ไฟล์นี้มีข้อมูลลูกค้าทั้งหมด ห้ามส่งให้ลูกค้า','good',7000);
 }
 /* เดารหัสคู่มือจากรหัสสินค้าหรือชื่อ ใช้เฉพาะกับข้อมูลที่บันทึกไว้ก่อนมีฟีเจอร์นี้ */
 function guessGuideCode(p){
@@ -1947,19 +2157,40 @@ var LOGO_SVG='<svg width="34" height="40" viewBox="0 0 100 118" fill="none" xmln
  '<ellipse cx="50" cy="90" rx="44" ry="15" stroke="currentColor" stroke-width="3.4" fill="none"/>'+
  '<ellipse cx="50" cy="90" rx="28" ry="9" stroke="currentColor" stroke-width="3" fill="none"/></svg>';
 
+/* ใบกำกับภาษี: หนึ่งการขายออกได้ใบเดียว (ป.รัษฎากร ม.86 และ ม.86/13)
+   เดิมเมื่อจด VAT ระบบพิมพ์คำว่า “ใบกำกับภาษี” ทั้งบนใบส่งของ ใบแจ้งหนี้ และใบเสร็จของการขายเดียวกัน
+   กติกาใหม่: เอกสารใบแรกในสายงานที่เป็นใบส่งของ ใบแจ้งหนี้ หรือใบเสร็จ คือใบกำกับภาษี
+   (ขายเชื่อส่งของก่อน → ใบส่งของ · วางบิลโดยไม่มีใบส่งของ → ใบแจ้งหนี้ · ขายสด → ใบเสร็จ)
+   เอกสารที่สร้างต่อจากใบนั้นไม่พิมพ์คำว่าใบกำกับภาษีซ้ำ ถ้าใบกำกับภาษีต้นทางถูกยกเลิก ใบถัดไปจะเป็นใบกำกับภาษีแทน
+   ใบลดหนี้คงรูปแบบเดิม (เป็นเอกสารแยกตาม ม.86/10) */
+var TAX_DOC={DN:1,IV:1,RC:1};
+function taxInvoiceSource(d){
+  var seen={}, cur=d;
+  while(cur && cur.fromId && !seen[cur.fromId]){
+    seen[cur.fromId]=1;
+    var src=doc(cur.fromId);
+    if(!src) return TAX_DOC[cur.fromType] ? {no:cur.fromNo, type:cur.fromType} : null;
+    /* นับรวมฉบับร่างด้วย: ร่างที่ออกภายหลังจะกลายเป็นใบกำกับภาษี จึงต้องกันไว้ไม่ให้เกิดสองใบ */
+    if(TAX_DOC[src.type] && src.status!=='void') return src;
+    cur=src;
+  }
+  return null;
+}
+function isTaxInvoice(d){
+  if(!DB.company.vatRegistered || !TAX_DOC[d.type]) return false;
+  return !taxInvoiceSource(d);
+}
 function docTitleTh(d){
   var t=DOCTYPE[d.type];
   var vatCo=DB.company.vatRegistered;
-  if(d.type==='DN') return vatCo ? 'ใบส่งของ / ใบกำกับภาษี' : 'ใบส่งของ';
-  if(d.type==='RC') return vatCo ? 'ใบเสร็จรับเงิน / ใบกำกับภาษี' : 'ใบเสร็จรับเงิน';
-  if(d.type==='IV') return vatCo ? 'ใบแจ้งหนี้ / ใบกำกับภาษี' : 'ใบแจ้งหนี้';
+  if(TAX_DOC[d.type]) return isTaxInvoice(d) ? t.th+' / ใบกำกับภาษี' : t.th;
   if(d.type==='CN') return vatCo ? 'ใบลดหนี้ / ใบกำกับภาษี' : 'ใบลดหนี้';
   return t.th;
 }
 function docTitleEn(d){
   var t=DOCTYPE[d.type], vatCo=DB.company.vatRegistered;
-  if(vatCo && (d.type==='DN'||d.type==='RC'||d.type==='IV'||d.type==='CN'))
-    return t.en+' / TAX INVOICE';
+  if(TAX_DOC[d.type]) return isTaxInvoice(d) ? t.en+' / TAX INVOICE' : t.en;
+  if(vatCo && d.type==='CN') return t.en+' / TAX INVOICE';
   return t.en;
 }
 /* ภาษาหลักอยู่บรรทัดใหญ่ ภาษารองอยู่บรรทัดเล็กใต้ลงมา
@@ -2012,7 +2243,11 @@ function sheetParts(d,copyLabel,langOverride){
   if(c.email) line3.push(c.email);
   if(line3.length) coMeta.push(line3.join('  ·  '));
   var line4=[];
-  if(vatCo && c.taxId) line4.push(L('taxIdPfx')+c.taxId);
+  if(vatCo && c.taxId){
+    line4.push(L('taxIdPfx')+c.taxId);
+    var cb=fx(lang,c,'branch','branchEn');
+    if(cb) line4.push('('+cb+')');            // ใบกำกับภาษีต้องระบุสำนักงานใหญ่/สาขาของผู้ขาย
+  }
   else if(c.regNo) line4.push(L('regNoPfx')+c.regNo);
   if(line4.length) coMeta.push(line4.join('  '));
 
@@ -2726,6 +2961,17 @@ function count(type){
 }
 
 function storageBanner(){
+  var emb='';
+  if(EMBED_STATE==='differs' && EMBEDDED && !Store.locked()){
+    emb='<div class="notice notice-info"><div><b>ไฟล์นี้มีข้อมูลฝังมา ซึ่งยังไม่มีในเครื่องนี้</b>'+
+      esc(mergeSummary(mergePreview(DB,EMBEDDED)))+
+      '<br>ข้อมูลในเครื่องนี้ยังเป็นของเดิมทั้งหมด ระบบไม่ทับให้เอง กด “รวมข้อมูล” เพื่อเพิ่มเฉพาะรายการที่ยังไม่มี</div>'+
+      '<div class="btn-row" style="flex:0 0 auto"><button class="btn btn-sm btn-primary" data-embed-merge="1">รวมข้อมูล</button>'+
+      '<button class="btn btn-sm" data-embed-dismiss="1">ไม่ต้อง</button></div></div>';
+  }
+  return emb+storageBannerCore();
+}
+function storageBannerCore(){
   if(Store.locked()){
     return '<div class="notice notice-stop"><div><b>อ่านข้อมูลเดิมในเครื่องไม่ได้ — ระบบหยุดบันทึกไว้ก่อน เพื่อไม่ให้ข้อมูลเดิมถูกเขียนทับ</b>'+
       'ขั้นที่ 1 กด “ดาวน์โหลดข้อมูลเดิม” เก็บไฟล์ไว้ก่อน (ใช้ส่งให้ผู้ดูแลระบบกู้คืนได้) '+
@@ -2733,6 +2979,7 @@ function storageBanner(){
       'ระหว่างนี้ทุกอย่างที่แก้ไขจะยังไม่ถูกบันทึกถาวร</div>'+
       '<div class="btn-row" style="flex:0 0 auto"><button class="btn btn-sm" data-dl-raw="1">ดาวน์โหลดข้อมูลเดิม</button>'+
       '<button class="btn btn-sm" data-restore="1">กู้คืนข้อมูล</button>'+
+      (EMBEDDED?'<button class="btn btn-sm" data-embed-use="1">ใช้ข้อมูลที่ฝังในไฟล์นี้</button>':'')+
       '<button class="btn btn-sm btn-danger" data-reset="1">เริ่มต้นใหม่</button></div></div>';
   }
   if(Store.persistent()) return '';
@@ -3177,6 +3424,15 @@ VIEWS.editor=function(){
     '<div class="field"><label>สถานะเอกสาร</label><select data-d="status">'+stOpts+'</select>'+
       (POSTED[d.type]?'<span class="help">สต็อกจะเคลื่อนไหวเมื่อสถานะเป็น “'+
         esc(statusOf(d.type,POSTED[d.type]).th)+'” เท่านั้น</span>':'')+'</div>'+
+    (vatCo && TAX_DOC[d.type]?(function(){
+      var src=taxInvoiceSource(d);
+      return src ? '<div class="notice notice-info" style="margin:0 0 14px"><div><b>เอกสารนี้ไม่ใช่ใบกำกับภาษี</b>'+
+          'ใบกำกับภาษีของการขายนี้คือ '+esc((DOCTYPE[src.type]||{th:''}).th+' '+(src.no||''))+
+          (src.status==='draft'?' (ยังเป็นร่าง — อย่าลืมออกฉบับจริง)':'')+
+          ' ระบบจึงไม่พิมพ์คำว่าใบกำกับภาษีซ้ำ</div></div>'
+        : '<div class="notice notice-ok" style="margin:0 0 14px"><div><b>เอกสารนี้คือใบกำกับภาษีของการขายนี้</b>'+
+          'เอกสารที่สร้างต่อจากใบนี้จะไม่พิมพ์คำว่าใบกำกับภาษีซ้ำ</div></div>';
+    })():'')+
     (d.type==='CN'?
       '<label class="check" style="margin-bottom:14px"><input type="checkbox" data-d="returnStock"'+(d.returnStock!==false?' checked':'')+'>'+
         '<span>รับสินค้าคืนเข้าสต็อก<br><span style="color:var(--muted);font-size:12px">'+
@@ -4172,7 +4428,8 @@ VIEWS.settings=function(){
     title:'ตั้งค่ากิจการ',
     sub:'ข้อมูลนี้จะปรากฏบนหัวเอกสารทุกฉบับ',
     actions:'<button class="btn" data-backup="1">สำรองข้อมูล</button>'+
-            '<button class="btn" data-restore="1">กู้คืนข้อมูล</button>',
+            '<button class="btn" data-export-html="1">ดาวน์โหลดไฟล์ระบบพร้อมข้อมูล</button>'+
+            '<button class="btn" data-restore="1">กู้คืน / รวมข้อมูล</button>',
     body:
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start" class="dash-grid">'+
       '<div class="card"><div class="card-head"><h2>ข้อมูลผู้ประกอบการ</h2></div><div class="card-body">'+
@@ -4206,6 +4463,12 @@ VIEWS.settings=function(){
             '<div class="field"><label>อัตราภาษี (%)</label>'+
               '<input type="number" step="any" data-c="vatRate" value="'+esc(c.vatRate)+'"></div>'+
           '</div>'+
+          '<div class="grid-2">'+f('branch','สำนักงานใหญ่ / สาขา (พิมพ์บนใบกำกับภาษี)','สำนักงานใหญ่')+
+            f('branchEn','Head office / branch (English)','Head Office')+'</div>'+
+          '<div class="notice notice-info" style="margin:0 0 12px"><div><b>หนึ่งการขาย ออกใบกำกับภาษีใบเดียว</b>'+
+            'ระบบใช้เอกสารใบแรกในสายงานเป็นใบกำกับภาษี: ขายเชื่อที่ส่งของก่อน = ใบส่งของ · '+
+            'วางบิลโดยไม่มีใบส่งของ = ใบแจ้งหนี้ · ขายสด = ใบเสร็จรับเงิน เอกสารที่สร้างต่อจากใบนั้นจะไม่พิมพ์คำว่าใบกำกับภาษีซ้ำ '+
+            'กรุณายืนยันรูปแบบนี้กับผู้สอบบัญชีก่อนเปิดใช้</div></div>'+
           '<div class="notice '+(c.vatRegistered?'notice-ok':'notice-info')+'" style="margin:0"><div>'+
             (c.vatRegistered
               ?'<b>โหมดจด VAT</b>เอกสารจะพิมพ์คำว่า “ใบกำกับภาษี” และแสดงบรรทัด VAT ตามที่ตั้งค่า'
@@ -4292,8 +4555,12 @@ VIEWS.settings=function(){
             'กรุณาสำรองข้อมูลเป็นไฟล์ และพิจารณาลบโลโก้ที่มีขนาดใหญ่ หากพื้นที่เต็ม ระบบจะบันทึกได้เพียงชั่วคราว</div></div>':'')+
           '<div class="btn-row" style="margin-top:14px">'+
             '<button class="btn btn-sm" data-backup="1">สำรองเป็นไฟล์ JSON</button>'+
-            '<button class="btn btn-sm" data-restore="1">กู้คืนจากไฟล์</button>'+
+            '<button class="btn btn-sm" data-export-html="1">ไฟล์ระบบพร้อมข้อมูล (.html)</button>'+
+            '<button class="btn btn-sm" data-restore="1">กู้คืน / รวมข้อมูลจากไฟล์</button>'+
             '<button class="btn btn-sm btn-danger" data-reset="1">ล้างข้อมูลทั้งหมด</button></div>'+
+          '<p class="help" style="font-size:11.5px;color:var(--muted);margin:10px 0 0">'+
+            '“ไฟล์ระบบพร้อมข้อมูล” คือไฟล์ระบบนี้ที่มีข้อมูลทั้งหมดอยู่ข้างใน ใช้ย้ายเครื่องหรือเก็บสำรองได้ด้วยไฟล์เดียว '+
+            'เปิดบนเครื่องใหม่ข้อมูลจะขึ้นทันที <b>ห้ามส่งไฟล์นี้ให้ลูกค้า</b> เพราะมีข้อมูลลูกค้าและราคาทุนทั้งหมด</p>'+
         '</div></div>'+
       '</div>'+
     '</div>'
@@ -5209,6 +5476,92 @@ function runSelfTest(){
     }finally{ st.remove(); }
   });
 
+  /* ---- ใบกำกับภาษี: หนึ่งการขายหนึ่งใบ ---- */
+  t('จด VAT แล้ว: หนึ่งการขายพิมพ์คำว่าใบกำกับภาษีบนเอกสารใบเดียว', function(){
+    var was=DB.company.vatRegistered; DB.company.vatRegistered=true;
+    try{
+      function mk(type,from){ var d=from?convertDoc(from,type):newDoc(type); d.partyId='__vat__';
+        if(!from) d.items=[{id:'v',name:'ทดสอบ',qty:1,unit:'ชิ้น',price:100,disc:0,discType:'thb'}];
+        if(type==='DN') d.status='delivered'; if(type==='IV') d.status='sent'; return saveDoc(d); }
+      var dn=mk('DN'), iv=mk('IV',dn), rc=mk('RC',iv);
+      var a=[isTaxInvoice(dn),isTaxInvoice(iv),isTaxInvoice(rc)];
+      var q=newDoc('QT'); q.partyId='__vat__'; q.items=[{id:'q',name:'ทดสอบ',qty:1,unit:'ชิ้น',price:100,disc:0,discType:'thb'}]; saveDoc(q);
+      var iv2=mk('IV',q), rc2=mk('RC',iv2), rc3=mk('RC');
+      var b=[isTaxInvoice(iv2),isTaxInvoice(rc2),isTaxInvoice(rc3)];
+      dn.status='void'; saveDoc(dn);
+      var c=isTaxInvoice(doc(iv.id));
+      var titleIv=docTitleTh(doc(iv2.id)), titleRc=docTitleTh(doc(rc2.id));
+      [dn,iv,rc,q,iv2,rc2,rc3].forEach(function(x){ deleteDoc(x.id); });
+      if(a.join()!=='true,false,false') return 'สาย ใบส่งของ→ใบแจ้งหนี้→ใบเสร็จ ได้ '+a.join();
+      if(b.join()!=='true,false,true') return 'สาย ใบเสนอราคา→ใบแจ้งหนี้→ใบเสร็จ / ขายสด ได้ '+b.join();
+      if(!c) return 'ใบส่งของถูกยกเลิกแล้ว ใบแจ้งหนี้ต้องเป็นใบกำกับภาษีแทน';
+      if(titleIv.indexOf('ใบกำกับภาษี')<0 || titleRc.indexOf('ใบกำกับภาษี')>=0) return 'ชื่อเอกสารบนกระดาษไม่ตรงกติกา';
+      return true;
+    }finally{ DB.company.vatRegistered=was; }
+  });
+
+  t('ยังไม่จด VAT: ไม่มีเอกสารใดเป็นใบกำกับภาษี', function(){
+    var was=DB.company.vatRegistered; DB.company.vatRegistered=false;
+    var r=['DN','IV','RC'].some(function(k){ return isTaxInvoice(newDoc(k)); });
+    DB.company.vatRegistered=was;
+    return r?'ยังไม่จด VAT แต่ระบบนับเป็นใบกำกับภาษี':true; });
+
+  /* ---- รวมข้อมูลจากไฟล์อื่น ---- */
+  t('รวมข้อมูล: เพิ่มเฉพาะรายการใหม่ ไม่ลบและไม่ทับของเดิม สินค้าไม่ซ้ำ สต็อกไม่ซ้ำ', function(){
+    var base=clone(DB), p=base.products[0];
+    base.docs.push({id:'dA',type:'IV',no:'IVTEST001',date:'2026-10-01',status:'sent',partyId:'cA',items:[],updatedAt:'2026-10-05T00:00:00Z'});
+    base.customers.push({id:'cA',name:'ลูกค้าเดิม'});
+    var inc=clone(DB);
+    var incP=clone(p); incP.id='p_other_machine'; incP.price=999; inc.products=[incP];
+    inc.customers=[{id:'cA',name:'ชื่อเก่า'},{id:'cB',name:'ลูกค้าใหม่'}];
+    inc.docs=[{id:'dA',type:'IV',no:'IVTEST001',date:'2026-10-01',status:'draft',partyId:'cA',items:[],updatedAt:'2026-10-01T00:00:00Z'},
+              {id:'dB',type:'DN',no:'DNTEST001',date:'2026-10-02',status:'delivered',partyId:'cB',
+               items:[{id:'i',productId:'p_other_machine',name:'x',qty:2,price:1,disc:0,discType:'thb'}],updatedAt:'2026-10-02T00:00:00Z'},
+              {id:'dC',type:'IV',no:'IVTEST001',date:'2026-10-03',status:'draft',partyId:'cB',items:[],updatedAt:'2026-10-03T00:00:00Z'}];
+    inc.moves=[{id:'m1',productId:'p_other_machine',qty:-2,refId:'dB',kind:'ขายออก',date:'2026-10-02'},
+               {id:'m2',productId:'p_other_machine',qty:-9,refId:'dA',kind:'ขายออก',date:'2026-10-01'}];
+    var nProd=base.products.length, nMv=base.moves.length;
+    var r=mergeData(base,migrate(inc),false);
+    if(base.products.length!==nProd) return 'สินค้าซ้ำ (จับคู่ด้วยรหัสสินค้าไม่ได้)';
+    if(byId(base.products,p.id).price!==p.price) return 'ราคาสินค้าในเครื่องถูกทับ';
+    if(byId(base.customers,'cA').name!=='ลูกค้าเดิม') return 'ข้อมูลลูกค้าเดิมถูกทับ';
+    if(!byId(base.customers,'cB')) return 'ลูกค้าใหม่ไม่ถูกเพิ่ม';
+    if(byId(base.docs,'dA').status!=='sent') return 'เอกสารเดิมถูกทับด้วยฉบับที่เก่ากว่า';
+    var dB=byId(base.docs,'dB');
+    if(!dB || dB.items[0].productId!==p.id) return 'เอกสารใหม่ไม่ถูกเพิ่มหรือไม่ผูกกับสินค้าเดิม';
+    var mv=base.moves.filter(function(m){ return m.refId==='dB'; });
+    if(mv.length!==1 || mv[0].productId!==p.id) return 'ประวัติสต็อกของเอกสารใหม่ไม่ถูกต้อง';
+    if(base.moves.length!==nMv+1) return 'ประวัติสต็อกซ้ำ (เพิ่ม '+(base.moves.length-nMv)+')';
+    if(r.dupNos.indexOf('IVTEST001')<0) return 'ไม่แจ้งเลขที่เอกสารซ้ำ';
+    return true; });
+
+  t('รวมข้อมูล: เอกสารเดียวกันที่แก้ไขใหม่กว่า ใช้ฉบับล่าสุดพร้อมประวัติสต็อกที่ตรงกัน', function(){
+    var base=clone(DB), p=base.products[0];
+    base.docs.push({id:'dX',type:'DN',no:'DNTEST9',date:'2026-10-01',status:'delivered',partyId:'',updatedAt:'2026-10-01T00:00:00Z',
+      items:[{id:'i',productId:p.id,name:'x',qty:5,price:1,disc:0,discType:'thb'}]});
+    base.moves.push({id:'mOld',productId:p.id,qty:-5,refId:'dX',kind:'ขายออก',date:'2026-10-01'});
+    var inc=clone(base);
+    var dx=byId(inc.docs,'dX'); dx.items[0].qty=3; dx.updatedAt='2026-10-04T00:00:00Z';
+    inc.moves=inc.moves.filter(function(m){ return m.refId!=='dX'; });
+    inc.moves.push({id:'mNew',productId:p.id,qty:-3,refId:'dX',kind:'ขายออก',date:'2026-10-01'});
+    mergeData(base,migrate(inc),false);
+    var mv=base.moves.filter(function(m){ return m.refId==='dX'; });
+    if(byId(base.docs,'dX').items[0].qty!==3) return 'ไม่ใช้ฉบับที่แก้ไขล่าสุด';
+    return (mv.length===1 && mv[0].qty===-3) ? true : 'ประวัติสต็อกไม่ตรงกับเอกสารฉบับล่าสุด'; });
+
+  t('ไฟล์ระบบพร้อมข้อมูล: ฝังข้อมูลแล้วอ่านกลับได้ครบ และกันแท็กปิดสคริปต์ในข้อมูล', function(){
+    var data=clone(DB);
+    data.customers.push({id:'cX',name:'ทดสอบ <\/script><script>alert(1)<\/script> & “อักษรพิเศษ”'});
+    var html=buildDataHTML(data);
+    if(!html) return 'สร้างไฟล์ไม่ได้';
+    if(html.indexOf('<\/script><script>alert(1)')>=0) return 'ข้อมูลหลุดออกจากแท็ก script';
+    var back=parseDataFile(html);
+    if(back.docs.length!==data.docs.length || back.customers.length!==data.customers.length) return 'ข้อมูลไม่ครบหลังอ่านกลับ';
+    if(byId(back.customers,'cX').name!==byId(data.customers,'cX').name) return 'ข้อความพิเศษเพี้ยน';
+    var needle='<script type="application'+'/json" id="pc-embedded">';   // ต่อสตริงไว้ ไม่ให้ซอร์สมีแท็กจริงซ้ำ
+    if(html.split(needle).length!==2) return 'แท็กข้อมูลในไฟล์ต้องมีหนึ่งแห่งพอดี';
+    return true; });
+
   // คืนสภาพข้อมูลเดิมทั้งหมด
   Store.sandbox(false);
   DB=JSON.parse(snapshot); save();
@@ -5287,31 +5640,61 @@ function doBackup(){
   download('proclean-backup-'+stampNow()+'.json', JSON.stringify(DB,null,2),'application/json');
   toast('สำรองข้อมูลเรียบร้อย เก็บไฟล์นี้ไว้ในที่ปลอดภัย','good',4200);
 }
+/* รับได้ทั้งไฟล์สำรอง .json และไฟล์ระบบ .html ที่ฝังข้อมูลไว้ */
+function parseDataFile(text){
+  var t=text.replace(/^\ufeff/,'');
+  var m=t.match(/<script type="application\/json" id="pc-embedded">([\s\S]*?)<\/script>/);
+  if(m){
+    if(!m[1].trim()) throw new Error('ไฟล์ระบบนี้ไม่มีข้อมูลฝังอยู่');
+    return JSON.parse(m[1]);
+  }
+  return JSON.parse(t);
+}
 function doRestore(){
   var inp=document.createElement('input');
-  inp.type='file'; inp.accept='.json,application/json';
+  inp.type='file'; inp.accept='.json,application/json,.html,text/html';
   inp.addEventListener('change',function(){
     var f=inp.files[0]; if(!f) return;
     var fr=new FileReader();
     fr.onload=function(){
       try{
-        var d=JSON.parse(fr.result);
+        var d=parseDataFile(String(fr.result));
         if(!d||typeof d!=='object'||!d.meta||!Array.isArray(d.products)) throw new Error('รูปแบบไฟล์ไม่ถูกต้อง');
-        confirmBox('กู้คืนข้อมูล',
-          'ไฟล์นี้มีสินค้า '+d.products.length+' รายการ และเอกสาร '+(d.docs||[]).length+' ฉบับ<br><br>'+
-          '<b>ข้อมูลปัจจุบันทั้งหมดจะถูกแทนที่</b> แนะนำให้สำรองข้อมูลปัจจุบันไว้ก่อน',
-          'กู้คืนข้อมูล',function(){
-            /* ไฟล์สำรองจากระบบรุ่นเก่าอาจขาดบางฟิลด์ ต้องเติมให้ครบก่อนใช้ ไม่เช่นนั้นบางหน้าจะล่ม */
-            DB=migrate(d); recomputeStock();
-            Store.lock(false); LOAD_PROBLEM=null;
-            save(); go('dash');
-            toast(Store.persistent()?'กู้คืนข้อมูลเรียบร้อย':'กู้คืนแล้ว แต่ยังบันทึกถาวรไม่ได้ กรุณาสำรองข้อมูลไว้','good');
-          },true);
+        openRestoreChoice(d);
       }catch(e){ toast('อ่านไฟล์ไม่สำเร็จ: '+e.message,'bad',5000); }
     };
     fr.readAsText(f);
   });
   inp.click();
+}
+/* เลือกวิธีนำข้อมูลเข้า: รวม (ค่าแนะนำ ไม่ลบของเดิม) หรือแทนที่ทั้งหมด
+   ไฟล์สำรองจากระบบรุ่นเก่าผ่านขั้นตอนเติมฟิลด์ (migrate) เสมอ บางหน้าจึงไม่ล่ม */
+function openRestoreChoice(d){
+  var blank=Store.locked()||isBlankDB(DB);
+  var pv=blank?null:mergePreview(DB,d);
+  var body='<p style="margin-top:0">ไฟล์นี้มีเอกสาร <b>'+(d.docs||[]).length+'</b> ฉบับ · ลูกค้า <b>'+(d.customers||[]).length+
+    '</b> ราย · สินค้า <b>'+d.products.length+'</b> รายการ'+
+    (d.meta&&d.meta.savedAt?' · บันทึกเมื่อ '+esc(new Date(d.meta.savedAt).toLocaleString('th-TH')):'')+'</p>'+
+    (blank
+      ? '<div class="notice notice-info" style="margin:0"><div>เครื่องนี้ยังไม่มีข้อมูลการใช้งาน ระบบจะนำข้อมูลทั้งหมดจากไฟล์มาใช้</div></div>'
+      : '<div class="notice notice-ok" style="margin:0 0 10px"><div><b>รวมข้อมูล (แนะนำ)</b>'+
+          'เพิ่มเฉพาะรายการที่เครื่องนี้ยังไม่มี: '+esc(mergeSummary(pv))+' — ข้อมูลเดิมในเครื่องไม่ถูกลบ</div></div>'+
+        '<div class="notice notice-warn" style="margin:0"><div><b>แทนที่ทั้งหมด</b>'+
+          'ใช้ข้อมูลในไฟล์แทนข้อมูลในเครื่องนี้ทั้งหมด ระบบจะดาวน์โหลดไฟล์สำรองของข้อมูลปัจจุบันให้ก่อน</div></div>');
+  var foot='<button class="btn" data-close="1">ยกเลิก</button>'+
+    (blank?'<button class="btn btn-primary" data-rs="replace">นำข้อมูลเข้า</button>'
+          :'<button class="btn btn-danger" data-rs="replace">แทนที่ทั้งหมด</button>'+
+           '<button class="btn btn-primary" data-rs="merge">รวมข้อมูล</button>');
+  modal('กู้คืน / รวมข้อมูลจากไฟล์', body, foot, function(ov){
+    ov.addEventListener('click',function(e){
+      var b=e.target.closest('[data-rs]'); if(!b) return;
+      var mode=b.getAttribute('data-rs');
+      ov.remove();
+      var r=applyIncoming(d,mode);
+      go('dash');
+      reportIncoming(r, mode==='merge'?'รวมข้อมูล':'กู้คืนข้อมูล');
+    });
+  });
 }
 function csvCell(v){
   var s=String(v==null?'':v);
@@ -5385,6 +5768,10 @@ document.addEventListener('click',function(e){
   if((el=e.target.closest('[data-guide-all]'))){
     openGuidePrint(DB.guides.map(function(g){return g.code;})); return; }
   if((el=e.target.closest('[data-backup]'))){ doBackup(); return; }
+  if((el=e.target.closest('[data-export-html]'))){ exportWithData(); return; }
+  if((el=e.target.closest('[data-embed-merge]'))){ mergeEmbeddedNow(); return; }
+  if((el=e.target.closest('[data-embed-use]'))){ useEmbeddedNow(); return; }
+  if((el=e.target.closest('[data-embed-dismiss]'))){ EMBED_STATE='dismissed'; render(); return; }
   if((el=e.target.closest('[data-dl-raw]'))){
     if(LOAD_PROBLEM) download('proclean-ข้อมูลเดิมที่อ่านไม่ได้-'+stampNow()+'.json', LOAD_PROBLEM.raw, 'application/json');
     return; }
@@ -5534,6 +5921,7 @@ window.addEventListener('beforeunload',function(e){
 
 /* เปิดใช้งาน */
 load(); recomputeStock(); save(); render();
+if(EMBED_STATE==='loaded') toast('โหลดข้อมูลที่ฝังมากับไฟล์แล้ว · เอกสาร '+DB.docs.length+' ฉบับ · ลูกค้า '+DB.customers.length+' ราย','good',7000);
 
 /* เปิดช่องให้ทดสอบอัตโนมัติจากภายนอกเรียกใช้ได้ */
 window.PROCLEAN={ get db(){return DB;}, go:go, runSelfTest:runSelfTest, fitSheet:fitSheet, A4_PX:A4_PX,
@@ -5553,7 +5941,11 @@ window.PROCLEAN={ get db(){return DB;}, go:go, runSelfTest:runSelfTest, fitSheet
   /* ตัวจัดหน้า วันที่ และลูกหนี้ (รอบตรวจบั๊ก) */
   sheetParts:sheetParts, pageHTML:pageHTML, layoutDocInto:layoutDocInto, sheetOverflows:sheetOverflows,
   today:today, addDays:addDays, daysBetween:daysBetween, migrate:migrate,
-  openAR:openAR, docOutstanding:docOutstanding, settlementIndex:settlementIndex, arAging:arAging };
+  openAR:openAR, docOutstanding:docOutstanding, settlementIndex:settlementIndex, arAging:arAging,
+  /* นำเข้า/ฝังข้อมูล และใบกำกับภาษี */
+  mergeData:mergeData, mergePreview:mergePreview, parseDataFile:parseDataFile, exportWithData:exportWithData,
+  buildDataHTML:buildDataHTML,
+  isTaxInvoice:isTaxInvoice, get embedState(){ return EMBED_STATE; } };
 })();
 </script>
 </body>

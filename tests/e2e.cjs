@@ -182,6 +182,53 @@ function check(name, ok, detail) {
   await p3.evaluate(r => localStorage.setItem('proclean.office.v1', r), goodRaw);
   await p3.close();
 
+  /* ---------- 8) ไฟล์ระบบพร้อมข้อมูล: ย้ายเครื่องด้วยไฟล์เดียว ---------- */
+  await page.evaluate(() => window.PROCLEAN.go('settings'));
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('.topbar [data-export-html]')]);
+  const embPath = path.join(OUT, 'with-data.html');
+  await dl.saveAs(embPath);
+  const src = await page.evaluate(() => { const d = window.PROCLEAN.db; return { docs: d.docs.map(x => x.id).sort(), cust: d.customers.length, nos: d.docs.map(x => x.no).sort() }; });
+  const ctx2 = await browser.newContext({ timezoneId: 'Asia/Bangkok', viewport: { width: 1280, height: 900 } });   // เครื่องใหม่ (ไม่มีข้อมูล)
+  const fresh = await ctx2.newPage(); watch(fresh, 'fresh');
+  await fresh.goto('file://' + embPath);
+  await fresh.waitForTimeout(300);
+  const got = await fresh.evaluate(() => { const d = window.PROCLEAN.db; return { docs: d.docs.map(x => x.id).sort(), cust: d.customers.length, nos: d.docs.map(x => x.no).sort(), st: window.PROCLEAN.embedState,
+    stored: !!localStorage.getItem('proclean.office.v1') }; });
+  check('เปิดไฟล์พร้อมข้อมูลบนเครื่องใหม่: เอกสารครบทุกฉบับ เลขที่เดิม', JSON.stringify(got.docs) === JSON.stringify(src.docs) && JSON.stringify(got.nos) === JSON.stringify(src.nos), got.docs.length + ' vs ' + src.docs.length);
+  check('เปิดไฟล์พร้อมข้อมูลบนเครื่องใหม่: ลูกค้าครบ และบันทึกลงเครื่องแล้ว', got.cust === src.cust && got.stored && got.st === 'loaded', JSON.stringify(got));
+  const selfRes = await fresh.evaluate(() => window.PROCLEAN.runSelfTest().filter(r => !r.pass));
+  check('ไฟล์พร้อมข้อมูลผ่านชุดตรวจสอบในตัว', selfRes.length === 0, JSON.stringify(selfRes));
+  // เครื่องใหม่ทำงานต่อ (เพิ่มเอกสาร) แล้วเปิดไฟล์พร้อมข้อมูลเดิมอีกครั้ง → ต้องไม่ทับงานใหม่
+  await fresh.evaluate(() => { const P = window.PROCLEAN; const d = P.newDoc('QT'); d.partyId = P.db.customers[0].id;
+    d.items = [{ id: 'n', name: 'งานใหม่บนเครื่องใหม่', qty: 1, unit: 'ชิ้น', price: 10, disc: 0, discType: 'thb' }]; P.saveDoc(d); window.__newId = d.id; });
+  const newId = await fresh.evaluate(() => window.__newId);
+  const again = await ctx2.newPage(); watch(again, 'again');
+  await again.goto('file://' + embPath);
+  await again.waitForTimeout(300);
+  const kept = await again.evaluate(id => ({ has: window.PROCLEAN.db.docs.some(d => d.id === id), st: window.PROCLEAN.embedState }), newId);
+  check('เปิดไฟล์พร้อมข้อมูลซ้ำบนเครื่องที่มีงานใหม่: ไม่ทับงานใหม่', kept.has && kept.st === 'same', JSON.stringify(kept));
+  await again.close(); await fresh.close(); await ctx2.close();
+  // เครื่องที่สามซึ่งมีข้อมูลชุดอื่นอยู่แล้ว → แสดงแถบให้รวม → กดรวม → ได้ข้อมูลทั้งสองชุด
+  const ctx3 = await browser.newContext({ timezoneId: 'Asia/Bangkok', viewport: { width: 1280, height: 900 } });
+  const other = await ctx3.newPage(); watch(other, 'other');
+  await other.goto('file://' + NEW);
+  await other.evaluate(() => { const P = window.PROCLEAN; P.db.customers.push({ id: 'cu_only_here', name: 'ลูกค้าเฉพาะเครื่องนี้' }); P.save(); });
+  await other.goto('file://' + embPath);
+  await other.waitForTimeout(300);
+  const st2 = await other.evaluate(() => ({ st: window.PROCLEAN.embedState, banner: !!document.querySelector('[data-embed-merge]') }));
+  if (st2.st === 'differs') {
+    await other.click('[data-embed-merge]');
+    const [bk] = await Promise.all([other.waitForEvent('download'), other.click('.modal [data-ok]')]);
+    const merged = await other.evaluate(() => { const d = window.PROCLEAN.db; return { here: d.customers.some(c => c.id === 'cu_only_here'),
+      docs: d.docs.map(x => x.id).sort(), prods: d.products.length }; });
+    check('รวมข้อมูลจากไฟล์: ข้อมูลเดิมในเครื่องยังอยู่ และได้เอกสารจากไฟล์ครบทุกฉบับ', merged.here && JSON.stringify(merged.docs) === JSON.stringify(src.docs), JSON.stringify(merged).slice(0, 200));
+    check('รวมข้อมูลจากไฟล์: สินค้าไม่ซ้ำ (จับคู่ด้วยรหัสสินค้า)', merged.prods === 16, String(merged.prods));
+    check('รวมข้อมูลจากไฟล์: ดาวน์โหลดไฟล์สำรองให้ก่อนรวม', /proclean-backup-/.test(bk.suggestedFilename()), bk.suggestedFilename());
+  } else {
+    check('เปิดไฟล์พร้อมข้อมูลบนเครื่องที่มีข้อมูลอื่น: แสดงแถบให้เลือกรวมข้อมูล', false, JSON.stringify(st2));
+  }
+  await other.close(); await ctx3.close();
+
   check('ไม่มีข้อผิดพลาด JavaScript ระหว่างทดสอบ', errors.length === 0, errors.join(' | '));
   await browser.close();
   console.log(failed ? '\n' + failed + ' FAILED' : '\nALL PASSED');
