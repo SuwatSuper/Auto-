@@ -1,2 +1,5 @@
 .e2e-out/
 node_modules/
+# ไฟล์สำรองข้อมูลจริงมีข้อมูลลูกค้า ห้าม commit
+proclean-backup-*.json
+*-พร้อมข้อมูล-*.html

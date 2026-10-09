@@ -5210,7 +5210,8 @@ function runSelfTest(){
     return true; });
 
   t('บรรทัดเอกสารเก่าที่ไม่มีฟิลด์อังกฤษ ดึงจากทะเบียนสินค้ามาแทนได้', function(){
-    var p=DB.products[0];
+    var p=DB.products.filter(function(x){ return String(x.nameEn||'').trim(); })[0] ||
+          {id:'__p',name:'สินค้าทดสอบ',nameEn:'Test product'};
     var old={name:p.name,qty:1};
     var got=fxItem('en',old,p,'name','nameEn');
     if(!p.nameEn) return 'สินค้าตัวอย่างยังไม่มีชื่ออังกฤษให้ทดสอบ';
@@ -5303,9 +5304,13 @@ function runSelfTest(){
     }
     return true; });
 
-  t('สินค้าทุกรายการมีชื่อ ขนาดบรรจุ และหน่วยนับภาษาอังกฤษครบ', function(){
+  /* ตรวจเฉพาะสินค้าตามแคตตาล็อกที่ระบบเตรียมไว้ สินค้าที่ผู้ใช้เพิ่มเองเป็นข้อมูลของผู้ใช้
+     ระบบเตือนเรื่องช่องภาษาอังกฤษที่ว่างให้เองตอนออกเอกสารภาษาอังกฤษ (ตรวจความพร้อมข้อมูลภาษาอังกฤษ) */
+  t('สินค้าตามแคตตาล็อกมีชื่อ ขนาดบรรจุ และหน่วยนับภาษาอังกฤษครบ', function(){
+    var cat={}; seedProducts().forEach(function(x){ cat[x.sku]=1; });
     for(var i=0;i<DB.products.length;i++){
       var p=DB.products[i];
+      if(!cat[p.sku]) continue;
       if(!String(p.nameEn||'').trim()) return p.sku+' ไม่มีชื่อภาษาอังกฤษ';
       if(!String(p.packEn||'').trim()) return p.sku+' ไม่มีขนาดบรรจุภาษาอังกฤษ';
       if(!String(p.unitEn||'').trim()) return p.sku+' ไม่มีหน่วยนับภาษาอังกฤษ';
@@ -5315,7 +5320,8 @@ function runSelfTest(){
     return true; });
 
   t('สินค้าเดิมที่บันทึกไว้ก่อนมีโหมดอังกฤษ ได้รับการเติมข้อมูลอัตโนมัติ', function(){
-    var p=DB.products[0];
+    var p=DB.products.filter(function(x){ return EN_NAME[x.guideCode] && enUnit(x.unit) && enPack(x.pack); })[0];
+    if(!p) return true;   // ไม่มีสินค้าตามแคตตาล็อกให้ทดสอบ
     var keepN=p.nameEn, keepU=p.unitEn, keepP=p.packEn, keepD=p.dilutionEn;
     delete p.nameEn; delete p.unitEn; delete p.packEn; delete p.dilutionEn;
     var raw=JSON.stringify(DB);
